@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Markdown to HTML Converter | Clean Code Engine | Rebrixe</title>
+    <meta name="description" content="Instantly convert Markdown to clean, semantic HTML. Supports headers, lists, code blocks, tables, images and more. No bloat, no tracking, 100% client-side processing for developers and content creators.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -3px;
+            background: linear-gradient(90deg, #00f2ff, #a78bfa);
+            -webkit-background-clip: text;
+            background-clip: text;              /* FIX 2: unprefixed for Firefox */
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+            height: 580px;
+        }
+
+        .pane {
+            display: flex;
+            flex-direction: column;
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+
+        .pane-header {
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .pane-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .btn-group { display: flex; gap: 6px; }
+
+        textarea {
+            flex: 1;
+            padding: 25px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.88rem;
+            line-height: 1.7;
+            border: none;
+            outline: none;
+            color: #f1f5f9;
+            background: transparent;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        /* FIX 1: Output is a <textarea readonly> so innerText/textContent
+           confusion is impossible — value always holds the raw HTML string */
+        .output-textarea {
+            flex: 1;
+            padding: 25px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.7;
+            border: none;
+            outline: none;
+            color: #a78bfa;
+            background: #000;
+            resize: none;
+            box-sizing: border-box;
+            cursor: default;
+            white-space: pre;
+            overflow: auto;
+        }
+
+        .mini-btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .mini-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,242,255,0.2); }
+        .mini-btn.success { background: #2ecc71; color: #000; }
+        .mini-btn.clear-btn { background: rgba(255,255,255,0.08); color: #94a3b8; }
+        .mini-btn.clear-btn:hover { background: rgba(255,80,80,0.2); color: #ff5050; box-shadow: none; }
+        .mini-btn.secondary { background: rgba(255,255,255,0.06); color: #94a3b8; border: 1px solid var(--border); }
+        .mini-btn.secondary:hover { background: rgba(255,255,255,0.1); color: #fff; box-shadow: none; }
+
+        /* Stats bar */
+        .stats-bar {
+            padding: 7px 20px;
+            background: rgba(255,255,255,0.02);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 16px;
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.3);
+            font-family: 'Fira Code', monospace;
+            flex-shrink: 0;
+        }
+        .stats-bar b { color: var(--primary); font-weight: 600; }
+
+        @media (max-width: 850px) {
+            .editor-container { grid-template-columns: 1fr; height: auto; }
+            textarea, .output-textarea { height: 300px; flex: none; }
+            .brand-title { font-size: 2.4rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+        <section class="tool-card" style="text-align: center;">
+            <h1 class="brand-title">Markdown Engine</h1>
+            <p style="opacity:0.6; font-weight:500;">Semantic HTML generation with zero bloat.</p>
+
+            <div class="editor-container">
+                <!-- INPUT PANE -->
+                <div class="pane">
+                    <div class="pane-header">
+                        <span class="pane-label">Markdown Input</span>
+                        <button class="mini-btn clear-btn" onclick="clearInput()">Clear</button>
+                    </div>
+                    <textarea id="mdInput"
+                        placeholder="# Heading&#10;**Bold**, *italic*, `code`&#10;&#10;- List item&#10;&#10;| Col 1 | Col 2 |&#10;|-------|-------|&#10;| A     | B     |"
+                        oninput="processMarkdown()"></textarea>
+                    <!-- FIX 5: Proper IDs, no fragile nth-child -->
+                    <div class="stats-bar">
+                        lines: <b id="statLines">0</b>
+                        &nbsp; chars: <b id="statChars">0</b>
+                        &nbsp; words: <b id="statWords">0</b>
+                    </div>
+                </div>
+
+                <!-- OUTPUT PANE -->
+                <div class="pane">
+                    <div class="pane-header">
+                        <span class="pane-label">Clean HTML Output</span>
+                        <div class="btn-group">
+                            <button class="mini-btn secondary" onclick="downloadHTML()">↓ .html</button>
+                            <!-- FIX 6: copyResult reads .value from textarea -->
+                            <button class="mini-btn" id="copyBtn" onclick="copyResult()">Copy HTML</button>
+                        </div>
+                    </div>
+                    <!-- FIX 1: readonly textarea — value always holds raw string -->
+                    <textarea class="output-textarea" id="htmlResult" readonly
+                        placeholder="// HTML output appears here..."></textarea>
+                    <div class="stats-bar">
+                        tags generated: <b id="tagCount">0</b>
+                        &nbsp; output size: <b id="outSize">0 B</b>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <article class="seo-content">
+            <h2>Why Use Semantic Markdown?</h2>
+            <p>Markdown allows writers and developers to focus on hierarchical content structure without worrying about HTML syntax. Converting this to semantic HTML5 is essential for SEO — headers (H1–H6), lists, tables, and blockquotes communicate content importance to search crawlers and screen readers alike.</p>
+
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Is this secure?</h3>
+                    <p>Unlike other online converters that send your text to a server, Rebrixe processes everything locally in your browser. Your data never leaves your machine — ever.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Semantic Guarantee</h3>
+                    <p>We generate pure HTML5 tags without inline styles or extra attributes, ensuring your code integrates cleanly with any existing CSS stylesheet.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What Markdown is supported?</h3>
+                    <p>All 6 heading levels, bold, italic, strikethrough, inline code, fenced code blocks with language hints, ordered and unordered lists, blockquotes, horizontal rules, links, images, and GFM-style tables.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Who is this for?</h3>
+                    <p>Developers converting README files, bloggers moving content to CMS platforms, and SEO specialists building clean page structures without hand-coding every tag.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+
+    <script src="/nav.js"></script>
+    <script>
+        const mdInput  = document.getElementById('mdInput');
+        const htmlOut  = document.getElementById('htmlResult');
+        const copyBtn  = document.getElementById('copyBtn');
+
+        /* ─── HELPERS ──────────────────────────────────────────────────── */
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function isBlockStart(line) {
+            return /^(#{1,6}\s|>\s?|\s*[-*+] |\d+\.\s|```|---|___|\*\*\*|\|)/.test(line);
+        }
+
+        /* ─── INLINE FORMATTING ────────────────────────────────────────── */
+        // FIX 4: Inline code is extracted FIRST into placeholders so angle
+        // brackets inside backticks are escaped before any other regex runs.
+        function inlineFormat(text) {
+            const stored = [];
+
+            // Step 1: protect inline code — escape its contents immediately
+            text = text.replace(/`([^`]+)`/g, (_, code) => {
+                stored.push(`<code>${escapeHtml(code)}</code>`);
+                return `\x00CODE${stored.length - 1}\x00`;
+            });
+
+            // Step 2: images before links
+            text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
+                (_, alt, src) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}">`);
+
+            // Step 3: links
+            text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+                (_, label, href) => `<a href="${escapeHtml(href)}">${label}</a>`);
+
+            // Step 4: bold + italic combined
+            text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+
+            // Step 5: bold
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/__(.+?)__/g,      '<strong>$1</strong>');
+
+            // Step 6: italic
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            text = text.replace(/_(.+?)_/g,   '<em>$1</em>');
+
+            // Step 7: strikethrough
+            text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+            // Step 8: restore code placeholders
+            text = text.replace(/\x00CODE(\d+)\x00/g, (_, i) => stored[+i]);
+
+            return text;
+        }
+
+        /* ─── TABLE PARSER (GFM) ───────────────────────────────────────── */
+        // FIX 3: Full GFM table support
+        function parseTable(lines, startIdx) {
+            // lines[startIdx]     = header row  | Col 1 | Col 2 |
+            // lines[startIdx + 1] = separator   |-------|-------|
+            // lines[startIdx + 2+] = data rows
+            if (startIdx + 1 >= lines.length) return null;
+            const sepLine = lines[startIdx + 1];
+            if (!/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(sepLine)) return null;
+
+            const parseRow = (line) =>
+                line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+
+            // Detect alignment from separator
+            const sepCells = parseRow(sepLine);
+            const aligns = sepCells.map(c => {
+                if (/^:-+:$/.test(c.trim())) return 'center';
+                if (/^-+:$/.test(c.trim()))  return 'right';
+                return 'left';
+            });
+
+            const headers = parseRow(lines[startIdx]);
+            let html = '<table>\n  <thead>\n    <tr>\n';
+            headers.forEach((h, i) => {
+                html += `      <th style="text-align:${aligns[i] || 'left'}">${inlineFormat(h)}</th>\n`;
+            });
+            html += '    </tr>\n  </thead>\n  <tbody>\n';
+
+            let rowIdx = startIdx + 2;
+            while (rowIdx < lines.length && /^\s*\|/.test(lines[rowIdx])) {
+                const cells = parseRow(lines[rowIdx]);
+                html += '    <tr>\n';
+                cells.forEach((c, i) => {
+                    html += `      <td style="text-align:${aligns[i] || 'left'}">${inlineFormat(c)}</td>\n`;
+                });
+                html += '    </tr>\n';
+                rowIdx++;
+            }
+            html += '  </tbody>\n</table>';
+            return { html, nextIdx: rowIdx };
+        }
+
+        /* ─── CORE PARSER ──────────────────────────────────────────────── */
+        function convertMarkdown(md) {
+            const lines  = md.split('\n');
+            const result = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                // ── Fenced code blocks ─────────────────────────────────
+                if (trimmed.startsWith('```')) {
+                    const lang = trimmed.slice(3).trim();
+                    const codeLines = [];
+                    i++;
+                    while (i < lines.length && !lines[i].trim().startsWith('```')) {
+                        codeLines.push(escapeHtml(lines[i]));
+                        i++;
+                    }
+                    const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : '';
+                    result.push(`<pre><code${langAttr}>${codeLines.join('\n')}</code></pre>`);
+                    i++;
+                    continue;
+                }
+
+                // ── Horizontal rule ────────────────────────────────────
+                if (/^(---|\*\*\*|___)(\s*)$/.test(trimmed)) {
+                    result.push('<hr>');
+                    i++;
+                    continue;
+                }
+
+                // ── Headings ───────────────────────────────────────────
+                const hMatch = line.match(/^(#{1,6})\s+(.*)/);
+                if (hMatch) {
+                    const level = hMatch[1].length;
+                    result.push(`<h${level}>${inlineFormat(hMatch[2])}</h${level}>`);
+                    i++;
+                    continue;
+                }
+
+                // FIX 3: Tables (must come before paragraph fallback)
+                if (/^\s*\|/.test(line) && i + 1 < lines.length) {
+                    const tableResult = parseTable(lines, i);
+                    if (tableResult) {
+                        result.push(tableResult.html);
+                        i = tableResult.nextIdx;
+                        continue;
+                    }
+                }
+
+                // ── Blockquote ─────────────────────────────────────────
+                if (/^>\s?/.test(line)) {
+                    const quoteLines = [];
+                    while (i < lines.length && /^>\s?/.test(lines[i])) {
+                        quoteLines.push(inlineFormat(lines[i].replace(/^>\s?/, '')));
+                        i++;
+                    }
+                    result.push(`<blockquote>\n  <p>${quoteLines.join('<br>')}</p>\n</blockquote>`);
+                    continue;
+                }
+
+                // ── Unordered list ─────────────────────────────────────
+                if (/^(\s*)[-*+] /.test(line)) {
+                    const items = [];
+                    while (i < lines.length && /^(\s*)[-*+] /.test(lines[i])) {
+                        items.push(`  <li>${inlineFormat(lines[i].replace(/^(\s*)[-*+] /, ''))}</li>`);
+                        i++;
+                    }
+                    result.push(`<ul>\n${items.join('\n')}\n</ul>`);
+                    continue;
+                }
+
+                // ── Ordered list ───────────────────────────────────────
+                if (/^\d+\.\s/.test(line)) {
+                    const items = [];
+                    while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                        items.push(`  <li>${inlineFormat(lines[i].replace(/^\d+\.\s/, ''))}</li>`);
+                        i++;
+                    }
+                    result.push(`<ol>\n${items.join('\n')}\n</ol>`);
+                    continue;
+                }
+
+                // ── Empty line → skip ──────────────────────────────────
+                if (trimmed === '') { i++; continue; }
+
+                // ── Paragraph ──────────────────────────────────────────
+                const paraLines = [];
+                while (i < lines.length && lines[i].trim() !== '' && !isBlockStart(lines[i])) {
+                    paraLines.push(inlineFormat(lines[i]));
+                    i++;
+                }
+                if (paraLines.length) {
+                    result.push(`<p>${paraLines.join(' ')}</p>`);
+                }
+            }
+
+            return result.join('\n');
+        }
+
+        /* ─── MAIN UPDATE ──────────────────────────────────────────────── */
+        function processMarkdown() {
+            const raw = mdInput.value;
+
+            // FIX 5: Proper IDs — no fragile nth-child
+            document.getElementById('statLines').textContent = raw ? raw.split('\n').length : 0;
+            document.getElementById('statChars').textContent = raw.length;
+            document.getElementById('statWords').textContent = raw.trim()
+                ? raw.trim().split(/\s+/).length : 0;
+
+            if (!raw.trim()) {
+                // FIX 1: write to .value, not innerText
+                htmlOut.value = '';
+                document.getElementById('tagCount').textContent = '0';
+                document.getElementById('outSize').textContent  = '0 B';
+                return;
+            }
+
+            const html = convertMarkdown(raw);
+
+            // FIX 1: .value on a <textarea> — raw string, no rendering
+            htmlOut.value = html;
+
+            const tagCount = (html.match(/<[a-z]/gi) || []).length;
+            const byteSize = new Blob([html]).size;
+            document.getElementById('tagCount').textContent = tagCount;
+            document.getElementById('outSize').textContent  =
+                byteSize > 1024 ? (byteSize / 1024).toFixed(1) + ' KB' : byteSize + ' B';
+        }
+
+        /* ─── ACTIONS ──────────────────────────────────────────────────── */
+        // FIX 6: Read .value from the output textarea — always the raw HTML string
+        async function copyResult() {
+            const text = htmlOut.value;
+            if (!text.trim()) {
+                copyBtn.innerText = 'Nothing to copy';
+                setTimeout(() => copyBtn.innerText = 'Copy HTML', 1500);
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.innerText = '✓ Copied!';
+                copyBtn.classList.add('success');
+                setTimeout(() => {
+                    copyBtn.innerText = 'Copy HTML';
+                    copyBtn.classList.remove('success');
+                }, 1500);
+            } catch(err) {
+                copyBtn.innerText = 'Copy failed';
+                setTimeout(() => copyBtn.innerText = 'Copy HTML', 1500);
+            }
+        }
+
+        function downloadHTML() {
+            const text = htmlOut.value;
+            if (!text.trim()) return;
+            const blob = new Blob([text], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'converted.html';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function clearInput() {
+            mdInput.value = '';
+            htmlOut.value = '';
+            document.getElementById('tagCount').textContent  = '0';
+            document.getElementById('outSize').textContent   = '0 B';
+            document.getElementById('statLines').textContent = '0';
+            document.getElementById('statChars').textContent = '0';
+            document.getElementById('statWords').textContent = '0';
+            mdInput.focus();
+        }
+
+        /* ─── DEFAULT CONTENT ──────────────────────────────────────────── */
+        mdInput.value = `# Getting Started with Rebrixe Tools
+## Why Markdown Matters
+
+Writing in **Markdown** lets you focus on *content*, not syntax. This converter turns it into clean, semantic HTML instantly.
+
+### What's Supported
+
+- Headings H1 through H6
+- **Bold**, *italic*, and ***combined*** formatting
+- \`inline code\` and fenced code blocks
+- Ordered and unordered lists
+- [Hyperlinks](https://Rebrixe.io) and images
+- Blockquotes, strikethrough ~~like this~~, and horizontal rules
+- Full GFM-style tables with alignment
+
+| Feature       | Supported | Notes              |
+|---------------|:---------:|-------------------|
+| Headings H1–6 | ✓         | All levels         |
+| Bold / Italic | ✓         | And combined       |
+| Tables        | ✓         | With alignment     |
+| Code blocks   | ✓         | With language hint |
+
+1. Paste your Markdown on the left
+2. Get clean HTML on the right
+3. Hit Copy — done
+
+\`\`\`html
+<p>Your clean output looks exactly like this.</p>
+\`\`\`
+
+> Zero tracking. Zero server calls. Your content stays on your machine.
+
+---
+
+Built for developers, bloggers, and SEO professionals.`;
+        processMarkdown();
+    </script>
+</body>
+</html>

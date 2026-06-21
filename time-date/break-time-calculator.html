@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Break Time Calculator — Net Hours Worked | Rebrixe</title>
+    <meta name="description" content="Enter shift start, end, and break durations to get exact net hours worked, overtime, and optional pay estimate. Handles multiple breaks.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="/main-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Reset & base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary: #c0cbcc;
+            --border: #1e293b;
+            --bg: #000;
+            --surface: rgba(255,255,255,0.03);
+            --muted: #475569;
+            --hint: #334155;
+            --text: #fff;
+            --green: #4ade80;
+            --red: #f87171;
+            --red-bg: rgba(239,68,68,0.12);
+            --red-border: rgba(239,68,68,0.25);
+            --green-bg: rgba(34,197,94,0.10);
+            --green-border: rgba(34,197,94,0.20);
+            --warn-bg: rgba(234,179,8,0.10);
+            --warn-border: rgba(234,179,8,0.25);
+            --warn: #fde047;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            min-height: 100vh;
+            padding: 40px 16px 80px;
+        }
+
+        .container { max-width: 780px; margin: 0 auto; }
+
+        /* ── Header ── */
+        header { text-align: center; margin-bottom: 40px; }
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 6vw, 3.4rem);
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+        }
+        header p { color: #64748b; font-size: 0.95rem; }
+
+        /* ── Card ── */
+        .tool-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Labels ── */
+        .field-label {
+            display: block;
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 7px;
+        }
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        /* ── Inputs ── */
+        input[type="time"],
+        input[type="number"],
+        input[type="text"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        input[type="time"]:focus,
+        input[type="number"]:focus,
+        input[type="text"]:focus { border-color: var(--primary); }
+        input.input-error { border-color: var(--red) !important; }
+        input::placeholder { color: var(--hint); }
+
+        /* ── Grid rows ── */
+        .shift-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .options-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        /* ── Inline error messages ── */
+        .field-error {
+            font-size: 0.72rem;
+            color: var(--red);
+            margin-top: 5px;
+            min-height: 1em;
+            display: none;
+        }
+        .field-error.visible { display: block; }
+
+        /* ── Breaks ── */
+        .breaks-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+        .break-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+        }
+        .break-row .field-label { color: #64748b; }
+        .break-row .field-error { grid-column: 1 / -1; margin-top: -4px; }
+
+        .btn-remove {
+            background: transparent;
+            border: 1px solid #1e293b;
+            color: var(--muted);
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: .2s;
+            flex-shrink: 0;
+            align-self: flex-end;
+        }
+        .btn-remove:hover { border-color: var(--red); color: var(--red); }
+
+        .btn-add-break {
+            width: 100%;
+            background: rgba(255,255,255,0.02);
+            border: 1px dashed var(--border);
+            color: var(--muted);
+            padding: 11px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            margin-bottom: 22px;
+        }
+        .btn-add-break:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Quick presets ── */
+        .quick-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Divider ── */
+        hr { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+
+        /* ── Result panel ── */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        /* ── Validation error banner ── */
+        .error-banner {
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            color: var(--red);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        /* ── Big net display ── */
+        .net-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .net-hero.is-ot { border-color: var(--primary); background: rgba(120,129,132,0.06); }
+
+        .net-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .net-time {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.8rem, 8vw, 4.5rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -3px;
+            line-height: 1;
+        }
+        .net-hero.is-ot .net-time { color: var(--primary); }
+        .net-sub { font-size: 0.82rem; color: #64748b; margin-top: 8px; }
+
+        /* ── Badge ── */
+        .ot-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        .ot-badge.over  { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border); }
+        .ot-badge.under { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+
+        /* ── Stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .stat-val {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-val.positive { color: var(--red); }
+        .stat-val.negative { color: var(--green); }
+        .stat-lbl {
+            font-size: 0.58rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Pay bar ── */
+        .pay-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .pay-lbl { font-size: 0.82rem; color: #64748b; }
+        .pay-val { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.2rem; color: #fff; }
+
+        /* ── Breakdown strip ── */
+        .breakdown {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .breakdown-title {
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* ── Action row ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.10); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 22px 16px; }
+            .shift-row, .options-row { grid-template-columns: 1fr; }
+            .break-row { grid-template-columns: 1fr 1fr; }
+            .break-row .btn-remove { grid-column: span 2; width: 100%; height: 36px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+<nav class="nav-container"></nav>
+<div class="container">
+    <header>
+        <h1>Break Time Calculator</h1>
+        <p>Net hours worked after all breaks — with overtime detection &amp; pay estimate.</p>
+    </header>
+
+    <div class="tool-card">
+
+        <!-- SHIFT TIMES -->
+        <div class="shift-row">
+            <div>
+                <label class="field-label" for="shiftStart">Shift Start</label>
+                <input type="time" id="shiftStart" value="09:00">
+                <div class="field-error" id="err-start"></div>
+            </div>
+            <div>
+                <label class="field-label" for="shiftEnd">Shift End</label>
+                <input type="time" id="shiftEnd" value="17:00">
+                <div class="field-error" id="err-end"></div>
+            </div>
+        </div>
+
+        <!-- BREAKS -->
+        <div class="section-label">Breaks</div>
+        <div class="breaks-list" id="breaksList"></div>
+        <button class="btn-add-break" id="btnAddBreak">+ Add another break</button>
+
+        <!-- OPTIONS -->
+        <div class="section-label">Options</div>
+        <div class="options-row">
+            <div>
+                <label class="field-label" for="otThreshold">Daily hours target (for overtime)</label>
+                <input type="number" id="otThreshold" value="8" min="0.5" max="24" step="0.5" placeholder="e.g. 8">
+                <div class="field-error" id="err-ot"></div>
+            </div>
+            <div>
+                <label class="field-label" for="hourlyRate">Hourly rate (optional)</label>
+                <input type="number" id="hourlyRate" value="" min="0.01" step="0.01" placeholder="e.g. 15.50">
+                <div class="field-error" id="err-rate"></div>
+            </div>
+        </div>
+
+        <!-- QUICK PRESETS -->
+        <div class="quick-label">Quick presets</div>
+        <div class="quick-pills">
+            <span class="pill" data-preset="9to5">9–5 + Lunch</span>
+            <span class="pill" data-preset="nightshift">Night shift 10 pm–6 am</span>
+            <span class="pill" data-preset="halfday">Half day 9–1</span>
+            <span class="pill" data-preset="retail">Retail 8h + 2 breaks</span>
+            <span class="pill" data-preset="reset">✕ Reset</span>
+        </div>
+
+        <hr>
+
+        <!-- RESULT -->
+        <div id="resultPanel" class="result-panel"></div>
+
+    </div>
+</div>
+<footer></footer>
+
+<script>
+(function () {
+    'use strict';
+
+    // ─── State ──────────────────────────────────────────────────────────────
+    let breakIdCounter = 0;
+
+    // ─── DOM refs ───────────────────────────────────────────────────────────
+    const elStart     = document.getElementById('shiftStart');
+    const elEnd       = document.getElementById('shiftEnd');
+    const elOT        = document.getElementById('otThreshold');
+    const elRate      = document.getElementById('hourlyRate');
+    const elBreakList = document.getElementById('breaksList');
+    const elPanel     = document.getElementById('resultPanel');
+
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /** Convert "HH:MM" to integer minutes since midnight. Returns null if invalid. */
+    function parseTime(str) {
+        if (!str || !/^\d{2}:\d{2}$/.test(str)) return null;
+        const [h, m] = str.split(':').map(Number);
+        if (h > 23 || m > 59) return null;
+        return h * 60 + m;
+    }
+
+    /** Format integer minutes as "Xh YYm". */
+    function fmtHM(totalMins) {
+        const abs = Math.abs(totalMins);
+        const h   = Math.floor(abs / 60);
+        const m   = abs % 60;
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+    }
+
+    /** Format integer minutes as decimal hours, 2 dp. */
+    function fmtDec(totalMins) {
+        return (totalMins / 60).toFixed(2);
+    }
+
+    /** Show or clear a field-error element. */
+    function setErr(id, msg) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('visible', !!msg);
+    }
+
+    /** Mark input border red/normal. */
+    function markInput(el, hasError) {
+        el.classList.toggle('input-error', hasError);
+    }
+
+    // ─── Validation ─────────────────────────────────────────────────────────
+
+    /**
+     * Validate all inputs.
+     * Returns { valid: bool, errors: string[], data: {...} }
+     */
+    function validate() {
+        let valid = true;
+        const errors = [];
+
+        // Clear previous errors
+        setErr('err-start', ''); markInput(elStart, false);
+        setErr('err-end',   ''); markInput(elEnd,   false);
+        setErr('err-ot',    ''); markInput(elOT,    false);
+        setErr('err-rate',  ''); markInput(elRate,  false);
+
+        // --- Shift start
+        const startMins = parseTime(elStart.value);
+        if (startMins === null) {
+            setErr('err-start', 'Enter a valid start time.');
+            markInput(elStart, true);
+            valid = false;
+        }
+
+        // --- Shift end
+        const endMins = parseTime(elEnd.value);
+        if (endMins === null) {
+            setErr('err-end', 'Enter a valid end time.');
+            markInput(elEnd, true);
+            valid = false;
+        }
+
+        // --- OT threshold
+        const otRaw = parseFloat(elOT.value);
+        let otThreshMins = null;
+        if (isNaN(otRaw) || otRaw <= 0 || otRaw > 24) {
+            setErr('err-ot', 'Enter a value between 0.5 and 24.');
+            markInput(elOT, true);
+            valid = false;
+        } else {
+            otThreshMins = Math.round(otRaw * 60); // integer minutes
+        }
+
+        // --- Hourly rate (optional — only validate if something was entered)
+        let rate = null;
+        const rateStr = elRate.value.trim();
+        if (rateStr !== '') {
+            const rateRaw = parseFloat(rateStr);
+            if (isNaN(rateRaw) || rateRaw <= 0) {
+                setErr('err-rate', 'Rate must be a number greater than 0.');
+                markInput(elRate, true);
+                valid = false;
+            } else {
+                rate = rateRaw;
+            }
+        }
+
+        // --- Breaks
+        let totalBreakMins = 0;
+        const breakSummary = [];
+        let breakError = false;
+
+        document.querySelectorAll('.break-row').forEach(row => {
+            const errEl   = row.querySelector('.break-field-error');
+            const nameEl  = row.querySelector('.break-name');
+            const minsEl  = row.querySelector('.break-mins');
+            const minsRaw = parseInt(minsEl.value, 10);
+
+            // Clear per-row error
+            if (errEl) { errEl.textContent = ''; errEl.classList.remove('visible'); }
+            minsEl.classList.remove('input-error');
+
+            if (isNaN(minsRaw) || minsRaw <= 0) {
+                if (errEl) { errEl.textContent = 'Duration must be at least 1 minute.'; errEl.classList.add('visible'); }
+                minsEl.classList.add('input-error');
+                valid = false;
+                breakError = true;
+                return;
+            }
+            if (minsRaw > 480) {
+                if (errEl) { errEl.textContent = 'Break cannot exceed 480 minutes (8 hours).'; errEl.classList.add('visible'); }
+                minsEl.classList.add('input-error');
+                valid = false;
+                breakError = true;
+                return;
+            }
+
+            const name = (nameEl.value.trim() || 'Break');
+            totalBreakMins += minsRaw;
+            breakSummary.push({ name, mins: minsRaw });
+        });
+
+        // Early exit if hard validation failed
+        if (!valid) return { valid: false, errors };
+
+        // --- Cross-field: shift duration
+        let shiftMins = endMins - startMins;
+        if (shiftMins < 0) shiftMins += 1440; // overnight
+        if (shiftMins === 0) {
+            setErr('err-end', 'Shift end time cannot equal start time.');
+            markInput(elEnd, true);
+            return { valid: false, errors: ['Shift start and end times are the same.'] };
+        }
+
+        // --- Cross-field: breaks must not meet or exceed shift length
+        if (totalBreakMins >= shiftMins) {
+            errors.push(
+                `Total break time (${totalBreakMins} min) equals or exceeds shift length (${shiftMins} min). ` +
+                `Reduce your breaks or extend your shift.`
+            );
+            return { valid: false, errors };
+        }
+
+        return {
+            valid: true,
+            errors: [],
+            data: {
+                startMins,
+                endMins,
+                shiftMins,
+                totalBreakMins,
+                breakSummary,
+                netMins: shiftMins - totalBreakMins,
+                otThreshMins,
+                rate
+            }
+        };
+    }
+
+    // ─── Render result ───────────────────────────────────────────────────────
+
+    function renderResult(d) {
+        const { shiftMins, totalBreakMins, netMins, otThreshMins, rate, breakSummary } = d;
+        const overtimeMins = netMins - otThreshMins;  // can be negative (under target)
+        const isOT = overtimeMins > 0;
+
+        const otBadge = isOT
+            ? `<span class="ot-badge over">▲ +${fmtHM(overtimeMins)} OT</span>`
+            : `<span class="ot-badge under">✓ Within target</span>`;
+
+        const breakDetail = breakSummary.length
+            ? breakSummary.map(b => `${b.name} (${b.mins} min)`).join(', ')
+            : 'No breaks';
+
+        // OT/under stat — show signed distance from target clearly
+        const otStatVal  = isOT ? `+${fmtHM(overtimeMins)}` : `−${fmtHM(Math.abs(overtimeMins))}`;
+        const otStatLbl  = isOT ? 'Overtime' : 'Under target';
+        const otStatColor = isOT ? 'positive' : 'negative';
+
+        // Pay row — only shown when rate is provided and valid
+        const payHTML = (rate !== null)
+            ? `<div class="pay-bar">
+                <span class="pay-lbl">Estimated pay — ${fmtDec(netMins)} hrs × $${rate.toFixed(2)}/hr</span>
+                <span class="pay-val">$${(netMins / 60 * rate).toFixed(2)}</span>
+               </div>`
+            : '';
+
+        elPanel.innerHTML = `
+            <div class="net-hero${isOT ? ' is-ot' : ''}">
+                <div class="net-label">Net hours worked ${otBadge}</div>
+                <div class="net-time">${fmtHM(netMins)}</div>
+                <div class="net-sub">${fmtDec(netMins)} decimal hours &nbsp;·&nbsp; ${totalBreakMins} min in breaks</div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-cell">
+                    <div class="stat-val">${fmtHM(shiftMins)}</div>
+                    <div class="stat-lbl">Gross shift</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-val">${totalBreakMins} min</div>
+                    <div class="stat-lbl">Total breaks</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-val ${otStatColor}">${otStatVal}</div>
+                    <div class="stat-lbl">${otStatLbl}</div>
+                </div>
+            </div>
+
+            ${payHTML}
+
+            <div class="breakdown">
+                <span class="breakdown-title">Breakdown</span>
+                <strong style="color:#94a3b8;">${elStart.value}</strong> → <strong style="color:#94a3b8;">${elEnd.value}</strong>
+                &nbsp;|&nbsp; ${breakDetail}
+            </div>
+
+            <div class="action-row">
+                <button class="btn-action primary" id="btnCopy">Copy summary</button>
+                <button class="btn-action" id="btnReset">✕ Reset</button>
+            </div>
+        `;
+
+        elPanel.classList.add('visible');
+
+        // Bind result buttons
+        document.getElementById('btnCopy').addEventListener('click', () => copyResult(d));
+        document.getElementById('btnReset').addEventListener('click', () => applyPreset('reset'));
+    }
+
+    function renderErrors(errors) {
+        elPanel.innerHTML = `<div class="error-banner">${errors.map(e => `• ${e}`).join('<br>')}</div>`;
+        elPanel.classList.add('visible');
+    }
+
+    // ─── Main calculate ──────────────────────────────────────────────────────
+
+    function calculate() {
+        const result = validate();
+        if (!result.valid) {
+            if (result.errors && result.errors.length) {
+                renderErrors(result.errors);
+            } else {
+                // Field-level errors already shown inline; clear any old panel content
+                elPanel.classList.remove('visible');
+                elPanel.innerHTML = '';
+            }
+            return;
+        }
+        renderResult(result.data);
+    }
+
+    // ─── Copy summary ────────────────────────────────────────────────────────
+    // Reads from already-computed data — does NOT re-run math.
+
+    function copyResult(d) {
+        const { shiftMins, totalBreakMins, netMins, otThreshMins, rate, breakSummary } = d;
+        const overtimeMins = netMins - otThreshMins;
+        const otLine = overtimeMins > 0
+            ? `+${fmtHM(overtimeMins)}`
+            : `None (${fmtHM(Math.abs(overtimeMins))} under target)`;
+        const payLine = (rate !== null)
+            ? `\nEstimated pay:   $${(netMins / 60 * rate).toFixed(2)}`
+            : '';
+        const breakLines = breakSummary.map(b => `  ${b.name}: ${b.mins} min`).join('\n');
+
+        const text =
+`Break Time Report
+=================
+Shift:           ${elStart.value} → ${elEnd.value}
+Gross time:      ${fmtHM(shiftMins)}
+Total breaks:    ${totalBreakMins} min
+${breakLines}
+
+Net worked:      ${fmtHM(netMins)} (${fmtDec(netMins)} hrs)
+Overtime:        ${otLine}${payLine}`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('btnCopy');
+            if (btn) {
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = 'Copy summary'; }, 2000);
+            }
+        }).catch(() => {
+            const btn = document.getElementById('btnCopy');
+            if (btn) btn.textContent = 'Copy failed — try again';
+        });
+    }
+
+    // ─── Add / remove break rows ─────────────────────────────────────────────
+
+    function addBreak(defaultMins, defaultName) {
+        const id = ++breakIdCounter;
+        const div = document.createElement('div');
+        div.className = 'break-row';
+        div.id = `break-${id}`;
+        div.innerHTML = `
+            <div>
+                <label class="field-label" for="bn-${id}">Break name</label>
+                <input class="break-name" type="text" id="bn-${id}" placeholder="e.g. Lunch" value="${defaultName || ''}">
+            </div>
+            <div>
+                <label class="field-label" for="bm-${id}">Duration (minutes)</label>
+                <input class="break-mins" type="number" id="bm-${id}" min="1" max="480" value="${defaultMins || ''}">
+            </div>
+            <button class="btn-remove" type="button" aria-label="Remove this break" data-id="${id}">✕</button>
+            <div class="break-field-error field-error"></div>
+        `;
+        elBreakList.appendChild(div);
+        div.querySelector('.break-mins').addEventListener('input', calculate);
+        div.querySelector('.break-name').addEventListener('input', calculate);
+        div.querySelector('.btn-remove').addEventListener('click', () => {
+            div.remove();
+            calculate();
+        });
+    }
+
+    // ─── Presets ─────────────────────────────────────────────────────────────
+
+    function applyPreset(key) {
+        // Clear all break rows
+        elBreakList.innerHTML = '';
+        breakIdCounter = 0;
+        elRate.value = '';
+        markInput(elRate, false); setErr('err-rate', '');
+
+        if (key === '9to5') {
+            elStart.value = '09:00'; elEnd.value = '17:00';
+            elOT.value = '8';
+            addBreak(60, 'Lunch');
+        } else if (key === 'nightshift') {
+            elStart.value = '22:00'; elEnd.value = '06:00';
+            elOT.value = '8';
+            addBreak(30, 'Break');
+        } else if (key === 'halfday') {
+            elStart.value = '09:00'; elEnd.value = '13:00';
+            elOT.value = '4';
+            addBreak(15, 'Coffee');
+        } else if (key === 'retail') {
+            elStart.value = '10:00'; elEnd.value = '18:00';
+            elOT.value = '8';
+            addBreak(30, 'Lunch');
+            addBreak(15, 'Tea break');
+        } else {
+            // reset
+            elStart.value = '09:00'; elEnd.value = '17:00';
+            elOT.value = '8';
+            addBreak(30, 'Lunch');
+        }
+
+        // Clear all field errors
+        ['err-start','err-end','err-ot','err-rate'].forEach(id => setErr(id, ''));
+        [elStart, elEnd, elOT, elRate].forEach(el => markInput(el, false));
+        elPanel.classList.remove('visible');
+        elPanel.innerHTML = '';
+        calculate();
+    }
+
+    // ─── Event wiring ────────────────────────────────────────────────────────
+
+    elStart.addEventListener('input',  calculate);
+    elEnd.addEventListener('input',    calculate);
+    elOT.addEventListener('input',     calculate);
+    elRate.addEventListener('input',   calculate);
+
+    document.getElementById('btnAddBreak').addEventListener('click', () => {
+        addBreak('', '');
+        calculate();
+    });
+
+    document.querySelectorAll('.pill').forEach(pill => {
+        pill.addEventListener('click', () => applyPreset(pill.dataset.preset));
+    });
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    applyPreset('reset');
+
+})();
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

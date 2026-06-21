@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSP Generator — Content Security Policy Builder | Rebrixe</title>
+    <meta name="description" content="Build a Content Security Policy header step-by-step. Whitelist domains per directive, get instant HTTP header, meta tag, and Nginx/Apache output. Prevent XSS for free.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px;
+            backdrop-filter: blur(10px);
+        }
+
+        .card-title {
+            font-size: 0.6rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary, #00f2ff);
+            margin: 0 0 16px;
+        }
+
+        /* ── Directive rows ── */
+        .dir-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .dir-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            user-select: none;
+        }
+        .dir-row:hover { border-color: rgba(0,242,255,0.35); }
+        .dir-row.active { border-color: var(--primary, #00f2ff); background: rgba(0,242,255,0.06); }
+
+        .dir-name {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+        .dir-desc { font-size: 0.65rem; color: #64748b; margin-top: 2px; }
+        .dir-badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(0,242,255,0.12);
+            color: var(--primary, #00f2ff);
+            border: 1px solid rgba(0,242,255,0.2);
+            white-space: nowrap;
+        }
+        .dir-badge.empty { background: rgba(100,116,139,0.12); color: #64748b; border-color: rgba(100,116,139,0.2); }
+
+        /* ── Editor panel ── */
+        .editor-panel { display: flex; flex-direction: column; gap: 16px; }
+
+        .editor-card { /* extends .card */ }
+
+        .active-dir-name {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary, #00f2ff);
+            margin: 0 0 4px;
+        }
+        .active-dir-desc { font-size: 0.75rem; color: #64748b; margin: 0 0 16px; line-height: 1.5; }
+
+        /* ── Keyword pills ── */
+        .kw-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+        .kw-pill {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            padding: 5px 11px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.4);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .kw-pill:hover { border-color: rgba(0,242,255,0.5); color: #fff; }
+        .kw-pill.on { background: rgba(0,242,255,0.1); border-color: var(--primary,#00f2ff); color: var(--primary,#00f2ff); }
+        .kw-pill.danger.on { background: rgba(231,76,60,0.12); border-color: #e74c3c; color: #e74c3c; }
+
+        /* ── Domain input ── */
+        .domain-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .domain-input-row input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 13px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .domain-input-row input:focus { border-color: var(--primary,#00f2ff); }
+        .domain-input-row input::placeholder { color: #334155; }
+
+        .btn {
+            padding: 9px 16px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary,#00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn:hover { opacity: 0.82; }
+        .btn.success { background: #2ecc71; color: #fff; }
+
+        /* ── Domain tags ── */
+        .domain-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; }
+        .dtag {
+            display: flex; align-items: center; gap: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            padding: 4px 10px;
+            border-radius: 7px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: #cbd5e1;
+        }
+        .dtag .rm {
+            color: #64748b; cursor: pointer; font-size: 0.85rem; line-height: 1;
+            transition: color 0.15s;
+        }
+        .dtag .rm:hover { color: #e74c3c; }
+
+        /* ── Quick-fill presets ── */
+        .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+        .preset-btn {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(46,204,113,0.3);
+            background: rgba(46,204,113,0.07);
+            color: #2ecc71;
+            cursor: pointer;
+            transition: 0.15s;
+            letter-spacing: 0.3px;
+        }
+        .preset-btn:hover { background: rgba(46,204,113,0.15); }
+
+        /* ── Output ── */
+        .output-tabs { display: flex; gap: 5px; margin-bottom: 12px; }
+        .otab {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 5px 13px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            transition: 0.15s;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .otab.active { background: var(--primary,#00f2ff); color: #000; border-color: transparent; }
+
+        .output-box {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            min-height: 90px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.7;
+        }
+
+        .action-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+        /* ── Score bar ── */
+        .score-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .score-label { font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+        .score-bar { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,0.06); overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 99px; transition: width 0.4s, background 0.4s; }
+        .score-val { font-size: 0.72rem; font-weight: 800; color: #e2e8f0; white-space: nowrap; }
+
+        /* ── Warnings ── */
+        .warn-list { display: flex; flex-direction: column; gap: 6px; }
+        .warn-item {
+            font-size: 0.72rem;
+            padding: 8px 12px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .warn-item.w-err  { background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.25); color: #e74c3c; }
+        .warn-item.w-warn { background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.25); color: #f1c40f; }
+        .warn-item.w-ok   { background: rgba(46,204,113,0.08); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; }
+
+        /* ── Format hint ── */
+        .format-hint {
+            font-size: 0.72rem; color: #64748b; line-height: 1.6;
+            padding: 10px 13px; background: rgba(255,255,255,0.02);
+            border-radius: 9px; border-left: 3px solid var(--primary,#00f2ff);
+        }
+        .format-hint strong { color: #94a3b8; }
+        .format-hint code { color: var(--primary,#00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── FAQ ── */
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .faq-item { background: rgba(15,23,42,0.5); padding: 18px; border-radius: 16px; border: 1px solid var(--border); }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.88rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary,#00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        .empty-state { color: #334155; font-size: 0.8rem; font-style: italic; }
+
+        @media (max-width: 860px) {
+            .tool-grid { grid-template-columns: 1fr; }
+            .faq-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="server-wizards.html" class="back-btn">← Back to Dev Tools</a>
+
+    <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(90deg,#00f2ff,#2ecc71);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 6px;text-align:center;">CSP Rules Designer</h1>
+    <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Build a bulletproof Content-Security-Policy header. Whitelist domains per directive, catch dangerous patterns, copy ready-to-deploy code.</p>
+
+    <div class="tool-grid">
+
+        <!-- ══ LEFT: Directive list ══ -->
+        <div class="card">
+            <p class="card-title">Directives</p>
+            <div class="dir-list" id="dirList"></div>
+        </div>
+
+        <!-- ══ RIGHT: Editor + Output ══ -->
+        <div class="editor-panel">
+
+            <!-- Editor -->
+            <div class="card editor-card" id="editorCard">
+                <div class="active-dir-name" id="activeDirName">Select a directive →</div>
+                <div class="active-dir-desc" id="activeDirDesc">Click any directive on the left to configure it.</div>
+
+                <div id="editorBody" style="display:none;">
+                    <!-- Keywords -->
+                    <p class="card-title" style="margin-bottom:10px;">Keywords</p>
+                    <div class="kw-grid" id="kwGrid"></div>
+
+                    <!-- Presets -->
+                    <p class="card-title" style="margin-bottom:8px;">Quick-fill Presets</p>
+                    <div class="preset-row" id="presetRow"></div>
+
+                    <!-- Domain input -->
+                    <p class="card-title" style="margin-bottom:8px;">Add Domain</p>
+                    <div class="domain-input-row">
+                        <input type="text" id="domainInput" placeholder="https://cdn.example.com or *.example.com" onkeydown="if(event.key==='Enter')addDomain()">
+                        <button class="btn btn-primary" onclick="addDomain()">ADD</button>
+                    </div>
+                    <div class="domain-tags" id="domainTags"></div>
+                </div>
+            </div>
+
+            <!-- Security Score + Warnings -->
+            <div class="card">
+                <p class="card-title">Security Score</p>
+                <div class="score-wrap">
+                    <span class="score-label">Score</span>
+                    <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%;background:#e74c3c;"></div></div>
+                    <span class="score-val" id="scoreVal">0 / 100</span>
+                </div>
+                <div class="warn-list" id="warnList"></div>
+            </div>
+
+            <!-- Output -->
+            <div class="card">
+                <p class="card-title">Generated CSP</p>
+                <div class="output-tabs">
+                    <button class="otab active" onclick="switchTab('header',this)">HTTP Header</button>
+                    <button class="otab" onclick="switchTab('meta',this)">HTML Meta</button>
+                    <button class="otab" onclick="switchTab('nginx',this)">Nginx</button>
+                    <button class="otab" onclick="switchTab('apache',this)">Apache</button>
+                </div>
+                <div class="output-box" id="outputBox">Configure directives above to generate your CSP →</div>
+                <div class="action-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyOutput()">COPY</button>
+                    <button class="btn btn-ghost" onclick="resetAll()">RESET</button>
+                </div>
+                <div class="format-hint" id="formatHint" style="margin-top:14px;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- FAQ / SEO -->
+    <article style="text-align:left;margin-top:48px;">
+        <h2>What is a Content Security Policy?</h2>
+        <p style="color:#64748b;font-size:0.85rem;line-height:1.7;max-width:720px;">A CSP is an HTTP response header that tells browsers which resources (scripts, styles, images, fonts, frames) are allowed to load on your page. It's the most effective defence against Cross-Site Scripting (XSS) and data injection attacks.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>Why avoid <code>'unsafe-inline'</code>?</h3>
+                <p>It allows any inline <code>&lt;script&gt;</code> or <code>&lt;style&gt;</code> tag to run — including ones injected by attackers. Use nonces or hashes instead. This tool warns you when it's enabled.</p>
+            </div>
+            <div class="faq-item">
+                <h3>301 vs CSP — what's the priority?</h3>
+                <p><code>default-src</code> is the fallback for all unset directives. Always configure it first; then tighten per-resource with <code>script-src</code>, <code>style-src</code>, etc.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Report-Only mode</h3>
+                <p>Deploy with <code>Content-Security-Policy-Report-Only</code> first. Violations are logged, not blocked — safe way to test before enforcing.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Frames & iframes</h3>
+                <p>Use <code>frame-ancestors</code> (not X-Frame-Options) to control who can embed your page. Set <code>'none'</code> to block all embedding and prevent clickjacking.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Cloudflare / CDN users</h3>
+                <p>Add your CDN domain to <code>script-src</code> and <code>style-src</code>. If you use Cloudflare Rocket Loader, add <code>ajax.cloudflare.com</code> to <code>script-src</code>.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Google Fonts & Analytics</h3>
+                <p>Fonts: add <code>fonts.googleapis.com</code> to <code>style-src</code> and <code>fonts.gstatic.com</code> to <code>font-src</code>. Analytics: add <code>*.google-analytics.com</code> and <code>*.googletagmanager.com</code> to <code>script-src</code>.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ═══════════════════════ DATA ═══════════════════════ */
+
+const DIRECTIVES = [
+    { id:'default-src',   label:'default-src',   desc:'Fallback for all resource types not explicitly covered by other directives.' },
+    { id:'script-src',    label:'script-src',    desc:'Controls which JavaScript sources are allowed to execute.' },
+    { id:'style-src',     label:'style-src',     desc:'Controls which CSS stylesheets can be applied.' },
+    { id:'img-src',       label:'img-src',       desc:'Restricts image sources (including favicons and canvas data URIs).' },
+    { id:'font-src',      label:'font-src',       desc:'Controls where web fonts may be loaded from.' },
+    { id:'connect-src',   label:'connect-src',   desc:'Restricts URLs used by fetch(), XHR, WebSocket and EventSource.' },
+    { id:'media-src',     label:'media-src',     desc:'Controls sources for <audio> and <video> elements.' },
+    { id:'frame-src',     label:'frame-src',     desc:'Restricts the URLs allowed inside <iframe> and <frame>.' },
+    { id:'frame-ancestors',label:'frame-ancestors',desc:'Defines which origins can embed this page in an iframe (replaces X-Frame-Options).' },
+    { id:'object-src',    label:'object-src',    desc:'Controls sources for <object>, <embed>, and <applet> tags.' },
+    { id:'worker-src',    label:'worker-src',    desc:'Controls URLs for Worker, SharedWorker and ServiceWorker scripts.' },
+    { id:'manifest-src',  label:'manifest-src',  desc:'Restricts URLs from which a PWA manifest may be loaded.' },
+    { id:'form-action',   label:'form-action',   desc:'Limits URLs that can be used as form submission targets.' },
+    { id:'base-uri',      label:'base-uri',      desc:'Restricts what the <base> tag href can be set to.' },
+    { id:'upgrade-insecure-requests', label:'upgrade-insecure-requests', desc:'Instructs browsers to treat all HTTP requests as HTTPS.' },
+];
+
+const KEYWORDS = {
+    common: ["'none'","'self'","'unsafe-inline'","'unsafe-eval'","'strict-dynamic'","'report-sample'","data:","blob:","https:","http:"],
+    unsafe: ["'unsafe-inline'","'unsafe-eval'","'unsafe-hashes'"],
+};
+
+const PRESETS = {
+    'script-src': [
+        { name:'+ Google Analytics', domains:['*.google-analytics.com','*.googletagmanager.com'] },
+        { name:'+ Cloudflare',       domains:['ajax.cloudflare.com'] },
+        { name:'+ Stripe',           domains:['js.stripe.com'] },
+        { name:'+ HubSpot',          domains:['js.hs-scripts.com','js.hsadspixel.net'] },
+    ],
+    'style-src': [
+        { name:'+ Google Fonts', domains:['fonts.googleapis.com'] },
+        { name:'+ Bootstrap CDN', domains:['cdn.jsdelivr.net'] },
+    ],
+    'font-src': [
+        { name:'+ Google Fonts', domains:['fonts.gstatic.com'] },
+        { name:'+ Adobe Fonts',  domains:['use.typekit.net','p.typekit.net'] },
+    ],
+    'img-src': [
+        { name:'+ Gravatar', domains:['secure.gravatar.com','*.gravatar.com'] },
+        { name:'+ Cloudinary', domains:['res.cloudinary.com'] },
+        { name:'+ Google', domains:['*.google.com','*.googleapis.com'] },
+    ],
+    'connect-src': [
+        { name:'+ Sentry',   domains:['*.sentry.io','*.ingest.sentry.io'] },
+        { name:'+ Hotjar',   domains:['*.hotjar.com','*.hotjar.io'] },
+        { name:'+ Intercom', domains:['*.intercom.io','*.intercomcdn.com'] },
+    ],
+    'frame-src': [
+        { name:'+ YouTube',  domains:['www.youtube.com','www.youtube-nocookie.com'] },
+        { name:'+ Vimeo',    domains:['player.vimeo.com'] },
+        { name:'+ Stripe',   domains:['js.stripe.com'] },
+    ],
+    'frame-ancestors': [
+        { name:'Block all → none', domains:[] , kw:"'none'" },
+        { name:'Self only → self', domains:[] , kw:"'self'" },
+    ],
+};
+
+const TAB_HINTS = {
+    header:  '<strong>Header name:</strong> <code>Content-Security-Policy</code>. Set it server-side on every response. For testing use <code>Content-Security-Policy-Report-Only</code>.',
+    meta:    '<strong>Place inside</strong> <code>&lt;head&gt;</code>. Meta CSP doesn\'t support <code>frame-ancestors</code> or <code>report-uri</code>. Server header is always preferred.',
+    nginx:   '<strong>Add to</strong> your <code>server { }</code> block. Run <code>nginx -t</code> then <code>systemctl reload nginx</code> to activate.',
+    apache:  '<strong>Add to</strong> <code>.htaccess</code> or your VirtualHost config. Requires <code>mod_headers</code> to be enabled.',
+};
+
+/* ═══════════════════════ STATE ═══════════════════════ */
+
+// dirState[id] = { keywords: Set, domains: [] }
+const dirState = {};
+DIRECTIVES.forEach(d => { dirState[d.id] = { keywords: new Set(), domains: [] }; });
+
+// Auto-set upgrade-insecure-requests as commonly wanted
+// (user can clear it)
+
+let activeDir = null;
+let activeTab = 'header';
+
+/* ═══════════════════════ RENDER DIRECTIVE LIST ═══════════════════════ */
+
+function renderDirList() {
+    const list = document.getElementById('dirList');
+    list.innerHTML = DIRECTIVES.map(d => {
+        const s = dirState[d.id];
+        const count = s.keywords.size + s.domains.length;
+        const badge = count > 0
+            ? `<span class="dir-badge">${count} value${count!==1?'s':''}</span>`
+            : `<span class="dir-badge empty">empty</span>`;
+        const isActive = activeDir === d.id ? ' active' : '';
+        return `<div class="dir-row${isActive}" onclick="selectDir('${d.id}')">
+            <div>
+                <div class="dir-name">${d.label}</div>
+                <div class="dir-desc">${d.desc.slice(0,52)}…</div>
+            </div>
+            ${badge}
+        </div>`;
+    }).join('');
+}
+
+/* ═══════════════════════ SELECT DIRECTIVE ═══════════════════════ */
+
+function selectDir(id) {
+    activeDir = id;
+    const d = DIRECTIVES.find(x => x.id === id);
+
+    document.getElementById('activeDirName').textContent = d.label;
+    document.getElementById('activeDirDesc').textContent = d.desc;
+    document.getElementById('editorBody').style.display = 'block';
+    document.getElementById('domainInput').value = '';
+
+    renderKwGrid(d);
+    renderPresets(d);
+    renderDomainTags();
+    renderDirList();
+}
+
+function renderKwGrid(d) {
+    const s = dirState[d.id];
+    // For upgrade-insecure-requests, no keywords
+    if (d.id === 'upgrade-insecure-requests') {
+        document.getElementById('kwGrid').innerHTML = '<span style="font-size:0.75rem;color:#64748b;">This directive takes no values — adding it activates automatic HTTPS upgrade.</span>';
+        document.getElementById('presetRow').innerHTML = '';
+        return;
+    }
+    const grid = document.getElementById('kwGrid');
+    grid.innerHTML = KEYWORDS.common.map(kw => {
+        const isOn = s.keywords.has(kw);
+        const isDanger = KEYWORDS.unsafe.includes(kw) && isOn;
+        return `<span class="kw-pill${isOn?' on':''}${isDanger?' danger':''}" onclick="toggleKw('${kw}')">${kw}</span>`;
+    }).join('');
+}
+
+function toggleKw(kw) {
+    if (!activeDir) return;
+    const s = dirState[activeDir];
+    s.keywords.has(kw) ? s.keywords.delete(kw) : s.keywords.add(kw);
+    renderKwGrid(DIRECTIVES.find(x => x.id === activeDir));
+    renderDirList();
+    updateOutput();
+}
+
+function renderPresets(d) {
+    const row = document.getElementById('presetRow');
+    const presets = PRESETS[d.id] || [];
+    if (!presets.length) { row.innerHTML = '<span style="font-size:0.72rem;color:#334155;">No presets for this directive.</span>'; return; }
+    row.innerHTML = presets.map((p,i) => `<button class="preset-btn" onclick="applyPreset(${i})">${p.name}</button>`).join('');
+}
+
+function applyPreset(i) {
+    if (!activeDir) return;
+    const presets = PRESETS[activeDir] || [];
+    const p = presets[i];
+    if (!p) return;
+    const s = dirState[activeDir];
+    p.domains.forEach(dom => { if (!s.domains.includes(dom)) s.domains.push(dom); });
+    if (p.kw) s.keywords.add(p.kw);
+    renderKwGrid(DIRECTIVES.find(x => x.id === activeDir));
+    renderDomainTags();
+    renderDirList();
+    updateOutput();
+}
+
+/* ═══════════════════════ DOMAIN MANAGEMENT ═══════════════════════ */
+
+function addDomain() {
+    if (!activeDir) return;
+    const input = document.getElementById('domainInput');
+    let val = input.value.trim();
+    if (!val) return;
+    // Normalize: strip trailing slash
+    val = val.replace(/\/$/, '');
+    const s = dirState[activeDir];
+    if (!s.domains.includes(val)) {
+        s.domains.push(val);
+        renderDomainTags();
+        renderDirList();
+        updateOutput();
+    }
+    input.value = '';
+    input.focus();
+}
+
+function removeDomain(domain) {
+    if (!activeDir) return;
+    const s = dirState[activeDir];
+    s.domains = s.domains.filter(d => d !== domain);
+    renderDomainTags();
+    renderDirList();
+    updateOutput();
+}
+
+function renderDomainTags() {
+    if (!activeDir) return;
+    const s = dirState[activeDir];
+    const wrap = document.getElementById('domainTags');
+    if (!s.domains.length) {
+        wrap.innerHTML = '<span class="empty-state">No domains added yet.</span>';
+        return;
+    }
+    wrap.innerHTML = s.domains.map(d =>
+        `<span class="dtag">${d}<span class="rm" onclick="removeDomain('${d}')">✕</span></span>`
+    ).join('');
+}
+
+/* ═══════════════════════ CSP BUILDER ═══════════════════════ */
+
+function buildCSPValue() {
+    const parts = [];
+    DIRECTIVES.forEach(d => {
+        const s = dirState[d.id];
+
+        // Special: upgrade-insecure-requests
+        if (d.id === 'upgrade-insecure-requests') {
+            if (s.keywords.size || s._enabled) { parts.push('upgrade-insecure-requests'); }
+            return;
+        }
+
+        const values = [...s.keywords, ...s.domains];
+        if (values.length) {
+            parts.push(`${d.id} ${values.join(' ')}`);
+        }
+    });
+    return parts;
+}
+
+function getOutput(tab) {
+    const directives = buildCSPValue();
+    if (!directives.length) return 'Configure at least one directive to generate your CSP →';
+
+    const headerVal = directives.join('; ');
+
+    switch (tab) {
+        case 'header':
+            return `Content-Security-Policy: ${headerVal}`;
+        case 'meta':
+            return `<meta http-equiv="Content-Security-Policy"\n      content="${headerVal}">`;
+        case 'nginx':
+            return `add_header Content-Security-Policy "${headerVal}" always;`;
+        case 'apache':
+            return `Header always set Content-Security-Policy "${headerVal}"`;
+    }
+}
+
+/* ═══════════════════════ SECURITY SCORE ═══════════════════════ */
+
+function computeScore() {
+    const warns = [];
+    let score = 0;
+
+    // Has default-src
+    const def = dirState['default-src'];
+    const defValues = [...def.keywords, ...def.domains];
+    if (defValues.length) { score += 20; warns.push({cls:'w-ok', txt:'✓ default-src is set'}); }
+    else warns.push({cls:'w-err', txt:'✗ default-src not set — all unspecified resources are unrestricted'});
+
+    // default-src is not wildcard
+    if (!def.keywords.has('*') && !def.domains.some(d => d==='*')) score += 10;
+    else warns.push({cls:'w-err', txt:'✗ Wildcard (*) in default-src — allows any origin, defeats CSP'});
+
+    // script-src set
+    const sc = dirState['script-src'];
+    if ([...sc.keywords,...sc.domains].length) { score += 15; warns.push({cls:'w-ok', txt:'✓ script-src is explicitly set'}); }
+    else warns.push({cls:'w-warn', txt:'⚠ script-src not set — falls back to default-src'});
+
+    // No unsafe-inline in script-src
+    if (sc.keywords.has("'unsafe-inline'"))
+        warns.push({cls:'w-err', txt:"✗ 'unsafe-inline' in script-src — inline scripts allowed (XSS risk)"});
+    else { score += 15; }
+
+    // No unsafe-eval in script-src
+    if (sc.keywords.has("'unsafe-eval'"))
+        warns.push({cls:'w-warn', txt:"⚠ 'unsafe-eval' in script-src — eval() and similar allowed"});
+    else score += 10;
+
+    // object-src set (plugin attack vector)
+    const obj = dirState['object-src'];
+    if ([...obj.keywords,...obj.domains].length) {
+        score += 10;
+        if (obj.keywords.has("'none'")) warns.push({cls:'w-ok', txt:"✓ object-src 'none' — plugins blocked"});
+    } else warns.push({cls:'w-warn', txt:"⚠ object-src not set — <object>/<embed> sources uncontrolled"});
+
+    // frame-ancestors
+    const fa = dirState['frame-ancestors'];
+    if ([...fa.keywords,...fa.domains].length) {
+        score += 10;
+        warns.push({cls:'w-ok', txt:'✓ frame-ancestors set — clickjacking protection active'});
+    } else warns.push({cls:'w-warn', txt:'⚠ frame-ancestors not set — page can be embedded anywhere'});
+
+    // base-uri
+    const base = dirState['base-uri'];
+    if ([...base.keywords,...base.domains].length) { score += 10; }
+    else warns.push({cls:'w-warn', txt:"⚠ base-uri not set — <base> tag injection possible"});
+
+    score = Math.min(score, 100);
+    return { score, warns };
+}
+
+function renderScore() {
+    const { score, warns } = computeScore();
+    const fill = document.getElementById('scoreFill');
+    fill.style.width = score + '%';
+    fill.style.background = score >= 75 ? '#2ecc71' : score >= 45 ? '#f1c40f' : '#e74c3c';
+    document.getElementById('scoreVal').textContent = score + ' / 100';
+    document.getElementById('warnList').innerHTML = warns.map(w =>
+        `<div class="warn-item ${w.cls}">${w.txt}</div>`
+    ).join('');
+}
+
+/* ═══════════════════════ OUTPUT ═══════════════════════ */
+
+function switchTab(tab, el) {
+    activeTab = tab;
+    document.querySelectorAll('.otab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    updateOutput();
+}
+
+function updateOutput() {
+    document.getElementById('outputBox').textContent = getOutput(activeTab);
+    document.getElementById('formatHint').innerHTML = TAB_HINTS[activeTab] || '';
+    renderScore();
+}
+
+async function copyOutput() {
+    const btn = document.getElementById('copyBtn');
+    const text = document.getElementById('outputBox').textContent;
+    if (!text || text.includes('Configure')) return;
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '✓ COPIED';
+    btn.classList.add('success');
+    setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('success'); }, 1600);
+}
+
+function resetAll() {
+    DIRECTIVES.forEach(d => { dirState[d.id] = { keywords: new Set(), domains: [] }; });
+    activeDir = null;
+    document.getElementById('activeDirName').textContent = 'Select a directive →';
+    document.getElementById('activeDirDesc').textContent = 'Click any directive on the left to configure it.';
+    document.getElementById('editorBody').style.display = 'none';
+    renderDirList();
+    updateOutput();
+}
+
+/* ═══════════════════════ UPGRADE-INSECURE helper ═══════════════════════ */
+// Allow toggling upgrade-insecure-requests by clicking it
+// We store a _enabled flag for this special directive
+const origSelectDir = selectDir;
+function selectDir(id) {
+    if (id === 'upgrade-insecure-requests') {
+        const s = dirState[id];
+        s._enabled = !s._enabled;
+        // Use keywords set as proxy
+        s._enabled ? s.keywords.add('_active') : s.keywords.clear();
+        renderDirList();
+        updateOutput();
+        // Still open editor but minimal
+        activeDir = id;
+        const d = DIRECTIVES.find(x => x.id === id);
+        document.getElementById('activeDirName').textContent = d.label;
+        document.getElementById('activeDirDesc').textContent = d.desc;
+        document.getElementById('editorBody').style.display = 'block';
+        renderKwGrid(d);
+        renderPresets(d);
+        document.getElementById('domainTags').innerHTML = '';
+        renderDirList();
+        return;
+    }
+    activeDir = id;
+    const d = DIRECTIVES.find(x => x.id === id);
+    document.getElementById('activeDirName').textContent = d.label;
+    document.getElementById('activeDirDesc').textContent = d.desc;
+    document.getElementById('editorBody').style.display = 'block';
+    document.getElementById('domainInput').value = '';
+    renderKwGrid(d);
+    renderPresets(d);
+    renderDomainTags();
+    renderDirList();
+}
+
+/* ═══════════════════════ INIT ═══════════════════════ */
+renderDirList();
+updateOutput();
+</script>
+</body>
+</html>

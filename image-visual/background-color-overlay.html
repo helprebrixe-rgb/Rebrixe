@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Background Colour Overlay — Make Text Readable Over Photos | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add a semi-transparent colour overlay to any photo. Control colour, opacity, blend mode and gradient direction. Download instantly. Free, browser-only — image never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; }
+
+        /* Preset row */
+        .preset-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+        .preset-chip { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
+        .preset-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .preset-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .preset-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        /* Colour + Opacity row */
+        .colour-row { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; margin-bottom: 22px; }
+        .colour-picker-wrap { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+        .colour-picker-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .colour-input-btn { width: 58px; height: 58px; border-radius: var(--radius-sm); border: 2px solid var(--border-mid); cursor: pointer; padding: 0; background: none; overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
+        .colour-input-btn:hover { border-color: var(--primary-border); transform: scale(1.05); }
+        #colourPicker { width: 100%; height: 100%; border: none; padding: 0; cursor: pointer; transform: scale(1.5); }
+        .hex-display { font-size: 0.72rem; font-family: 'Fira Code', monospace; color: var(--text-sec); text-align: center; letter-spacing: 0.5px; }
+
+        /* Sliders */
+        .sliders-stack { display: flex; flex-direction: column; gap: 18px; }
+        .slider-group { display: flex; flex-direction: column; gap: 8px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .slider-hint { font-size: 0.62rem; color: var(--text-dim); margin-top: 1px; }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+
+        /* Blend mode row */
+        .blend-row { display: flex; gap: 7px; flex-wrap: wrap; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border); }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Gradient type row */
+        .grad-row { display: flex; gap: 7px; flex-wrap: wrap; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+        .grad-row .section-label { margin-bottom: 0; margin-right: 4px; flex-shrink: 0; }
+
+        /* Live preview */
+        .preview-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .preview-wrap { position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); background: #000; max-height: 360px; display: flex; align-items: center; justify-content: center; }
+        .preview-wrap img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
+        #overlayCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+        /* Text preview toggle */
+        .text-preview-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+        .text-preview-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .text-toggle-row { display: flex; gap: 6px; }
+
+        /* Text overlay on preview */
+        .preview-text-layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; pointer-events: none; opacity: 0; transition: opacity 0.3s; padding: 20px; }
+        .preview-text-layer.visible { opacity: 1; }
+        .preview-text-layer .demo-heading { font-family: 'Outfit', sans-serif; font-size: clamp(1rem, 4vw, 1.8rem); font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.4); letter-spacing: -0.5px; text-align: center; }
+        .preview-text-layer .demo-body { font-family: 'Outfit', sans-serif; font-size: clamp(0.7rem, 2vw, 0.9rem); color: rgba(255,255,255,0.85); text-align: center; line-height: 1.5; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Output options */
+        .output-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+        .output-row .section-label { margin-bottom: 0; margin-right: 4px; }
+
+        /* Stats row */
+        .stats-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 100px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .colour-row { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="background-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Colour Overlay</h1>
+                <p class="tool-page-sub">Add a semi-transparent colour over any photo. Make text readable, set a mood, or match your brand. Instant live preview.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Colour Presets</div>
+                    <div class="preset-row" id="presetRow"></div>
+
+                    <div class="colour-row">
+                        <div class="colour-picker-wrap">
+                            <div class="colour-picker-label">Colour</div>
+                            <label class="colour-input-btn" style="background:#000000;" id="colourBtnLabel">
+                                <input type="color" id="colourPicker" value="#000000" oninput="onColourChange()">
+                            </label>
+                            <div class="hex-display" id="hexDisplay">#000000</div>
+                        </div>
+
+                        <div class="sliders-stack">
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <div>
+                                        <div class="slider-label">Opacity</div>
+                                        <div class="slider-hint">0 = invisible, 100 = solid fill</div>
+                                    </div>
+                                    <span class="slider-val" id="valOp">50%</span>
+                                </div>
+                                <input type="range" class="ctrl-slider" id="sliderOp" min="0" max="100" value="50" oninput="onSlide()">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <div>
+                                        <div class="slider-label">Feather (Vignette)</div>
+                                        <div class="slider-hint">Fade overlay toward centre</div>
+                                    </div>
+                                    <span class="slider-val" id="valFe">0%</span>
+                                </div>
+                                <input type="range" class="ctrl-slider" id="sliderFe" min="0" max="100" value="0" oninput="onSlide()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blend mode -->
+                    <div class="section-label" style="margin-bottom:10px;">Blend Mode</div>
+                    <div class="blend-row" id="blendRow">
+                        <button class="tog-btn active" data-blend="source-over" onclick="setBlend(this)">Normal</button>
+                        <button class="tog-btn" data-blend="multiply" onclick="setBlend(this)">Multiply</button>
+                        <button class="tog-btn" data-blend="screen" onclick="setBlend(this)">Screen</button>
+                        <button class="tog-btn" data-blend="overlay" onclick="setBlend(this)">Overlay</button>
+                        <button class="tog-btn" data-blend="soft-light" onclick="setBlend(this)">Soft Light</button>
+                        <button class="tog-btn" data-blend="hard-light" onclick="setBlend(this)">Hard Light</button>
+                        <button class="tog-btn" data-blend="color" onclick="setBlend(this)">Color</button>
+                        <button class="tog-btn" data-blend="luminosity" onclick="setBlend(this)">Luminosity</button>
+                    </div>
+
+                    <!-- Gradient style -->
+                    <div class="grad-row">
+                        <span class="section-label">Overlay Type</span>
+                        <button class="tog-btn active" data-grad="solid" onclick="setGrad(this)">Solid</button>
+                        <button class="tog-btn" data-grad="top" onclick="setGrad(this)">↓ Top Fade</button>
+                        <button class="tog-btn" data-grad="bottom" onclick="setGrad(this)">↑ Bottom Fade</button>
+                        <button class="tog-btn" data-grad="left" onclick="setGrad(this)">→ Left Fade</button>
+                        <button class="tog-btn" data-grad="right" onclick="setGrad(this)">← Right Fade</button>
+                    </div>
+
+                    <!-- Output -->
+                    <div class="output-row">
+                        <span class="section-label">Format</span>
+                        <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                        <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                    </div>
+                </div>
+
+                <!-- Live preview -->
+                <div class="preview-card">
+                    <div class="text-preview-bar">
+                        <span class="section-label" style="margin-bottom:0;">Live Preview</span>
+                        <div class="text-toggle-row">
+                            <button class="tog-btn active" id="btnTextOff" onclick="setTextPreview(false)">No text</button>
+                            <button class="tog-btn" id="btnTextOn" onclick="setTextPreview(true)">Show text</button>
+                        </div>
+                    </div>
+                    <div class="preview-wrap" id="previewWrap">
+                        <img id="previewImg" src="" alt="preview">
+                        <canvas id="overlayCanvas"></canvas>
+                        <div class="preview-text-layer" id="textLayer">
+                            <div class="demo-heading">Your Headline Here</div>
+                            <div class="demo-body">Subtext looks great over a colour overlay.<br>Readable, clean, on-brand.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span>Rendering overlay…</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnApply" onclick="doApply()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Apply & Download</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="stats-row" id="statsRow"></div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why you need this</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Text readability on photos</h3>
+                        <p>A dark overlay at <code>40–60%</code> opacity turns any busy background photo into a canvas where white text is perfectly legible — the standard trick for hero banners and Instagram stories.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Brand colour tinting</h3>
+                        <p>Apply your brand colour at low opacity (<code>15–30%</code>) to unify a mix of stock photos. Suddenly every image looks like it belongs to the same campaign.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Gradient overlays for cinematic feel</h3>
+                        <p>Bottom Fade is the secret weapon for video thumbnails — darken the lower half so a title card sits perfectly at the bottom without obscuring the main subject.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Blend modes for mood</h3>
+                        <p><code>Multiply</code> deepens shadows for drama. <code>Screen</code> lifts highlights for a dreamy look. <code>Color</code> tints without affecting brightness — great for duotone effects.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Vignette / Feather</h3>
+                        <p>The Feather slider fades the overlay toward the centre of the image, drawing the viewer's eye inward — classic portrait and product photo technique.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs via the <code>Canvas API</code> in your browser. Your photo never leaves your device. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ───────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null, origDataURL = null;
+    let outputFmt = 'jpeg', blendMode = 'source-over', gradType = 'solid';
+    let showText = false;
+
+    const PRESETS = [
+        { label: 'Dark Cinema',  color: '#000000', op: 55, fe: 0,  grad: 'solid',  blend: 'source-over' },
+        { label: 'Navy Brand',   color: '#0d1b4b', op: 50, fe: 0,  grad: 'solid',  blend: 'multiply'    },
+        { label: 'Warm Sunset',  color: '#ff5500', op: 35, fe: 0,  grad: 'bottom', blend: 'multiply'    },
+        { label: 'Pure Tint',    color: '#7B2FBE', op: 30, fe: 0,  grad: 'solid',  blend: 'color'       },
+        { label: 'Vignette',     color: '#000000', op: 65, fe: 80, grad: 'solid',  blend: 'source-over' },
+        { label: 'Hero Banner',  color: '#000000', op: 45, fe: 0,  grad: 'bottom', blend: 'source-over' },
+        { label: 'Soft White',   color: '#ffffff', op: 30, fe: 0,  grad: 'solid',  blend: 'screen'      },
+    ];
+
+    // ── DROP ZONE ───────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', e => { if (e.target === dz || e.target.classList.contains('drop-icon') || e.target.classList.contains('drop-title')) fi.click(); });
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('previewImg').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                buildPresets();
+                requestAnimationFrame(() => renderPreview());
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null;
+    }
+
+    // ── PRESETS ─────────────────────────────────────────────────────────────────
+    function buildPresets() {
+        const row = document.getElementById('presetRow');
+        row.innerHTML = '';
+        PRESETS.forEach((p, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'preset-chip' + (i === 0 ? ' active' : '');
+            btn.innerHTML = `<span class="preset-swatch" style="background:${p.color};opacity:${p.op/100+0.3};border:1px solid rgba(255,255,255,0.15);"></span>${p.label}`;
+            btn.onclick = () => {
+                document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('colourPicker').value = p.color;
+                document.getElementById('sliderOp').value = p.op;
+                document.getElementById('sliderFe').value = p.fe;
+                syncColourUI(p.color);
+                syncSlideUI();
+                // Set grad
+                document.querySelectorAll('[data-grad]').forEach(b => b.classList.toggle('active', b.dataset.grad === p.grad));
+                gradType = p.grad;
+                // Set blend
+                document.querySelectorAll('[data-blend]').forEach(b => b.classList.toggle('active', b.dataset.blend === p.blend));
+                blendMode = p.blend;
+                renderPreview();
+            };
+            row.appendChild(btn);
+        });
+        // Apply first preset values
+        const p = PRESETS[0];
+        document.getElementById('colourPicker').value = p.color;
+        document.getElementById('sliderOp').value = p.op;
+        syncColourUI(p.color);
+        syncSlideUI();
+    }
+
+    // ── CONTROLS ────────────────────────────────────────────────────────────────
+    function syncColourUI(hex) {
+        document.getElementById('hexDisplay').textContent = hex.toUpperCase();
+        document.getElementById('colourBtnLabel').style.background = hex;
+    }
+
+    function syncSlideUI() {
+        document.getElementById('valOp').textContent = document.getElementById('sliderOp').value + '%';
+        document.getElementById('valFe').textContent = document.getElementById('sliderFe').value + '%';
+    }
+
+    function onColourChange() {
+        const hex = document.getElementById('colourPicker').value;
+        syncColourUI(hex);
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        renderPreview();
+    }
+
+    function onSlide() {
+        syncSlideUI();
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        renderPreview();
+    }
+
+    function setBlend(btn) {
+        document.querySelectorAll('[data-blend]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        blendMode = btn.dataset.blend;
+        renderPreview();
+    }
+
+    function setGrad(btn) {
+        document.querySelectorAll('[data-grad]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        gradType = btn.dataset.grad;
+        renderPreview();
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+
+    function setTextPreview(on) {
+        showText = on;
+        document.getElementById('textLayer').classList.toggle('visible', on);
+        document.getElementById('btnTextOff').classList.toggle('active', !on);
+        document.getElementById('btnTextOn').classList.toggle('active', on);
+    }
+
+    // ── LIVE PREVIEW (canvas overlay on the preview img) ───────────────────────
+    function renderPreview() {
+        if (!origImg) return;
+        const wrap = document.getElementById('previewWrap');
+        const canvas = document.getElementById('overlayCanvas');
+        const img = document.getElementById('previewImg');
+
+        // Match canvas to rendered image dimensions
+        const w = img.clientWidth || wrap.clientWidth;
+        const h = img.clientHeight || Math.round(w * origImg.naturalHeight / origImg.naturalWidth);
+        canvas.width = w;
+        canvas.height = h;
+
+        drawOverlay(canvas.getContext('2d'), w, h);
+    }
+
+    function hexToRgb(hex) {
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        return { r, g, b };
+    }
+
+    function drawOverlay(ctx, w, h) {
+        const hex = document.getElementById('colourPicker').value;
+        const op = parseInt(document.getElementById('sliderOp').value) / 100;
+        const fe = parseInt(document.getElementById('sliderFe').value) / 100;
+        const { r, g, b } = hexToRgb(hex);
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.globalCompositeOperation = blendMode;
+
+        if (gradType === 'solid' && fe === 0) {
+            ctx.fillStyle = `rgba(${r},${g},${b},${op})`;
+            ctx.fillRect(0, 0, w, h);
+        } else if (gradType !== 'solid') {
+            // Directional gradient: colour on one side, transparent on other
+            let x0=0,y0=0,x1=0,y1=0;
+            if (gradType === 'top')    { x0=0; y0=0;  x1=0; y1=h; }
+            if (gradType === 'bottom') { x0=0; y0=h;  x1=0; y1=0; }
+            if (gradType === 'left')   { x0=0; y0=0;  x1=w; y1=0; }
+            if (gradType === 'right')  { x0=w; y0=0;  x1=0; y1=0; }
+            const grad = ctx.createLinearGradient(x0,y0,x1,y1);
+            grad.addColorStop(0, `rgba(${r},${g},${b},${op})`);
+            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+        } else {
+            // Solid with feather (vignette: overlay at edges, fade to centre)
+            const grad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)*0.7);
+            grad.addColorStop(0,   `rgba(${r},${g},${b},0)`);
+            grad.addColorStop(1-fe*0.4, `rgba(${r},${g},${b},${op})`);
+            grad.addColorStop(1,   `rgba(${r},${g},${b},${Math.min(1,op*1.2)})`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Preview updates on window resize
+    window.addEventListener('resize', () => { if (origImg) renderPreview(); });
+    // Update canvas once image is laid out
+    document.getElementById('previewImg').onload = () => { setTimeout(renderPreview, 50); };
+
+    // ── APPLY & DOWNLOAD ────────────────────────────────────────────────────────
+    function doApply() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        document.getElementById('processing').classList.add('visible');
+        setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width = origImg.naturalWidth;
+            canvas.height = origImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+
+            ctx.drawImage(origImg, 0, 0);
+            drawOverlay(ctx, canvas.width, canvas.height);
+
+            const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+            const quality = outputFmt === 'png' ? undefined : 0.92;
+            const dataURL = canvas.toDataURL(mime, quality);
+
+            document.getElementById('processing').classList.remove('visible');
+
+            // Build stats
+            const resultBytes = Math.round(dataURL.split(',')[1].length * 0.75);
+            const hex = document.getElementById('colourPicker').value;
+            const op = document.getElementById('sliderOp').value;
+            document.getElementById('statsRow').innerHTML = `
+                <div class="stat-pill"><div class="stat-label">Dimensions</div><div class="stat-val green">${canvas.width} × ${canvas.height}</div></div>
+                <div class="stat-pill"><div class="stat-label">Overlay</div><div class="stat-val" style="color:${hex};">${hex.toUpperCase()} @ ${op}%</div></div>
+                <div class="stat-pill"><div class="stat-label">Blend</div><div class="stat-val">${blendMode}</div></div>
+                <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(resultBytes)}</div></div>
+            `;
+
+            // Trigger download
+            const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+            const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+            const a = document.createElement('a'); a.href = dataURL; a.download = `${base}_overlay.${ext}`; a.click();
+            showToast('Downloaded! ✓', 'success');
+        }, 30);
+    }
+
+    // ── UTILS ───────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

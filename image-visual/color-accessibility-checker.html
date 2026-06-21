@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Colour Accessibility Checker — WCAG Contrast Ratio Tool | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Check if text colours meet WCAG 2.1 contrast ratio requirements. Upload an image or pick colours manually. Get AA/AAA pass/fail for normal & large text instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FF9500;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Mode tabs */
+        .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px; }
+        .mode-tab { flex: 1; padding: 10px; border-radius: 10px; border: none; background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .mode-tab.active { background: var(--primary-dim); border: 1px solid var(--primary-border); color: var(--primary); }
+        .mode-tab:hover:not(.active) { color: var(--text-sec); }
+
+        /* Panel visibility */
+        .mode-panel { display: none; }
+        .mode-panel.active { display: block; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 44px 30px 40px;
+            text-align: center; cursor: pointer; margin-bottom: 20px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.5rem; margin-bottom: 12px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); }
+        .drop-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.82rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Image eyedropper panel */
+        .eyedrop-panel { display: none; }
+        .eyedrop-panel.visible { display: block; }
+        .canvas-wrap { position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); cursor: crosshair; margin-bottom: 14px; background: #000; }
+        #previewCanvas { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; }
+        .canvas-hint { font-size: 0.72rem; color: var(--text-dim); text-align: center; margin-bottom: 16px; font-weight: 600; }
+        .eyedrop-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        .eyedrop-target { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color 0.2s; }
+        .eyedrop-target.picking { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(255,214,0,0.15); }
+        .eyedrop-swatch { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; transition: background 0.2s; }
+        .eyedrop-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 2px; }
+        .eyedrop-hex { font-size: 0.85rem; font-weight: 700; color: var(--text); font-family: 'Fira Code', monospace; }
+        .eyedrop-action { font-size: 0.65rem; color: var(--primary); font-weight: 700; margin-top: 2px; }
+        .change-img-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; }
+        .change-img-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Manual picker */
+        .manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .color-picker-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .picker-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 12px; }
+        .picker-row { display: flex; align-items: center; gap: 12px; }
+        .color-swatch-big { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--border-mid); flex-shrink: 0; cursor: pointer; transition: transform 0.2s; }
+        .color-swatch-big:hover { transform: scale(1.08); }
+        input[type="color"] { position: absolute; opacity: 0; width: 0; height: 0; }
+        .hex-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: 'Fira Code', monospace; font-size: 0.88rem; color: var(--text); font-weight: 500; outline: none; transition: border-color 0.2s; }
+        .hex-input:focus { border-color: var(--primary-border); }
+        .preset-colors { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+        .clr-chip { width: 22px; height: 22px; border-radius: 5px; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.08); transition: transform 0.15s, border-color 0.15s; flex-shrink: 0; }
+        .clr-chip:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.25); }
+
+        /* Swapped button */
+        .swap-btn { display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; width: 36px; height: 36px; cursor: pointer; font-size: 1rem; align-self: center; transition: all 0.2s; flex-shrink: 0; }
+        .swap-btn:hover { border-color: var(--primary-border); color: var(--primary); transform: rotate(180deg); }
+        .manual-grid-wrap { display: flex; gap: 12px; align-items: stretch; margin-bottom: 20px; }
+        .manual-grid-wrap .color-picker-group { flex: 1; }
+
+        /* Check button */
+        .btn-main { width: 100%; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; margin-bottom: 20px; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-main:active { transform: translateY(-1px); }
+
+        /* Results */
+        .results-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; display: none; }
+        .results-card.visible { display: block; }
+
+        /* Big ratio display */
+        .ratio-display { text-align: center; padding: 24px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .ratio-number { font-size: clamp(3rem, 10vw, 5rem); font-weight: 800; font-family: 'Fira Code', monospace; letter-spacing: -3px; line-height: 1; }
+        .ratio-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-top: 6px; }
+
+        /* Preview text */
+        .preview-bar { display: flex; gap: 10px; align-items: stretch; margin-bottom: 20px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border); }
+        .preview-half { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+        .preview-normal { font-size: 1rem; font-weight: 400; }
+        .preview-bold { font-size: 1rem; font-weight: 700; }
+        .preview-large { font-size: 1.5rem; font-weight: 400; }
+        .preview-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+        .preview-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.5; margin-bottom: 4px; }
+
+        /* WCAG grade table */
+        .wcag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .wcag-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; text-align: center; }
+        .wcag-cell-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 6px; }
+        .wcag-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-pass { background: rgba(170,255,0,0.12); border: 1px solid rgba(170,255,0,0.3); color: var(--success); }
+        .badge-fail { background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.25); color: var(--error); }
+        .badge-warn { background: rgba(255,149,0,0.1); border: 1px solid rgba(255,149,0,0.25); color: var(--warn); }
+        .wcag-ratio-req { font-size: 0.62rem; color: var(--text-dim); margin-top: 5px; font-family: 'Fira Code', monospace; }
+
+        /* Color info row */
+        .color-info-row { display: flex; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+        .color-info-cell { flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+        .ci-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 6px; }
+        .ci-swatch { width: 100%; height: 28px; border-radius: 6px; margin-bottom: 6px; border: 1px solid rgba(255,255,255,0.08); }
+        .ci-hex { font-size: 0.82rem; font-weight: 700; font-family: 'Fira Code', monospace; color: var(--text); }
+        .ci-lum { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+
+        /* Suggestions */
+        .suggestions-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; display: none; }
+        .suggestions-card.visible { display: block; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .suggest-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .suggest-chip { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.18s; font-size: 0.75rem; font-weight: 700; color: var(--text-sec); }
+        .suggest-chip:hover { border-color: var(--primary-border); color: var(--primary); }
+        .suggest-swatch { width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
+        .suggest-ratio { font-family: 'Fira Code', monospace; font-size: 0.7rem; color: var(--text-dim); }
+
+        /* Bulk checker */
+        .bulk-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; }
+        .bulk-textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-family: 'Fira Code', monospace; font-size: 0.8rem; color: var(--text); resize: vertical; min-height: 90px; outline: none; transition: border-color 0.2s; }
+        .bulk-textarea:focus { border-color: var(--primary-border); }
+        .bulk-hint { font-size: 0.7rem; color: var(--text-dim); margin-top: 6px; margin-bottom: 12px; }
+        .bulk-results { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; max-height: 260px; overflow-y: auto; }
+        .bulk-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.75rem; }
+        .bulk-swatches { display: flex; gap: 4px; flex-shrink: 0; }
+        .bulk-sw { width: 18px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); }
+        .bulk-hexes { font-family: 'Fira Code', monospace; color: var(--text-dim); flex: 1; }
+        .bulk-ratio-val { font-family: 'Fira Code', monospace; font-weight: 700; color: var(--text); }
+        .bulk-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+        .mini-badge { padding: 2px 7px; border-radius: 99px; font-size: 0.6rem; font-weight: 800; }
+        .mini-pass { background: rgba(170,255,0,0.12); color: var(--success); }
+        .mini-fail { background: rgba(255,68,68,0.1); color: var(--error); }
+
+        /* Export button */
+        .btn-secondary { padding: 11px 18px; border-radius: 10px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .manual-grid-wrap { flex-direction: column; }
+            .wcag-grid { grid-template-columns: 1fr 1fr; }
+            .eyedrop-row { flex-direction: column; }
+            .color-info-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Colour Accessibility Checker</h1>
+                <p class="tool-page-sub">Check WCAG 2.1 contrast ratios for AA & AAA compliance. Pick from image or enter hex codes. Instant pass/fail with fix suggestions.</p>
+                <span class="privacy-badge">100% browser-based — no data leaves your device</span>
+            </div>
+
+            <!-- Mode tabs -->
+            <div class="mode-tabs">
+                <button class="mode-tab active" onclick="switchMode('manual')">🎨 Manual Hex Input</button>
+                <button class="mode-tab" onclick="switchMode('image')">🖼 Pick from Image</button>
+                <button class="mode-tab" onclick="switchMode('bulk')">📋 Bulk Check</button>
+            </div>
+
+            <!-- ─── MANUAL MODE ─── -->
+            <div class="mode-panel active" id="panel-manual">
+                <div class="manual-grid-wrap">
+                    <div class="color-picker-group">
+                        <div class="picker-label">Text / Foreground</div>
+                        <div class="picker-row">
+                            <div class="color-swatch-big" id="fgSwatch" style="background:#FFFFFF" onclick="document.getElementById('fgPicker').click()"></div>
+                            <input type="color" id="fgPicker" value="#ffffff" oninput="onPickerChange('fg',this.value)">
+                            <input type="text" class="hex-input" id="fgHex" value="#FFFFFF" maxlength="7" oninput="onHexInput('fg',this.value)" placeholder="#FFFFFF">
+                        </div>
+                        <div class="preset-colors" id="fgPresets"></div>
+                    </div>
+                    <button class="swap-btn" onclick="swapColors()" title="Swap colours">⇅</button>
+                    <div class="color-picker-group">
+                        <div class="picker-label">Background</div>
+                        <div class="picker-row">
+                            <div class="color-swatch-big" id="bgSwatch" style="background:#1A1812" onclick="document.getElementById('bgPicker').click()"></div>
+                            <input type="color" id="bgPicker" value="#1A1812" oninput="onPickerChange('bg',this.value)">
+                            <input type="text" class="hex-input" id="bgHex" value="#1A1812" maxlength="7" oninput="onHexInput('bg',this.value)" placeholder="#1A1812">
+                        </div>
+                        <div class="preset-colors" id="bgPresets"></div>
+                    </div>
+                </div>
+                <button class="btn-main" onclick="runCheck()">
+                    <div class="btn-main-inner">
+                        <span style="font-size:1.1rem">✦</span>
+                        <span style="font-weight:800;font-size:0.95rem">Check Contrast</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- ─── IMAGE MODE ─── -->
+            <div class="mode-panel" id="panel-image">
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept="image/*">
+                    <span class="drop-icon">🖼</span>
+                    <p class="drop-title">Drop a design screenshot or mockup</p>
+                    <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+                </div>
+
+                <div class="eyedrop-panel" id="eyedropPanel">
+                    <div class="canvas-wrap" id="canvasWrap">
+                        <canvas id="previewCanvas"></canvas>
+                        <canvas id="pickCanvas" style="position:absolute;inset:0;width:100%;height:100%;opacity:0"></canvas>
+                    </div>
+                    <p class="canvas-hint">👆 Click image above to sample a colour — click foreground target, then click image, then background target</p>
+                    <div class="eyedrop-row">
+                        <div class="eyedrop-target" id="fgTarget" onclick="setPicking('fg')">
+                            <div class="eyedrop-swatch" id="fgEyeSwatch" style="background:#FFFFFF"></div>
+                            <div>
+                                <div class="eyedrop-label">Foreground / Text</div>
+                                <div class="eyedrop-hex" id="fgEyeHex">#FFFFFF</div>
+                                <div class="eyedrop-action">Click to pick from image</div>
+                            </div>
+                        </div>
+                        <div class="eyedrop-target" id="bgTarget" onclick="setPicking('bg')">
+                            <div class="eyedrop-swatch" id="bgEyeSwatch" style="background:#1A1812"></div>
+                            <div>
+                                <div class="eyedrop-label">Background</div>
+                                <div class="eyedrop-hex" id="bgEyeHex">#1A1812</div>
+                                <div class="eyedrop-action">Click to pick from image</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-bottom:20px;">
+                        <button class="btn-main" onclick="runCheckFromEye()" style="margin-bottom:0">
+                            <div class="btn-main-inner">
+                                <span style="font-size:1.1rem">✦</span>
+                                <span style="font-weight:800;font-size:0.95rem">Check Contrast</span>
+                            </div>
+                        </button>
+                        <button class="change-img-btn" onclick="resetImage()">↩ Change Image</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── BULK MODE ─── -->
+            <div class="mode-panel" id="panel-bulk">
+                <div class="bulk-card">
+                    <div class="section-label">Bulk Colour Pairs — one per line, format: <span style="color:var(--accent);font-family:'Fira Code',monospace;font-size:0.75rem">#FG, #BG</span></div>
+                    <textarea class="bulk-textarea" id="bulkInput" placeholder="#FFFFFF, #000000&#10;#FFD600, #0C0B07&#10;#FF4444, #FFFFFF&#10;#333333, #F5F5F5"></textarea>
+                    <p class="bulk-hint">Paste your design's colour pairs. Each line = one check. Hex codes only.</p>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <button class="btn-main" onclick="runBulk()" style="margin-bottom:0">
+                            <div class="btn-main-inner">
+                                <span style="font-size:1.1rem">✦</span>
+                                <span style="font-weight:800;font-size:0.95rem">Check All Pairs</span>
+                            </div>
+                        </button>
+                        <button class="btn-secondary" onclick="exportBulkCSV()" id="bulkExportBtn" style="display:none">⬇ Export CSV</button>
+                    </div>
+                    <div class="bulk-results" id="bulkResults"></div>
+                </div>
+            </div>
+
+            <!-- ─── RESULTS (shared) ─── -->
+            <div class="results-card" id="resultsCard">
+                <div class="ratio-display">
+                    <div class="ratio-number" id="ratioNumber" style="color:var(--primary)">—</div>
+                    <div class="ratio-label">Contrast Ratio</div>
+                </div>
+
+                <!-- Live preview -->
+                <div class="preview-bar" id="previewBar">
+                    <div class="preview-half" id="previewNormal">
+                        <div class="preview-label">Normal Text (16px)</div>
+                        <div class="preview-normal">The quick brown fox jumps</div>
+                        <div class="preview-bold">over the lazy dog</div>
+                    </div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-half" id="previewLarge">
+                        <div class="preview-label">Large Text (24px+)</div>
+                        <div class="preview-large">Aa Bb Cc Dd Ee</div>
+                    </div>
+                </div>
+
+                <!-- WCAG grades -->
+                <div class="wcag-grid" id="wcagGrid"></div>
+
+                <!-- Color details -->
+                <div class="color-info-row" id="colorInfoRow"></div>
+            </div>
+
+            <!-- Suggestions (when failing) -->
+            <div class="suggestions-card" id="suggestionsCard">
+                <div class="section-label">💡 Suggested Fixes — click to apply</div>
+                <div class="suggest-row" id="suggestRow"></div>
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">About WCAG Contrast</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What is WCAG?</h3>
+                        <p>Web Content Accessibility Guidelines — the international standard for accessible web design. Level <code>AA</code> is required by law in many countries for public-facing sites.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>The ratios explained</h3>
+                        <p>Normal text needs <code>4.5:1</code> for AA and <code>7:1</code> for AAA. Large text (18pt+ or 14pt bold) only needs <code>3:1</code> for AA and <code>4.5:1</code> for AAA.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What counts as large text?</h3>
+                        <p>18px regular weight (<code>1.125rem</code>) or 14px bold. Decorative text, logos and inactive UI components are exempt from contrast rules.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>All calculations use the <code>Canvas API</code> and run entirely in your browser. Images never touch a server. Works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ──────────────────────────────────────────────────────────────────
+    let fgColor = '#FFFFFF', bgColor = '#1A1812';
+    let fgEyeColor = '#FFFFFF', bgEyeColor = '#1A1812';
+    let currentMode = 'manual';
+    let pickingTarget = null; // 'fg' | 'bg'
+    let previewImg = null, previewCtx = null, pickCtx = null;
+    let bulkData = [];
+
+    // ─── PRESETS ────────────────────────────────────────────────────────────────
+    const fgSwatches = ['#FFFFFF','#F0EDD6','#000000','#1A1A1A','#FF4444','#FFD600','#AAFF00','#60A5FA','#F472B6'];
+    const bgSwatches = ['#000000','#0C0B07','#1A1812','#FFFFFF','#F5F5F0','#1E293B','#1C1917','#0F172A','#FEF9EE'];
+
+    function buildPresets() {
+        function makeChips(containerId, colors, role) {
+            const c = document.getElementById(containerId);
+            colors.forEach(hex => {
+                const el = document.createElement('div');
+                el.className = 'clr-chip';
+                el.style.background = hex;
+                el.title = hex;
+                el.onclick = () => setColor(role, hex);
+                c.appendChild(el);
+            });
+        }
+        makeChips('fgPresets', fgSwatches, 'fg');
+        makeChips('bgPresets', bgSwatches, 'bg');
+    }
+
+    // ─── COLOR MANAGEMENT ───────────────────────────────────────────────────────
+    function setColor(role, hex) {
+        hex = normalizeHex(hex);
+        if (!hex) return;
+        if (role === 'fg') {
+            fgColor = hex;
+            document.getElementById('fgSwatch').style.background = hex;
+            document.getElementById('fgHex').value = hex;
+            document.getElementById('fgPicker').value = hex;
+        } else {
+            bgColor = hex;
+            document.getElementById('bgSwatch').style.background = hex;
+            document.getElementById('bgHex').value = hex;
+            document.getElementById('bgPicker').value = hex;
+        }
+        autoCheck();
+    }
+
+    function onPickerChange(role, val) { setColor(role, val); }
+    function onHexInput(role, val) {
+        const h = normalizeHex(val);
+        if (h) setColor(role, h);
+    }
+
+    function swapColors() {
+        const tmp = fgColor; setColor('fg', bgColor); setColor('bg', tmp);
+    }
+
+    function normalizeHex(h) {
+        h = h.trim();
+        if (!h.startsWith('#')) h = '#' + h;
+        if (/^#[0-9a-fA-F]{3}$/.test(h)) {
+            h = '#' + h[1]+h[1]+h[2]+h[2]+h[3]+h[3];
+        }
+        if (/^#[0-9a-fA-F]{6}$/.test(h)) return h.toUpperCase();
+        return null;
+    }
+
+    function autoCheck() {
+        if (currentMode === 'manual' && document.getElementById('resultsCard').classList.contains('visible')) runCheck();
+    }
+
+    // ─── WCAG MATH ──────────────────────────────────────────────────────────────
+    function hexToRgb(hex) {
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        return [r, g, b];
+    }
+
+    function relativeLuminance([r,g,b]) {
+        const c = [r,g,b].map(v => {
+            v /= 255;
+            return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    }
+
+    function contrastRatio(hex1, hex2) {
+        const l1 = relativeLuminance(hexToRgb(hex1));
+        const l2 = relativeLuminance(hexToRgb(hex2));
+        const bright = Math.max(l1, l2), dark = Math.min(l1, l2);
+        return (bright + 0.05) / (dark + 0.05);
+    }
+
+    function getGrades(ratio) {
+        return {
+            normalAA:  ratio >= 4.5,
+            normalAAA: ratio >= 7.0,
+            largeAA:   ratio >= 3.0,
+            largeAAA:  ratio >= 4.5,
+            uiAA:      ratio >= 3.0,
+        };
+    }
+
+    // ─── RUN CHECK ──────────────────────────────────────────────────────────────
+    function runCheck() { doCheck(fgColor, bgColor); }
+    function runCheckFromEye() { doCheck(fgEyeColor, bgEyeColor); }
+
+    function doCheck(fg, bg) {
+        const ratio = contrastRatio(fg, bg);
+        showResults(fg, bg, ratio);
+        if (ratio < 4.5) showSuggestions(fg, bg);
+        else document.getElementById('suggestionsCard').classList.remove('visible');
+    }
+
+    function showResults(fg, bg, ratio) {
+        const card = document.getElementById('resultsCard');
+        card.classList.add('visible');
+
+        // Ratio colour coding
+        const rNum = document.getElementById('ratioNumber');
+        rNum.textContent = ratio.toFixed(2) + ':1';
+        rNum.style.color = ratio >= 7 ? 'var(--success)' : ratio >= 4.5 ? 'var(--primary)' : ratio >= 3 ? 'var(--warn)' : 'var(--error)';
+
+        // Live preview
+        const pn = document.getElementById('previewNormal');
+        const pl = document.getElementById('previewLarge');
+        [pn, pl].forEach(el => { el.style.background = bg; el.style.color = fg; });
+
+        // WCAG grid
+        const g = getGrades(ratio);
+        document.getElementById('wcagGrid').innerHTML = `
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">Normal Text — AA</div>
+                <div class="wcag-badge ${g.normalAA ? 'badge-pass' : 'badge-fail'}">${g.normalAA ? '✓ Pass' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">Needs 4.5:1</div>
+            </div>
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">Normal Text — AAA</div>
+                <div class="wcag-badge ${g.normalAAA ? 'badge-pass' : 'badge-fail'}">${g.normalAAA ? '✓ Pass' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">Needs 7:1</div>
+            </div>
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">Large Text — AA</div>
+                <div class="wcag-badge ${g.largeAA ? 'badge-pass' : 'badge-fail'}">${g.largeAA ? '✓ Pass' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">Needs 3:1</div>
+            </div>
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">Large Text — AAA</div>
+                <div class="wcag-badge ${g.largeAAA ? 'badge-pass' : 'badge-fail'}">${g.largeAAA ? '✓ Pass' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">Needs 4.5:1</div>
+            </div>
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">UI Components</div>
+                <div class="wcag-badge ${g.uiAA ? 'badge-pass' : 'badge-fail'}">${g.uiAA ? '✓ Pass' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">Needs 3:1</div>
+            </div>
+            <div class="wcag-cell">
+                <div class="wcag-cell-label">Overall Score</div>
+                <div class="wcag-badge ${ratio >= 7 ? 'badge-pass' : ratio >= 4.5 ? 'badge-warn' : 'badge-fail'}">${ratio >= 7 ? '★ AAA' : ratio >= 4.5 ? '● AA' : '✗ Fail'}</div>
+                <div class="wcag-ratio-req">${ratio.toFixed(2)}:1</div>
+            </div>
+        `;
+
+        // Color info
+        const fgL = relativeLuminance(hexToRgb(fg));
+        const bgL = relativeLuminance(hexToRgb(bg));
+        document.getElementById('colorInfoRow').innerHTML = `
+            <div class="color-info-cell">
+                <div class="ci-label">Foreground</div>
+                <div class="ci-swatch" style="background:${fg}"></div>
+                <div class="ci-hex">${fg}</div>
+                <div class="ci-lum">Luminance: ${fgL.toFixed(4)}</div>
+            </div>
+            <div class="color-info-cell">
+                <div class="ci-label">Background</div>
+                <div class="ci-swatch" style="background:${bg}"></div>
+                <div class="ci-hex">${bg}</div>
+                <div class="ci-lum">Luminance: ${bgL.toFixed(4)}</div>
+            </div>
+            <div class="color-info-cell">
+                <div class="ci-label">Ratio</div>
+                <div class="ci-swatch" style="background:linear-gradient(to right,${fg},${bg})"></div>
+                <div class="ci-hex">${ratio.toFixed(2)}:1</div>
+                <div class="ci-lum">${ratio >= 4.5 ? 'Meets AA' : 'Below AA minimum'}</div>
+            </div>
+        `;
+
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
+    function showSuggestions(fg, bg) {
+        const fgRgb = hexToRgb(fg);
+        const suggestions = [];
+
+        // Try lightening/darkening fg to hit 4.5:1
+        for (let step = 5; step <= 255; step += 5) {
+            // Darken fg
+            const dark = rgbToHex(fgRgb.map(v => Math.max(0, v - step)));
+            if (contrastRatio(dark, bg) >= 4.5) { suggestions.push({ hex: dark, ratio: contrastRatio(dark, bg) }); break; }
+        }
+        for (let step = 5; step <= 255; step += 5) {
+            // Lighten fg
+            const light = rgbToHex(fgRgb.map(v => Math.min(255, v + step)));
+            if (contrastRatio(light, bg) >= 4.5) { suggestions.push({ hex: light, ratio: contrastRatio(light, bg) }); break; }
+        }
+        // Black and white always work
+        if (contrastRatio('#000000', bg) >= 4.5) suggestions.push({ hex: '#000000', ratio: contrastRatio('#000000', bg) });
+        if (contrastRatio('#FFFFFF', bg) >= 4.5) suggestions.push({ hex: '#FFFFFF', ratio: contrastRatio('#FFFFFF', bg) });
+
+        // Dedupe
+        const seen = new Set();
+        const uniq = suggestions.filter(s => { if (seen.has(s.hex)) return false; seen.add(s.hex); return true; });
+
+        if (!uniq.length) { document.getElementById('suggestionsCard').classList.remove('visible'); return; }
+
+        document.getElementById('suggestionsCard').classList.add('visible');
+        document.getElementById('suggestRow').innerHTML = uniq.slice(0, 6).map(s => `
+            <div class="suggest-chip" onclick="setColor('fg','${s.hex}');runCheck()" title="Apply ${s.hex}">
+                <div class="suggest-swatch" style="background:${s.hex}"></div>
+                <span>${s.hex}</span>
+                <span class="suggest-ratio">${s.ratio.toFixed(1)}:1</span>
+            </div>
+        `).join('');
+    }
+
+    function rgbToHex(rgb) {
+        return '#' + rgb.map(v => Math.round(v).toString(16).padStart(2,'0')).join('').toUpperCase();
+    }
+
+    // ─── IMAGE MODE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadImg(f); else showToast('Drop an image', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadImg(fi.files[0]); });
+
+    function loadImg(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                previewImg = img;
+                const wrap = document.getElementById('canvasWrap');
+                const pc = document.getElementById('previewCanvas');
+                const pkc = document.getElementById('pickCanvas');
+
+                const dispW = wrap.clientWidth || 760;
+                const aspect = img.height / img.width;
+                const dispH = Math.min(320, Math.round(dispW * aspect));
+                pc.width = dispW; pc.height = dispH;
+                pkc.width = dispW; pkc.height = dispH;
+
+                previewCtx = pc.getContext('2d');
+                pickCtx = pkc.getContext('2d');
+                previewCtx.drawImage(img, 0, 0, dispW, dispH);
+                pickCtx.drawImage(img, 0, 0, dispW, dispH);
+
+                dz.style.display = 'none';
+                document.getElementById('eyedropPanel').classList.add('visible');
+                pickingTarget = 'fg';
+                document.getElementById('fgTarget').classList.add('picking');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetImage() {
+        dz.style.display = '';
+        document.getElementById('eyedropPanel').classList.remove('visible');
+        previewImg = null; pickingTarget = null;
+        document.getElementById('resultsCard').classList.remove('visible');
+        document.getElementById('suggestionsCard').classList.remove('visible');
+        fi.value = '';
+    }
+
+    function setPicking(role) {
+        pickingTarget = role;
+        document.getElementById('fgTarget').classList.toggle('picking', role === 'fg');
+        document.getElementById('bgTarget').classList.toggle('picking', role === 'bg');
+    }
+
+    document.getElementById('canvasWrap').addEventListener('click', e => {
+        if (!pickingTarget || !pickCtx) return;
+        const canvas = document.getElementById('pickCanvas');
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = Math.round((e.clientX - rect.left) * scaleX);
+        const y = Math.round((e.clientY - rect.top) * scaleY);
+        const px = pickCtx.getImageData(x, y, 1, 1).data;
+        const hex = rgbToHex([px[0], px[1], px[2]]);
+        if (pickingTarget === 'fg') {
+            fgEyeColor = hex;
+            document.getElementById('fgEyeSwatch').style.background = hex;
+            document.getElementById('fgEyeHex').textContent = hex;
+            document.getElementById('fgTarget').classList.remove('picking');
+            setPicking('bg');
+        } else {
+            bgEyeColor = hex;
+            document.getElementById('bgEyeSwatch').style.background = hex;
+            document.getElementById('bgEyeHex').textContent = hex;
+            document.getElementById('bgTarget').classList.remove('picking');
+            pickingTarget = null;
+            showToast('Both colours picked — check contrast!', 'success');
+        }
+    });
+
+    // ─── BULK MODE ───────────────────────────────────────────────────────────────
+    function runBulk() {
+        const lines = document.getElementById('bulkInput').value.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!lines.length) { showToast('Enter some colour pairs first', 'error'); return; }
+        bulkData = [];
+        const container = document.getElementById('bulkResults');
+        container.innerHTML = '';
+
+        lines.forEach(line => {
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length < 2) return;
+            const fg = normalizeHex(parts[0]), bg = normalizeHex(parts[1]);
+            if (!fg || !bg) return;
+            const ratio = contrastRatio(fg, bg);
+            const g = getGrades(ratio);
+            bulkData.push({ fg, bg, ratio, ...g });
+
+            const row = document.createElement('div');
+            row.className = 'bulk-row';
+            row.innerHTML = `
+                <div class="bulk-swatches">
+                    <div class="bulk-sw" style="background:${fg}" title="${fg}"></div>
+                    <div class="bulk-sw" style="background:${bg}" title="${bg}"></div>
+                </div>
+                <div class="bulk-hexes">${fg} / ${bg}</div>
+                <div class="bulk-ratio-val">${ratio.toFixed(2)}:1</div>
+                <div class="bulk-badges">
+                    <span class="mini-badge ${g.normalAA ? 'mini-pass' : 'mini-fail'}">AA ${g.normalAA ? '✓' : '✗'}</span>
+                    <span class="mini-badge ${g.normalAAA ? 'mini-pass' : 'mini-fail'}">AAA ${g.normalAAA ? '✓' : '✗'}</span>
+                    <span class="mini-badge ${g.largeAA ? 'mini-pass' : 'mini-fail'}">Lg AA ${g.largeAA ? '✓' : '✗'}</span>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+
+        document.getElementById('bulkExportBtn').style.display = bulkData.length ? '' : 'none';
+        showToast(`Checked ${bulkData.length} pairs`, 'success');
+    }
+
+    function exportBulkCSV() {
+        const header = 'Foreground,Background,Ratio,Normal AA,Normal AAA,Large AA,Large AAA';
+        const rows = bulkData.map(d => `${d.fg},${d.bg},${d.ratio.toFixed(2)},${d.normalAA?'PASS':'FAIL'},${d.normalAAA?'PASS':'FAIL'},${d.largeAA?'PASS':'FAIL'},${d.largeAAA?'PASS':'FAIL'}`);
+        const csv = [header, ...rows].join('\n');
+        const a = document.createElement('a');
+        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+        a.download = 'contrast-check.csv';
+        a.click();
+        showToast('CSV downloaded!', 'success');
+    }
+
+    // ─── MODE SWITCH ─────────────────────────────────────────────────────────────
+    function switchMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(`panel-${mode}`).classList.add('active');
+        document.querySelectorAll('.mode-tab')[['manual','image','bulk'].indexOf(mode)].classList.add('active');
+        document.getElementById('resultsCard').classList.remove('visible');
+        document.getElementById('suggestionsCard').classList.remove('visible');
+    }
+
+    // ─── UTILS ───────────────────────────────────────────────────────────────────
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+
+    // ─── INIT ────────────────────────────────────────────────────────────────────
+    buildPresets();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EM to PX Calculator | Nested EM & REM Converter | Rebrixe</title>
+    <meta name="description" content="Convert EM to PX and PX to EM instantly. Handle nested EM compounding, REM conversion, and live font size preview. Free dev utility for CSS sizing.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool-specific only ── */
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #28b8f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        .mode-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin: 22px 0 28px;
+        }
+        .mode-btn {
+            padding: 9px 22px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .mode-btn.active { background: #a78bfa; color: #000; }
+
+        .card {
+            background: rgba(15,23,42,0.6);
+            padding: 26px;
+            border-radius: 22px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 7px;
+        }
+
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 12px 14px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        input:focus, select:focus { border-color: #a78bfa; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+
+        /* Result badge */
+        .result-box {
+            background: rgba(167,139,250,0.08);
+            border: 1px solid rgba(167,139,250,0.25);
+            border-radius: 14px;
+            padding: 20px 22px;
+            margin-bottom: 16px;
+        }
+        .result-value {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #a78bfa;
+            line-height: 1;
+        }
+        .result-label {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-top: 5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .result-secondary {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            margin-top: 10px;
+        }
+
+        /* Live preview */
+        .preview-box {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        #previewText {
+            color: #e2e8f0;
+            font-family: sans-serif;
+            transition: font-size 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* Copy btn */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #a78bfa; color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover { opacity: 0.85; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* Nested EM */
+        .nest-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 36px;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 10px;
+        }
+        .nest-row label { margin-bottom: 5px; }
+        .nest-row input { margin-bottom: 0; }
+        .remove-btn {
+            width: 36px; height: 36px;
+            background: rgba(231,76,60,0.1);
+            border: 1px solid rgba(231,76,60,0.2);
+            color: #e74c3c;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            margin-bottom: 0;
+            font-family: monospace;
+        }
+        .remove-btn:hover { background: rgba(231,76,60,0.2); }
+        .nest-result {
+            background: rgba(56,189,248,0.07);
+            border: 1px solid rgba(56,189,248,0.2);
+            border-radius: 11px;
+            padding: 14px 16px;
+            margin-top: 6px;
+        }
+        .nest-result-val {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.5rem;
+            color: #38bdf8;
+            font-weight: 700;
+        }
+        .nest-result-detail {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-top: 4px;
+            line-height: 1.6;
+        }
+
+        /* Reference table */
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            font-family: 'Fira Code', monospace;
+        }
+        .ref-table th {
+            color: #a78bfa;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .ref-table td {
+            padding: 7px 10px;
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .ref-table tr:hover td { background: rgba(167,139,250,0.07); color: #fff; }
+        .ref-table td:first-child { color: #38bdf8; }
+        .ref-table td:last-child { color: #2ecc71; font-size: 0.72rem; }
+
+        /* hint */
+        .hint {
+            font-size: 0.72rem;
+            color: #475569;
+            line-height: 1.6;
+            padding: 10px 14px;
+            border-left: 3px solid #a78bfa;
+            background: rgba(255,255,255,0.02);
+            border-radius: 0 8px 8px 0;
+            margin-top: 14px;
+        }
+
+        #nestedMode { display: none; }
+        #refMode { display: none; }
+
+        @media (max-width: 700px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+            .result-value { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="frontend-math.html" class="back-btn">← Back to Tools</a>
+
+    <h1 class="tool-title">EM ↔ PX Calculator</h1>
+    <p style="opacity:0.55; font-weight:500; text-align:center; margin-bottom:4px;">Instant conversion · Nested EM compounding · Live preview · Reference table</p>
+
+    <div class="mode-toggle">
+        <button class="mode-btn active" onclick="switchMode('convert')">⚡ Convert</button>
+        <button class="mode-btn" onclick="switchMode('nested')">🪆 Nested EM</button>
+        <button class="mode-btn" onclick="switchMode('ref')">📐 Reference</button>
+    </div>
+
+    <!-- ══════════════ CONVERT MODE ══════════════ -->
+    <div id="convertMode">
+        <div class="grid-2">
+
+            <!-- Left: Inputs -->
+            <div class="card">
+                <label>Root / Base Font Size (px)</label>
+                <input type="number" id="basePx" value="16" min="1" max="100" step="1" oninput="calc()">
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label>EM Value</label>
+                        <input type="number" id="emVal" placeholder="1.5" step="0.001" oninput="fromEM()">
+                    </div>
+                    <div>
+                        <label>PX Value</label>
+                        <input type="number" id="pxVal" placeholder="24" step="0.1" oninput="fromPX()">
+                    </div>
+                </div>
+
+                <label>Parent Element Font Size (px) <span style="color:#475569;font-size:0.65rem;text-transform:none;letter-spacing:0;">— if different from root</span></label>
+                <input type="number" id="parentPx" placeholder="Leave blank if same as root" step="1" oninput="calc()">
+
+                <label>Live Preview Text</label>
+                <input type="text" id="previewInput" value="The quick brown fox" oninput="updatePreview()">
+            </div>
+
+            <!-- Right: Results -->
+            <div class="card">
+                <label>Result</label>
+                <div class="result-box">
+                    <div class="result-value" id="mainResult">—</div>
+                    <div class="result-label" id="mainLabel">Enter a value to convert</div>
+                    <div class="result-secondary" id="secondaryResult"></div>
+                </div>
+
+                <label>Live Preview</label>
+                <div class="preview-box">
+                    <span id="previewText">The quick brown fox</span>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyResult()">COPY VALUE</button>
+                    <button class="btn btn-ghost" onclick="copyCSS()">COPY CSS</button>
+                    <button class="btn btn-ghost" onclick="swapValues()">⇄ SWAP</button>
+                </div>
+
+                <div class="hint">
+                    💡 <strong>EM</strong> is relative to the <em>parent</em> element's font-size. <strong>REM</strong> is relative to the root <code>&lt;html&gt;</code> element (always your base px above).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ NESTED EM MODE ══════════════ -->
+    <div id="nestedMode">
+        <div class="grid-2">
+            <div class="card">
+                <label>Root Font Size (px)</label>
+                <input type="number" id="nestBase" value="16" min="1" oninput="calcNested()">
+
+                <label style="margin-bottom:12px;">Nesting Levels <span style="color:#475569; text-transform:none; font-size:0.65rem; letter-spacing:0;">— each row is a child of the one above</span></label>
+                <div id="nestRows"></div>
+
+                <button class="btn btn-ghost" style="width:100%; margin-top:4px;" onclick="addNestRow()">+ Add Child Element</button>
+            </div>
+
+            <div class="card">
+                <label>Computed PX at Each Level</label>
+                <div id="nestResult"><p style="color:#475569; font-size:0.82rem;">Add nesting levels to calculate compounding.</p></div>
+
+                <div class="nest-result" id="nestFinal" style="display:none;">
+                    <div style="font-size:0.65rem; color:#a78bfa; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Final Computed Size</div>
+                    <div class="nest-result-val" id="nestFinalVal"></div>
+                    <div class="nest-result-detail" id="nestFinalDetail"></div>
+                </div>
+
+                <div class="hint" style="margin-top:14px;">
+                    💡 <strong>The nesting trap:</strong> <code>font-size: 0.8em</code> on a child of a child compounds — <code>0.8 × 0.8 = 0.64em</code> of root. This calculator shows you the real pixel output at each level.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ REFERENCE MODE ══════════════ -->
+    <div id="refMode">
+        <div class="grid-2">
+            <div class="card">
+                <label>Base Font Size for Table (px)</label>
+                <input type="number" id="refBase" value="16" min="1" oninput="buildRefTable()">
+                <p style="font-size:0.72rem; color:#475569; margin:-8px 0 16px;">Click any row to load values into the converter.</p>
+
+                <div style="overflow-x:auto;">
+                    <table class="ref-table">
+                        <thead>
+                            <tr><th>PX</th><th>EM / REM</th><th>Common Use</th></tr>
+                        </thead>
+                        <tbody id="refTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <label>Common Base Sizes Quick-Switch</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px;">
+                    <button class="btn btn-ghost" onclick="setRefBase(14)">14px (small UI)</button>
+                    <button class="btn btn-ghost" onclick="setRefBase(15)">15px</button>
+                    <button class="btn btn-ghost" onclick="setRefBase(16)">16px (browser default)</button>
+                    <button class="btn btn-ghost" onclick="setRefBase(18)">18px (body text)</button>
+                    <button class="btn btn-ghost" onclick="setRefBase(20)">20px (large UI)</button>
+                    <button class="btn btn-ghost" onclick="setRefBase(10)">10px (62.5% trick)</button>
+                </div>
+
+                <div class="hint">
+                    💡 <strong>62.5% trick:</strong> Set <code>html { font-size: 62.5%; }</code> (= 10px on default browser). Then <code>1rem = 10px</code>, so <code>1.6rem = 16px</code>. Math becomes trivial.
+                    <br><br>
+                    💡 <strong>Tailwind scale</strong> uses a 4px base grid. <code>text-base</code> = 16px = 1rem. <code>text-sm</code> = 14px = 0.875rem.
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ── State ── */
+let lastEdited = 'em'; // 'em' or 'px'
+
+/* ── Core math ── */
+function emToPx(em, base) { return em * base; }
+function pxToEm(px, base) { return px / base; }
+function getBase() {
+    const b = parseFloat(document.getElementById('basePx').value) || 16;
+    const p = parseFloat(document.getElementById('parentPx').value);
+    return isNaN(p) ? b : p;
+}
+function getRootBase() { return parseFloat(document.getElementById('basePx').value) || 16; }
+
+/* ── Convert mode ── */
+function fromEM() {
+    lastEdited = 'em';
+    const em = parseFloat(document.getElementById('emVal').value);
+    if (isNaN(em)) { clearResults(); return; }
+    const base = getBase();
+    const root = getRootBase();
+    const px   = emToPx(em, base);
+    document.getElementById('pxVal').value = round(px);
+    showResult(em, px, base, root, 'em');
+}
+
+function fromPX() {
+    lastEdited = 'px';
+    const px = parseFloat(document.getElementById('pxVal').value);
+    if (isNaN(px)) { clearResults(); return; }
+    const base = getBase();
+    const root = getRootBase();
+    const em   = pxToEm(px, base);
+    document.getElementById('emVal').value = round4(em);
+    showResult(em, px, base, root, 'px');
+}
+
+function calc() {
+    if (lastEdited === 'em') fromEM(); else fromPX();
+}
+
+function showResult(em, px, base, root, source) {
+    const remVal = round4(px / root);
+    document.getElementById('mainResult').innerText = source === 'em'
+        ? `${round(px)}px`
+        : `${round4(em)}em`;
+    document.getElementById('mainLabel').innerText = source === 'em'
+        ? `${round4(em)}em × ${base}px base = ${round(px)}px`
+        : `${round(px)}px ÷ ${base}px base = ${round4(em)}em`;
+    document.getElementById('secondaryResult').innerText = `also: ${remVal}rem (root ${root}px)`;
+    updatePreview(px);
+}
+
+function clearResults() {
+    document.getElementById('mainResult').innerText = '—';
+    document.getElementById('mainLabel').innerText = 'Enter a value to convert';
+    document.getElementById('secondaryResult').innerText = '';
+}
+
+function updatePreview(forcePx) {
+    const txt = document.getElementById('previewInput').value || 'Abc';
+    const px  = forcePx || parseFloat(document.getElementById('pxVal').value);
+    const el  = document.getElementById('previewText');
+    el.innerText = txt;
+    if (!isNaN(px) && px > 0 && px < 300) el.style.fontSize = px + 'px';
+}
+
+function copyResult() {
+    const val = document.getElementById('mainResult').innerText;
+    if (val === '—') return;
+    navigator.clipboard.writeText(val);
+    flash('copyBtn', 'COPY VALUE', '✓ COPIED');
+}
+
+function copyCSS() {
+    const em  = document.getElementById('emVal').value;
+    const px  = document.getElementById('pxVal').value;
+    if (!em && !px) return;
+    const txt = em ? `font-size: ${round4(parseFloat(em))}em; /* ${round(parseFloat(px) || emToPx(parseFloat(em), getBase()))}px */` : `font-size: ${round(parseFloat(px))}px;`;
+    navigator.clipboard.writeText(txt);
+    flash('copyBtn', 'COPY VALUE', '✓ CSS COPIED');
+}
+
+function swapValues() {
+    const em = document.getElementById('emVal').value;
+    const px = document.getElementById('pxVal').value;
+    document.getElementById('emVal').value = px ? round4(parseFloat(px) / getBase()) : '';
+    document.getElementById('pxVal').value = em ? round(parseFloat(em) * getBase()) : '';
+    lastEdited = lastEdited === 'em' ? 'px' : 'em';
+    calc();
+}
+
+/* ── Nested EM ── */
+let nestRows = [{ em: 1 }];
+
+function addNestRow() {
+    nestRows.push({ em: 1 });
+    renderNestRows();
+    calcNested();
+}
+
+function removeNestRow(i) {
+    if (nestRows.length <= 1) return;
+    nestRows.splice(i, 1);
+    renderNestRows();
+    calcNested();
+}
+
+function renderNestRows() {
+    const container = document.getElementById('nestRows');
+    container.innerHTML = nestRows.map((r, i) => `
+        <div class="nest-row">
+            <div>
+                <label>Level ${i + 1} ${i === 0 ? '(root child)' : `(child of L${i})`}</label>
+                <input type="number" value="${r.em}" step="0.01" min="0.01"
+                    oninput="nestRows[${i}].em = parseFloat(this.value)||1; calcNested()">
+            </div>
+            <div>
+                <label>em value</label>
+                <input type="number" value="${r.em}" step="0.01" min="0.01" readonly
+                    style="color:#64748b;" tabindex="-1">
+            </div>
+            <button class="remove-btn" onclick="removeNestRow(${i})">×</button>
+        </div>
+    `).join('');
+    // re-sync inputs
+    container.querySelectorAll('.nest-row').forEach((row, i) => {
+        const inputs = row.querySelectorAll('input');
+        inputs[0].oninput = () => { nestRows[i].em = parseFloat(inputs[0].value) || 1; calcNested(); };
+    });
+}
+
+function calcNested() {
+    const base = parseFloat(document.getElementById('nestBase').value) || 16;
+    let currentPx = base;
+    const resultEl = document.getElementById('nestResult');
+    const finalEl  = document.getElementById('nestFinal');
+
+    let html = '';
+    let chainStr = `${base}px`;
+
+    nestRows.forEach((r, i) => {
+        const em = r.em || 1;
+        currentPx = currentPx * em;
+        chainStr += ` × ${em}em`;
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span style="font-size:0.8rem; color:#64748b;">Level ${i+1} &nbsp;<code style="color:#a78bfa; background:rgba(167,139,250,0.1); padding:1px 5px; border-radius:4px;">${em}em</code></span>
+            <span style="font-family:'Fira Code',monospace; color:#38bdf8; font-weight:700;">${round(currentPx)}px</span>
+        </div>`;
+    });
+
+    resultEl.innerHTML = html || '<p style="color:#475569; font-size:0.82rem;">Add nesting levels.</p>';
+
+    if (nestRows.length > 0) {
+        finalEl.style.display = 'block';
+        document.getElementById('nestFinalVal').innerText = `${round(currentPx)}px`;
+        document.getElementById('nestFinalDetail').innerHTML = `${chainStr} = <strong>${round(currentPx)}px</strong> &nbsp;·&nbsp; ${round4(currentPx/base)}em relative to root &nbsp;·&nbsp; ${round4(currentPx/base)}rem`;
+    }
+}
+
+/* ── Reference table ── */
+const REF_PX = [8,10,11,12,13,14,15,16,18,20,21,24,28,32,36,40,48,56,64,72,80,96];
+const REF_USE = {
+    8:'Tiny caption',10:'Small label',11:'',12:'Small body',13:'',14:'Small UI text',
+    15:'',16:'Body default',18:'Large body',20:'Large UI',21:'',24:'H4 / lead',
+    28:'H3',32:'H2',36:'H1',40:'Display sm',48:'Display md',56:'',64:'Display lg',
+    72:'Hero',80:'',96:'Super hero'
+};
+
+function buildRefTable() {
+    const base = parseFloat(document.getElementById('refBase').value) || 16;
+    const tbody = document.getElementById('refTableBody');
+    tbody.innerHTML = REF_PX.map(px => {
+        const em = round4(px / base);
+        return `<tr onclick="loadFromRef(${px}, ${em})">
+            <td>${px}px</td>
+            <td>${em}em / ${em}rem</td>
+            <td>${REF_USE[px] || ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+function setRefBase(n) {
+    document.getElementById('refBase').value = n;
+    buildRefTable();
+}
+
+function loadFromRef(px, em) {
+    switchMode('convert');
+    document.getElementById('pxVal').value = px;
+    document.getElementById('emVal').value = em;
+    lastEdited = 'px';
+    fromPX();
+}
+
+/* ── Helpers ── */
+function round(n)  { return Math.round(n * 100) / 100; }
+function round4(n) { return Math.round(n * 10000) / 10000; }
+
+function flash(id, orig, msg) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.innerText = msg;
+    btn.classList.add('success');
+    setTimeout(() => { btn.innerText = orig; btn.classList.remove('success'); }, 1600);
+}
+
+/* ── Mode switch ── */
+function switchMode(mode) {
+    ['convertMode','nestedMode','refMode'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById(mode + 'Mode').style.display = 'block';
+    document.querySelectorAll('.mode-btn').forEach((b, i) => {
+        b.classList.toggle('active', ['convert','nested','ref'][i] === mode);
+    });
+    if (mode === 'ref') buildRefTable();
+}
+
+/* ── Init ── */
+renderNestRows();
+calcNested();
+</script>
+</body>
+</html>

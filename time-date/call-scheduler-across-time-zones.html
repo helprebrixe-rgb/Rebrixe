@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Scheduler Across Time Zones | Rebrixe</title>
+    <meta name="description" content="Find the best time to call someone in a different time zone. See overlapping work hours, avoid dead hours, and schedule calls instantly.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 880px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Zone Picker ── */
+        .zones-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .zone-box { display: flex; flex-direction: column; gap: 8px; }
+        .zone-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter';
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+        }
+        select:focus { border-color: var(--primary); }
+
+        .vs-sep {
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--border);
+            text-align: center;
+            padding-bottom: 14px;
+            letter-spacing: 1px;
+        }
+
+        /* ── Work Hours Config ── */
+        .hours-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .hours-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .hours-item-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+        }
+        .hours-inputs { display: flex; align-items: center; gap: 8px; }
+        .hours-inputs input[type="time"] {
+            flex: 1;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 9px 12px;
+            font-family: 'Inter';
+            font-size: 0.85rem;
+            outline: none;
+            box-sizing: border-box;
+            color-scheme: dark;
+            transition: border-color .2s;
+        }
+        .hours-inputs input[type="time"]:focus { border-color: var(--primary); }
+        .hours-sep { font-size: 0.75rem; color: #475569; }
+
+        /* ── Quick Presets ── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── NOW CLOCK BAR ── */
+        .now-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .now-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .now-cell-name {
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .now-cell-time {
+            font-family: 'Outfit';
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+        .now-cell-offset {
+            font-size: 0.65rem;
+            color: #475569;
+            margin-top: 3px;
+        }
+        .now-cell.active-zone { border-color: var(--primary); background: rgba(120,129,132,0.08); }
+        .now-cell.active-zone .now-cell-time { color: var(--primary); }
+
+        /* ── Timeline ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        .timeline-wrap {
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .tl-row {
+            display: flex;
+            align-items: stretch;
+            border-bottom: 1px solid var(--border);
+        }
+        .tl-row:last-child { border-bottom: none; }
+        .tl-name {
+            width: 70px;
+            min-width: 70px;
+            padding: 12px 14px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            background: rgba(255,255,255,0.02);
+            border-right: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .tl-blocks {
+            flex: 1;
+            display: flex;
+            position: relative;
+            height: 48px;
+        }
+        .tl-block {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: opacity .2s;
+            position: relative;
+        }
+        .tl-block.sleep    { background: rgba(15,23,42,0.6); color: #334155; }
+        .tl-block.work     { background: rgba(100,116,139,0.15); color: #94a3b8; border-left: 1px solid rgba(100,116,139,0.2); }
+        .tl-block.overlap  { background: rgba(var(--primary-rgb,120,200,180),0.18); color: var(--primary); border-left: 1px solid rgba(var(--primary-rgb,120,200,180),0.3); }
+        .tl-block.now-mark {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: var(--primary);
+            z-index: 10;
+            pointer-events: none;
+        }
+        .tl-block.now-mark::after {
+            content: 'NOW';
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 0.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* hour ticks row */
+        .tl-ticks {
+            display: flex;
+            padding-left: 70px;
+            margin-bottom: 6px;
+        }
+        .tl-tick {
+            flex: 1;
+            font-size: 0.55rem;
+            color: #334155;
+            text-align: center;
+            font-weight: 600;
+        }
+        .tl-tick:nth-child(even) { color: #1e293b; }
+
+        /* ── Overlap Panel ── */
+        .overlap-panel {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .overlap-none {
+            text-align: center;
+            padding: 10px 0;
+            color: #ef4444;
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+        .overlap-slots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .overlap-slot {
+            background: rgba(var(--primary-rgb,120,200,180),0.1);
+            border: 1px solid rgba(var(--primary-rgb,120,200,180),0.3);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.82rem;
+            color: var(--primary);
+            cursor: default;
+            transition: .2s;
+        }
+        .overlap-slot .slot-both {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .slot-local { font-size: 0.7rem; color: #64748b; font-weight: 600; margin-top: 2px; font-family: 'Inter'; }
+
+        /* best time badge */
+        .best-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.3);
+            color: #fbbf24;
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* ── Offset Summary ── */
+        .offset-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .offset-val {
+            font-family: 'Outfit';
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+        .offset-desc { font-size: 0.82rem; color: #64748b; }
+        .offset-dot { width: 4px; height: 4px; background: var(--border); border-radius: 50%; }
+
+        /* ── Actions ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        @media(max-width: 640px) {
+            .zones-row { grid-template-columns: 1fr; }
+            .vs-sep { padding-bottom: 0; }
+            .hours-config { grid-template-columns: 1fr; }
+            .now-bar { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .tl-name { width: 52px; min-width: 52px; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Call Scheduler Across Zones</h1>
+            <p style="color:#64748b; font-size:0.95rem;">I'm in India, they're in NYC — what's a good time to call? Highlights your overlap window.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- ZONE SELECTORS -->
+                <div class="zones-row">
+                    <div class="zone-box">
+                        <span class="zone-label">📍 Your Location</span>
+                        <select id="zoneA" onchange="render()"></select>
+                    </div>
+                    <div class="vs-sep">VS</div>
+                    <div class="zone-box">
+                        <span class="zone-label">📞 Their Location</span>
+                        <select id="zoneB" onchange="render()"></select>
+                    </div>
+                </div>
+
+                <!-- WORK HOURS CONFIG -->
+                <div class="hours-config">
+                    <div class="hours-item">
+                        <div class="hours-item-label">Your Work Hours</div>
+                        <div class="hours-inputs">
+                            <input type="time" id="workStartA" value="09:00" oninput="render()">
+                            <span class="hours-sep">to</span>
+                            <input type="time" id="workEndA" value="18:00" oninput="render()">
+                        </div>
+                    </div>
+                    <div class="hours-item">
+                        <div class="hours-item-label">Their Work Hours</div>
+                        <div class="hours-inputs">
+                            <input type="time" id="workStartB" value="09:00" oninput="render()">
+                            <span class="hours-sep">to</span>
+                            <input type="time" id="workEndB" value="18:00" oninput="render()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QUICK PRESETS -->
+                <div class="quick-label">Common Pairs</div>
+                <div class="quick-pills">
+                    <span class="pill" onclick="setPreset('in-nyc')">🇮🇳 India → 🇺🇸 New York</span>
+                    <span class="pill" onclick="setPreset('in-lon')">🇮🇳 India → 🇬🇧 London</span>
+                    <span class="pill" onclick="setPreset('in-syd')">🇮🇳 India → 🇦🇺 Sydney</span>
+                    <span class="pill" onclick="setPreset('in-tok')">🇮🇳 India → 🇯🇵 Tokyo</span>
+                    <span class="pill" onclick="setPreset('nyc-lon')">🇺🇸 New York → 🇬🇧 London</span>
+                    <span class="pill" onclick="setPreset('la-lon')">🇺🇸 LA → 🇬🇧 London</span>
+                </div>
+
+                <!-- LIVE CLOCKS -->
+                <div class="section-label">Current Time</div>
+                <div class="now-bar">
+                    <div class="now-cell" id="clockA">
+                        <div>
+                            <div class="now-cell-name" id="clockNameA">—</div>
+                            <div class="now-cell-offset" id="clockOffsetA">—</div>
+                        </div>
+                        <div class="now-cell-time" id="clockTimeA">--:--</div>
+                    </div>
+                    <div class="now-cell" id="clockB">
+                        <div>
+                            <div class="now-cell-name" id="clockNameB">—</div>
+                            <div class="now-cell-offset" id="clockOffsetB">—</div>
+                        </div>
+                        <div class="now-cell-time" id="clockTimeB">--:--</div>
+                    </div>
+                </div>
+
+                <!-- OFFSET SUMMARY -->
+                <div class="offset-bar" id="offsetBar">
+                    <span class="offset-desc">Offset</span>
+                    <span class="offset-val" id="offsetVal">—</span>
+                    <span class="offset-dot"></span>
+                    <span class="offset-desc" id="offsetDesc">Select both zones</span>
+                </div>
+
+                <!-- 24H TIMELINE -->
+                <div class="section-label">24-Hour Overlap Timeline</div>
+                <div class="tl-ticks" id="tlTicks"></div>
+                <div class="timeline-wrap" id="timelineWrap"></div>
+
+                <!-- BEST SLOTS -->
+                <div class="section-label" style="margin-top:20px;">Best Times to Call</div>
+                <div class="overlap-panel" id="overlapPanel">
+                    <div class="overlap-none">Select zones to see overlap</div>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action primary" onclick="copySchedule()">📋 Copy Schedule</button>
+                    <button class="btn-action" onclick="swapZones()">⇄ Swap Zones</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIMEZONE DATA  [label, IANA tz, short display name]
+    // ─────────────────────────────────────────────────────────────────────────
+    const ZONES = [
+        ["India (IST, UTC+5:30)",         "Asia/Kolkata",          "IST"],
+        ["New York (ET)",                  "America/New_York",      "NY"],
+        ["Los Angeles (PT)",               "America/Los_Angeles",   "LA"],
+        ["Chicago (CT)",                   "America/Chicago",       "CHI"],
+        ["London (GMT/BST)",               "Europe/London",         "LON"],
+        ["Paris / Berlin (CET)",           "Europe/Paris",          "PAR"],
+        ["Dubai (GST, UTC+4)",             "Asia/Dubai",            "DXB"],
+        ["Singapore (SGT, UTC+8)",         "Asia/Singapore",        "SGP"],
+        ["Tokyo (JST, UTC+9)",             "Asia/Tokyo",            "TYO"],
+        ["Sydney (AEDT)",                  "Australia/Sydney",      "SYD"],
+        ["Hong Kong (HKT)",                "Asia/Hong_Kong",        "HKG"],
+        ["Beijing / Shanghai (CST)",       "Asia/Shanghai",         "BEI"],
+        ["São Paulo (BRT)",                "America/Sao_Paulo",     "SAO"],
+        ["Mexico City (CST)",              "America/Mexico_City",   "MEX"],
+        ["Toronto (ET)",                   "America/Toronto",       "TOR"],
+        ["Vancouver (PT)",                 "America/Vancouver",     "VAN"],
+        ["Cairo (EET)",                    "Africa/Cairo",          "CAI"],
+        ["Nairobi (EAT, UTC+3)",           "Africa/Nairobi",        "NBI"],
+        ["Lagos (WAT, UTC+1)",             "Africa/Lagos",          "LOS"],
+        ["Moscow (MSK, UTC+3)",            "Europe/Moscow",         "MSK"],
+        ["Istanbul (TRT, UTC+3)",          "Europe/Istanbul",       "IST2"],
+        ["Karachi (PKT, UTC+5)",           "Asia/Karachi",          "KHI"],
+        ["Dhaka (BST, UTC+6)",             "Asia/Dhaka",            "DAC"],
+        ["Bangkok (ICT, UTC+7)",           "Asia/Bangkok",          "BKK"],
+        ["Jakarta (WIB, UTC+7)",           "Asia/Jakarta",          "JKT"],
+        ["Seoul (KST, UTC+9)",             "Asia/Seoul",            "SEO"],
+        ["Auckland (NZDT)",                "Pacific/Auckland",      "AKL"],
+    ];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CORE OFFSET UTILITY
+    // Uses Intl.DateTimeFormat with timeZoneName:"shortOffset" which returns
+    // strings like "GMT+5:30", "GMT-4", "GMT+0".  This is the only reliable
+    // cross-browser way to get a UTC offset without string-arithmetic hacks.
+    // Returns offset in whole minutes (e.g. IST = +330, NY summer = -240).
+    // ─────────────────────────────────────────────────────────────────────────
+    function getOffsetMinutes(iana) {
+        // Format a known date so the offset portion is isolated.
+        const fmt = new Intl.DateTimeFormat("en-GB", {
+            timeZone: iana,
+            timeZoneName: "shortOffset"
+        });
+        // formatToParts returns parts including { type:"timeZoneName", value:"GMT+5:30" }
+        const parts = fmt.formatToParts(new Date());
+        const tzPart = parts.find(p => p.type === "timeZoneName");
+        if (!tzPart) return 0;
+
+        const raw = tzPart.value; // e.g. "GMT+5:30", "GMT-4", "GMT+0", "GMT"
+        if (raw === "GMT" || raw === "GMT+0" || raw === "UTC") return 0;
+
+        const match = raw.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+        if (!match) return 0;
+
+        const sign    = match[1] === "+" ? 1 : -1;
+        const hours   = parseInt(match[2], 10);
+        const minutes = parseInt(match[3] || "0", 10);
+        return sign * (hours * 60 + minutes);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIME HELPERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Current HH:MM in a given IANA timezone — delegates entirely to Intl,
+    // so it is correct regardless of the browser's local timezone.
+    function getCurrentHHMM(iana) {
+        return new Date().toLocaleString("en-GB", {
+            timeZone: iana,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+        }).slice(0, 5); // "HH:MM"
+    }
+
+    // "HH:MM" → integer minutes from midnight (0–1439)
+    function timeToMins(str) {
+        const parts = str.split(":");
+        return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    }
+
+    // integer minutes → "HH:MM" (wraps correctly within 0–1439)
+    function minsToHHMM(m) {
+        m = ((m % 1440) + 1440) % 1440;
+        const h = Math.floor(m / 60);
+        const mm = m % 60;
+        return String(h).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+    }
+
+    // integer minutes → "9am", "12pm", "2pm" etc.
+    function fmtHour(h) {
+        if (h === 0 || h === 24) return "12am";
+        if (h === 12)            return "12pm";
+        return h < 12 ? h + "am" : (h - 12) + "pm";
+    }
+
+    // UTC offset minutes → "UTC+5:30", "UTC-4", "UTC+0"
+    function fmtOffset(mins) {
+        const sign = mins >= 0 ? "+" : "-";
+        const abs  = Math.abs(mins);
+        const h    = Math.floor(abs / 60);
+        const m    = abs % 60;
+        return "UTC" + sign + h + (m ? ":" + String(m).padStart(2, "0") : "");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CHECK WHETHER a minute-of-day value falls within a work window.
+    // Works only for same-day windows (start < end).
+    // Note: overnight windows (e.g. 22:00–06:00) are explicitly NOT supported
+    // because they cannot be represented reliably in a 24h A-local coordinate
+    // system without full date arithmetic. Users are shown a validation message.
+    // ─────────────────────────────────────────────────────────────────────────
+    function inWindow(minuteOfDay, windowStart, windowEnd) {
+        if (windowStart >= windowEnd) return false; // invalid / overnight — excluded
+        return minuteOfDay >= windowStart && minuteOfDay < windowEnd;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POPULATE SELECTS
+    // ─────────────────────────────────────────────────────────────────────────
+    const selA = document.getElementById("zoneA");
+    const selB = document.getElementById("zoneB");
+    ZONES.forEach(([label], i) => {
+        [selA, selB].forEach(sel => {
+            const opt = document.createElement("option");
+            opt.value = i;
+            opt.textContent = label;
+            sel.appendChild(opt);
+        });
+    });
+    // Default: India → New York
+    selA.value = 0;
+    selB.value = 1;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIVE CLOCK UPDATE  (called every 30 s and on every render)
+    // ─────────────────────────────────────────────────────────────────────────
+    function tickClocks() {
+        const zA  = ZONES[+selA.value];
+        const zB  = ZONES[+selB.value];
+        const offA = getOffsetMinutes(zA[1]);
+        const offB = getOffsetMinutes(zB[1]);
+
+        document.getElementById("clockNameA").textContent   = zA[2];
+        document.getElementById("clockNameB").textContent   = zB[2];
+        document.getElementById("clockOffsetA").textContent = fmtOffset(offA);
+        document.getElementById("clockOffsetB").textContent = fmtOffset(offB);
+        document.getElementById("clockTimeA").textContent   = getCurrentHHMM(zA[1]);
+        document.getElementById("clockTimeB").textContent   = getCurrentHHMM(zB[1]);
+
+        // Highlight the clock card if that person is currently in their work hours.
+        const nowA = timeToMins(getCurrentHHMM(zA[1]));
+        const nowB = timeToMins(getCurrentHHMM(zB[1]));
+        const wsA  = timeToMins(document.getElementById("workStartA").value || "09:00");
+        const weA  = timeToMins(document.getElementById("workEndA").value   || "18:00");
+        const wsB  = timeToMins(document.getElementById("workStartB").value || "09:00");
+        const weB  = timeToMins(document.getElementById("workEndB").value   || "18:00");
+
+        document.getElementById("clockA").className =
+            "now-cell" + (inWindow(nowA, wsA, weA) ? " active-zone" : "");
+        document.getElementById("clockB").className =
+            "now-cell" + (inWindow(nowB, wsB, weB) ? " active-zone" : "");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MAIN RENDER
+    // Everything is computed from the same canonical offsets so the timeline
+    // and the overlap panel are guaranteed to agree.
+    // ─────────────────────────────────────────────────────────────────────────
+    function render() {
+        tickClocks();
+
+        const zA   = ZONES[+selA.value];
+        const zB   = ZONES[+selB.value];
+        const offA = getOffsetMinutes(zA[1]);
+        const offB = getOffsetMinutes(zB[1]);
+
+        // diff = how many minutes B is ahead of A (positive = B is later in the day)
+        const diff = offB - offA;
+
+        // ── Offset bar ──────────────────────────────────────────────────────
+        const absDiff = Math.abs(diff);
+        const dh = Math.floor(absDiff / 60);
+        const dm = absDiff % 60;
+        const diffStr = (diff >= 0 ? "+" : "-") + dh + "h" + (dm ? dm + "m" : "");
+        document.getElementById("offsetVal").textContent  = diffStr;
+        document.getElementById("offsetDesc").textContent =
+            diff === 0
+                ? "Same time zone — easy!"
+                : zA[2] + " is " + (absDiff / 60).toFixed(1).replace(".0", "") + "h "
+                  + (diff > 0 ? "behind" : "ahead of") + " " + zB[2];
+
+        // ── Work hour windows ───────────────────────────────────────────────
+        // A's window stays in A-local minutes directly.
+        const wsA = timeToMins(document.getElementById("workStartA").value || "09:00");
+        const weA = timeToMins(document.getElementById("workEndA").value   || "18:00");
+        // B's window is given in B-local time.  Convert to A-local by subtracting diff.
+        const wsB_local = timeToMins(document.getElementById("workStartB").value || "09:00");
+        const weB_local = timeToMins(document.getElementById("workEndB").value   || "18:00");
+        // B's work window expressed in A-local minutes (may go below 0 or above 1439,
+        // minsToHHMM wraps these correctly when displaying).
+        const wsB_inA = wsB_local - diff;
+        const weB_inA = weB_local - diff;
+
+        // Validate: overnight windows (start >= end) not supported.
+        const aValid = wsA < weA;
+        const bValid = wsB_local < weB_local;
+
+        // ── Build timeline and overlap panel ────────────────────────────────
+        buildTimeline(zA, zB, offA, diff, wsA, weA, wsB_inA, weB_inA, aValid, bValid);
+        buildOverlap(zA, zB, diff, wsA, weA, wsB_inA, weB_inA, aValid, bValid);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIMELINE  (48 half-hour blocks = 24 hours in A-local time)
+    // All three rows (A, overlap, B) are computed in the same A-local coordinate
+    // space so they are guaranteed to be visually consistent.
+    // ─────────────────────────────────────────────────────────────────────────
+    function buildTimeline(zA, zB, offA, diff, wsA, weA, wsB_inA, weB_inA, aValid, bValid) {
+        const TICKS = document.getElementById("tlTicks");
+        const WRAP  = document.getElementById("timelineWrap");
+        const SLOTS = 48; // 30-min blocks covering 0–1440 minutes
+
+        // Hour tick labels
+        TICKS.innerHTML = "";
+        for (let i = 0; i < 24; i++) {
+            const t = document.createElement("div");
+            t.className   = "tl-tick";
+            t.style.flex  = "2"; // 1 hour = 2 blocks
+            t.textContent = fmtHour(i);
+            TICKS.appendChild(t);
+        }
+
+        // NOW marker position as % of the 24h bar (in A-local time)
+        const nowA_mins = timeToMins(getCurrentHHMM(zA[1]));
+        const nowPct    = (nowA_mins / 1440) * 100;
+
+        // Helper: build a single timeline row
+        function makeRow(labelText, labelColor, classifyBlock) {
+            const row = document.createElement("div");
+            row.className = "tl-row";
+
+            const nameDiv = document.createElement("div");
+            nameDiv.className = "tl-name";
+            if (labelColor) nameDiv.style.color = labelColor;
+            nameDiv.textContent = labelText;
+            row.appendChild(nameDiv);
+
+            const blocksDiv = document.createElement("div");
+            blocksDiv.className      = "tl-blocks";
+            blocksDiv.style.position = "relative";
+
+            for (let i = 0; i < SLOTS; i++) {
+                const blockStart = i * 30;       // A-local minutes
+                const blockMid   = blockStart + 15;
+                const bl = document.createElement("div");
+                bl.className  = "tl-block " + classifyBlock(blockMid);
+                bl.style.flex = "1";
+                blocksDiv.appendChild(bl);
+            }
+
+            // NOW line
+            const nowMark = document.createElement("div");
+            nowMark.className = "tl-block now-mark";
+            nowMark.style.left  = nowPct + "%";
+            nowMark.style.flex  = "none";
+            nowMark.style.width = "2px";
+            blocksDiv.appendChild(nowMark);
+
+            row.appendChild(blocksDiv);
+            return row;
+        }
+
+        WRAP.innerHTML = "";
+
+        // Row A — A-local work hours
+        WRAP.appendChild(makeRow(zA[2], null, function(m) {
+            if (!aValid) return "sleep";
+            const inA = inWindow(m, wsA, weA);
+            // Check B in A-local space for overlap colouring
+            const inB = bValid && isInBWindow(m, wsB_inA, weB_inA);
+            if (inA && inB) return "overlap";
+            if (inA)        return "work";
+            return "sleep";
+        }));
+
+        // Row OVERLAP — highlight only genuine overlap blocks
+        WRAP.appendChild(makeRow("✦ OVL", "var(--primary)", function(m) {
+            if (!aValid || !bValid) return "sleep";
+            return (inWindow(m, wsA, weA) && isInBWindow(m, wsB_inA, weB_inA))
+                ? "overlap" : "sleep";
+        }));
+
+        // Row B — B's work hours shown in A-local time.
+        // The block is "work" if this A-local minute falls within B's work window
+        // (which has been shifted into A-local coordinates).
+        WRAP.appendChild(makeRow(zB[2], null, function(m) {
+            if (!bValid) return "sleep";
+            return isInBWindow(m, wsB_inA, weB_inA) ? "work" : "sleep";
+        }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // isInBWindow — checks whether an A-local minute falls inside B's work
+    // window (which may span across day boundaries after the offset is applied).
+    // We handle the day-wrap case by normalising into the 0-1440 range.
+    // ─────────────────────────────────────────────────────────────────────────
+    function isInBWindow(m, wsB_inA, weB_inA) {
+        // Normalise start/end into 0-1439 range
+        const s = ((wsB_inA % 1440) + 1440) % 1440;
+        const e = ((weB_inA % 1440) + 1440) % 1440;
+        const n = ((m        % 1440) + 1440) % 1440;
+        if (s < e) {
+            // Normal case: window doesn't cross midnight
+            return n >= s && n < e;
+        } else {
+            // Window wraps midnight in A-local terms (e.g. B is far east of A)
+            return n >= s || n < e;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OVERLAP PANEL
+    // Uses the exact same window logic as the timeline rows so the two panels
+    // always agree.  Iterates 30-min slots in A-local space, merges consecutive
+    // hits into ranges, then converts back to both A-local and B-local times.
+    // ─────────────────────────────────────────────────────────────────────────
+    function buildOverlap(zA, zB, diff, wsA, weA, wsB_inA, weB_inA, aValid, bValid) {
+        const panel = document.getElementById("overlapPanel");
+
+        if (!aValid || !bValid) {
+            panel.innerHTML = `<div class="overlap-none">
+                ⚠️ Overnight work windows (e.g. 22:00–06:00) are not supported.<br>
+                <span style="font-size:0.8rem;color:#475569;margin-top:6px;display:block;">
+                    Please enter a start time earlier than the end time.
+                </span>
+            </div>`;
+            return;
+        }
+
+        // Collect overlapping 30-min slots (A-local start minutes)
+        const slots = [];
+        for (let i = 0; i < 48; i++) {
+            const mid = i * 30 + 15; // mid-point of the block
+            if (inWindow(mid, wsA, weA) && isInBWindow(mid, wsB_inA, weB_inA)) {
+                slots.push(i * 30);
+            }
+        }
+
+        if (slots.length === 0) {
+            panel.innerHTML = `<div class="overlap-none">😬 No overlapping work hours found.<br>
+                <span style="font-size:0.8rem;color:#475569;margin-top:6px;display:block;">
+                    Try adjusting the work hour ranges above.
+                </span>
+            </div>`;
+            return;
+        }
+
+        // Merge consecutive 30-min slots into contiguous ranges
+        const ranges = [];
+        let rangeStart = slots[0];
+        let rangeLast  = slots[0];
+        for (let i = 1; i < slots.length; i++) {
+            if (slots[i] === rangeLast + 30) {
+                rangeLast = slots[i];
+            } else {
+                ranges.push([rangeStart, rangeLast + 30]);
+                rangeStart = slots[i];
+                rangeLast  = slots[i];
+            }
+        }
+        ranges.push([rangeStart, rangeLast + 30]);
+
+        // Find the "best" slot: longest window that starts during normal daytime
+        // hours (08:00–17:00 in A-local), falling back to pure longest if none qualify.
+        let bestIdx = 0;
+        let bestScore = -1;
+        ranges.forEach(function(r, idx) {
+            const duration = r[1] - r[0];
+            const startHour = r[0] / 60;
+            const duringDay = (startHour >= 8 && startHour <= 17) ? 1440 : 0;
+            const score = duration + duringDay;
+            if (score > bestScore) { bestScore = score; bestIdx = idx; }
+        });
+
+        const html = ranges.map(function(r, idx) {
+            // A-local times
+            const aStart = minsToHHMM(r[0]);
+            const aEnd   = minsToHHMM(r[1]);
+            // B-local times: add diff back (B-local = A-local + diff)
+            const bStart = minsToHHMM(r[0] + diff);
+            const bEnd   = minsToHHMM(r[1] + diff);
+            // Duration label
+            const dur = r[1] - r[0];
+            const dh  = Math.floor(dur / 60);
+            const dm  = dur % 60;
+            const durStr = dh ? dh + "h" + (dm ? dm + "m" : "") : dm + "m";
+            const isBest = (idx === bestIdx);
+
+            return '<div class="overlap-slot">'
+                + '<div class="slot-both">'
+                + '<span>🕐 ' + aStart + '–' + aEnd
+                + ' <span style="color:#475569;font-size:0.65rem;">' + zA[2] + '</span></span>'
+                + '<span style="color:#334155;">|</span>'
+                + '<span>' + bStart + '–' + bEnd
+                + ' <span style="color:#475569;font-size:0.65rem;">' + zB[2] + '</span></span>'
+                + (isBest ? '<span class="best-badge">⭐ Best</span>' : '')
+                + '</div>'
+                + '<div class="slot-local" style="margin-top:4px;">' + durStr + ' window</div>'
+                + '</div>';
+        }).join("");
+
+        panel.innerHTML = '<div class="overlap-slots">' + html + '</div>';
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRESETS
+    // ─────────────────────────────────────────────────────────────────────────
+    const PRESET_MAP = {
+        "in-nyc":  [0, 1],
+        "in-lon":  [0, 4],
+        "in-syd":  [0, 9],
+        "in-tok":  [0, 8],
+        "nyc-lon": [1, 4],
+        "la-lon":  [2, 4]
+    };
+    function setPreset(key) {
+        const pair = PRESET_MAP[key];
+        if (!pair) return;
+        selA.value = pair[0];
+        selB.value = pair[1];
+        render();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SWAP ZONES
+    // ─────────────────────────────────────────────────────────────────────────
+    function swapZones() {
+        const tmp  = selA.value;
+        selA.value = selB.value;
+        selB.value = tmp;
+        // Also swap work hour inputs so they follow the correct person
+        const tmpWS = document.getElementById("workStartA").value;
+        const tmpWE = document.getElementById("workEndA").value;
+        document.getElementById("workStartA").value = document.getElementById("workStartB").value;
+        document.getElementById("workEndA").value   = document.getElementById("workEndB").value;
+        document.getElementById("workStartB").value = tmpWS;
+        document.getElementById("workEndB").value   = tmpWE;
+        render();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // COPY SCHEDULE
+    // ─────────────────────────────────────────────────────────────────────────
+    function copySchedule() {
+        const zA = ZONES[+selA.value];
+        const zB = ZONES[+selB.value];
+        const slots = document.querySelectorAll(".overlap-slot");
+        if (!slots.length) return;
+        let text = "Call Schedule: " + zA[0] + " ↔ " + zB[0] + "\n\n";
+        slots.forEach(function(s) {
+            text += s.innerText.replace(/\n+/g, " | ") + "\n";
+        });
+        navigator.clipboard.writeText(text).then(function() {
+            const btn = document.querySelector(".btn-action.primary");
+            btn.textContent = "✓ Copied!";
+            setTimeout(function() { btn.textContent = "📋 Copy Schedule"; }, 2000);
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INIT
+    // ─────────────────────────────────────────────────────────────────────────
+    render();
+
+    // Refresh every 30 seconds — call full render() so the NOW marker also moves.
+    setInterval(render, 30000);
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

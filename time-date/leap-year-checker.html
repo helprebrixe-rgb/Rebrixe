@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leap Year Checker | Rebrixe</title>
+    <meta name="description" content="Check if any year is a leap year. Find all leap years in a range, see how many you've lived through, and discover the next leap year.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ─── LAYOUT ─────────────────────────────────────── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+            margin-bottom: 16px;
+        }
+
+        /* ─── TYPOGRAPHY UTILS ───────────────────────────── */
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            display: block;
+            margin-bottom: 10px;
+        }
+        .section-note {
+            color: #64748b;
+            font-size: 0.82rem;
+            margin: 0 0 14px;
+        }
+
+        /* ─── INPUTS ─────────────────────────────────────── */
+        input[type="number"] {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 18px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"]:focus { border-color: var(--primary); }
+        input[type="number"].input-error { border-color: rgba(239,68,68,0.7); }
+
+        /* ─── VERDICT ────────────────────────────────────── */
+        .verdict {
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .verdict.state-empty {
+            background: rgba(255,255,255,0.02);
+            border-color: var(--border);
+        }
+        .verdict.state-leap {
+            background: linear-gradient(135deg, rgba(100,220,120,0.08), rgba(0,0,0,0));
+            border-color: rgba(100,220,120,0.35);
+        }
+        .verdict.state-not-leap {
+            background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(0,0,0,0));
+            border-color: rgba(239,68,68,0.25);
+        }
+        .verdict-icon { font-size: 2.2rem; line-height: 1; margin-bottom: 6px; }
+        .verdict-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+        }
+        .verdict.state-leap  .verdict-text { color: #4ade80; }
+        .verdict.state-not-leap .verdict-text { color: #f87171; }
+        .verdict.state-empty .verdict-text { color: #334155; }
+        .verdict-why { font-size: 0.8rem; color: #64748b; margin-top: 6px; line-height: 1.5; }
+        .verdict-why .hl { color: #94a3b8; font-weight: 700; }
+
+        /* ─── STATS STRIP ────────────────────────────────── */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-num.accent { color: var(--primary); }
+        .stat-lbl { font-size: 0.62rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; font-weight: 600; }
+
+        /* ─── RANGE FINDER ───────────────────────────────── */
+        .range-row {
+            display: grid;
+            grid-template-columns: 1fr 32px 1fr;
+            gap: 12px;
+            align-items: end;
+            margin-bottom: 16px;
+        }
+        .range-arrow { color: #334155; font-size: 1.3rem; text-align: center; padding-bottom: 16px; }
+
+        .find-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            border-radius: 14px;
+            color: #000;
+            padding: 15px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+            margin-bottom: 20px;
+        }
+        .find-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .find-btn:active { transform: translateY(0); }
+
+        .error-msg {
+            color: #f87171;
+            font-size: 0.8rem;
+            margin-top: -10px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        /* ─── QUICK PRESETS ──────────────────────────────── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ─── RANGE RESULTS ──────────────────────────────── */
+        .range-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .range-count {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #fff;
+        }
+        .range-count .hl { color: var(--primary); }
+        .copy-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .copy-btn:hover { border-color: var(--primary); color: #fff; }
+        .leap-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .leap-tag {
+            background: rgba(100,220,120,0.07);
+            border: 1px solid rgba(100,220,120,0.2);
+            color: #4ade80;
+            padding: 6px 13px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: background 0.15s;
+            cursor: default;
+            user-select: none;
+        }
+        .leap-tag:hover { background: rgba(100,220,120,0.15); }
+        .leap-tag.is-current {
+            background: rgba(100,220,120,0.22);
+            border-color: #4ade80;
+            box-shadow: 0 0 10px rgba(100,220,120,0.2);
+        }
+        .empty-range {
+            text-align: center;
+            color: #334155;
+            padding: 24px;
+            font-size: 0.9rem;
+        }
+
+        /* ─── BORN SECTION ───────────────────────────────── */
+        .born-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .born-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .born-lbl { font-size: 0.78rem; color: #64748b; flex-shrink: 0; }
+        .born-val { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; font-size: 1rem; text-align: right; }
+        .born-val.green { color: #4ade80; }
+        .born-val.small { font-size: 0.78rem; color: #94a3b8; font-weight: 600; }
+
+        /* ─── RESPONSIVE ─────────────────────────────────── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 22px 18px; }
+            .range-row { grid-template-columns: 1fr; }
+            .range-arrow { display: none; }
+            .stats-strip { grid-template-columns: 1fr 1fr; }
+            .born-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="date-calculators.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Leap Year Checker</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Is any year a leap year? Find all leap years in a range, count the ones you've lived through, and more.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- ── CARD 1: SINGLE YEAR ── -->
+            <div class="tool-card">
+                <label class="input-label" for="singleYear">Check a Single Year</label>
+                <input
+                    type="number"
+                    id="singleYear"
+                    placeholder="e.g. 2024"
+                    min="1"
+                    max="9999"
+                    autocomplete="off"
+                    style="font-size:1.4rem; padding:18px 20px; margin-bottom:20px;"
+                    oninput="checkSingle()"
+                >
+
+                <div id="verdict" class="verdict state-empty" aria-live="polite">
+                    <div class="verdict-icon">📅</div>
+                    <div class="verdict-text">Enter a year above</div>
+                </div>
+
+                <div id="statsStrip" class="stats-strip" style="display:none;">
+                    <div class="stat-cell">
+                        <div class="stat-num" id="statPrev">—</div>
+                        <div class="stat-lbl">⬅ Prev Leap</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-num accent" id="statChecked">—</div>
+                        <div class="stat-lbl">Year Checked</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-num" id="statNext">—</div>
+                        <div class="stat-lbl">Next Leap ➡</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── CARD 2: RANGE FINDER ── -->
+            <div class="tool-card">
+                <span class="input-label">Find All Leap Years in a Range</span>
+
+                <span class="quick-label">Quick Ranges</span>
+                <div class="quick-pills">
+                    <span class="pill" onclick="setRange(2000,2100)" tabindex="0" role="button" onkeydown="pillKey(event,2000,2100)">2000 → 2100</span>
+                    <span class="pill" onclick="setRange(1900,2000)" tabindex="0" role="button" onkeydown="pillKey(event,1900,2000)">1900 → 2000</span>
+                    <span class="pill" onclick="setRange(1800,1900)" tabindex="0" role="button" onkeydown="pillKey(event,1800,1900)">1800 → 1900</span>
+                    <span class="pill" onclick="setRange(2024,2100)" tabindex="0" role="button" onkeydown="pillKey(event,2024,2100)">2024 → 2100</span>
+                    <span class="pill" id="pillThisCentury" tabindex="0" role="button"></span>
+                </div>
+
+                <div class="range-row">
+                    <div>
+                        <label class="input-label" for="rangeFrom" style="color:#64748b;">From Year</label>
+                        <input type="number" id="rangeFrom" placeholder="e.g. 2000" min="1" max="9999" autocomplete="off">
+                    </div>
+                    <div class="range-arrow">→</div>
+                    <div>
+                        <label class="input-label" for="rangeTo" style="color:#64748b;">To Year</label>
+                        <input type="number" id="rangeTo" placeholder="e.g. 2050" min="1" max="9999" autocomplete="off">
+                    </div>
+                </div>
+
+                <div id="rangeError" class="error-msg" role="alert"></div>
+                <button class="find-btn" onclick="findRange()">Find Leap Years</button>
+
+                <div id="rangeResult" style="display:none;">
+                    <div class="range-summary">
+                        <div class="range-count" id="rangeCountTxt"></div>
+                        <button class="copy-btn" id="copyBtn" onclick="copyList()">Copy List</button>
+                    </div>
+                    <div id="leapGrid" class="leap-grid"></div>
+                </div>
+                <div id="rangeEmpty" class="empty-range" style="display:none;">No leap years found in that range.</div>
+            </div>
+
+            <!-- ── CARD 3: BORN IN ── -->
+            <div class="tool-card">
+                <label class="input-label" for="birthYear">How Many Leap Years Have You Lived?</label>
+                <p class="section-note">Enter your birth year to find out.</p>
+                <input
+                    type="number"
+                    id="birthYear"
+                    placeholder="Your birth year, e.g. 1990"
+                    min="1"
+                    max="9999"
+                    autocomplete="off"
+                    oninput="calcBorn()"
+                >
+                <div id="bornGrid" class="born-grid" style="display:none;" aria-live="polite">
+                    <div class="born-cell">
+                        <span class="born-lbl">🌀 Leap years lived</span>
+                        <span class="born-val green" id="bornCount">—</span>
+                    </div>
+                    <div class="born-cell">
+                        <span class="born-lbl">📅 Born on a leap year?</span>
+                        <span class="born-val" id="bornSelf">—</span>
+                    </div>
+                    <div class="born-cell">
+                        <span class="born-lbl">⏭ Next leap year</span>
+                        <span class="born-val" id="bornNext">—</span>
+                    </div>
+                    <div class="born-cell">
+                        <span class="born-lbl">🎂 Age on next Feb 29</span>
+                        <span class="born-val small" id="bornFeb">—</span>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tool-wrap -->
+    </div><!-- /container -->
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       LEAP YEAR CHECKER — Bulletproof rewrite
+       All inputs are validated and sanitised at the earliest boundary.
+    ═══════════════════════════════════════════════════════════════ */
+
+    const THIS_YEAR = new Date().getFullYear();
+
+    // ─── Cached range results (array of ints) ───────────────────────
+    let _rangeLeapYears = [];
+
+    /* ── CORE LOGIC ─────────────────────────────────────────────────
+       isLeap accepts only a validated integer in [1..9999].
+       Never passes a string; parseInt is called once at each entry
+       boundary and the clean integer is used throughout.
+    ──────────────────────────────────────────────────────────────── */
+    function isLeap(y) {
+        // y MUST already be a safe integer; assert defensively
+        if (!Number.isInteger(y) || y < 1 || y > 9999) return false;
+        return (y % 400 === 0) || (y % 4 === 0 && y % 100 !== 0);
+    }
+
+    /**
+     * Return the nearest leap year strictly before y, or null if none in [1..y-1].
+     * Hard boundary at 1 — no infinite loop possible.
+     */
+    function prevLeap(y) {
+        for (let i = y - 1; i >= 1; i--) {
+            if (isLeap(i)) return i;
+        }
+        return null;
+    }
+
+    /**
+     * Return the nearest leap year strictly after y, or null if none in [y+1..9999].
+     * Hard boundary at 9999 — no infinite loop possible.
+     */
+    function nextLeap(y) {
+        for (let i = y + 1; i <= 9999; i++) {
+            if (isLeap(i)) return i;
+        }
+        return null;
+    }
+
+    /**
+     * Human-readable explanation of why y is or isn't a leap year.
+     * Returns a plain-text string; caller is responsible for escaping
+     * into the DOM safely via textContent where used.
+     * We return an object { text, highlights } to avoid innerHTML injection.
+     */
+    function whyLeapText(y) {
+        if (y % 400 === 0)  return `${y} is divisible by 400 — always a leap year.`;
+        if (y % 100 === 0)  return `${y} is divisible by 100 but not 400 — not a leap year.`;
+        if (y % 4 === 0)    return `${y} is divisible by 4 and not by 100 — leap year.`;
+        return `${y} is not divisible by 4 — not a leap year.`;
+    }
+
+    /* ── INPUT PARSER ───────────────────────────────────────────────
+       Centralised: parse and validate a number field.
+       Returns { ok: true, value: int } or { ok: false, error: string }.
+    ──────────────────────────────────────────────────────────────── */
+    function parseYearInput(rawValue, label, min, max) {
+        const trimmed = String(rawValue).trim();
+        if (trimmed === '') return { ok: false, error: null }; // silent empty
+        const n = Number(trimmed);
+        if (!Number.isFinite(n) || !Number.isInteger(n))
+            return { ok: false, error: `${label} must be a whole number.` };
+        if (n < min || n > max)
+            return { ok: false, error: `${label} must be between ${min} and ${max}.` };
+        return { ok: true, value: n };
+    }
+
+    /* ── CARD 1: SINGLE YEAR CHECKER ────────────────────────────── */
+    function checkSingle() {
+        const input  = document.getElementById('singleYear');
+        const vEl    = document.getElementById('verdict');
+        const strip  = document.getElementById('statsStrip');
+
+        const parsed = parseYearInput(input.value, 'Year', 1, 9999);
+
+        // Reset input highlight
+        input.classList.remove('input-error');
+
+        if (!parsed.ok) {
+            // Silent reset for empty; show error hint for bad value
+            if (parsed.error) input.classList.add('input-error');
+            vEl.className = 'verdict state-empty';
+            vEl.innerHTML = `<div class="verdict-icon">📅</div><div class="verdict-text">Enter a year above</div>`;
+            strip.style.display = 'none';
+            return;
+        }
+
+        const y    = parsed.value;
+        const leap = isLeap(y);
+        const pv   = prevLeap(y);
+        const nx   = nextLeap(y);
+
+        vEl.className = `verdict ${leap ? 'state-leap' : 'state-not-leap'}`;
+        // Build DOM nodes safely instead of raw innerHTML for the why text
+        vEl.innerHTML = '';
+
+        const iconEl = document.createElement('div');
+        iconEl.className = 'verdict-icon';
+        iconEl.textContent = leap ? '✅' : '❌';
+
+        const textEl = document.createElement('div');
+        textEl.className = 'verdict-text';
+        textEl.textContent = `${y} is ${leap ? '' : 'NOT '}a Leap Year`;
+
+        const whyEl = document.createElement('div');
+        whyEl.className = 'verdict-why';
+        whyEl.textContent = whyLeapText(y);
+
+        vEl.appendChild(iconEl);
+        vEl.appendChild(textEl);
+        vEl.appendChild(whyEl);
+
+        document.getElementById('statPrev').textContent    = pv !== null ? pv : '—';
+        document.getElementById('statChecked').textContent = y;
+        document.getElementById('statNext').textContent    = nx !== null ? nx : '—';
+        strip.style.display = 'grid';
+    }
+
+    /* ── CARD 2: RANGE FINDER ────────────────────────────────────── */
+
+    // Keyboard support for pill buttons
+    function pillKey(e, from, to) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRange(from, to); }
+    }
+
+    function setRange(from, to) {
+        document.getElementById('rangeFrom').value = from;
+        document.getElementById('rangeTo').value   = to;
+        findRange();
+    }
+
+    function findRange() {
+        const fromInput = document.getElementById('rangeFrom');
+        const toInput   = document.getElementById('rangeTo');
+        const errEl     = document.getElementById('rangeError');
+        const resultEl  = document.getElementById('rangeResult');
+        const emptyEl   = document.getElementById('rangeEmpty');
+
+        // Reset state
+        errEl.style.display   = 'none';
+        errEl.textContent     = '';
+        resultEl.style.display = 'none';
+        emptyEl.style.display  = 'none';
+        fromInput.classList.remove('input-error');
+        toInput.classList.remove('input-error');
+
+        const pFrom = parseYearInput(fromInput.value, 'From Year', 1, 9999);
+        const pTo   = parseYearInput(toInput.value,   'To Year',   1, 9999);
+
+        // Validate both present
+        if (!pFrom.ok || !pTo.ok) {
+            const msgs = [];
+            if (!pFrom.ok) { fromInput.classList.add('input-error'); if (pFrom.error) msgs.push(pFrom.error); }
+            if (!pTo.ok)   { toInput.classList.add('input-error');   if (pTo.error)   msgs.push(pTo.error); }
+            if (msgs.length) { errEl.textContent = msgs.join(' '); errEl.style.display = 'block'; }
+            else             { errEl.textContent = 'Please enter both a From and To year.'; errEl.style.display = 'block'; }
+            return;
+        }
+
+        let from = pFrom.value;
+        let to   = pTo.value;
+
+        // If from > to, correct and inform — don't silently swap
+        if (from > to) {
+            [from, to] = [to, from];
+            fromInput.value = from;
+            toInput.value   = to;
+            errEl.textContent = 'Range was reversed — swapped to correct order.';
+            errEl.style.color = '#94a3b8';
+            errEl.style.display = 'block';
+            setTimeout(() => {
+                errEl.style.display = 'none';
+                errEl.style.color   = '#f87171'; // reset for future real errors
+            }, 2500);
+        }
+
+        // Practical cap: 400 years → max ~100 leap years, plenty for display
+        const MAX_RANGE = 400;
+        if (to - from > MAX_RANGE) {
+            errEl.textContent = `Range too large — maximum ${MAX_RANGE} years at once.`;
+            errEl.style.display = 'block';
+            return;
+        }
+
+        // Compute
+        _rangeLeapYears = [];
+        for (let y = from; y <= to; y++) {
+            if (isLeap(y)) _rangeLeapYears.push(y);
+        }
+
+        if (_rangeLeapYears.length === 0) {
+            emptyEl.style.display = 'block';
+            return;
+        }
+
+        // Render grid
+        const grid = document.getElementById('leapGrid');
+        const fragment = document.createDocumentFragment();
+        _rangeLeapYears.forEach(y => {
+            const span = document.createElement('span');
+            span.className = 'leap-tag' + (y === THIS_YEAR ? ' is-current' : '');
+            span.textContent = y;
+            span.title = y === THIS_YEAR ? `${y} — current year` : String(y);
+            fragment.appendChild(span);
+        });
+        grid.innerHTML = '';
+        grid.appendChild(fragment);
+
+        const countEl = document.getElementById('rangeCountTxt');
+        countEl.innerHTML = `<span class="hl">${_rangeLeapYears.length}</span> leap year${_rangeLeapYears.length !== 1 ? 's' : ''} found (${from}–${to})`;
+        resultEl.style.display = 'block';
+    }
+
+    function copyList() {
+        if (!_rangeLeapYears.length) return;
+        const btn  = document.getElementById('copyBtn');
+        const text = _rangeLeapYears.join(', ');
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = 'Copy List'; }, 2000);
+            }).catch(() => {
+                fallbackCopy(text, btn);
+            });
+        } else {
+            fallbackCopy(text, btn);
+        }
+    }
+
+    // Clipboard fallback for non-HTTPS or older browsers
+    function fallbackCopy(text, btn) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            btn.textContent = '✓ Copied!';
+        } catch {
+            btn.textContent = 'Copy failed';
+        }
+        document.body.removeChild(ta);
+        setTimeout(() => { btn.textContent = 'Copy List'; }, 2000);
+    }
+
+    /* ── CARD 3: BORN SECTION ────────────────────────────────────── */
+    function calcBorn() {
+        const input  = document.getElementById('birthYear');
+        const grid   = document.getElementById('bornGrid');
+
+        input.classList.remove('input-error');
+
+        const parsed = parseYearInput(input.value, 'Birth year', 1, THIS_YEAR);
+
+        if (!parsed.ok) {
+            if (parsed.error) input.classList.add('input-error');
+            grid.style.display = 'none';
+            return;
+        }
+
+        const by = parsed.value;
+
+        // Count leap years from birth year through current year (inclusive both ends)
+        // "Lived through" = the year existed within your lifetime (birth year to present)
+        let count = 0;
+        for (let y = by; y <= THIS_YEAR; y++) {
+            if (isLeap(y)) count++;
+        }
+
+        const bornLeap = isLeap(by);
+        const nx       = nextLeap(THIS_YEAR); // next leap year from now
+
+        document.getElementById('bornCount').textContent = count;
+        document.getElementById('bornSelf').textContent  = bornLeap ? `Yes — ${by} was! 🎉` : 'No';
+        document.getElementById('bornNext').textContent  = nx !== null ? nx : 'None in range';
+
+        // Age on next Feb 29: how many calendar years since birth
+        // e.g. born 1990, next leap = 2028 → 2028 - 1990 = 38 years old on Feb 29, 2028
+        const febEl = document.getElementById('bornFeb');
+        if (nx !== null) {
+            const age = nx - by;
+            febEl.textContent = `${age} years old on Feb 29, ${nx}`;
+        } else {
+            febEl.textContent = '—';
+        }
+
+        grid.style.display = 'grid';
+    }
+
+    /* ── INIT ────────────────────────────────────────────────────── */
+    (function init() {
+        // Populate "This Century" pill with correct label and handler
+        const centuryStart = Math.floor(THIS_YEAR / 100) * 100;
+        const centuryEnd   = centuryStart + 99;
+        const pill = document.getElementById('pillThisCentury');
+        pill.textContent = `${centuryStart} → ${centuryEnd}`;
+        pill.setAttribute('onkeydown', `pillKey(event,${centuryStart},${centuryEnd})`);
+        pill.onclick = () => setRange(centuryStart, centuryEnd);
+
+        // URL param: ?year=YYYY — validated before use
+        const params = new URLSearchParams(location.search);
+        const rawY   = params.get('year');
+        if (rawY !== null) {
+            const parsed = parseYearInput(rawY, 'Year', 1, 9999);
+            if (parsed.ok) {
+                document.getElementById('singleYear').value = parsed.value;
+                checkSingle();
+            }
+        }
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

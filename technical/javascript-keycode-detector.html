@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JavaScript KeyCode Detector — Event.key, keyCode, code | Rebrixe</title>
+    <meta name="description" content="Press any key and instantly get the JavaScript event.key, event.code, keyCode, charCode, and which values. Copy-ready for your JS event listeners.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #0bb5b5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Key Display ── */
+        .key-stage {
+            background: rgba(15,23,42,0.7);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 36px 24px 28px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            margin-bottom: 22px;
+            position: relative;
+            overflow: hidden;
+        }
+        .key-stage::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(22,226,249,0.07) 0%, transparent 65%);
+            pointer-events: none;
+        }
+
+        .key-visual {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
+            min-height: 80px;
+            padding: 12px 22px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid rgba(22,226,249,0.35);
+            border-radius: 16px;
+            box-shadow: 0 4px 0 rgba(22,226,249,0.15), 0 0 32px rgba(22,226,249,0.07);
+            font-family: 'Fira Code', monospace;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #16e8f9;
+            margin-bottom: 18px;
+            transition: all 0.08s ease;
+            position: relative;
+            letter-spacing: -1px;
+            word-break: break-all;
+        }
+        .key-visual.pressed {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(22,226,249,0.15), 0 0 24px rgba(22,226,249,0.12);
+            border-color: #16e8f9;
+            background: rgba(22,226,249,0.08);
+        }
+        .key-visual.waiting {
+            color: #334155;
+            border-color: rgba(255,255,255,0.08);
+            font-size: 1rem;
+            letter-spacing: 0;
+        }
+
+        /* ── Values Grid ── */
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+        .val-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 12px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            position: relative;
+        }
+        .val-card:hover { border-color: rgba(22,226,249,0.4); background: rgba(22,226,249,0.04); }
+        .val-card.copied { border-color: #2ecc71; background: rgba(46,204,113,0.06); }
+
+        .val-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #16a9f9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 7px;
+            font-family: 'Inter', sans-serif;
+        }
+        .val-value {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            word-break: break-all;
+            line-height: 1.3;
+        }
+        .val-value.empty { color: #334155; font-size: 0.75rem; }
+        .copy-hint {
+            font-size: 0.55rem;
+            color: #475569;
+            margin-top: 5px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .val-card.copied .copy-hint { color: #2ecc71; }
+
+        /* ── History ── */
+        .history-wrap {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 22px;
+        }
+        .history-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .section-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+        .clear-btn {
+            font-size: 0.62rem;
+            font-weight: 700;
+            color: #475569;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.3px;
+            transition: color 0.15s;
+        }
+        .clear-btn:hover { color: #e74c3c; }
+
+        .history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 36px;
+        }
+        .hist-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.15s;
+            animation: popIn 0.15s ease;
+        }
+        .hist-item:hover { border-color: rgba(22,226,249,0.3); color: #16e8f9; }
+        .hist-key { color: #e2e8f0; font-weight: 700; }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+        .history-empty { font-size: 0.72rem; color: #334155; font-family: 'Fira Code', monospace; padding: 4px 0; }
+
+        /* ── Snippet ── */
+        .snippet-wrap {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 22px;
+        }
+        .snippet-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .snip-tab {
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #64748b;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .snip-tab.active { background: rgba(22,226,249,0.12); border-color: rgba(22,226,249,0.4); color: #16e8f9; }
+
+        .snippet-box {
+            background: #000;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            line-height: 1.8;
+            color: #94a3b8;
+            white-space: pre;
+            overflow-x: auto;
+            position: relative;
+        }
+        .kw  { color: #16d3f9; }
+        .str { color: #86efac; }
+        .fn  { color: #f97316; }
+        .cmt { color: #475569; }
+        .prop{ color: #c084fc; }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #169ef9; color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+
+        /* ── Modifier flags ── */
+        .modifier-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 14px 0 6px;
+            flex-wrap: wrap;
+        }
+        .mod-flag {
+            padding: 4px 11px;
+            border-radius: 7px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            font-family: 'Fira Code', monospace;
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #334155;
+            background: rgba(0,0,0,0.3);
+            transition: 0.15s;
+            letter-spacing: 0.3px;
+        }
+        .mod-flag.on {
+            color: #000;
+            background: #16e8f9;
+            border-color: #16e8f9;
+        }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 14px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 6px; font-size: 0.88rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: #16a6f9; background: rgba(22,173,249,0.1); padding: 1px 5px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+
+        /* ── Special key badge ── */
+        .deprecated-badge {
+            display: inline-block;
+            font-size: 0.55rem;
+            font-weight: 800;
+            background: rgba(231,76,60,0.15);
+            color: #e74c3c;
+            border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 5px;
+            padding: 1px 6px;
+            margin-left: 6px;
+            vertical-align: middle;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 700px) {
+            .values-grid { grid-template-columns: repeat(2, 1fr); }
+            .faq-grid    { grid-template-columns: 1fr; }
+            .brand-title { font-size: 2.2rem; }
+        }
+        @media (max-width: 420px) {
+            .values-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="diagnostics-strings.html" class="back-btn">← Back to Dev Tools</a>
+        <h1 class="brand-title" style="text-align:center;">KeyCode Detector</h1>
+        <p style="opacity:0.6;font-weight:500;text-align:center;margin-bottom:28px;">Press any key — get <code style="color:#f97316;font-size:0.85em;">event.key</code>, <code style="color:#f97316;font-size:0.85em;">event.code</code>, keyCode & more. Click any value to copy.</p>
+
+        <!-- Key Stage -->
+        <div class="key-stage">
+            <div class="key-visual waiting" id="keyVisual">press a key</div>
+            <div class="modifier-row">
+                <span class="mod-flag" id="modShift">Shift</span>
+                <span class="mod-flag" id="modCtrl">Ctrl</span>
+                <span class="mod-flag" id="modAlt">Alt</span>
+                <span class="mod-flag" id="modMeta">Meta</span>
+                <span class="mod-flag" id="modCaps">CapsLock</span>
+            </div>
+        </div>
+
+        <!-- Values Grid -->
+        <div class="values-grid">
+            <div class="val-card" onclick="copyVal('key')" title="Copy event.key">
+                <div class="val-label">event.key</div>
+                <div class="val-value empty" id="vKey">—</div>
+                <div class="copy-hint" id="hKey">click to copy</div>
+            </div>
+            <div class="val-card" onclick="copyVal('code')" title="Copy event.code">
+                <div class="val-label">event.code</div>
+                <div class="val-value empty" id="vCode">—</div>
+                <div class="copy-hint" id="hCode">click to copy</div>
+            </div>
+            <div class="val-card" onclick="copyVal('keyCode')" title="Copy keyCode">
+                <div class="val-label">keyCode <span class="deprecated-badge">legacy</span></div>
+                <div class="val-value empty" id="vKeyCode">—</div>
+                <div class="copy-hint" id="hKeyCode">click to copy</div>
+            </div>
+            <div class="val-card" onclick="copyVal('which')" title="Copy which">
+                <div class="val-label">which <span class="deprecated-badge">legacy</span></div>
+                <div class="val-value empty" id="vWhich">—</div>
+                <div class="copy-hint" id="hWhich">click to copy</div>
+            </div>
+            <div class="val-card" onclick="copyVal('charCode')" title="Copy charCode">
+                <div class="val-label">charCode <span class="deprecated-badge">legacy</span></div>
+                <div class="val-value empty" id="vCharCode">—</div>
+                <div class="copy-hint" id="hCharCode">click to copy</div>
+            </div>
+            <div class="val-card" onclick="copyVal('location')" title="Copy location">
+                <div class="val-label">location</div>
+                <div class="val-value empty" id="vLocation">—</div>
+                <div class="copy-hint" id="hLocation">click to copy</div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="history-wrap">
+            <div class="history-head">
+                <span class="section-label">Key History</span>
+                <button class="clear-btn" onclick="clearHistory()">Clear</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <span class="history-empty">Keys you press will appear here…</span>
+            </div>
+        </div>
+
+        <!-- Code Snippet -->
+        <div class="snippet-wrap">
+            <div class="section-label" style="margin-bottom:10px;">Ready-to-use Snippet</div>
+            <div class="snippet-tabs">
+                <button class="snip-tab active" onclick="setSnip('listener')">addEventListener</button>
+                <button class="snip-tab" onclick="setSnip('switch')">switch/case</button>
+                <button class="snip-tab" onclick="setSnip('react')">React onKeyDown</button>
+            </div>
+            <div class="snippet-box" id="snippetBox"></div>
+            <div class="action-row">
+                <button class="btn btn-primary" id="copySnipBtn" onclick="copySnippet()">COPY SNIPPET</button>
+                <span style="font-size:0.68rem;color:#475569;align-self:center;font-family:'Inter',sans-serif;">Snippet auto-fills with last pressed key</span>
+            </div>
+        </div>
+
+        <!-- SEO FAQ -->
+        <article style="text-align:left;margin-top:10px;">
+            <h2>JavaScript Key Events — What's the Difference?</h2>
+            <p style="color:#64748b;font-size:0.84rem;line-height:1.7;">Not all key properties are equal. Here's what each one actually means and when to use it.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>event.key — Use This</h3>
+                    <p>Returns the <strong>logical value</strong> of the key pressed: <code>"a"</code>, <code>"Enter"</code>, <code>"ArrowLeft"</code>. It respects the user's keyboard layout and modifier keys (Shift turns <code>"a"</code> into <code>"A"</code>). This is the modern, recommended property.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>event.code — Physical Location</h3>
+                    <p>Returns the <strong>physical key</strong> regardless of layout: <code>"KeyA"</code>, <code>"ShiftLeft"</code>, <code>"Numpad0"</code>. Use this for game controls where you want WASD to stay WASD even on AZERTY keyboards. Layout-independent.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>keyCode — Deprecated, but alive</h3>
+                    <p>Returns a numeric code like <code>65</code> for "A". Deprecated in the spec but still widely supported. Avoid in new code — use <code>event.key</code> instead. Some older game engines and jQuery code rely on it.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>location — Left vs Right</h3>
+                    <p>Tells you <em>where</em> on the keyboard the key is: <code>0</code> = standard, <code>1</code> = left modifier, <code>2</code> = right modifier, <code>3</code> = numpad. Useful to distinguish <code>ShiftLeft</code> from <code>ShiftRight</code> when <code>event.key</code> returns the same <code>"Shift"</code> for both.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+    <script>
+    /* ═══════════ STATE ═══════════ */
+    let lastEvent = null;
+    let history   = [];
+    let curSnip   = 'listener';
+
+    const LOCATION_MAP = { 0:'Standard (0)', 1:'Left (1)', 2:'Right (2)', 3:'Numpad (3)' };
+
+    /* ═══════════ LISTEN ═══════════ */
+    document.addEventListener('keydown', e => {
+        // don't swallow F5, Ctrl+R, etc. but capture everything for display
+        lastEvent = e;
+        updateDisplay(e);
+        pushHistory(e);
+        updateSnippet();
+    });
+
+    /* ═══════════ DISPLAY ═══════════ */
+    function updateDisplay(e) {
+        const vis  = document.getElementById('keyVisual');
+        const label = e.key === ' ' ? 'Space' : (e.key.length > 10 ? e.key.slice(0,10)+'…' : e.key);
+        vis.textContent = label;
+        vis.classList.remove('waiting');
+        vis.classList.add('pressed');
+        setTimeout(() => vis.classList.remove('pressed'), 120);
+
+        setVal('vKey',      e.key,                           'key');
+        setVal('vCode',     e.code,                          'code');
+        setVal('vKeyCode',  e.keyCode,                       'keyCode');
+        setVal('vWhich',    e.which,                         'which');
+        setVal('vCharCode', e.charCode ?? 0,                 'charCode');
+        setVal('vLocation', LOCATION_MAP[e.location] ?? e.location, 'location');
+
+        // Modifiers
+        toggleMod('modShift', e.shiftKey);
+        toggleMod('modCtrl',  e.ctrlKey);
+        toggleMod('modAlt',   e.altKey);
+        toggleMod('modMeta',  e.metaKey);
+        toggleMod('modCaps',  e.getModifierState?.('CapsLock') ?? false);
+    }
+
+    function setVal(id, val, prop) {
+        const el = document.getElementById(id);
+        el.textContent = String(val);
+        el.classList.remove('empty');
+        // store raw for copy
+        el.dataset.raw = String(['key','code'].includes(prop) ? val : val);
+    }
+
+    function toggleMod(id, on) {
+        document.getElementById(id).classList.toggle('on', on);
+    }
+
+    /* ═══════════ HISTORY ═══════════ */
+    function pushHistory(e) {
+        const key = e.key === ' ' ? 'Space' : e.key;
+        history.unshift({ key, code: e.code, keyCode: e.keyCode });
+        if (history.length > 30) history.pop();
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        if (!history.length) {
+            list.innerHTML = '<span class="history-empty">Keys you press will appear here…</span>';
+            return;
+        }
+        list.innerHTML = history.map((h,i) =>
+            `<span class="hist-item" onclick="loadFromHistory(${i})" title="${h.code} · ${h.keyCode}">
+                <span class="hist-key">${esc(h.key)}</span>
+                <span style="opacity:0.4;font-size:0.65rem;">${h.keyCode}</span>
+            </span>`
+        ).join('');
+    }
+
+    function loadFromHistory(i) {
+        const h = history[i];
+        if (!h) return;
+        // Just highlight, real event data from last event only
+        // Flash the item
+        const items = document.querySelectorAll('.hist-item');
+        if (items[i]) {
+            items[i].style.borderColor = '#16e8f9';
+            setTimeout(() => items[i].style.borderColor = '', 600);
+        }
+    }
+
+    function clearHistory() {
+        history = [];
+        renderHistory();
+    }
+
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ═══════════ COPY VALUES ═══════════ */
+    const VAL_IDS = { key:'vKey', code:'vCode', keyCode:'vKeyCode', which:'vWhich', charCode:'vCharCode', location:'vLocation' };
+    const CARD_IDS = { key:0, code:1, keyCode:2, which:3, charCode:4, location:5 };
+
+    async function copyVal(prop) {
+        const el = document.getElementById(VAL_IDS[prop]);
+        const val = el.dataset.raw || el.textContent;
+        if (!val || val === '—') return;
+        await navigator.clipboard.writeText(val);
+        const card = document.querySelectorAll('.val-card')[CARD_IDS[prop]];
+        const hint = card.querySelector('.copy-hint');
+        card.classList.add('copied');
+        hint.textContent = '✓ copied!';
+        setTimeout(() => { card.classList.remove('copied'); hint.textContent = 'click to copy'; }, 1400);
+    }
+
+    /* ═══════════ SNIPPETS ═══════════ */
+    function setSnip(type) {
+        curSnip = type;
+        document.querySelectorAll('.snip-tab').forEach((t,i) => {
+            t.classList.toggle('active', ['listener','switch','react'][i] === type);
+        });
+        updateSnippet();
+    }
+
+    function updateSnippet() {
+        const k  = lastEvent?.key    ?? 'Enter';
+        const c  = lastEvent?.code   ?? 'Enter';
+        const kc = lastEvent?.keyCode ?? 13;
+
+        const SNIPPETS = {
+            listener: h(`<span class="cmt">// Modern approach — use event.key</span>
+<span class="fn">document</span>.<span class="fn">addEventListener</span>(<span class="str">'keydown'</span>, (<span class="prop">event</span>) => {
+  <span class="kw">if</span> (<span class="prop">event</span>.key === <span class="str">'${esc(k)}'</span>) {
+    <span class="cmt">// event.code: "${esc(c)}" (physical key)</span>
+    <span class="cmt">// keyCode:    ${kc}  (legacy, avoid)</span>
+    <span class="fn">console</span>.log(<span class="str">'${esc(k)} pressed'</span>);
+  }
+});`),
+            switch: h(`<span class="fn">document</span>.<span class="fn">addEventListener</span>(<span class="str">'keydown'</span>, (<span class="prop">event</span>) => {
+  <span class="kw">switch</span> (<span class="prop">event</span>.key) {
+    <span class="kw">case</span> <span class="str">'${esc(k)}'</span>:
+      <span class="fn">console</span>.log(<span class="str">'${esc(k)}'</span>);
+      <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="str">'Escape'</span>:
+      <span class="fn">console</span>.log(<span class="str">'close'</span>);
+      <span class="kw">break</span>;
+    <span class="kw">default</span>:
+      <span class="kw">break</span>;
+  }
+});`),
+            react: h(`<span class="kw">const</span> <span class="fn">handleKey</span> = (<span class="prop">event</span>) => {
+  <span class="kw">if</span> (<span class="prop">event</span>.key === <span class="str">'${esc(k)}'</span>) {
+    <span class="cmt">// do something</span>
+  }
+};
+
+<span class="cmt">// JSX:</span>
+&lt;<span class="fn">div</span> <span class="prop">onKeyDown</span>={handleKey} <span class="prop">tabIndex</span>={0}&gt;
+  …
+&lt;/<span class="fn">div</span>&gt;`),
+        };
+
+        document.getElementById('snippetBox').innerHTML = SNIPPETS[curSnip];
+    }
+
+    function h(s) { return s; } // already marked up
+
+    /* ═══════════ COPY SNIPPET ═══════════ */
+    async function copySnippet() {
+        const raw = document.getElementById('snippetBox').innerText;
+        await navigator.clipboard.writeText(raw);
+        const btn = document.getElementById('copySnipBtn');
+        btn.textContent = '✓ COPIED'; btn.classList.add('success');
+        setTimeout(() => { btn.textContent = 'COPY SNIPPET'; btn.classList.remove('success'); }, 1600);
+    }
+
+    /* ═══════════ INIT ═══════════ */
+    updateSnippet();
+    renderHistory();
+    </script>
+</body>
+</html>

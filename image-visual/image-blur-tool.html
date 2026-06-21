@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Blur Tool — Blur Backgrounds & Sensitive Info | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Blur any part of an image — background, faces, or sensitive text. Gaussian, pixelate, and radial blur modes. 100% browser-based, zero upload.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Mode tabs */
+        .mode-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+        .mode-tab { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
+        .mode-tab:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .mode-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 12px; }
+        .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .ctrl-group { display: flex; flex-direction: column; gap: 9px; }
+        .ctrl-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .tool-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .tool-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Canvas area */
+        .canvas-wrap {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 20px; margin-bottom: 18px; position: relative; overflow: hidden;
+        }
+        .canvas-hint { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .canvas-hint b { color: var(--text-sec); }
+        /* Mode-specific hints */
+        .hint-zone { display: none; }
+        .hint-zone.active { display: flex; }
+
+        .canvas-container { position: relative; display: inline-block; max-width: 100%; cursor: crosshair; border-radius: var(--radius-sm); overflow: hidden; }
+        #mainCanvas { display: block; max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-mid); user-select: none; -webkit-user-drag: none; }
+        /* selection rect overlay */
+        #selRect {
+            position: absolute; border: 2px dashed var(--primary); border-radius: 4px;
+            background: rgba(255,214,0,0.06); pointer-events: none; display: none;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+        }
+
+        /* Apply button */
+        .apply-bar { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+        .btn-apply { padding: 10px 20px; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, #FFD600, #FF9500); color: #000; font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-apply:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,180,0,0.3); }
+        .btn-undo { padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-undo:hover { border-color: var(--primary-border); color: var(--primary); }
+        .btn-reset-canvas { padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255,68,68,0.2); background: rgba(255,68,68,0.06); color: #FF6666; font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-left: auto; }
+        .btn-reset-canvas:hover { border-color: rgba(255,68,68,0.4); background: rgba(255,68,68,0.1); }
+        .applied-count { font-size: 0.72rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-dl { display: none; flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-dl.visible { display: block; }
+        .btn-dl:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .ctrl-grid { grid-template-columns: 1fr; gap: 16px; }
+            .action-row { flex-direction: column; }
+            .apply-bar { flex-wrap: wrap; }
+            .btn-reset-canvas { margin-left: 0; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Blur Tool</h1>
+                <p class="tool-page-sub">Blur backgrounds, faces, or sensitive text in any screenshot or photo. Three blur modes, live preview.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🌫️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Blur mode tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="region" onclick="setMode(this)">🖱️ Region Blur</button>
+                    <button class="mode-tab" data-mode="full" onclick="setMode(this)">🌐 Full Image</button>
+                    <button class="mode-tab" data-mode="radial" onclick="setMode(this)">🎯 Radial / Vignette</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Blur Settings</div>
+                    <div class="ctrl-grid">
+                        <div class="ctrl-group">
+                            <label>Blur Amount — <span id="blurLabel">18</span>px</label>
+                            <div class="slider-row">
+                                <input type="range" class="tool-slider" id="blurSlider" min="1" max="60" value="18" oninput="onBlurSlide(this.value)">
+                                <span class="slider-val" id="blurVal">18</span>
+                            </div>
+                        </div>
+                        <div class="ctrl-group">
+                            <label>Blur Style</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-style="gaussian" onclick="setStyle(this)">Gaussian</button>
+                                <button class="tog-btn" data-style="pixelate" onclick="setStyle(this)">Pixelate</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Radial controls (hidden unless radial mode) -->
+                    <div id="radialControls" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+                        <div class="ctrl-group">
+                            <label>Blur Falloff — <span id="falloffLabel">40</span>%</label>
+                            <div class="slider-row">
+                                <input type="range" class="tool-slider" id="falloffSlider" min="10" max="90" value="40" oninput="onFalloffSlide(this.value)">
+                                <span class="slider-val" id="falloffVal">40</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="canvas-wrap">
+                    <div class="canvas-hint hint-zone active" id="hintRegion">
+                        ✦ <b>Draw a rectangle</b> over any area to blur it. Apply as many regions as needed.
+                    </div>
+                    <div class="canvas-hint hint-zone" id="hintFull">
+                        ✦ Adjust blur amount and hit <b>Apply Full Blur</b> — preview updates live.
+                    </div>
+                    <div class="canvas-hint hint-zone" id="hintRadial">
+                        ✦ <b>Click the center point</b> on the image to place radial blur. Outside stays sharp, center blurs.
+                    </div>
+
+                    <div class="canvas-container" id="canvasContainer">
+                        <canvas id="mainCanvas"></canvas>
+                        <div id="selRect"></div>
+                    </div>
+
+                    <div class="apply-bar" id="applyBar">
+                        <button class="btn-apply" id="btnApply" onclick="applyBlur()">✦ Apply Blur</button>
+                        <button class="btn-undo" onclick="undoLast()">↩ Undo</button>
+                        <span class="applied-count" id="appliedCount"></span>
+                        <button class="btn-reset-canvas" onclick="resetCanvas()">Reset All</button>
+                    </div>
+                </div>
+
+                <!-- Download -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doDownload()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⬇️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Download Blurred Image</span>
+                        </div>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How to use</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Region Blur</h3>
+                        <p>Draw a rectangle over any part of the image — a face, password, address, or background. Stack multiple regions. Each one is undoable individually.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Pixelate mode</h3>
+                        <p>Choose <code>Pixelate</code> for a mosaic-style blur — great for hiding faces in thumbnails without looking like a mistake.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Radial blur</h3>
+                        <p>Places a blur centered on where you click. The area around that point stays sharp. Great for a "tilt-shift" or focus effect on product shots.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>All processing uses the browser's <code>Canvas API</code>. No server, no upload. Your screenshots with sensitive data stay on your device.</p>
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let blurAmt = 18, blurStyle = 'gaussian', falloff = 40;
+    let blurMode = 'region';
+    // history: array of ImageData snapshots for undo
+    let history = [];
+
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const selRect = document.getElementById('selRect');
+    const container = document.getElementById('canvasContainer');
+
+    // ── UPLOAD ─────────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                // scale canvas to fit display max 820px wide
+                const maxW = Math.min(820, img.naturalWidth);
+                const scale = maxW / img.naturalWidth;
+                canvas.width = Math.round(img.naturalWidth * scale);
+                canvas.height = Math.round(img.naturalHeight * scale);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                history = [];
+                updateCount();
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                // If full mode, apply preview right away
+                if (blurMode === 'full') applyFullPreview();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; history = [];
+    }
+
+    // ── MODE / CONTROLS ────────────────────────────────────────────────────────
+    function setMode(btn) {
+        document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        blurMode = btn.dataset.mode;
+        document.querySelectorAll('.hint-zone').forEach(h => h.classList.remove('active'));
+        document.getElementById('hint' + blurMode.charAt(0).toUpperCase() + blurMode.slice(1)).classList.add('active');
+        document.getElementById('radialControls').style.display = blurMode === 'radial' ? 'block' : 'none';
+        document.getElementById('btnApply').textContent = blurMode === 'full' ? '✦ Apply Full Blur' : blurMode === 'radial' ? '✦ Click image to place' : '✦ Apply Blur';
+        document.getElementById('applyBar').style.display = blurMode === 'radial' ? 'flex' : 'flex';
+        if (blurMode === 'full' && origImg) applyFullPreview();
+        resetDrawing();
+    }
+
+    function setStyle(btn) {
+        document.querySelectorAll('[data-style]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        blurStyle = btn.dataset.style;
+        if (blurMode === 'full' && origImg) applyFullPreview();
+    }
+
+    function onBlurSlide(v) {
+        blurAmt = +v;
+        document.getElementById('blurLabel').textContent = v;
+        document.getElementById('blurVal').textContent = v;
+        if (blurMode === 'full' && origImg) applyFullPreview();
+    }
+
+    function onFalloffSlide(v) {
+        falloff = +v;
+        document.getElementById('falloffLabel').textContent = v;
+        document.getElementById('falloffVal').textContent = v;
+    }
+
+    // ── GAUSSIAN BLUR (stack blur approach — lightweight, no lib) ──────────────
+    function gaussianBlurRegion(imageData, radius) {
+        // Simple box blur 3x pass approximates Gaussian well
+        const data = imageData.data, w = imageData.width, h = imageData.height;
+        for (let pass = 0; pass < 3; pass++) {
+            boxBlurH(data, w, h, radius);
+            boxBlurV(data, w, h, radius);
+        }
+        return imageData;
+    }
+
+    function boxBlurH(d, w, h, r) {
+        for (let y = 0; y < h; y++) {
+            let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+            for (let x = -r; x <= r; x++) { const px = clamp(x, 0, w - 1) * 4 + y * w * 4; rSum += d[px]; gSum += d[px+1]; bSum += d[px+2]; aSum += d[px+3]; }
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                d[i] = rSum / (r * 2 + 1); d[i+1] = gSum / (r * 2 + 1); d[i+2] = bSum / (r * 2 + 1); d[i+3] = aSum / (r * 2 + 1);
+                const addPx = (clamp(x + r + 1, 0, w - 1) + y * w) * 4;
+                const rmPx  = (clamp(x - r, 0, w - 1) + y * w) * 4;
+                rSum += d[addPx] - d[rmPx]; gSum += d[addPx+1] - d[rmPx+1]; bSum += d[addPx+2] - d[rmPx+2]; aSum += d[addPx+3] - d[rmPx+3];
+            }
+        }
+    }
+
+    function boxBlurV(d, w, h, r) {
+        for (let x = 0; x < w; x++) {
+            let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+            for (let y = -r; y <= r; y++) { const px = (clamp(y, 0, h - 1) * w + x) * 4; rSum += d[px]; gSum += d[px+1]; bSum += d[px+2]; aSum += d[px+3]; }
+            for (let y = 0; y < h; y++) {
+                const i = (y * w + x) * 4;
+                d[i] = rSum / (r * 2 + 1); d[i+1] = gSum / (r * 2 + 1); d[i+2] = bSum / (r * 2 + 1); d[i+3] = aSum / (r * 2 + 1);
+                const addPx = (clamp(y + r + 1, 0, h - 1) * w + x) * 4;
+                const rmPx  = (clamp(y - r, 0, h - 1) * w + x) * 4;
+                rSum += d[addPx] - d[rmPx]; gSum += d[addPx+1] - d[rmPx+1]; bSum += d[addPx+2] - d[rmPx+2]; aSum += d[addPx+3] - d[rmPx+3];
+            }
+        }
+    }
+
+    function pixelateRegion(imageData, blockSize) {
+        const d = imageData.data, w = imageData.width, h = imageData.height;
+        const bs = Math.max(4, blockSize * 2);
+        for (let y = 0; y < h; y += bs) {
+            for (let x = 0; x < w; x += bs) {
+                const px = (y * w + x) * 4;
+                const r = d[px], g = d[px+1], b = d[px+2], a = d[px+3];
+                for (let dy = 0; dy < bs && y + dy < h; dy++) {
+                    for (let dx = 0; dx < bs && x + dx < w; dx++) {
+                        const i = ((y + dy) * w + (x + dx)) * 4;
+                        d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = a;
+                    }
+                }
+            }
+        }
+        return imageData;
+    }
+
+    function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+    // ── FULL IMAGE BLUR (preview via CSS filter for speed, apply to canvas on save) ─
+    function applyFullPreview() {
+        // Redraw original then apply
+        ctx.filter = blurStyle === 'gaussian' ? `blur(${blurAmt * 0.5}px)` : 'none';
+        ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
+        if (blurStyle === 'pixelate') {
+            const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            pixelateRegion(id, blurAmt);
+            ctx.putImageData(id, 0, 0);
+        }
+    }
+
+    // ── REGION DRAWING ─────────────────────────────────────────────────────────
+    let drawing = false, startX = 0, startY = 0, curX = 0, curY = 0;
+
+    function canvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: Math.round((clientX - rect.left) * (canvas.width / rect.width)),
+            y: Math.round((clientY - rect.top) * (canvas.height / rect.height)),
+            px: clientX - rect.left,
+            py: clientY - rect.top,
+            rw: rect.width,
+            rh: rect.height
+        };
+    }
+
+    function cssPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    canvas.addEventListener('mousedown', onStart);
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); onStart(e); }, { passive: false });
+
+    function onStart(e) {
+        if (blurMode === 'full') return;
+        if (blurMode === 'radial') { doRadialBlur(e); return; }
+        drawing = true;
+        const p = canvasPos(e);
+        startX = p.x; startY = p.y;
+        const cp = cssPos(e);
+        selRect.style.left = cp.x + 'px';
+        selRect.style.top = cp.y + 'px';
+        selRect.style.width = '0'; selRect.style.height = '0';
+        selRect.style.display = 'block';
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', e => { if (drawing) { e.preventDefault(); onMove(e); } }, { passive: false });
+
+    function onMove(e) {
+        if (!drawing) return;
+        const p = canvasPos(e);
+        const cp = cssPos(e);
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = rect.width / canvas.width;
+        const scaleY = rect.height / canvas.height;
+        const x1css = Math.min(startX, p.x) * scaleX;
+        const y1css = Math.min(startY, p.y) * scaleY;
+        const wCss = Math.abs(p.x - startX) * scaleX;
+        const hCss = Math.abs(p.y - startY) * scaleY;
+        selRect.style.left = x1css + 'px';
+        selRect.style.top = y1css + 'px';
+        selRect.style.width = wCss + 'px';
+        selRect.style.height = hCss + 'px';
+        curX = p.x; curY = p.y;
+    }
+
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', e => { if (drawing) onEnd(e); });
+
+    function onEnd() {
+        if (!drawing) return;
+        drawing = false;
+        selRect.style.display = 'none';
+    }
+
+    function resetDrawing() { drawing = false; selRect.style.display = 'none'; }
+
+    // ── APPLY BLUR ─────────────────────────────────────────────────────────────
+    function applyBlur() {
+        if (!origImg) return;
+        if (blurMode === 'full') {
+            saveHistory();
+            applyFullPixelBlur();
+            showToast('Full blur applied ✓', 'success');
+            updateCount();
+            return;
+        }
+        if (blurMode === 'region') {
+            const x1 = Math.min(startX, curX), y1 = Math.min(startY, curY);
+            const rw = Math.abs(curX - startX), rh = Math.abs(curY - startY);
+            if (rw < 4 || rh < 4) { showToast('Draw a region on the image first', 'error'); return; }
+            saveHistory();
+            applyRegionBlur(x1, y1, rw, rh);
+            curX = startX; // reset selection
+            showToast('Region blurred ✓', 'success');
+            updateCount();
+        }
+    }
+
+    function applyFullPixelBlur() {
+        if (blurStyle === 'gaussian') {
+            ctx.filter = `blur(${blurAmt * 0.5}px)`;
+            ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+            ctx.filter = 'none';
+        } else {
+            ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+            const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            pixelateRegion(id, blurAmt);
+            ctx.putImageData(id, 0, 0);
+        }
+    }
+
+    function applyRegionBlur(x, y, w, h) {
+        const id = ctx.getImageData(x, y, w, h);
+        if (blurStyle === 'gaussian') gaussianBlurRegion(id, Math.max(1, Math.round(blurAmt / 2)));
+        else pixelateRegion(id, blurAmt);
+        ctx.putImageData(id, x, y);
+    }
+
+    function doRadialBlur(e) {
+        if (!origImg) return;
+        const p = canvasPos(e);
+        saveHistory();
+        applyRadialBlur(p.x, p.y);
+        showToast('Radial blur placed ✓', 'success');
+        updateCount();
+    }
+
+    function applyRadialBlur(cx, cy) {
+        const w = canvas.width, h = canvas.height;
+        const maxDist = Math.sqrt(cx * cx + cy * cy + (w - cx) * (w - cx) + (h - cy) * (h - cy)) * 0.7;
+        const fo = falloff / 100;
+
+        // Create blurred version
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = w; offCanvas.height = h;
+        const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+        offCtx.filter = `blur(${blurAmt * 0.5}px)`;
+        offCtx.drawImage(canvas, 0, 0);
+        offCtx.filter = 'none';
+
+        const orig = ctx.getImageData(0, 0, w, h);
+        const blurred = offCtx.getImageData(0, 0, w, h);
+        const out = ctx.createImageData(w, h);
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+                // t=0 at center (sharp), t=1 at edge (blurred)
+                const t = Math.min(1, Math.max(0, (dist / maxDist - fo) / (1 - fo)));
+                out.data[i]   = orig.data[i]   * (1 - t) + blurred.data[i]   * t;
+                out.data[i+1] = orig.data[i+1] * (1 - t) + blurred.data[i+1] * t;
+                out.data[i+2] = orig.data[i+2] * (1 - t) + blurred.data[i+2] * t;
+                out.data[i+3] = 255;
+            }
+        }
+        ctx.putImageData(out, 0, 0);
+    }
+
+    // ── UNDO / HISTORY ─────────────────────────────────────────────────────────
+    function saveHistory() {
+        if (history.length > 20) history.shift();
+        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        updateCount();
+    }
+
+    function undoLast() {
+        if (!history.length) { showToast('Nothing to undo', 'error'); return; }
+        ctx.putImageData(history.pop(), 0, 0);
+        updateCount();
+        showToast('Undone ✓', 'success');
+    }
+
+    function resetCanvas() {
+        if (!origImg) return;
+        ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+        history = [];
+        updateCount();
+        showToast('Reset to original', 'success');
+    }
+
+    function updateCount() {
+        const el = document.getElementById('appliedCount');
+        el.textContent = history.length ? `${history.length} edit${history.length > 1 ? 's' : ''} applied` : '';
+    }
+
+    // ── DOWNLOAD ───────────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const dataURL = canvas.toDataURL('image/png');
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const a = document.createElement('a');
+        a.href = dataURL; a.download = base + '_blurred.png'; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

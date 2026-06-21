@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Hours Logger | Rebrixe</title>
+    <meta name="description" content="Log your work sessions with in/out times and break deductions. Auto-calculates total hours worked per day. Free, fast, no sign-up.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Top controls ── */
+        .top-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .date-label-sm {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            display: block;
+            margin-bottom: 6px;
+        }
+        input[type="date"] {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 12px 16px;
+            font-family: 'Inter';
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        input[type="date"]:focus { border-color: var(--primary); }
+
+        .btn-add {
+            margin-left: auto;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            color: #000;
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .btn-add:hover { transform: translateY(-2px); letter-spacing: 1.3px; }
+
+        /* ── Summary bar ── */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .sum-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 14px;
+            text-align: center;
+        }
+        .sum-cell.highlight { border-color: var(--primary); background: rgba(120,129,132,0.08); }
+        .sum-num {
+            font-family: 'Outfit';
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .sum-cell.highlight .sum-num { color: var(--primary); }
+        .sum-lbl {
+            font-size: 0.58rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Target progress ── */
+        .target-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 22px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            flex-wrap: wrap;
+        }
+        .target-row label {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        .target-row label strong { color: #fff; }
+        .target-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--border);
+            color: #fff;
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 1rem;
+            width: 48px;
+            text-align: center;
+            outline: none;
+            padding: 2px 4px;
+            transition: border-color .2s;
+        }
+        .target-input:focus { border-color: var(--primary); }
+        .progress-track {
+            flex: 1;
+            min-width: 120px;
+            height: 8px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #616768, #c0cbcc);
+            border-radius: 999px;
+            transition: width .4s ease;
+            width: 0%;
+        }
+        .progress-fill.over { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+        .progress-pct {
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        /* ── Entries list ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        .entry-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+        .entry-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 18px;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto auto;
+            gap: 10px;
+            align-items: center;
+            transition: border-color .2s;
+        }
+        .entry-card:hover { border-color: rgba(139,148,152,0.4); }
+        .entry-card.has-error { border-color: rgba(239,68,68,0.5); }
+
+        .entry-num {
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 0.75rem;
+            color: #334155;
+            width: 22px;
+            text-align: center;
+        }
+
+        .entry-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 2fr;
+            gap: 10px;
+            align-items: end;
+        }
+        .field-group { display: flex; flex-direction: column; gap: 5px; }
+        .field-lbl {
+            font-size: 0.58rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #475569;
+        }
+        .time-in {
+            background: #000;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 9px 11px;
+            font-family: 'Inter';
+            font-size: 0.85rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        .time-in:focus { border-color: var(--primary); }
+        .time-in.field-error { border-color: rgba(239,68,68,0.7); }
+        input[type="text"].note-input {
+            background: #000;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: #94a3b8;
+            padding: 9px 11px;
+            font-family: 'Inter';
+            font-size: 0.82rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .note-input:focus { border-color: var(--primary); color: #fff; }
+        .note-input::placeholder { color: #334155; }
+
+        .entry-duration {
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--primary);
+            text-align: center;
+            min-width: 64px;
+        }
+        .entry-duration.zero { color: #334155; }
+        .entry-duration.error { color: #ef4444; font-size: 0.7rem; line-height: 1.3; }
+
+        .entry-break-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .entry-break-row input[type="number"] {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid var(--border);
+            color: #94a3b8;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.82rem;
+            width: 38px;
+            text-align: center;
+            outline: none;
+            padding: 2px;
+            transition: border-color .2s;
+        }
+        .entry-break-row input:focus { border-color: var(--primary); color: #fff; }
+
+        .btn-del {
+            background: transparent;
+            border: 1px solid #1e293b;
+            color: #334155;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: .2s;
+            flex-shrink: 0;
+        }
+        .btn-del:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.05); }
+
+        /* ── Midnight warning banner ── */
+        .midnight-note {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: #f59e0b;
+            background: rgba(245,158,11,0.07);
+            border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-top: 8px;
+        }
+        .midnight-note.visible { display: flex; }
+
+        /* ── Persist notice ── */
+        .persist-notice {
+            font-size: 0.68rem;
+            color: #334155;
+            text-align: right;
+            margin-bottom: 10px;
+            letter-spacing: 0.3px;
+        }
+        .persist-notice span { color: #22c55e; font-weight: 700; }
+
+        /* ── Export modal (CSV text fallback) ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            max-width: 540px;
+            width: 90vw;
+        }
+        .modal-title {
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .modal-sub {
+            font-size: 0.75rem;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+        .modal-textarea {
+            width: 100%;
+            min-height: 200px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #94a3b8;
+            font-family: 'Inter';
+            font-size: 0.78rem;
+            padding: 12px;
+            box-sizing: border-box;
+            resize: vertical;
+            outline: none;
+            line-height: 1.6;
+        }
+        .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+        .modal-btn {
+            flex: 1;
+            padding: 11px;
+            border-radius: 10px;
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: .2s;
+        }
+        .modal-btn.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            color: #000;
+            border: none;
+        }
+        .modal-btn.ghost { background: transparent; color: #fff; }
+        .modal-btn:hover { transform: translateY(-1px); }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 36px 20px;
+            color: #334155;
+        }
+        .empty-state .empty-icon { font-size: 2rem; margin-bottom: 10px; }
+        .empty-state p { font-size: 0.88rem; }
+
+        /* ── Action row ── */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-action {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.05); }
+
+        /* ── Responsive ── */
+        @media(max-width: 680px) {
+            .tool-card { padding: 20px; }
+            .summary-bar { grid-template-columns: repeat(2, 1fr); }
+            .entry-card { grid-template-columns: 1fr; gap: 12px; }
+            .entry-fields { grid-template-columns: 1fr 1fr; }
+            .entry-num { display: none; }
+            .top-row { flex-direction: column; align-items: stretch; }
+            .btn-add { margin-left: 0; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Daily Hours Logger</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Log work sessions with breaks. Total hours calculated instantly — no spreadsheet needed.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- TOP ROW -->
+                <div class="top-row">
+                    <div>
+                        <span class="date-label-sm">Logging Date</span>
+                        <input type="date" id="logDate">
+                    </div>
+                    <button class="btn-add" onclick="addEntry()">+ Add Session</button>
+                </div>
+
+                <!-- SUMMARY -->
+                <div class="summary-bar">
+                    <div class="sum-cell highlight">
+                        <div class="sum-num" id="sumTotal">0h 0m</div>
+                        <div class="sum-lbl">Net Worked</div>
+                    </div>
+                    <div class="sum-cell">
+                        <div class="sum-num" id="sumGross">0h 0m</div>
+                        <div class="sum-lbl">Gross Time</div>
+                    </div>
+                    <div class="sum-cell">
+                        <div class="sum-num" id="sumBreaks">0m</div>
+                        <div class="sum-lbl">Total Breaks</div>
+                    </div>
+                    <div class="sum-cell">
+                        <div class="sum-num" id="sumSessions">0</div>
+                        <div class="sum-lbl">Sessions</div>
+                    </div>
+                </div>
+
+                <!-- TARGET PROGRESS -->
+                <div class="target-row">
+                    <label><strong>Target:</strong></label>
+                    <input type="number" class="target-input" id="targetHours" value="8" min="1" max="24" step="0.5" oninput="saveAndRecalc()"> hrs
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="progress-pct" id="progressPct">0%</span>
+                </div>
+
+                <!-- PERSIST NOTICE -->
+                <div class="persist-notice" id="persistNotice">Auto-saved to this browser</div>
+
+                <!-- ENTRIES -->
+                <div class="section-label">Sessions</div>
+                <div class="entry-list" id="entryList"></div>
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🕐</div>
+                    <p>No sessions yet. Hit <strong>+ Add Session</strong> to start logging.</p>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action" onclick="openSummaryModal()">📋 Copy Summary</button>
+                    <button class="btn-action" onclick="exportCSV()">⬇ Export CSV</button>
+                    <button class="btn-action danger" onclick="clearAll()">✕ Clear All</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY MODAL (reliable cross-browser copy) -->
+    <div class="modal-overlay" id="summaryModal" onclick="closeModalOnBg(event)">
+        <div class="modal-box">
+            <div class="modal-title">Summary</div>
+            <div class="modal-sub">Select all text below and copy (Ctrl+A / Cmd+A, then Ctrl+C / Cmd+C).</div>
+            <textarea class="modal-textarea" id="summaryText" readonly onclick="this.select()"></textarea>
+            <div class="modal-actions">
+                <button class="modal-btn primary" onclick="tryCopy()">Copy to Clipboard</button>
+                <button class="modal-btn ghost" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ─────────────────────────────────────────────────────────────────
+       STATE
+    ───────────────────────────────────────────────────────────────── */
+    let entries = [];   // { id, note, in, out, brk }
+    let nextId  = 1;
+    const STORAGE_KEY = 'Rebrixe_hours_logger';
+
+    /* ─────────────────────────────────────────────────────────────────
+       INIT
+    ───────────────────────────────────────────────────────────────── */
+    (function init() {
+        // Set today's date
+        const d = new Date();
+        document.getElementById('logDate').value = d.toISOString().split('T')[0];
+
+        // Load from localStorage
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const saved = JSON.parse(raw);
+                // Validate shape before trusting
+                if (saved && Array.isArray(saved.entries) && typeof saved.nextId === 'number') {
+                    entries = saved.entries;
+                    nextId  = saved.nextId;
+                    // Restore target hours if saved
+                    if (typeof saved.targetHours === 'number' && saved.targetHours >= 1) {
+                        document.getElementById('targetHours').value = saved.targetHours;
+                    }
+                    // Restore date if saved
+                    if (typeof saved.date === 'string' && saved.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        document.getElementById('logDate').value = saved.date;
+                    }
+                }
+            }
+        } catch(e) {
+            // localStorage unavailable or corrupt — proceed silently with empty state
+        }
+
+        renderList();
+        recalc();
+    })();
+
+    /* ─────────────────────────────────────────────────────────────────
+       PERSISTENCE — save everything to localStorage after every change
+    ───────────────────────────────────────────────────────────────── */
+    function persist() {
+        try {
+            const payload = {
+                entries,
+                nextId,
+                targetHours: parseFloat(document.getElementById('targetHours').value) || 8,
+                date: document.getElementById('logDate').value
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch(e) {
+            // Storage full or unavailable — fail silently, data still lives in memory
+        }
+    }
+
+    function saveAndRecalc() {
+        persist();
+        recalc();
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       ENTRY MANAGEMENT
+    ───────────────────────────────────────────────────────────────── */
+    function addEntry(inVal='', outVal='', brk=0, note='') {
+        const id = nextId++;
+        entries.push({ id, in: inVal, out: outVal, brk: brk, note });
+        persist();
+        renderList();
+        recalc();
+        setTimeout(() => {
+            const el = document.getElementById('in_' + id);
+            if (el) el.focus();
+        }, 50);
+    }
+
+    function removeEntry(id) {
+        entries = entries.filter(e => e.id !== id);
+        persist();
+        renderList();
+        recalc();
+    }
+
+    function onFieldChange(id, field, val) {
+        const e = entries.find(x => x.id === id);
+        if (!e) return;
+        e[field] = val;
+        persist();
+        updateCardDuration(id);
+        recalc();
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       TIME CALCULATION — reliable with explicit validation
+    ───────────────────────────────────────────────────────────────── */
+
+    /**
+     * Parses "HH:MM" into total minutes from midnight.
+     * Returns null if the string is invalid.
+     */
+    function parseTime(t) {
+        if (!t || typeof t !== 'string') return null;
+        const parts = t.split(':');
+        if (parts.length !== 2) return null;
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m)) return null;
+        if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+        return h * 60 + m;
+    }
+
+    /**
+     * Returns an object:
+     *   { valid: true, grossMins, netMins, isMidnight, breakExceedsGross }
+     *   { valid: false, reason }
+     *
+     * RELIABILITY RULE: We do NOT silently add 1440 for midnight crossover.
+     * If out <= in, we treat it as a potential error and flag it explicitly.
+     * The user must confirm midnight intent by checking the "crosses midnight" checkbox.
+     */
+    function calcEntry(e) {
+        const inMins  = parseTime(e.in);
+        const outMins = parseTime(e.out);
+
+        // Incomplete entry — not an error, just skip
+        if (inMins === null || outMins === null) {
+            return { valid: false, incomplete: true };
+        }
+
+        let grossMins;
+
+        if (outMins > inMins) {
+            // Normal same-day session
+            grossMins = outMins - inMins;
+        } else if (outMins === inMins) {
+            return { valid: false, reason: 'In and Out are the same time.' };
+        } else {
+            // out < in  →  could be midnight crossover OR a typo
+            // We require explicit user confirmation via the midnight flag
+            if (e.midnight) {
+                grossMins = (1440 - inMins) + outMins; // crosses midnight
+            } else {
+                return {
+                    valid: false,
+                    reason: 'Out is before In. If this session crosses midnight, tick the midnight box.',
+                    needsMidnight: true
+                };
+            }
+        }
+
+        const brk = Math.max(0, parseInt(e.brk, 10) || 0);
+
+        // Guard: break cannot exceed or equal gross time
+        if (brk >= grossMins) {
+            return {
+                valid: false,
+                reason: 'Break (' + brk + 'm) equals or exceeds the session length (' + grossMins + 'm).'
+            };
+        }
+
+        const netMins = grossMins - brk;
+
+        return { valid: true, grossMins, netMins, isMidnight: !!e.midnight };
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       RENDER
+    ───────────────────────────────────────────────────────────────── */
+    function updateCardDuration(id) {
+        const e   = entries.find(x => x.id === id);
+        const el  = document.getElementById('dur_' + id);
+        const card = document.getElementById('card_' + id);
+        const inEl  = document.getElementById('in_'  + id);
+        const outEl = document.getElementById('out_' + id);
+        if (!e || !el) return;
+
+        const result = calcEntry(e);
+
+        // Reset error states
+        if (inEl)  inEl.classList.remove('field-error');
+        if (outEl) outEl.classList.remove('field-error');
+        if (card)  card.classList.remove('has-error');
+
+        if (result.incomplete) {
+            el.textContent  = '--';
+            el.className    = 'entry-duration zero';
+        } else if (!result.valid) {
+            el.textContent  = '⚠ ' + result.reason;
+            el.className    = 'entry-duration error';
+            if (card)  card.classList.add('has-error');
+            if (result.needsMidnight && outEl) outEl.classList.add('field-error');
+        } else {
+            el.textContent = fmtHM(result.netMins) + (result.isMidnight ? ' 🌙' : '');
+            el.className   = 'entry-duration';
+        }
+    }
+
+    function renderList() {
+        const list  = document.getElementById('entryList');
+        const empty = document.getElementById('emptyState');
+        empty.style.display = entries.length ? 'none' : 'block';
+
+        list.innerHTML = entries.map((e, idx) => `
+            <div class="entry-card" id="card_${e.id}">
+                <div class="entry-num">${idx + 1}</div>
+                <div class="entry-fields">
+                    <div class="field-group">
+                        <span class="field-lbl">In</span>
+                        <input type="time" class="time-in" id="in_${e.id}" value="${escAttr(e.in)}"
+                            oninput="onFieldChange(${e.id},'in',this.value)">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-lbl">Out</span>
+                        <input type="time" class="time-in" id="out_${e.id}" value="${escAttr(e.out)}"
+                            oninput="onFieldChange(${e.id},'out',this.value)">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-lbl">Break</span>
+                        <div class="entry-break-row">
+                            <input type="number" min="0" max="1439" value="${parseInt(e.brk,10)||0}" id="brk_${e.id}"
+                                oninput="onFieldChange(${e.id},'brk',this.value)"> min
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <span class="field-lbl">Note (optional)</span>
+                        <input type="text" class="note-input" id="note_${e.id}" value="${escAttr(e.note)}"
+                            placeholder="e.g. Client call, deep work…"
+                            oninput="onFieldChange(${e.id},'note',this.value)">
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                    <div class="entry-duration zero" id="dur_${e.id}">--</div>
+                    <label style="font-size:0.6rem;color:#475569;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;" title="Check if this session goes past midnight">
+                        <input type="checkbox" id="mid_${e.id}" ${e.midnight ? 'checked' : ''}
+                            style="accent-color:var(--primary);cursor:pointer;"
+                            onchange="onFieldChange(${e.id},'midnight',this.checked)">
+                        midnight
+                    </label>
+                </div>
+                <button class="btn-del" onclick="removeEntry(${e.id})" title="Remove session">✕</button>
+            </div>
+        `).join('');
+
+        entries.forEach(e => updateCardDuration(e.id));
+    }
+
+    /* Safely escape values going into HTML attribute quotes */
+    function escAttr(v) {
+        if (v === null || v === undefined) return '';
+        return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       RECALC — only counts entries that are fully valid
+    ───────────────────────────────────────────────────────────────── */
+    function recalc() {
+        let grossMins = 0, netMins = 0, breakMins = 0, validCount = 0;
+
+        entries.forEach(e => {
+            const result = calcEntry(e);
+            if (!result.valid) return; // skip incomplete or errored entries
+            grossMins  += result.grossMins;
+            netMins    += result.netMins;
+            breakMins  += Math.max(0, parseInt(e.brk, 10) || 0);
+            validCount++;
+        });
+
+        document.getElementById('sumTotal').textContent    = fmtHM(netMins);
+        document.getElementById('sumGross').textContent    = fmtHM(grossMins);
+        document.getElementById('sumBreaks').textContent   = breakMins + 'm';
+        document.getElementById('sumSessions').textContent = entries.length;
+
+        // Progress bar — uses safe float parsing with fallback
+        const rawTarget = parseFloat(document.getElementById('targetHours').value);
+        const targetMins = (isNaN(rawTarget) || rawTarget < 1) ? 480 : rawTarget * 60;
+        const pct  = Math.min(Math.round((netMins / targetMins) * 100), 999);
+        const fill = document.getElementById('progressFill');
+        fill.style.width = Math.min(pct, 100) + '%';
+        fill.className   = 'progress-fill' + (pct >= 100 ? ' over' : '');
+        document.getElementById('progressPct').textContent = pct + '%';
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       FORMATTING HELPERS
+    ───────────────────────────────────────────────────────────────── */
+    function fmtHM(totalMins) {
+        const m = Math.round(totalMins); // guard against float drift
+        const h = Math.floor(m / 60);
+        return h + 'h ' + (m % 60) + 'm';
+    }
+
+    function fmtTime12(t) {
+        if (!t) return '--';
+        const inMins = parseTime(t);
+        if (inMins === null) return '--';
+        const h    = Math.floor(inMins / 60);
+        const m    = inMins % 60;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12  = h % 12 || 12;
+        return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       SUMMARY MODAL — reliable cross-browser copy
+       Replaces the navigator.clipboard-only approach which fails on HTTP
+    ───────────────────────────────────────────────────────────────── */
+    function buildSummaryText() {
+        const date  = document.getElementById('logDate').value;
+        const lines = ['Daily Hours Log — ' + date, ''];
+
+        entries.forEach((e, i) => {
+            const result = calcEntry(e);
+            let durStr;
+            if (result.incomplete) {
+                durStr = '(incomplete)';
+            } else if (!result.valid) {
+                durStr = '(error: ' + result.reason + ')';
+            } else {
+                durStr = fmtHM(result.netMins);
+            }
+            const breakStr = (parseInt(e.brk, 10) > 0) ? ' (' + e.brk + 'm break)' : '';
+            const noteStr  = e.note ? ' | ' + e.note : '';
+            lines.push('Session ' + (i+1) + ': ' + fmtTime12(e.in) + ' → ' + fmtTime12(e.out) + breakStr + ' = ' + durStr + noteStr);
+        });
+
+        lines.push('');
+        lines.push('Net Worked  : ' + document.getElementById('sumTotal').textContent);
+        lines.push('Gross Time  : ' + document.getElementById('sumGross').textContent);
+        lines.push('Total Breaks: ' + document.getElementById('sumBreaks').textContent);
+
+        return lines.join('\n');
+    }
+
+    function openSummaryModal() {
+        document.getElementById('summaryText').value = buildSummaryText();
+        document.getElementById('summaryModal').classList.add('open');
+        setTimeout(() => document.getElementById('summaryText').select(), 50);
+    }
+
+    function closeModal() {
+        document.getElementById('summaryModal').classList.remove('open');
+    }
+
+    function closeModalOnBg(e) {
+        if (e.target === document.getElementById('summaryModal')) closeModal();
+    }
+
+    function tryCopy() {
+        const ta  = document.getElementById('summaryText');
+        const btn = document.querySelector('.modal-btn.primary');
+
+        // Attempt modern clipboard API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(ta.value).then(() => {
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 2000);
+            }).catch(() => {
+                // Fallback: select text so user can manually copy
+                ta.select();
+                btn.textContent = 'Select text above & copy manually';
+                setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 3000);
+            });
+        } else {
+            // Legacy fallback — works on HTTP and older browsers
+            ta.select();
+            try {
+                document.execCommand('copy');
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 2000);
+            } catch(ex) {
+                ta.select();
+                btn.textContent = 'Select text above & copy manually';
+                setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 3000);
+            }
+        }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       CSV EXPORT — with iOS fallback
+    ───────────────────────────────────────────────────────────────── */
+    function exportCSV() {
+        const date = document.getElementById('logDate').value;
+        const rows = [['Date','Session','In','Out','Break (min)','Net (min)','Net (h:m)','Midnight Cross','Note']];
+
+        entries.forEach((e, i) => {
+            const result   = calcEntry(e);
+            const netMins  = result.valid ? result.netMins  : '';
+            const netHM    = result.valid ? fmtHM(result.netMins) : 'error';
+            const brkMins  = (result.valid && parseInt(e.brk,10) > 0) ? parseInt(e.brk,10) : 0;
+            rows.push([
+                date,
+                i + 1,
+                e.in  || '',
+                e.out || '',
+                brkMins,
+                netMins,
+                netHM,
+                e.midnight ? 'yes' : 'no',
+                e.note || ''
+            ]);
+        });
+
+        // Totals row — computed fresh, not from DOM text
+        let totalNet = 0, totalBrk = 0;
+        entries.forEach(e => {
+            const r = calcEntry(e);
+            if (r.valid) {
+                totalNet += r.netMins;
+                totalBrk += Math.max(0, parseInt(e.brk,10) || 0);
+            }
+        });
+        rows.push([date, 'TOTAL', '', '', totalBrk, totalNet, fmtHM(totalNet), '', '']);
+
+        const csv  = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+        // Try anchor-click download first (works on desktop + Android)
+        try {
+            const url = URL.createObjectURL(blob);
+            const a   = document.createElement('a');
+            a.href    = url;
+            a.download = 'hours-log-' + date + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 200);
+        } catch(e) {
+            // iOS Safari fallback: open CSV as a data URI in a new tab
+            // User can then use Share > Save to Files
+            const reader    = new FileReader();
+            reader.onload   = function() {
+                const tab = window.open();
+                if (tab) {
+                    tab.document.write('<pre style="white-space:pre-wrap;word-break:break-all;">' + csv.replace(/</g,'&lt;') + '</pre>');
+                    tab.document.title = 'hours-log-' + date + '.csv';
+                } else {
+                    alert('Your browser blocked the download popup. Please allow popups for this site and try again.');
+                }
+            };
+            reader.readAsDataURL(blob);
+        }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       CLEAR ALL — with two-step confirmation to prevent accidents
+    ───────────────────────────────────────────────────────────────── */
+    function clearAll() {
+        if (!entries.length) return; // nothing to clear
+        const confirmed = confirm('Clear all ' + entries.length + ' session(s) for this day?\n\nThis cannot be undone.');
+        if (!confirmed) return;
+        entries = [];
+        nextId  = 1;
+        try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+        renderList();
+        recalc();
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       DATE CHANGE — save new date
+    ───────────────────────────────────────────────────────────────── */
+    document.getElementById('logDate').addEventListener('change', persist);
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

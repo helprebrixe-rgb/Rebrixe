@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carousel Slide Counter | Rebrixe</title>
+    <meta name="description" content="Batch-add progress markers to your carousel slides for higher retention. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <!-- JSZip for proper ZIP download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent: #ff007f; --border: #334155; --card: #0f172a; }
+
+        body { background: #05070a; color: white; font-family: 'Inter', sans-serif; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 40px 20px; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #64748b; text-decoration: none; font-size: 0.85rem;
+            margin-bottom: 30px; transition: color 0.2s;
+        }
+        .back-btn:hover { color: var(--accent); }
+
+        /* ── UPLOADER ── */
+        .uploader-zone {
+            width: 100%; border: 2px dashed var(--border);
+            background: rgba(30,41,59,0.4); border-radius: 24px;
+            padding: 60px 20px; text-align: center; cursor: pointer;
+            transition: border-color 0.3s, background 0.3s; margin-bottom: 30px;
+            position: relative;
+        }
+        .uploader-zone.drag-over {
+            border-color: var(--accent); background: rgba(255,0,127,0.08);
+        }
+        .uploader-zone:hover { border-color: var(--accent); background: rgba(255,0,127,0.05); }
+        .uploader-zone .hint { font-size: 0.78rem; color: #475569; margin-top: 8px; }
+
+        /* ── SETTINGS ── */
+        .settings-panel {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 20px; padding: 25px; margin-bottom: 30px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-group label {
+            font-family: 'Outfit'; font-size: 0.72rem; color: #94a3b8;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        select, input[type="number"], input[type="color"], input[type="range"] {
+            background: #05070a; border: 1px solid var(--border); color: white;
+            padding: 10px; border-radius: 8px; outline: none; width: 100%;
+            transition: border-color 0.2s;
+        }
+        select:focus, input[type="number"]:focus { border-color: var(--accent); }
+        input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }
+        input[type="range"] { padding: 0; height: 6px; accent-color: var(--accent); cursor: pointer; }
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .range-val { font-size: 0.8rem; color: #94a3b8; min-width: 28px; text-align: right; }
+
+        /* ── SKIP COVER TOGGLE ── */
+        .toggle-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+        .toggle { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: #1e293b;
+            border-radius: 22px; cursor: pointer; transition: background 0.2s;
+        }
+        .toggle-slider:before {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            left: 3px; top: 3px; background: #64748b;
+            border-radius: 50%; transition: 0.2s;
+        }
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: white; }
+        .toggle-label { font-size: 0.8rem; color: #94a3b8; }
+
+        /* ── STATS BAR ── */
+        .stats-bar {
+            display: none; background: rgba(255,0,127,0.07); border: 1px solid rgba(255,0,127,0.2);
+            border-radius: 14px; padding: 14px 22px; margin-bottom: 25px;
+            display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+        }
+        .stats-bar.visible { display: flex; }
+        .stat-item { font-size: 0.82rem; color: #94a3b8; }
+        .stat-item strong { color: white; }
+
+        /* ── GRID ── */
+        .batch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 16px; margin-top: 10px;
+        }
+
+        .preview-card {
+            position: relative; border-radius: 14px; overflow: visible;
+            border: 1px solid var(--border); background: #0a0d14;
+        }
+        .preview-card .img-wrap {
+            position: relative; border-radius: 14px 14px 0 0; overflow: hidden;
+            aspect-ratio: 1/1; background: #111;
+        }
+        .preview-card canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+        .card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; border-top: 1px solid var(--border);
+        }
+        .slide-label { font-size: 0.75rem; color: #475569; }
+
+        /* card actions */
+        .card-actions { display: flex; gap: 6px; }
+        .icon-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: #94a3b8; border-radius: 7px; padding: 5px 9px; cursor: pointer;
+            font-size: 0.75rem; transition: all 0.2s; line-height: 1;
+        }
+        .icon-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+        .icon-btn.danger:hover { background: #ef4444; border-color: #ef4444; color: white; }
+
+        /* remove badge */
+        .remove-badge {
+            position: absolute; top: -8px; right: -8px; z-index: 10;
+            background: #ef4444; color: white; border: none; border-radius: 50%;
+            width: 22px; height: 22px; font-size: 0.7rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .preview-card:hover .remove-badge { opacity: 1; }
+
+        /* ── PROCESSING OVERLAY ── */
+        .processing-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(5,7,10,0.85); backdrop-filter: blur(6px);
+            z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+        }
+        .processing-overlay.active { display: flex; }
+        .spinner {
+            width: 44px; height: 44px; border: 3px solid #1e293b;
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .proc-text { font-family: 'Outfit'; font-size: 1rem; color: #94a3b8; }
+        .proc-bar-wrap { width: 260px; height: 4px; background: #1e293b; border-radius: 4px; overflow: hidden; }
+        .proc-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.2s; width: 0%; }
+
+        /* ── BUTTONS ── */
+        .btn-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+        .gen-btn {
+            background: var(--accent); color: white; border: none; padding: 16px 36px;
+            border-radius: 14px; font-family: 'Outfit'; font-weight: 800; cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s; text-transform: uppercase; letter-spacing: 1px;
+            font-size: 0.9rem;
+        }
+        .gen-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(255,0,127,0.4); }
+        .gen-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+        .gen-btn.secondary {
+            background: transparent; border: 1px solid var(--border); color: white;
+        }
+        .gen-btn.secondary:hover { border-color: var(--accent); box-shadow: none; }
+
+        .gen-btn.green { background: #22c55e; }
+        .gen-btn.green:hover { box-shadow: 0 10px 30px rgba(34,197,94,0.35); }
+
+        /* ── EMPTY STATE ── */
+        .empty-hint {
+            text-align: center; padding: 60px 20px; color: #334155;
+            font-size: 0.9rem; border: 1px dashed #1e293b; border-radius: 16px;
+        }
+
+        /* ── LIVE PREVIEW BADGE ── */
+        .live-badge {
+            display: inline-block; font-size: 0.65rem; font-family: 'Outfit';
+            background: rgba(255,0,127,0.15); color: var(--accent);
+            border: 1px solid rgba(255,0,127,0.3); border-radius: 20px;
+            padding: 2px 8px; vertical-align: middle; margin-left: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .settings-panel { grid-template-columns: 1fr 1fr; }
+            .batch-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <!-- Processing Overlay -->
+    <div class="processing-overlay" id="procOverlay">
+        <div class="spinner"></div>
+        <div class="proc-text" id="procText">Processing slides…</div>
+        <div class="proc-bar-wrap"><div class="proc-bar" id="procBar"></div></div>
+    </div>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">← Back to tools</a>
+
+        <header style="text-align: center; margin-bottom: 50px;">
+            <h1 style="font-family: 'Outfit'; font-size: 2.8rem;">
+                Carousel Slide Counter
+                <span class="live-badge">Live Preview</span>
+            </h1>
+            <p style="color: #64748b; margin-top: 8px;">Batch-add progress markers to your carousel slides for higher retention.</p>
+        </header>
+
+        <!-- Drag-and-drop upload zone -->
+        <div class="uploader-zone" id="dropZone" onclick="document.getElementById('imgInput').click()">
+            <div style="font-size: 3rem; margin-bottom: 10px;">📸</div>
+            <strong id="status">Drop Images Here or Click to Select</strong>
+            <p class="hint">PNG, JPG, WEBP • Multiple files supported</p>
+            <input type="file" id="imgInput" hidden multiple accept="image/*" onchange="loadImagesFromInput(this)">
+        </div>
+
+        <!-- Settings -->
+        <div class="settings-panel">
+            <div class="control-group">
+                <label>Counter Style</label>
+                <select id="style" onchange="processBatch()">
+                    <option value="minimal">Minimal Pill</option>
+                    <option value="glass">Glassmorphism</option>
+                    <option value="bold">Rebrixe Neon</option>
+                    <option value="clean">Plain Text</option>
+                    <option value="outline">Outlined</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Position</label>
+                <select id="position" onchange="processBatch()">
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="top-center">Top Center</option>
+                    <option value="bottom-center">Bottom Center</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Accent Color</label>
+                <input type="color" id="accentColor" value="#ff007f" onchange="processBatch()">
+            </div>
+            <div class="control-group">
+                <label>Text Color</label>
+                <input type="color" id="textColor" value="#ffffff" onchange="processBatch()">
+            </div>
+            <div class="control-group">
+                <label>Size <span id="sizeVal">5</span>%</label>
+                <input type="range" id="fontSize" min="2" max="10" value="5" step="0.5"
+                       oninput="document.getElementById('sizeVal').textContent=this.value; processBatch()">
+            </div>
+            <div class="control-group">
+                <label>Start From Slide</label>
+                <input type="number" id="startSlide" value="1" min="1"
+                       oninput="processBatch()" style="max-width:100%;">
+            </div>
+            <div class="control-group">
+                <label>Skip Cover Slide</label>
+                <div class="toggle-row" style="margin-top:6px;">
+                    <label class="toggle">
+                        <input type="checkbox" id="skipCover" onchange="processBatch()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">First slide = cover (no counter)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">Slides: <strong id="statCount">0</strong></div>
+            <div class="stat-item">Format: <strong id="statFormat">–</strong></div>
+            <div class="stat-item">Output: <strong>PNG</strong></div>
+            <div class="stat-item" id="statSkip" style="display:none;">Cover skipped: <strong>Slide 1</strong></div>
+        </div>
+
+        <!-- Grid -->
+        <div id="batchGrid" class="batch-grid">
+            <div class="empty-hint" id="emptyHint">
+                Upload your carousel images above to get started ↑
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="btn-row" id="btnRow" style="display:none;">
+            <button class="gen-btn secondary" onclick="clearAll()">✕ Clear All</button>
+            <button class="gen-btn green" id="downloadBtn" onclick="downloadZip()">⬇ Download All as ZIP</button>
+        </div>
+    </div>
+
+    <footer style="margin-top: 120px; padding: 80px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3 style="color: white; font-family: 'Outfit'; margin-bottom: 10px;">Rebrixe Engine</h3>
+            <p style="font-size: 0.85rem;">Utility Tools for the Viral Era. © 2026</p>
+        </div>
+    </footer>
+
+    <script>
+        // ─── State ───────────────────────────────────────────────
+        let imageFiles = [];   // {file, name}
+
+        // ─── Drag-and-drop ────────────────────────────────────────
+        const dropZone = document.getElementById('dropZone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length) addImages(files);
+        });
+
+        function loadImagesFromInput(input) {
+            const files = Array.from(input.files);
+            if (files.length) addImages(files);
+            input.value = ''; // reset so same files can be re-added
+        }
+
+        function addImages(files) {
+            const newEntries = files.map(f => ({ file: f, name: f.name }));
+            imageFiles = [...imageFiles, ...newEntries];
+            updateStatus();
+            processBatch();
+        }
+
+        function removeImage(idx) {
+            imageFiles.splice(idx, 1);
+            updateStatus();
+            processBatch();
+        }
+
+        function clearAll() {
+            imageFiles = [];
+            updateStatus();
+            document.getElementById('batchGrid').innerHTML = `
+                <div class="empty-hint" id="emptyHint">
+                    Upload your carousel images above to get started ↑
+                </div>`;
+            document.getElementById('btnRow').style.display = 'none';
+            document.getElementById('statsBar').classList.remove('visible');
+        }
+
+        function updateStatus() {
+            const n = imageFiles.length;
+            document.getElementById('status').textContent =
+                n === 0 ? 'Drop Images Here or Click to Select' : `${n} Image${n > 1 ? 's' : ''} Loaded`;
+        }
+
+        // ─── Batch Processing ─────────────────────────────────────
+        let processingTimer = null;
+
+        async function processBatch() {
+            if (imageFiles.length === 0) return;
+
+            // Debounce rapid slider changes
+            clearTimeout(processingTimer);
+            processingTimer = setTimeout(async () => {
+                await _runBatch();
+            }, 120);
+        }
+
+        async function _runBatch() {
+            const files = [...imageFiles]; // snapshot
+            const total = files.length;
+            if (total === 0) return;
+
+            const style    = document.getElementById('style').value;
+            const pos      = document.getElementById('position').value;
+            const accent   = document.getElementById('accentColor').value;
+            const txtColor = document.getElementById('textColor').value;
+            const sizePct  = parseFloat(document.getElementById('fontSize').value) / 100;
+            const startSlide = Math.max(1, parseInt(document.getElementById('startSlide').value) || 1);
+            const skipCover  = document.getElementById('skipCover').checked;
+
+            // Show overlay
+            const overlay = document.getElementById('procOverlay');
+            const procText = document.getElementById('procText');
+            const procBar  = document.getElementById('procBar');
+            overlay.classList.add('active');
+            procBar.style.width = '0%';
+
+            const grid = document.getElementById('batchGrid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < total; i++) {
+                procText.textContent = `Processing slide ${i + 1} of ${total}…`;
+                procBar.style.width = ((i + 1) / total * 100) + '%';
+
+                // Determine the display index
+                const isCover = skipCover && i === 0;
+                const displayIdx = isCover ? null : (startSlide + (skipCover ? i - 1 : i) - 1) + 1;
+                const displayTotal = skipCover ? total - 1 : total;
+
+                const card = document.createElement('div');
+                card.className = 'preview-card';
+                card.dataset.idx = i;
+
+                // Remove button
+                const removeBadge = document.createElement('button');
+                removeBadge.className = 'remove-badge';
+                removeBadge.title = 'Remove slide';
+                removeBadge.innerHTML = '✕';
+                removeBadge.onclick = (e) => { e.stopPropagation(); removeImage(i); };
+
+                const imgWrap = document.createElement('div');
+                imgWrap.className = 'img-wrap';
+
+                const canvas = document.createElement('canvas');
+                imgWrap.appendChild(canvas);
+
+                const footer = document.createElement('div');
+                footer.className = 'card-footer';
+
+                const lbl = document.createElement('span');
+                lbl.className = 'slide-label';
+                lbl.textContent = isCover ? 'Cover (no counter)' : `Slide ${displayIdx} / ${displayTotal + (startSlide - 1)}`;
+
+                const actions = document.createElement('div');
+                actions.className = 'card-actions';
+
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'icon-btn';
+                dlBtn.title = 'Download this slide';
+                dlBtn.innerHTML = '⬇';
+                dlBtn.onclick = () => downloadSingle(canvas, i + 1);
+
+                actions.appendChild(dlBtn);
+                footer.appendChild(lbl);
+                footer.appendChild(actions);
+
+                card.appendChild(removeBadge);
+                card.appendChild(imgWrap);
+                card.appendChild(footer);
+                grid.appendChild(card);
+
+                await drawSlide(canvas, files[i].file, displayIdx, displayTotal, style, pos, accent, txtColor, sizePct, isCover);
+            }
+
+            overlay.classList.remove('active');
+            document.getElementById('btnRow').style.display = 'flex';
+
+            // Update stats
+            updateStats(files);
+        }
+
+        function updateStats(files) {
+            const n = files.length;
+            const skipCover = document.getElementById('skipCover').checked;
+            document.getElementById('statCount').textContent = n;
+            document.getElementById('statFormat').textContent =
+                files[0] ? files[0].file.type.replace('image/', '').toUpperCase() : '–';
+            const skipEl = document.getElementById('statSkip');
+            skipEl.style.display = skipCover ? '' : 'none';
+            document.getElementById('statsBar').classList.add('visible');
+        }
+
+        // ─── Canvas Drawing ───────────────────────────────────────
+        function drawSlide(canvas, file, current, total, style, pos, accent, txtColor, sizePct, isCover) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width  = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    if (isCover) { URL.revokeObjectURL(img.src); resolve(); return; }
+
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    const pad = w * 0.045;
+                    const fontSize = Math.round(w * sizePct);
+                    const text = `${current} / ${total}`;
+
+                    ctx.font = `800 ${fontSize}px Inter, sans-serif`;
+                    ctx.textBaseline = 'middle';
+                    const metrics = ctx.measureText(text);
+                    const tw = metrics.width;
+                    const th = fontSize;
+                    const pillH = th + fontSize * 0.9;
+                    const pillW = tw + fontSize * 1.4;
+                    const r = pillH / 2;
+
+                    // Position
+                    let cx, cy;
+                    const halfW = pillW / 2;
+                    const halfH = pillH / 2;
+
+                    if (pos === 'top-center')    { cx = w / 2; cy = pad + halfH; }
+                    else if (pos === 'bottom-center') { cx = w / 2; cy = h - pad - halfH; }
+                    else {
+                        cx = pos.includes('right') ? w - pad - halfW : pad + halfW;
+                        cy = pos.includes('bottom') ? h - pad - halfH : pad + halfH;
+                    }
+
+                    const bx = cx - halfW;
+                    const by = cy - halfH;
+
+                    ctx.save();
+
+                    // ── Style rendering ──
+                    if (style === 'minimal') {
+                        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                        roundRectFill(ctx, bx, by, pillW, pillH, r);
+                        ctx.fillStyle = txtColor;
+                        ctx.textAlign = 'center';
+                        ctx.font = `800 ${fontSize}px Inter, sans-serif`;
+                        ctx.fillText(text, cx, cy);
+
+                    } else if (style === 'glass') {
+                        // True glassmorphism: blur the underlying region first
+                        blurRegion(ctx, canvas, bx, by, pillW, pillH);
+                        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+                        roundRectFill(ctx, bx, by, pillW, pillH, r);
+                        // subtle border
+                        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+                        ctx.lineWidth = Math.max(1, w * 0.003);
+                        roundRectStroke(ctx, bx, by, pillW, pillH, r);
+                        ctx.fillStyle = txtColor;
+                        ctx.textAlign = 'center';
+                        ctx.font = `800 ${fontSize}px Inter, sans-serif`;
+                        ctx.fillText(text, cx, cy);
+
+                    } else if (style === 'bold') {
+                        // Neon glow
+                        ctx.shadowBlur  = fontSize * 1.2;
+                        ctx.shadowColor = accent + 'cc';
+                        ctx.fillStyle   = accent;
+                        roundRectFill(ctx, bx, by, pillW, pillH, r);
+                        ctx.shadowBlur  = 0;
+                        ctx.fillStyle   = txtColor;
+                        ctx.textAlign   = 'center';
+                        ctx.font        = `800 ${fontSize}px Inter, sans-serif`;
+                        ctx.fillText(text, cx, cy);
+
+                    } else if (style === 'outline') {
+                        ctx.strokeStyle = txtColor;
+                        ctx.lineWidth   = Math.max(2, w * 0.004);
+                        roundRectStroke(ctx, bx, by, pillW, pillH, r);
+                        ctx.fillStyle   = txtColor;
+                        ctx.textAlign   = 'center';
+                        ctx.font        = `800 ${fontSize}px Inter, sans-serif`;
+                        ctx.shadowBlur  = 6;
+                        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                        ctx.fillText(text, cx, cy);
+                        ctx.shadowBlur  = 0;
+
+                    } else { // clean / plain text
+                        ctx.fillStyle   = txtColor;
+                        ctx.textAlign   = 'center';
+                        ctx.font        = `800 ${fontSize}px Inter, sans-serif`;
+                        ctx.shadowBlur  = 12;
+                        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+                        ctx.fillText(text, cx, cy);
+                        ctx.shadowBlur  = 0;
+                    }
+
+                    ctx.restore();
+                    URL.revokeObjectURL(img.src);
+                    resolve();
+                };
+                img.onerror = () => resolve(); // graceful fail
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // ─── Canvas Helpers ───────────────────────────────────────
+        function roundRectPath(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x, y, w, h, r);
+            } else {
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+            }
+        }
+
+        function roundRectFill(ctx, x, y, w, h, r) {
+            roundRectPath(ctx, x, y, w, h, r);
+            ctx.fill();
+        }
+
+        function roundRectStroke(ctx, x, y, w, h, r) {
+            roundRectPath(ctx, x, y, w, h, r);
+            ctx.stroke();
+        }
+
+        // Proper blur region for glassmorphism (no ctx.filter workaround)
+        function blurRegion(ctx, canvas, x, y, w, h) {
+            try {
+                const offscreen = document.createElement('canvas');
+                offscreen.width  = canvas.width;
+                offscreen.height = canvas.height;
+                const oc = offscreen.getContext('2d');
+                oc.drawImage(canvas, 0, 0);
+                // Stack multiple low-blur passes for smooth result
+                for (let i = 0; i < 3; i++) {
+                    ctx.save();
+                    roundRectPath(ctx, x, y, w, h, h / 2);
+                    ctx.clip();
+                    ctx.filter = 'blur(8px)';
+                    ctx.drawImage(offscreen, 0, 0);
+                    ctx.filter = 'none';
+                    ctx.restore();
+                }
+            } catch(e) { /* fallback: no blur */ }
+        }
+
+        // ─── Downloads ────────────────────────────────────────────
+        function downloadSingle(canvas, idx) {
+            const link  = document.createElement('a');
+            link.download = `Rebrixe_slide_${idx}.png`;
+            link.href     = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        async function downloadZip() {
+            const canvases = document.querySelectorAll('canvas');
+            if (!canvases.length) return;
+
+            const btn = document.getElementById('downloadBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Creating ZIP…';
+
+            // Use JSZip if available, otherwise fallback to sequential downloads
+            if (typeof JSZip !== 'undefined') {
+                const zip = new JSZip();
+                const folder = zip.folder('Rebrixe_slides');
+
+                for (let i = 0; i < canvases.length; i++) {
+                    const dataUrl = canvases[i].toDataURL('image/png');
+                    const base64  = dataUrl.split(',')[1];
+                    folder.file(`slide_${String(i + 1).padStart(2, '0')}.png`, base64, { base64: true });
+                }
+
+                const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href     = url;
+                a.download = 'Rebrixe_carousel.zip';
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+            } else {
+                // Fallback: download one by one with delay to avoid browser blocking
+                for (let i = 0; i < canvases.length; i++) {
+                    await new Promise(r => setTimeout(r, 300));
+                    downloadSingle(canvases[i], i + 1);
+                }
+            }
+
+            btn.disabled = false;
+            btn.textContent = '⬇ Download All as ZIP';
+        }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

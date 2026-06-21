@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Average Colour Calculator — Get Hex, RGB & HSL from Any Image | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Upload any image and instantly get its mathematically averaged colour as HEX, RGB, and HSL. Perfect for generating CSS placeholder backgrounds for lazy-loaded images.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 2.8rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.88rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; }
+        .drop-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.82rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Results panel */
+        .results { display: none; }
+        .results.visible { display: block; }
+
+        /* Preview + swatch row */
+        .preview-row {
+            display: grid; grid-template-columns: 160px 1fr; gap: 16px;
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 16px; margin-bottom: 16px; align-items: center;
+        }
+        .img-preview { width: 160px; height: 120px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-mid); display: block; }
+        .swatch-big {
+            height: 120px; border-radius: var(--radius-sm); border: 1px solid var(--border-mid);
+            position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s;
+            display: flex; align-items: flex-end; padding: 10px;
+        }
+        .swatch-big:hover { transform: scale(1.02); }
+        .swatch-label {
+            font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500;
+            padding: 6px 12px; border-radius: 6px; background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(4px); letter-spacing: 1px;
+        }
+        .swatch-copy-hint { position: absolute; top: 10px; right: 10px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.6; }
+
+        /* Values grid */
+        .values-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;
+        }
+        .val-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 16px; cursor: pointer; transition: border-color 0.18s, background 0.18s;
+            position: relative;
+        }
+        .val-card:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .val-card.copied { border-color: rgba(170,255,0,0.35); background: rgba(170,255,0,0.06); }
+        .val-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 6px; }
+        .val-value { font-family: 'Fira Code', monospace; font-size: 0.92rem; font-weight: 500; color: var(--text); word-break: break-all; }
+        .val-copy-icon { position: absolute; top: 12px; right: 12px; font-size: 0.75rem; opacity: 0.35; }
+
+        /* CSS snippet */
+        .snippet-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 16px; margin-bottom: 16px;
+        }
+        .snippet-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 10px; }
+        .snippet-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+        .snip-tab {
+            padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .snip-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .snippet-code {
+            font-family: 'Fira Code', monospace; font-size: 0.8rem; color: var(--accent);
+            background: var(--surface); border-radius: 8px; padding: 12px 14px;
+            white-space: pre; overflow-x: auto; cursor: pointer; transition: background 0.15s;
+            border: 1px solid var(--border);
+        }
+        .snippet-code:hover { background: #1c1a14; }
+        .snippet-code.copied { background: rgba(170,255,0,0.06); border-color: rgba(170,255,0,0.2); }
+
+        /* Contrast checker */
+        .contrast-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 16px; margin-bottom: 16px;
+        }
+        .contrast-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 10px; }
+        .contrast-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .contrast-swatch {
+            flex: 1; min-width: 120px; height: 52px; border-radius: 8px; border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.82rem; transition: background 0.3s, color 0.3s;
+        }
+        .contrast-ratio {
+            font-family: 'Fira Code', monospace; font-size: 1.4rem; font-weight: 500;
+            color: var(--text); min-width: 70px; text-align: center;
+        }
+        .contrast-badge {
+            font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
+            padding: 4px 10px; border-radius: 99px; white-space: nowrap;
+        }
+        .badge-aaa { background: rgba(170,255,0,0.12); color: var(--success); border: 1px solid rgba(170,255,0,0.25); }
+        .badge-aa  { background: rgba(255,214,0,0.10); color: var(--primary); border: 1px solid var(--primary-border); }
+        .badge-fail{ background: rgba(255,68,68,0.10); color: var(--error); border: 1px solid rgba(255,68,68,0.25); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-ghost {
+            padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.18s;
+        }
+        .btn-ghost:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 10px 20px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+
+        /* FAQ */
+        .faq-section { margin-top: 52px; }
+        .faq-heading { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .faq-item h3 { font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .faq-item p { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.75rem; background: var(--surface); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 560px) {
+            .preview-row { grid-template-columns: 1fr; }
+            .img-preview { width: 100%; height: 140px; }
+            .swatch-big { height: 80px; }
+            .values-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Average Colour Calculator</h1>
+                <p class="tool-page-sub">Upload any image — get its mathematically averaged colour as HEX, RGB, and HSL. Copy ready-to-use CSS in one click.</p>
+                <span class="privacy-badge">100% browser-based — images never leave your device</span>
+            </div>
+
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop an image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — JPG, PNG, WebP, GIF supported</p>
+            </div>
+
+            <div class="results" id="results">
+                <div class="preview-row">
+                    <img class="img-preview" id="imgPreview" src="" alt="Preview">
+                    <div class="swatch-big" id="swatchBig" onclick="copyVal('hex')">
+                        <span class="swatch-label" id="swatchLabel">#000000</span>
+                        <span class="swatch-copy-hint">click to copy hex</span>
+                    </div>
+                </div>
+
+                <div class="values-grid">
+                    <div class="val-card" onclick="copyVal('hex')" title="Copy HEX">
+                        <div class="val-label">HEX</div>
+                        <div class="val-value" id="valHex">#000000</div>
+                        <span class="val-copy-icon">⎘</span>
+                    </div>
+                    <div class="val-card" onclick="copyVal('rgb')" title="Copy RGB">
+                        <div class="val-label">RGB</div>
+                        <div class="val-value" id="valRgb">rgb(0,0,0)</div>
+                        <span class="val-copy-icon">⎘</span>
+                    </div>
+                    <div class="val-card" onclick="copyVal('hsl')" title="Copy HSL">
+                        <div class="val-label">HSL</div>
+                        <div class="val-value" id="valHsl">hsl(0,0%,0%)</div>
+                        <span class="val-copy-icon">⎘</span>
+                    </div>
+                </div>
+
+                <!-- CSS Snippet -->
+                <div class="snippet-card">
+                    <div class="snippet-label">Ready-to-use CSS snippet</div>
+                    <div class="snippet-tabs">
+                        <button class="snip-tab active" data-snip="bg" onclick="setSnip(this)">Background</button>
+                        <button class="snip-tab" data-snip="var" onclick="setSnip(this)">CSS Variable</button>
+                        <button class="snip-tab" data-snip="placeholder" onclick="setSnip(this)">Lazy-load placeholder</button>
+                        <button class="snip-tab" data-snip="tailwind" onclick="setSnip(this)">Tailwind inline</button>
+                    </div>
+                    <div class="snippet-code" id="snippetCode" onclick="copySnippet()"></div>
+                </div>
+
+                <!-- Contrast checker -->
+                <div class="contrast-card">
+                    <div class="contrast-label">Contrast check — white &amp; black text on average colour</div>
+                    <div class="contrast-row">
+                        <div class="contrast-swatch" id="cSwatchWhite">White text</div>
+                        <div>
+                            <div class="contrast-ratio" id="contrastWhite">—</div>
+                            <div style="text-align:center;margin-top:4px;" id="badgeWhite"></div>
+                        </div>
+                        <div class="contrast-swatch" id="cSwatchBlack">Black text</div>
+                        <div>
+                            <div class="contrast-ratio" id="contrastBlack">—</div>
+                            <div style="text-align:center;margin-top:4px;" id="badgeBlack"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-ghost" onclick="resetTool()">✕ Clear &amp; start over</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="container" style="padding-top:0;">
+            <article class="faq-section">
+                <h2 class="faq-heading">Why you actually need this</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Perfect lazy-load placeholders</h3>
+                        <p>Instead of a grey box flash, use the image's average colour as a <code>background-color</code>. Users see a smooth, contextual transition while the real image loads.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Mathematically accurate</h3>
+                        <p>Every pixel is sampled and averaged — not just a dominant colour guess. The result is the true mean of all R, G, B channels across the entire image.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Contrast ready</h3>
+                        <p>Know instantly whether white or black text passes WCAG <code>AA</code> or <code>AAA</code> on your colour — critical before using it as a UI background.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Copy in any format</h3>
+                        <p>HEX for design tools, <code>rgb()</code> for CSS, <code>hsl()</code> for Tailwind v4, or the full lazy-load snippet — one click and it's in your clipboard.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <footer></footer>
+
+    <script>
+    let avg = { r: 0, g: 0, b: 0 };
+    let activeSnip = 'bg';
+
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); processFile(e.dataTransfer.files[0]); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => fi.files[0] && processFile(fi.files[0]));
+
+    function processFile(file) {
+        if (!file || !file.type.startsWith('image/')) { showToast('Please upload an image file'); return; }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.getElementById('canvas');
+            // Sample at max 200px to keep it fast
+            const scale = Math.min(1, 200 / Math.max(img.width, img.height));
+            canvas.width  = Math.round(img.width  * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                const a = data[i + 3];
+                if (a === 0) continue; // skip fully transparent
+                r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+            }
+            avg = count ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : { r:0, g:0, b:0 };
+            URL.revokeObjectURL(url);
+            document.getElementById('imgPreview').src = URL.createObjectURL(file);
+            renderResults();
+        };
+        img.src = url;
+    }
+
+    function renderResults() {
+        const hex = toHex(avg.r, avg.g, avg.b);
+        const { h, s, l } = toHsl(avg.r, avg.g, avg.b);
+        const hexStr  = `#${hex}`;
+        const rgbStr  = `rgb(${avg.r}, ${avg.g}, ${avg.b})`;
+        const hslStr  = `hsl(${h}, ${s}%, ${l}%)`;
+
+        document.getElementById('swatchBig').style.background = hexStr;
+        document.getElementById('swatchLabel').textContent = hexStr;
+        document.getElementById('swatchLabel').style.color = contrastColor(avg.r, avg.g, avg.b);
+        document.getElementById('valHex').textContent = hexStr;
+        document.getElementById('valRgb').textContent = rgbStr;
+        document.getElementById('valHsl').textContent = hslStr;
+
+        updateSnippet();
+        updateContrast(hexStr);
+
+        dz.style.display = 'none';
+        document.getElementById('results').classList.add('visible');
+    }
+
+    function updateSnippet() {
+        const hex = `#${toHex(avg.r, avg.g, avg.b)}`;
+        const rgb = `rgb(${avg.r}, ${avg.g}, ${avg.b})`;
+        const snippets = {
+            bg:          `background-color: ${hex};`,
+            var:         `:root {\n  --avg-color: ${hex};\n}`,
+            placeholder: `/* CSS placeholder for lazy-loaded images */\n.img-placeholder {\n  background-color: ${hex};\n  /* Replace with actual image when loaded */\n}`,
+            tailwind:    `style="background-color: ${hex};"`,
+        };
+        const el = document.getElementById('snippetCode');
+        el.textContent = snippets[activeSnip];
+        el.classList.remove('copied');
+    }
+
+    function setSnip(btn) {
+        document.querySelectorAll('.snip-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeSnip = btn.dataset.snip;
+        updateSnippet();
+    }
+
+    function copySnippet() {
+        const el = document.getElementById('snippetCode');
+        navigator.clipboard.writeText(el.textContent).then(() => {
+            el.classList.add('copied');
+            showToast('Snippet copied!', 'success');
+            setTimeout(() => el.classList.remove('copied'), 1800);
+        });
+    }
+
+    function updateContrast(hex) {
+        const wRatio = contrastRatio(255,255,255, avg.r,avg.g,avg.b);
+        const bRatio = contrastRatio(0,0,0, avg.r,avg.g,avg.b);
+        const ws = document.getElementById('cSwatchWhite');
+        const bs = document.getElementById('cSwatchBlack');
+        ws.style.background = hex; ws.style.color = '#ffffff';
+        bs.style.background = hex; bs.style.color = '#000000';
+        document.getElementById('contrastWhite').textContent = wRatio.toFixed(2) + ':1';
+        document.getElementById('contrastBlack').textContent = bRatio.toFixed(2) + ':1';
+        document.getElementById('badgeWhite').innerHTML = wcagBadge(wRatio);
+        document.getElementById('badgeBlack').innerHTML = wcagBadge(bRatio);
+    }
+
+    function wcagBadge(ratio) {
+        if (ratio >= 7)   return '<span class="contrast-badge badge-aaa">AAA</span>';
+        if (ratio >= 4.5) return '<span class="contrast-badge badge-aa">AA</span>';
+        return '<span class="contrast-badge badge-fail">Fail</span>';
+    }
+
+    // Copy helpers
+    const vals = { hex: () => document.getElementById('valHex').textContent, rgb: () => document.getElementById('valRgb').textContent, hsl: () => document.getElementById('valHsl').textContent };
+    function copyVal(type) {
+        navigator.clipboard.writeText(vals[type]()).then(() => showToast(`${type.toUpperCase()} copied!`, 'success'));
+    }
+
+    function resetTool() {
+        document.getElementById('results').classList.remove('visible');
+        dz.style.display = '';
+        fi.value = '';
+        document.getElementById('imgPreview').src = '';
+    }
+
+    // ─── Colour math ───────────────────────────────────────────────────────────
+    function toHex(r, g, b) {
+        return [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+    }
+
+    function toHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r,g,b), min = Math.min(r,g,b);
+        let h, s, l = (max+min)/2;
+        if (max === min) { h = s = 0; }
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+            switch(max) {
+                case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+                case g: h = ((b-r)/d + 2)/6; break;
+                default: h = ((r-g)/d + 4)/6;
+            }
+        }
+        return { h: Math.round(h*360), s: Math.round(s*100), l: Math.round(l*100) };
+    }
+
+    function contrastColor(r, g, b) {
+        // Simple luminance pick for text on swatch
+        return (0.299*r + 0.587*g + 0.114*b) > 128 ? '#000' : '#fff';
+    }
+
+    function linearize(c) {
+        c /= 255;
+        return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+    }
+
+    function luminance(r, g, b) {
+        return 0.2126*linearize(r) + 0.7152*linearize(g) + 0.0722*linearize(b);
+    }
+
+    function contrastRatio(r1,g1,b1, r2,g2,b2) {
+        const l1 = luminance(r1,g1,b1), l2 = luminance(r2,g2,b2);
+        const lighter = Math.max(l1,l2), darker = Math.min(l1,l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    // ─── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type='') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

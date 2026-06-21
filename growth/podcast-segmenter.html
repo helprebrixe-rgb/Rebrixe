@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Segmenter | Rebrixe</title>
+    <meta name="description" content="Segment your podcast episodes with precision using our Podcast Segmenter. Perfect for podcasters, editors, and content creators looking to create engaging, well-structured episodes. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ─── LAYOUT ─────────────────────────────── */
+        .main-tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 40px;
+            max-width: 960px;
+            margin: 40px auto;
+        }
+
+        .static-info-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        /* ─── INPUTS ─────────────────────────────── */
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-label {
+            font-size: 0.7rem;
+            color: var(--primary);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        textarea, input[type="number"], select {
+            width: 100%;
+            box-sizing: border-box;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea:focus, input[type="number"]:focus, select:focus {
+            border-color: var(--primary);
+        }
+        select option { background: #111; }
+
+        /* ─── TRANSCRIPT AREA ─────────────────────── */
+        .transcript-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #transcriptInput {
+            min-height: 220px;
+            resize: vertical;
+            line-height: 1.7;
+        }
+
+        /* live stats bar */
+        .transcript-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 8px;
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+        .transcript-stats span b {
+            color: #fff;
+            font-weight: 700;
+        }
+        .transcript-stats .stat-warn { color: #FF9500; }
+        .transcript-stats .stat-ok   { color: #34C759; }
+
+        /* ─── GENERATE BUTTON ─────────────────────── */
+        .Rebrixe-gen-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #FF007F 0%, #FF4D94 100%);
+            color: white;
+            border: none;
+            padding: 24px;
+            border-radius: 16px;
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: 0.4s;
+            box-shadow: 0 10px 30px rgba(255,0,127,0.4);
+        }
+        .Rebrixe-gen-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 15px 45px rgba(255,0,127,0.6);
+            letter-spacing: 4px;
+        }
+        .Rebrixe-gen-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            letter-spacing: 2px;
+            box-shadow: none;
+        }
+
+        /* ─── ERROR / NOTICE ──────────────────────── */
+        .notice-box {
+            display: none;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            margin-bottom: 18px;
+            font-family: 'Inter';
+        }
+        .notice-error   { background: rgba(255,59,48,0.12);  border: 1px solid rgba(255,59,48,0.3);  color: #FF3B30; }
+        .notice-warning { background: rgba(255,149,0,0.12);  border: 1px solid rgba(255,149,0,0.3);  color: #FF9500; }
+        .notice-info    { background: rgba(0,122,255,0.10);  border: 1px solid rgba(0,122,255,0.25); color: #78b4ff; }
+
+        /* ─── RESULT AREA ─────────────────────────── */
+        #resultSection { display: none; margin-top: 32px; }
+
+        /* summary chips */
+        .summary-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .chip {
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #aaa;
+        }
+        .chip b { color: #fff; }
+        .chip.accent { border-color: var(--primary); color: var(--primary); }
+
+        /* segment cards grid */
+        .segments-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .segment-card {
+            display: grid;
+            grid-template-columns: 90px 1fr auto;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            transition: border-color 0.2s;
+        }
+        .segment-card:hover { border-color: rgba(255,0,127,0.35); }
+
+        .seg-timestamp {
+            font-family: 'Outfit';
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .seg-title {
+            font-size: 0.88rem;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        .seg-meta {
+            font-size: 0.68rem;
+            color: #475569;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* progress bar inside card */
+        .seg-bar-wrap {
+            grid-column: 1 / -1;
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .seg-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FF007F, #FF4D94);
+            border-radius: 99px;
+            transition: width 0.5s ease;
+        }
+
+        /* YouTube-ready raw output */
+        .raw-output-wrap {
+            margin-top: 8px;
+        }
+        .raw-output-label {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: block;
+        }
+        #rawOutput {
+            background: #080808;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            border-radius: 14px;
+            padding: 20px 22px;
+            color: #f1f5f9;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.9;
+            white-space: pre-wrap;
+            user-select: all;
+        }
+
+        /* ─── ACTION BUTTONS ──────────────────────── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .btn-premium-action {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 10px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.78rem;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: 0.25s;
+            white-space: nowrap;
+        }
+        .btn-premium-action:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+            border-color: #fff;
+        }
+        .btn-primary-action {
+            background: linear-gradient(135deg, #FF007F, #FF4D94);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(255,0,127,0.3);
+        }
+        .btn-primary-action:hover {
+            box-shadow: 0 8px 24px rgba(255,0,127,0.5);
+        }
+
+        /* ─── YOUTUBE VALIDITY BADGE ──────────────── */
+        .yt-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .yt-valid   { background: rgba(52,199,89,0.12);  border: 1px solid rgba(52,199,89,0.3);  color: #34C759; }
+        .yt-invalid { background: rgba(255,59,48,0.12);  border: 1px solid rgba(255,59,48,0.3);  color: #FF3B30; }
+
+        /* ─── HELPER SECTION ──────────────────────── */
+        .usage-hint {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 10px;
+            display: block;
+            line-height: 1.6;
+        }
+        .usage-hint code {
+            background: rgba(255,255,255,0.07);
+            padding: 1px 6px;
+            border-radius: 4px;
+            color: var(--primary);
+            font-family: monospace;
+        }
+
+        .seo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* ─── DIVIDER ─────────────────────────────── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 28px 0;
+        }
+
+        /* ─── OFFSET CONTROL ──────────────────────── */
+        .offset-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #64748b;
+            flex-wrap: wrap;
+        }
+        .offset-row label { font-weight: 600; color: #aaa; }
+        .offset-row input[type="number"] {
+            width: 80px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        /* ─── RESPONSIVE ──────────────────────────── */
+        @media (max-width: 640px) {
+            .input-row { grid-template-columns: 1fr 1fr; }
+            .segment-card { grid-template-columns: 80px 1fr; }
+            .seg-meta { display: none; }
+            .seo-grid { grid-template-columns: 1fr; }
+            .main-tool-card { padding: 20px; }
+        }
+
+        /* ─── PROCESSING ANIMATION ────────────────── */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 10px 30px rgba(255,0,127,0.4); }
+            50%       { box-shadow: 0 10px 50px rgba(255,0,127,0.8); }
+        }
+        .Rebrixe-gen-btn.processing {
+            animation: pulse-glow 1s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        /* ─── FADE IN ─────────────────────────────── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeSlideUp 0.35s ease forwards; }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+    <div class="container">
+        <a href="prompt-engineering.html" class="back-btn">back to tools</a>
+
+        <header style="text-align:center; margin-bottom:50px;">
+            <h1 style="font-family:'Outfit'; font-size:3.5rem; letter-spacing:-2px;">DENSITY SEGMENTER</h1>
+            <p style="color:#64748b;">The only non-AI tool that maps timestamps based on actual speech volume.</p>
+        </header>
+
+        <section class="main-tool-card">
+
+            <!-- ── STEP 1: CONFIG ──────────────────── -->
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label">Total Length (Minutes)</label>
+                    <input type="number" id="totalDuration" placeholder="e.g. 60" value="60" min="1" max="600">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Speaking Speed (WPM)</label>
+                    <input type="number" id="wpmSpeed" placeholder="Default: 150" value="150" min="80" max="300">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Output Format</label>
+                    <select id="outputFormat">
+                        <option value="youtube">YouTube Chapters</option>
+                        <option value="simple">Simple (MM:SS Title)</option>
+                        <option value="description">Full Description Block</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ── TRANSCRIPT INPUT ────────────────── -->
+            <span class="usage-hint">
+                Mark chapters with <code>[Header Name]</code> anywhere in your transcript.<br>
+                Example: <code>[00:00 Intro]</code> or <code>[The SEO Problem]</code> — both work perfectly.
+            </span>
+
+            <div class="transcript-wrapper">
+                <textarea id="transcriptInput" rows="12" placeholder="[Intro]&#10;Welcome back to the show. Today we are talking about how to dominate SEO in 2025...&#10;&#10;[The Problem with AI Content]&#10;The issue we are seeing is that everyone uses the same prompts and gets the same output. This is flooding search results...&#10;&#10;[The Real Fix]&#10;What actually works is using your own data. Unique insight, original research, and first-hand experience...&#10;&#10;[Closing Thoughts]&#10;That wraps up today's episode. Thanks for tuning in, and remember..."></textarea>
+                <div class="transcript-stats" id="transcriptStats">
+                    <span>Headers: <b id="statHeaders">0</b></span>
+                    <span>Words: <b id="statWords">0</b></span>
+                    <span>Est. Read Time: <b id="statReadTime">0 min</b></span>
+                    <span id="statMatch" class="stat-warn">⚠ Enter transcript above</span>
+                </div>
+            </div>
+
+            <!-- ── OFFSET CONTROL ──────────────────── -->
+            <div class="offset-row">
+                <span>⏱ Start Offset:</span>
+                <label for="offsetSecs">Delay first chapter by</label>
+                <input type="number" id="offsetSecs" value="0" min="0" max="300" placeholder="0">
+                <span>seconds &nbsp;(use if you have a cold open / ad pre-roll)</span>
+            </div>
+
+            <!-- ── ERROR NOTICES ───────────────────── -->
+            <div id="noticeBox" class="notice-box"></div>
+
+            <button class="Rebrixe-gen-btn" id="generateBtn" onclick="processDensity()">Calculate Timeline ⚡</button>
+
+            <!-- ── RESULT SECTION ──────────────────── -->
+            <div id="resultSection">
+                <hr class="section-divider">
+
+                <div class="summary-chips" id="summaryChips"></div>
+
+                <div class="segments-grid" id="segmentsGrid"></div>
+
+                <div class="raw-output-wrap">
+                    <span class="raw-output-label">📋 YouTube-Ready Output — click to select all</span>
+                    <div id="rawOutput"></div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-premium-action btn-primary-action" id="copyBtn" onclick="copyResult()">Copy Timeline</button>
+                    <button class="btn-premium-action" onclick="downloadResult()">Download .txt</button>
+                    <button class="btn-premium-action" onclick="resetTool()">↺ Reset</button>
+                    <span id="ytBadge" class="yt-badge" style="margin-left:auto;"></span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ── SEO / INFO CARDS ────────────────────── -->
+        <section class="seo-section">
+            <div class="seo-grid">
+                <div class="static-info-card">
+                    <h4>The Density Algorithm</h4>
+                    <p>Instead of guessing, Rebrixe analyzes the <span style="color:var(--primary)">character weight</span> between your headers. This mirrors real-world speech pacing — longer sections get more time, shorter sections get less. No AI needed.</p>
+                </div>
+                <div class="static-info-card">
+                    <h4>Instant YouTube Sync</h4>
+                    <p>Copy-paste the output directly into your <span style="color:#fff">YouTube Description</span> to trigger automatic video chapters. The tool auto-validates that your first chapter starts at <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;color:var(--primary);">0:00</code> — a YouTube requirement.</p>
+                </div>
+                <div class="static-info-card">
+                    <h4>WPM-Aware Timing</h4>
+                    <p>Set your natural speaking speed and the segmenter cross-references it against text density to give you timestamps that actually match your recording — not just evenly-split guesses.</p>
+                </div>
+                <div class="static-info-card">
+                    <h4>Works with Any Transcript</h4>
+                    <p>Paste raw transcripts from <span style="color:#fff">Otter.ai, Descript, Rev</span>, or anything else. Just add <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;color:var(--primary)">[Chapter Headers]</code> and hit Generate.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════
+       LIVE STATS — update as user types
+    ═══════════════════════════════════════════════ */
+    const transcriptEl = document.getElementById('transcriptInput');
+    transcriptEl.addEventListener('input', updateStats);
+
+    function updateStats() {
+        const txt = transcriptEl.value;
+        const headers = (txt.match(/\[([^\]]+)\]/g) || []);
+        const words   = txt.replace(/\[([^\]]+)\]/g,'').trim().split(/\s+/).filter(Boolean).length;
+        const wpm     = parseInt(document.getElementById('wpmSpeed').value) || 150;
+        const readMin = Math.round(words / wpm);
+
+        document.getElementById('statHeaders').textContent  = headers.length;
+        document.getElementById('statWords').textContent    = words.toLocaleString();
+        document.getElementById('statReadTime').textContent = readMin < 1 ? '<1 min' : readMin + ' min';
+
+        const matchEl = document.getElementById('statMatch');
+        if (headers.length === 0) {
+            matchEl.className = 'stat-warn';
+            matchEl.textContent = '⚠ No [Headers] detected';
+        } else {
+            const totalMins = parseFloat(document.getElementById('totalDuration').value) || 60;
+            const diff = Math.abs(readMin - totalMins);
+            if (diff <= 5) {
+                matchEl.className = 'stat-ok';
+                matchEl.textContent = '✓ Timing looks consistent';
+            } else if (diff <= 15) {
+                matchEl.className = 'stat-warn';
+                matchEl.textContent = `⚠ ~${diff} min gap vs. duration`;
+            } else {
+                matchEl.className = 'stat-warn';
+                matchEl.textContent = `⚠ Large gap: check duration or WPM`;
+            }
+        }
+    }
+
+    document.getElementById('totalDuration').addEventListener('input', updateStats);
+    document.getElementById('wpmSpeed').addEventListener('input', updateStats);
+
+    /* ═══════════════════════════════════════════════
+       CORE ALGORITHM
+    ═══════════════════════════════════════════════ */
+    let lastTimeline = [];
+
+    function processDensity() {
+        const btn         = document.getElementById('generateBtn');
+        const noticeBox   = document.getElementById('noticeBox');
+        const transcript  = transcriptEl.value.trim();
+        const totalMins   = parseFloat(document.getElementById('totalDuration').value);
+        const wpm         = parseInt(document.getElementById('wpmSpeed').value) || 150;
+        const offsetSecs  = parseInt(document.getElementById('offsetSecs').value) || 0;
+        const format      = document.getElementById('outputFormat').value;
+
+        // ─ reset notice ─
+        noticeBox.style.display = 'none';
+        noticeBox.className = 'notice-box';
+
+        // ─ validate ─
+        if (!transcript) {
+            showNotice('error', '⚠ Please paste your podcast transcript above.');
+            return;
+        }
+        if (!totalMins || totalMins <= 0) {
+            showNotice('error', '⚠ Please enter a valid total duration in minutes.');
+            return;
+        }
+
+        // ─ split transcript on [Headers] ─
+        // Handles: [00:00 Intro], [Intro], [Part 1 — The Problem], etc.
+        const rawParts = transcript.split(/\[([^\]]+)\]/);
+        // rawParts: [pre-text, header1, body1, header2, body2, ...]
+
+        let extracted = [];
+        let skippedFirst = false;
+
+        for (let i = 1; i < rawParts.length; i += 2) {
+            let rawHeader = rawParts[i].trim();
+            let body      = (rawParts[i + 1] || '').trim();
+
+            // Strip leading timestamps like "00:00 " or "0:00 " from header name
+            let cleanHeader = rawHeader.replace(/^\d{1,2}:\d{2}(\s+)?/, '').trim();
+            if (!cleanHeader) cleanHeader = rawHeader; // fallback
+
+            // Word count (more accurate than char count for WPM model)
+            let wordCount = body.split(/\s+/).filter(Boolean).length;
+            extracted.push({ header: cleanHeader, wordCount });
+        }
+
+        if (extracted.length === 0) {
+            showNotice('error', '⚠ No [Headers] found. Wrap your chapter titles in [Square Brackets] inside the transcript.');
+            return;
+        }
+
+        if (extracted.length < 2) {
+            showNotice('warning', '⚠ Only 1 chapter detected. Add more [Headers] for a useful timeline. Generating anyway…');
+        }
+
+        // ─ calculate total word weight ─
+        const totalWords = extracted.reduce((s, e) => s + e.wordCount, 0);
+        const totalSecs  = totalMins * 60;
+
+        // If all sections have 0 words (headers only, no body text), fall back to equal split
+        const useEqual = totalWords === 0;
+
+        let currentSecs = offsetSecs;
+        let timeline    = [];
+
+        extracted.forEach((item, idx) => {
+            const secs = Math.floor(currentSecs);
+            const h    = Math.floor(secs / 3600);
+            const m    = Math.floor((secs % 3600) / 60);
+            const s    = secs % 60;
+
+            let timestamp;
+            if (totalMins >= 60) {
+                // hours:mm:ss for long-form
+                timestamp = h > 0
+                    ? `${h}:${pad(m)}:${pad(s)}`
+                    : `${pad(m)}:${pad(s)}`;
+            } else {
+                timestamp = `${pad(m)}:${pad(s)}`;
+            }
+
+            const weight = useEqual
+                ? (1 / extracted.length)
+                : (item.wordCount / totalWords);
+
+            timeline.push({
+                timestamp,
+                header   : item.header,
+                wordCount: item.wordCount,
+                weight   : Math.round(weight * 100),
+                rawSecs  : secs
+            });
+
+            currentSecs += weight * totalSecs;
+        });
+
+        lastTimeline = timeline;
+
+        // ─ ensure first chapter is 00:00 if no offset ─
+        const ytValid = (offsetSecs === 0 && timeline[0].rawSecs === 0) || (timeline[0].rawSecs <= 5);
+
+        renderResult(timeline, format, ytValid, totalMins, wpm);
+
+        // animate button briefly
+        btn.classList.add('processing');
+        btn.textContent = 'Processing…';
+        setTimeout(() => {
+            btn.classList.remove('processing');
+            btn.textContent = 'Calculate Timeline ⚡';
+        }, 600);
+    }
+
+    /* ═══════════════════════════════════════════════
+       RENDER
+    ═══════════════════════════════════════════════ */
+    function renderResult(timeline, format, ytValid, totalMins, wpm) {
+        const section = document.getElementById('resultSection');
+        const grid    = document.getElementById('segmentsGrid');
+        const rawOut  = document.getElementById('rawOutput');
+        const chips   = document.getElementById('summaryChips');
+        const badge   = document.getElementById('ytBadge');
+
+        // ─ summary chips ─
+        const totalWords = timeline.reduce((s,e) => s + e.wordCount, 0);
+        chips.innerHTML = `
+            <div class="chip"><b>${timeline.length}</b> Chapters</div>
+            <div class="chip"><b>${totalMins} min</b> Total</div>
+            <div class="chip"><b>${totalWords.toLocaleString()}</b> Words</div>
+            <div class="chip"><b>${wpm} WPM</b> Speed</div>
+            <div class="chip accent">Density-Weighted ✓</div>
+        `;
+
+        // ─ segment cards ─
+        grid.innerHTML = '';
+        timeline.forEach((seg, idx) => {
+            const card = document.createElement('div');
+            card.className = 'segment-card fade-in';
+            card.style.animationDelay = `${idx * 40}ms`;
+            card.innerHTML = `
+                <div class="seg-timestamp">${seg.timestamp}</div>
+                <div class="seg-title">${escHtml(seg.header)}</div>
+                <div class="seg-meta">${seg.wordCount} words · ${seg.weight}%</div>
+                <div class="seg-bar-wrap">
+                    <div class="seg-bar" style="width:${Math.max(seg.weight, 3)}%"></div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        // ─ raw output ─
+        rawOut.textContent = buildRawOutput(timeline, format);
+
+        // ─ YouTube badge ─
+        if (ytValid) {
+            badge.className   = 'yt-badge yt-valid';
+            badge.textContent = '✓ YouTube Valid';
+        } else {
+            badge.className   = 'yt-badge yt-invalid';
+            badge.textContent = '✗ Set first chapter to 0:00';
+        }
+
+        section.style.display = 'block';
+        section.classList.add('fade-in');
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function buildRawOutput(timeline, format) {
+        if (format === 'youtube') {
+            return timeline.map(s => `${s.timestamp} ${s.header}`).join('\n');
+        }
+        if (format === 'simple') {
+            return timeline.map(s => `${s.timestamp} — ${s.header}`).join('\n');
+        }
+        if (format === 'description') {
+            const lines = timeline.map(s => `${s.timestamp} ${s.header}`).join('\n');
+            return `📌 EPISODE CHAPTERS\n\n${lines}\n\n────────────────────\nGenerated by Rebrixe Density Segmenter`;
+        }
+        return timeline.map(s => `${s.timestamp} ${s.header}`).join('\n');
+    }
+
+    /* ═══════════════════════════════════════════════
+       ACTIONS
+    ═══════════════════════════════════════════════ */
+    function copyResult() {
+        const text = document.getElementById('rawOutput').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Timeline'; }, 2200);
+        });
+    }
+
+    function downloadResult() {
+        const text = document.getElementById('rawOutput').textContent;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = 'podcast-chapters.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function resetTool() {
+        document.getElementById('resultSection').style.display = 'none';
+        transcriptEl.value = '';
+        document.getElementById('totalDuration').value = '60';
+        document.getElementById('wpmSpeed').value = '150';
+        document.getElementById('offsetSecs').value = '0';
+        document.getElementById('outputFormat').value = 'youtube';
+        updateStats();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ═══════════════════════════════════════════════
+       HELPERS
+    ═══════════════════════════════════════════════ */
+    function pad(n) { return n.toString().padStart(2, '0'); }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function showNotice(type, msg) {
+        const box = document.getElementById('noticeBox');
+        box.className = `notice-box notice-${type}`;
+        box.textContent = msg;
+        box.style.display = 'block';
+    }
+
+    // click raw output to select all
+    document.getElementById('rawOutput').addEventListener('click', function() {
+        const range = document.createRange();
+        range.selectNodeContents(this);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    // init stats
+    updateStats();
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

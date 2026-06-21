@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Grid Splitter — Split Image into 2x2, 3x3, 4x4 for Instagram Carousel | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Split any image into a perfect grid — 2×2, 3×3, 4×4 and more. Download pieces individually or as a ZIP. Perfect for Instagram carousel grid posts. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Config card */
+        .config-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Grid selector */
+        .grid-selector { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+        .grid-btn {
+            flex: 1; min-width: 80px; padding: 14px 10px; border-radius: var(--radius-md); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; text-align: center; font-family: 'Outfit', sans-serif;
+        }
+        .grid-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .grid-btn.active { border-color: var(--primary); background: var(--primary-dim); }
+        .grid-btn-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+        .grid-btn-label { font-size: 0.8rem; font-weight: 800; color: var(--text-sec); display: block; transition: color 0.18s; }
+        .grid-btn:hover .grid-btn-label, .grid-btn.active .grid-btn-label { color: var(--primary); }
+        .grid-btn-sub { font-size: 0.62rem; color: var(--text-dim); font-family: 'Fira Code', monospace; display: block; margin-top: 2px; }
+
+        /* Visual grid preview */
+        .grid-visual-wrap { margin-bottom: 22px; }
+        .grid-visual {
+            display: inline-grid; gap: 2px; border-radius: 8px; overflow: hidden;
+            border: 1px solid var(--border-mid); background: var(--border);
+        }
+        .gv-cell { background: var(--surface); width: 28px; height: 28px; transition: background 0.2s; }
+        .gv-cell:hover { background: rgba(255,214,0,0.18); }
+
+        /* Options row */
+        .options-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Numbering / gap option */
+        .gap-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+        .gap-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.9rem; padding: 7px 12px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 70px; text-align: center; }
+        .gap-input:focus { border-color: var(--primary); }
+        .gap-unit { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-zip { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-zip.visible { display: block; }
+        .btn-zip:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Results grid */
+        .results-section { display: none; }
+        .results-section.visible { display: block; }
+        .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+        .results-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .results-count { font-size: 0.72rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+
+        .pieces-grid { display: grid; gap: 10px; }
+        .piece-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; transition: all 0.2s; }
+        .piece-card:hover { border-color: var(--primary-border); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .piece-img-wrap { background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; overflow: hidden; }
+        .piece-img-wrap.landscape { aspect-ratio: unset; height: 100px; }
+        .piece-img-wrap.portrait { aspect-ratio: unset; height: 140px; }
+        .piece-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .piece-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; }
+        .piece-label { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .piece-dl-btn { font-size: 0.68rem; font-weight: 800; color: #000; background: var(--primary); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s; }
+        .piece-dl-btn:hover { background: var(--accent); transform: scale(1.05); }
+
+        /* Order hint for Instagram */
+        .insta-hint { background: rgba(170,255,0,0.05); border: 1px solid rgba(170,255,0,0.15); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; font-size: 0.75rem; color: var(--success); display: none; }
+        .insta-hint strong { font-weight: 800; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Progress */
+        .progress-bar-wrap { height: 3px; background: var(--border); border-radius: 99px; margin-bottom: 16px; overflow: hidden; display: none; }
+        .progress-bar-wrap.visible { display: block; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; width: 0%; transition: width 0.3s; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .options-row { grid-template-columns: 1fr; gap: 16px; }
+            .action-row { flex-direction: column; }
+            .grid-selector { gap: 8px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Grid Splitter</h1>
+                <p class="tool-page-sub">Split any image into 2×2, 3×3, 4×4 grids. Download pieces individually or all as ZIP.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">✂️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Config -->
+                <div class="config-card">
+                    <div class="section-label">Choose Grid Size</div>
+                    <div class="grid-selector" id="gridSelector">
+                        <button class="grid-btn active" data-cols="2" data-rows="2" onclick="selectGrid(this)">
+                            <span class="grid-btn-icon">⊞</span>
+                            <span class="grid-btn-label">2 × 2</span>
+                            <span class="grid-btn-sub">4 pieces</span>
+                        </button>
+                        <button class="grid-btn" data-cols="3" data-rows="3" onclick="selectGrid(this)">
+                            <span class="grid-btn-icon">⊟</span>
+                            <span class="grid-btn-label">3 × 3</span>
+                            <span class="grid-btn-sub">9 pieces</span>
+                        </button>
+                        <button class="grid-btn" data-cols="4" data-rows="4" onclick="selectGrid(this)">
+                            <span class="grid-btn-icon">⊞</span>
+                            <span class="grid-btn-label">4 × 4</span>
+                            <span class="grid-btn-sub">16 pieces</span>
+                        </button>
+                        <button class="grid-btn" data-cols="2" data-rows="3" onclick="selectGrid(this)">
+                            <span class="grid-btn-icon">▦</span>
+                            <span class="grid-btn-label">2 × 3</span>
+                            <span class="grid-btn-sub">6 pieces</span>
+                        </button>
+                        <button class="grid-btn" data-cols="3" data-rows="2" onclick="selectGrid(this)">
+                            <span class="grid-btn-icon">▤</span>
+                            <span class="grid-btn-label">3 × 2</span>
+                            <span class="grid-btn-sub">6 pieces</span>
+                        </button>
+                    </div>
+
+                    <!-- Live visual grid preview -->
+                    <div class="grid-visual-wrap">
+                        <div class="grid-visual" id="gridVisual"></div>
+                    </div>
+
+                    <div class="options-row">
+                        <div class="opt-group">
+                            <label>Output Format</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Numbering Style</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-num="rowcol" onclick="setNum(this)">Row-Col</button>
+                                <button class="tog-btn" data-num="seq" onclick="setNum(this)">1, 2, 3…</button>
+                                <button class="tog-btn" data-num="insta" onclick="setNum(this)">Instagram</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnSplit" onclick="doSplit()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✂️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Split Image</span>
+                        </div>
+                    </button>
+                    <button class="btn-zip" id="btnZip" onclick="doZip()">⬇ Download All as ZIP</button>
+                </div>
+
+                <div class="progress-bar-wrap" id="progressWrap">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+
+                <!-- Results -->
+                <div class="results-section" id="resultsSection">
+                    <div class="insta-hint" id="instaHint">
+                        <strong>Instagram carousel order:</strong> Post pieces right-to-left, bottom row first. The pieces are numbered so the final grid looks correct on your profile.
+                    </div>
+                    <div class="results-header">
+                        <span class="results-title">Pieces — click to download individually</span>
+                        <span class="results-count" id="resultsCount"></span>
+                    </div>
+                    <div class="pieces-grid" id="piecesGrid"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why this splitter?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Instagram carousel grid</h3>
+                        <p>Split a wide panoramic or square image into a 3×3 or 4×4 grid. Each piece becomes one carousel slide — when viewed on your profile grid, they form one seamless image. Massive engagement hack.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Multiple grids supported</h3>
+                        <p>2×2 (4 tiles), 3×3 (9 tiles), 4×4 (16 tiles), plus asymmetric 2×3 and 3×2 options. Works with any image — portrait, landscape, or square.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>One click ZIP download</h3>
+                        <p>Grab all pieces as a <code>.zip</code> file in one click — already named in the correct order. No juggling individual downloads.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Uses the browser <code>Canvas API</code> — your image never touches a server. Works offline once loaded. No account, no watermark, no nonsense.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let cols = 2, rows = 2;
+    let outputFmt = 'jpeg', numStyle = 'rowcol';
+    let pieces = []; // { dataURL, filename, col, row }
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultsSection').classList.remove('visible');
+                document.getElementById('btnZip').classList.remove('visible');
+                pieces = [];
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; pieces = [];
+    }
+
+    // ─── GRID CONFIG ───────────────────────────────────────────────────────────
+    function selectGrid(btn) {
+        document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        cols = parseInt(btn.dataset.cols);
+        rows = parseInt(btn.dataset.rows);
+        renderGridVisual();
+        // Reset results
+        document.getElementById('resultsSection').classList.remove('visible');
+        document.getElementById('btnZip').classList.remove('visible');
+        pieces = [];
+    }
+
+    function renderGridVisual() {
+        const v = document.getElementById('gridVisual');
+        v.style.gridTemplateColumns = `repeat(${cols}, 28px)`;
+        v.style.gridTemplateRows = `repeat(${rows}, 28px)`;
+        v.innerHTML = '';
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'gv-cell';
+            v.appendChild(cell);
+        }
+    }
+    renderGridVisual();
+
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+    function setNum(btn) {
+        document.querySelectorAll('[data-num]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); numStyle = btn.dataset.num;
+        document.getElementById('instaHint').style.display = numStyle === 'insta' ? 'block' : 'none';
+    }
+
+    // ─── SPLIT ─────────────────────────────────────────────────────────────────
+    function doSplit() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        pieces = [];
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const iw = origImg.naturalWidth, ih = origImg.naturalHeight;
+        const pw = Math.floor(iw / cols), ph = Math.floor(ih / rows);
+
+        showProgress(0);
+
+        const total = cols * rows;
+        let done = 0;
+
+        // Build all pieces
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = pw; canvas.height = ph;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(origImg, c * pw, r * ph, pw, ph, 0, 0, pw, ph);
+                const dataURL = canvas.toDataURL(mime, outputFmt === 'png' ? undefined : 0.92);
+
+                // Filename
+                let fname;
+                if (numStyle === 'rowcol') {
+                    fname = `${baseName}_r${r+1}c${c+1}.${ext}`;
+                } else if (numStyle === 'seq') {
+                    fname = `${baseName}_${r * cols + c + 1}.${ext}`;
+                } else {
+                    // Instagram: number in upload order (bottom-to-top, right-to-left)
+                    const instaNum = (rows - 1 - r) * cols + (cols - 1 - c) + 1;
+                    fname = `${baseName}_insta_${String(instaNum).padStart(2,'0')}.${ext}`;
+                }
+
+                pieces.push({ dataURL, filename: fname, col: c, row: r, w: pw, h: ph });
+                done++;
+                showProgress(done / total * 100);
+            }
+        }
+
+        renderPieces();
+        showProgress(100);
+        setTimeout(() => hideProgress(), 500);
+        document.getElementById('btnZip').classList.add('visible');
+        document.getElementById('resultsSection').classList.add('visible');
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast(`Split into ${total} pieces ✓`, 'success');
+    }
+
+    function renderPieces() {
+        const grid = document.getElementById('piecesGrid');
+        grid.style.gridTemplateColumns = `repeat(${Math.min(cols * 2, 6)}, 1fr)`;
+        grid.innerHTML = '';
+        document.getElementById('resultsCount').textContent = `${pieces.length} pieces  ·  ${pieces[0].w}×${pieces[0].h}px each`;
+
+        pieces.forEach((p, i) => {
+            const card = document.createElement('div');
+            card.className = 'piece-card';
+            const asp = p.w / p.h;
+            const wrapClass = asp > 1.3 ? 'landscape' : asp < 0.77 ? 'portrait' : '';
+            card.innerHTML = `
+                <div class="piece-img-wrap ${wrapClass}">
+                    <img src="${p.dataURL}" alt="Piece ${i+1}" loading="lazy">
+                </div>
+                <div class="piece-footer">
+                    <span class="piece-label">${p.filename.split('/').pop()}</span>
+                    <button class="piece-dl-btn" onclick="dlPiece(${i})">↓</button>
+                </div>`;
+            grid.appendChild(card);
+        });
+    }
+
+    function dlPiece(i) {
+        const p = pieces[i];
+        const a = document.createElement('a');
+        a.href = p.dataURL; a.download = p.filename; a.click();
+    }
+
+    // ─── ZIP ───────────────────────────────────────────────────────────────────
+    async function doZip() {
+        if (!pieces.length) return;
+        showToast('Packing ZIP…', '');
+        const zip = new JSZip();
+        pieces.forEach(p => {
+            const b64 = p.dataURL.split(',')[1];
+            zip.file(p.filename, b64, { base64: true });
+        });
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        a.download = `${baseName}_${rows}x${cols}_split.zip`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('ZIP downloaded!', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function showProgress(pct) {
+        document.getElementById('progressWrap').classList.add('visible');
+        document.getElementById('progressBar').style.width = pct + '%';
+    }
+    function hideProgress() {
+        document.getElementById('progressWrap').classList.remove('visible');
+        document.getElementById('progressBar').style.width = '0%';
+    }
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

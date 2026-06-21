@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PFP Circle Previewer | Rebrixe</title>
+    <meta name="description" content="Preview how your profile picture will look cropped in a circle on TikTok, Instagram, Twitter/X, and LinkedIn. Adjust zoom & position. Free, instant, no upload needed.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Upload Zone ── */
+        .uploader-zone {
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto 12px auto;
+            border: 2px dashed #334155;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 24px;
+            padding: 44px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s, transform 0.3s, background 0.3s;
+            position: relative;
+        }
+        .uploader-zone:hover,
+        .uploader-zone.drag-over {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            background: rgba(15, 23, 42, 0.85);
+        }
+        .uploader-zone.drag-over { background: rgba(var(--primary-rgb, 99,102,241), 0.08); }
+        .upload-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; transition: transform 0.3s; }
+        .uploader-zone:hover .upload-icon { transform: scale(1.12); }
+
+        /* ── Controls Panel ── */
+        .controls-panel {
+            max-width: 520px;
+            margin: 0 auto 40px auto;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px 24px;
+            display: none;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .controls-panel.visible { display: flex; }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .control-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            min-width: 52px;
+        }
+        .slider-wrap { flex: 1; position: relative; }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 4px;
+            background: #1e293b;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+            transition: box-shadow 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 0 6px rgba(99,102,241,0.25);
+        }
+        .slider-val {
+            min-width: 38px;
+            text-align: right;
+            font-size: 0.78rem;
+            color: var(--primary);
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Hint bar */
+        .drag-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            text-align: center;
+            padding: 6px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+        }
+        .drag-hint span { color: #94a3b8; }
+
+        /* Action buttons */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-secondary {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .btn-secondary:hover { border-color: var(--primary); color: #fff; background: rgba(99,102,241,0.08); }
+        .btn-primary {
+            flex: 2;
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.3px;
+        }
+        .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+
+        /* ── AI Insight Bar ── */
+        .ai-insight {
+            max-width: 520px;
+            margin: 0 auto 32px auto;
+            background: rgba(99,102,241,0.07);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 14px;
+            padding: 12px 18px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .ai-insight.visible { display: flex; }
+        .ai-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--primary);
+            flex-shrink: 0;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+        .ai-insight strong { color: #c7d2fe; }
+
+        /* ── Preview Grid ── */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+            margin-top: 10px;
+        }
+
+        .platform-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            transition: transform 0.25s, border-color 0.25s;
+            position: relative;
+            overflow: hidden;
+        }
+        .platform-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 20px 20px 0 0;
+            background: var(--pc-accent);
+            opacity: 0.7;
+        }
+        .platform-card:hover { transform: translateY(-3px); border-color: var(--pc-accent); }
+
+        .platform-tag {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            color: var(--pc-accent);
+            border: 1px solid currentColor;
+        }
+
+        /* PFP circle with canvas */
+        .pfp-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pfp-canvas-wrap {
+            position: relative;
+            border-radius: 50%;
+            overflow: hidden;
+            border: var(--pc-ring-width, 3px) solid var(--pc-accent);
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.3);
+            background: #1e293b;
+            flex-shrink: 0;
+        }
+
+        /* Story ring (Instagram) */
+        .story-ring {
+            position: absolute;
+            border-radius: 50%;
+            padding: 3px;
+            background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            z-index: 1;
+        }
+
+        .pfp-canvas-wrap canvas {
+            display: block;
+            border-radius: 50%;
+        }
+
+        /* Placeholder avatar */
+        .placeholder-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            color: #334155;
+            font-size: 2.2rem;
+        }
+
+        .size-label {
+            font-size: 0.65rem;
+            color: #475569;
+            letter-spacing: 0.3px;
+        }
+
+        /* Comment mockup */
+        .comment-mockup {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            padding: 10px 12px;
+            border-radius: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .mini-pfp-wrap {
+            flex-shrink: 0;
+            position: relative;
+        }
+        .mini-pfp-wrap canvas {
+            border-radius: 50%;
+            display: block;
+        }
+        .mock-meta { flex-grow: 1; padding-top: 1px; }
+        .mock-name {
+            font-weight: 700;
+            font-size: 0.78rem;
+            color: #f1f5f9;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .mock-text { font-size: 0.73rem; color: #94a3b8; line-height: 1.4; }
+        .mock-likes {
+            font-size: 0.65rem;
+            color: #475569;
+            margin-top: 5px;
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Score chip */
+        .score-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .score-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .score-chip.good { color: #4ade80; border-color: rgba(74,222,128,0.2); background: rgba(74,222,128,0.05); }
+        .score-chip.warn { color: #fbbf24; border-color: rgba(251,191,36,0.2); background: rgba(251,191,36,0.05); }
+        .score-chip.bad  { color: #f87171; border-color: rgba(248,113,113,0.2); background: rgba(248,113,113,0.05); }
+        .score-chip.good .dot { background: #4ade80; }
+        .score-chip.warn .dot { background: #fbbf24; }
+        .score-chip.bad  .dot { background: #f87171; }
+
+        /* ── Download row ── */
+        .download-row {
+            display: none;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 36px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+        .download-row.visible { display: flex; }
+
+        .dl-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(15,23,42,0.6);
+            color: #94a3b8;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Outfit', sans-serif;
+            text-decoration: none;
+        }
+        .dl-btn:hover { border-color: var(--primary); color: #fff; background: rgba(99,102,241,0.1); }
+        .dl-btn .dl-icon { font-size: 1rem; }
+
+        /* ── Empty state canvas placeholder ── */
+        .canvas-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #334155;
+            pointer-events: none;
+        }
+
+        /* Animate cards in */
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .platform-card { animation: cardIn 0.4s ease both; }
+        .platform-card:nth-child(1) { animation-delay: 0.05s; }
+        .platform-card:nth-child(2) { animation-delay: 0.12s; }
+        .platform-card:nth-child(3) { animation-delay: 0.19s; }
+        .platform-card:nth-child(4) { animation-delay: 0.26s; }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .preview-grid { grid-template-columns: 1fr; }
+            .action-row .btn-primary { min-width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">Back to tools</a>
+
+        <section class="tool-card">
+            <h1>PFP Circle Previewer</h1>
+            <p>Upload once. See exactly how your profile picture looks — cropped, ringed, and sized — across every major platform. Adjust zoom & position before you commit.</p>
+
+            <!-- Upload Zone -->
+            <div class="uploader-zone" id="uploaderZone" onclick="document.getElementById('pfpInput').click()">
+                <span class="upload-icon" id="uploadIcon">👤</span>
+                <strong id="statusText">Click or Drag & Drop Your Photo</strong>
+                <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">PNG, JPG, WEBP · Square 1:1 recommended · Stays in your browser</p>
+                <input type="file" id="pfpInput" hidden accept="image/*">
+            </div>
+
+            <!-- Controls (hidden until image loaded) -->
+            <div class="controls-panel" id="controlsPanel">
+                <div class="control-row">
+                    <span class="control-label">Zoom</span>
+                    <div class="slider-wrap">
+                        <input type="range" id="zoomSlider" min="100" max="250" value="100" step="1">
+                    </div>
+                    <span class="slider-val" id="zoomVal">1×</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-label">H-Pos</span>
+                    <div class="slider-wrap">
+                        <input type="range" id="xSlider" min="-100" max="100" value="0" step="1">
+                    </div>
+                    <span class="slider-val" id="xVal">0%</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-label">V-Pos</span>
+                    <div class="slider-wrap">
+                        <input type="range" id="ySlider" min="-100" max="100" value="0" step="1">
+                    </div>
+                    <span class="slider-val" id="yVal">0%</span>
+                </div>
+                <div class="drag-hint">💡 <span>Tip:</span> Increase Zoom then adjust H-Pos/V-Pos to perfectly center your face in the circle.</div>
+                <div class="action-row">
+                    <button class="btn-secondary" onclick="resetControls()">↺ Reset</button>
+                    <button class="btn-secondary" onclick="document.getElementById('pfpInput').click()">Change Photo</button>
+                    <button class="btn-primary" onclick="downloadAll()">⬇ Download Cropped</button>
+                </div>
+            </div>
+
+            <!-- AI Insight -->
+            <div class="ai-insight" id="aiInsight">
+                <div class="ai-dot"></div>
+                <div id="aiInsightText">Analyzing your photo composition…</div>
+            </div>
+
+            <!-- Preview Grid -->
+            <div class="preview-grid" id="previewGrid">
+
+                <!-- TikTok -->
+                <div class="platform-card" style="--pc-accent: #ff0050; --pc-ring-width: 3px;">
+                    <span class="platform-tag">TikTok</span>
+                    <div class="pfp-wrapper">
+                        <div class="pfp-canvas-wrap" id="wrap-tiktok" style="width:110px;height:110px;">
+                            <canvas id="canvas-tiktok" width="110" height="110"></canvas>
+                            <div class="canvas-placeholder" id="ph-tiktok">👤</div>
+                        </div>
+                        <span class="size-label">110 × 110 px</span>
+                    </div>
+                    <div class="comment-mockup">
+                        <div class="mini-pfp-wrap">
+                            <canvas id="mini-tiktok" width="34" height="34" style="border-radius:50%;border:1.5px solid #ff0050;"></canvas>
+                        </div>
+                        <div class="mock-meta">
+                            <div class="mock-name">Rebrixe_user</div>
+                            <div class="mock-text">This tool is actually insane 📈</div>
+                            <div class="mock-likes"><span>❤️ 4.2K</span><span>Reply</span></div>
+                        </div>
+                    </div>
+                    <div class="score-chip" id="score-tiktok"><div class="dot"></div><span>Upload to preview score</span></div>
+                </div>
+
+                <!-- Instagram Profile -->
+                <div class="platform-card" style="--pc-accent: #e1306c; --pc-ring-width: 3px;">
+                    <span class="platform-tag">Instagram Profile</span>
+                    <div class="pfp-wrapper">
+                        <div class="pfp-canvas-wrap" id="wrap-ig" style="width:110px;height:110px;">
+                            <canvas id="canvas-ig" width="110" height="110"></canvas>
+                            <div class="canvas-placeholder" id="ph-ig">👤</div>
+                        </div>
+                        <span class="size-label">110 × 110 px</span>
+                    </div>
+                    <div class="comment-mockup">
+                        <div class="mini-pfp-wrap">
+                            <canvas id="mini-ig" width="32" height="32" style="border-radius:50%;border:1.5px solid #e1306c;"></canvas>
+                        </div>
+                        <div class="mock-meta">
+                            <div class="mock-name">Rebrixe_user</div>
+                            <div class="mock-text">Cleanest PFP on the feed! 🔥</div>
+                            <div class="mock-likes"><span>Reply · 2d</span></div>
+                        </div>
+                    </div>
+                    <div class="score-chip" id="score-ig"><div class="dot"></div><span>Upload to preview score</span></div>
+                </div>
+
+                <!-- Instagram Story Ring -->
+                <div class="platform-card" style="--pc-accent: #f09433; --pc-ring-width: 0px;">
+                    <span class="platform-tag" style="border-color: #f09433; color: #f09433;">IG Story Ring</span>
+                    <div class="pfp-wrapper">
+                        <!-- Story gradient ring via wrapper div -->
+                        <div id="story-ring-outer" style="
+                            padding: 3px;
+                            border-radius: 50%;
+                            background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+                            display: inline-block;
+                        ">
+                            <div style="
+                                padding: 3px;
+                                border-radius: 50%;
+                                background: var(--card, #0f172a);
+                                display: inline-block;
+                            ">
+                                <div class="pfp-canvas-wrap" id="wrap-story" style="width:104px;height:104px;border:none;">
+                                    <canvas id="canvas-story" width="104" height="104"></canvas>
+                                    <div class="canvas-placeholder" id="ph-story">👤</div>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="size-label">Story ring preview</span>
+                    </div>
+                    <div class="comment-mockup">
+                        <div class="mini-pfp-wrap" style="
+                            padding: 2px;
+                            border-radius: 50%;
+                            background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+                        ">
+                            <div style="padding:2px;border-radius:50%;background:#111;">
+                                <canvas id="mini-story" width="28" height="28" style="border-radius:50%;display:block;"></canvas>
+                            </div>
+                        </div>
+                        <div class="mock-meta">
+                            <div class="mock-name">Rebrixe_user <span style="font-size:0.65rem;color:#64748b;font-weight:400;">· 3h</span></div>
+                            <div class="mock-text">Your story is live with the gradient ring visible!</div>
+                        </div>
+                    </div>
+                    <div class="score-chip" id="score-story"><div class="dot"></div><span>Upload to preview score</span></div>
+                </div>
+
+                <!-- X / Twitter -->
+                <div class="platform-card" style="--pc-accent: #1d9bf0; --pc-ring-width: 2px;">
+                    <span class="platform-tag" style="color:#fff;">X / Twitter</span>
+                    <div class="pfp-wrapper">
+                        <div class="pfp-canvas-wrap" id="wrap-x" style="width:110px;height:110px;border-color:#334155;">
+                            <canvas id="canvas-x" width="110" height="110"></canvas>
+                            <div class="canvas-placeholder" id="ph-x">👤</div>
+                        </div>
+                        <span class="size-label">400 × 400 px (shown at 110)</span>
+                    </div>
+                    <div class="comment-mockup">
+                        <div class="mini-pfp-wrap">
+                            <canvas id="mini-x" width="36" height="36" style="border-radius:50%;"></canvas>
+                        </div>
+                        <div class="mock-meta">
+                            <div class="mock-name">RebrixeUser <span style="color: #1d9bf0;">✓</span></div>
+                            <div class="mock-text">Utility-first design is the future of digital identity.</div>
+                            <div class="mock-likes"><span>💬 14</span><span>🔁 312</span><span>♥ 4.1K</span></div>
+                        </div>
+                    </div>
+                    <div class="score-chip" id="score-x"><div class="dot"></div><span>Upload to preview score</span></div>
+                </div>
+
+            </div>
+
+            <!-- Download Row -->
+            <div class="download-row" id="downloadRow">
+                <button class="dl-btn" onclick="downloadSingle('canvas-tiktok','pfp-tiktok.png')"><span class="dl-icon">⬇</span> TikTok</button>
+                <button class="dl-btn" onclick="downloadSingle('canvas-ig','pfp-instagram.png')"><span class="dl-icon">⬇</span> Instagram</button>
+                <button class="dl-btn" onclick="downloadSingle('canvas-story','pfp-ig-story.png')"><span class="dl-icon">⬇</span> IG Story crop</button>
+                <button class="dl-btn" onclick="downloadSingle('canvas-x','pfp-twitter.png')"><span class="dl-icon">⬇</span> X / Twitter</button>
+            </div>
+
+        </section>
+    </div>
+
+    <footer style="margin-top:120px;padding:80px 20px;background:#05070a;border-top:1px solid #1e293b;text-align:center;color:#64748b;">
+        <div style="max-width:1200px;margin:0 auto;">
+            <h3 style="color:white;font-family:'Outfit';margin-bottom:10px;">Rebrixe Engine</h3>
+            <p style="font-size:0.85rem;margin-bottom:20px;">Protecting your Digital Identity through precision.</p>
+            <div style="height:1px;background:linear-gradient(90deg,transparent,#1e293b,transparent);margin-bottom:20px;"></div>
+            <p style="font-size:0.75rem;">© 2026 Rebrixe Engine. All processing stays in your browser.</p>
+        </div>
+    </footer>
+
+    <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let sourceImage = null;
+    let zoom = 1;
+    let offsetX = 0;  // -1 to 1
+    let offsetY = 0;
+
+    // Canvas IDs and their display sizes
+    const CANVASES = [
+        { id: 'canvas-tiktok',  mini: 'mini-tiktok',  size: 110, miniSize: 34, ph: 'ph-tiktok',  score: 'score-tiktok' },
+        { id: 'canvas-ig',      mini: 'mini-ig',      size: 110, miniSize: 32, ph: 'ph-ig',      score: 'score-ig'     },
+        { id: 'canvas-story',   mini: 'mini-story',   size: 104, miniSize: 28, ph: 'ph-story',   score: 'score-story'  },
+        { id: 'canvas-x',       mini: 'mini-x',       size: 110, miniSize: 36, ph: 'ph-x',       score: 'score-x'      },
+    ];
+
+    // ── Drag & Drop ────────────────────────────────────────────────────────────
+    const zone = document.getElementById('uploaderZone');
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) loadFile(file);
+    });
+
+    document.getElementById('pfpInput').addEventListener('change', function() {
+        if (this.files[0]) loadFile(this.files[0]);
+    });
+
+    // ── Load & Render ──────────────────────────────────────────────────────────
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                sourceImage = img;
+                zoom = 1; offsetX = 0; offsetY = 0;
+                resetSliders();
+                renderAll();
+                showUI();
+                runAIAnalysis(img);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderAll() {
+        if (!sourceImage) return;
+        CANVASES.forEach(c => {
+            drawToCanvas(c.id, c.size);
+            drawToCanvas(c.mini, c.miniSize);
+            hidePlaceholder(c.ph);
+        });
+    }
+
+    function drawToCanvas(canvasId, size) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Clip to circle
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+        ctx.clip();
+
+        // Draw image respecting zoom + offset
+        const img = sourceImage;
+        const scale = Math.min(size / img.width, size / img.height) * zoom;
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+
+        // Center + apply offset (offset is fraction of slack space)
+        const slackX = drawW - size;
+        const slackY = drawH - size;
+        const x = (size - drawW) / 2 - (offsetX * slackX / 2);
+        const y = (size - drawH) / 2 - (offsetY * slackY / 2);
+
+        ctx.drawImage(img, x, y, drawW, drawH);
+        ctx.restore();
+    }
+
+    function hidePlaceholder(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+
+    function showUI() {
+        document.getElementById('controlsPanel').classList.add('visible');
+        document.getElementById('downloadRow').classList.add('visible');
+        document.getElementById('statusText').innerText = 'Photo Applied — Adjust below';
+        document.getElementById('uploadIcon').innerText = '✅';
+    }
+
+    // ── Controls ───────────────────────────────────────────────────────────────
+    document.getElementById('zoomSlider').addEventListener('input', function() {
+        zoom = this.value / 100;
+        document.getElementById('zoomVal').innerText = zoom.toFixed(2) + '×';
+        renderAll();
+    });
+    document.getElementById('xSlider').addEventListener('input', function() {
+        offsetX = this.value / 100;
+        document.getElementById('xVal').innerText = (this.value > 0 ? '+' : '') + this.value + '%';
+        renderAll();
+    });
+    document.getElementById('ySlider').addEventListener('input', function() {
+        offsetY = this.value / 100;
+        document.getElementById('yVal').innerText = (this.value > 0 ? '+' : '') + this.value + '%';
+        renderAll();
+    });
+
+    function resetSliders() {
+        document.getElementById('zoomSlider').value = 100;
+        document.getElementById('xSlider').value = 0;
+        document.getElementById('ySlider').value = 0;
+        document.getElementById('zoomVal').innerText = '1×';
+        document.getElementById('xVal').innerText = '0%';
+        document.getElementById('yVal').innerText = '0%';
+    }
+
+    function resetControls() {
+        zoom = 1; offsetX = 0; offsetY = 0;
+        resetSliders();
+        renderAll();
+        setAIInsight('💡 <strong>Reset.</strong> Zoom and position cleared — your photo is back to its default crop.');
+    }
+
+    // ── AI Insight (local analysis, no API) ────────────────────────────────────
+    const INSIGHTS = [
+        { test: img => img.width === img.height,
+          pass: '✅ <strong>Perfect square.</strong> Your image is 1:1 — it will fill the circle with zero letterboxing.',
+          fail: '⚠️ <strong>Non-square detected.</strong> Your image isn\'t 1:1. Use Zoom & V-Pos to push your face into the center before downloading.' },
+        { test: img => img.width >= 400 && img.height >= 400,
+          pass: '✅ <strong>High resolution.</strong> Enough pixels for all platforms — no blurring expected.',
+          fail: '⚠️ <strong>Low resolution.</strong> Your photo is smaller than 400×400px. It may appear soft on X/Twitter profiles.' },
+        { test: img => img.width > img.height,
+          pass: '📐 <strong>Landscape photo.</strong> The sides will be clipped. Zoom in and shift vertically to focus on your face.',
+          fail: null },
+        { test: img => img.height > img.width * 1.5,
+          pass: '📐 <strong>Tall portrait.</strong> The top and bottom will be clipped. Adjust V-Pos to center your face.',
+          fail: null },
+    ];
+
+    function runAIAnalysis(img) {
+        const bar = document.getElementById('aiInsight');
+        bar.classList.add('visible');
+        setAIInsight('Analyzing your photo…');
+
+        setTimeout(() => {
+            let messages = [];
+
+            // Aspect ratio
+            if (img.width === img.height) {
+                messages.push('✅ <strong>Perfect square.</strong> Zero letterboxing — the circle will fill completely.');
+            } else if (img.width > img.height) {
+                messages.push('📐 <strong>Landscape photo.</strong> Sides will be clipped. Try Zoom + V-Pos to center your face.');
+            } else if (img.height > img.width * 1.3) {
+                messages.push('📐 <strong>Tall portrait.</strong> Top/bottom clipped. Use V-Pos to slide your face into frame.');
+            } else {
+                messages.push('⚠️ <strong>Near-square.</strong> Minor cropping on the taller axis — adjust V-Pos if needed.');
+            }
+
+            // Resolution
+            if (img.width >= 800 && img.height >= 800) {
+                messages.push('🔵 <strong>High-res.</strong> Crisp on all platforms including X/Twitter retina displays.');
+            } else if (img.width >= 400) {
+                messages.push('🟡 <strong>Medium res.</strong> Looks good on most platforms; Instagram & TikTok fine.');
+            } else {
+                messages.push('🔴 <strong>Low res.</strong> May look soft on larger profile displays. Use the highest resolution photo you have.');
+            }
+
+            // Score chips
+            scoreChip('score-tiktok', img.width, img.height, 110);
+            scoreChip('score-ig',     img.width, img.height, 110);
+            scoreChip('score-story',  img.width, img.height, 104);
+            scoreChip('score-x',      img.width, img.height, 400);
+
+            setAIInsight(messages.join(' &nbsp;·&nbsp; '));
+        }, 600);
+    }
+
+    function scoreChip(id, w, h, needed) {
+        const el = document.getElementById(id);
+        const dot = el.querySelector('.dot');
+        const txt = el.querySelector('span');
+        const min = Math.min(w, h);
+        if (min >= needed * 2) {
+            el.className = 'score-chip good'; dot.style.background = '#4ade80';
+            txt.innerText = 'Excellent quality for this platform';
+        } else if (min >= needed) {
+            el.className = 'score-chip warn'; dot.style.background = '#fbbf24';
+            txt.innerText = 'Adequate — higher res recommended';
+        } else {
+            el.className = 'score-chip bad'; dot.style.background = '#f87171';
+            txt.innerText = 'Too small — may appear blurry';
+        }
+    }
+
+    function setAIInsight(html) {
+        document.getElementById('aiInsightText').innerHTML = html;
+    }
+
+    // ── Download ───────────────────────────────────────────────────────────────
+    function downloadSingle(canvasId, filename) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !sourceImage) return;
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function downloadAll() {
+        if (!sourceImage) return;
+        CANVASES.forEach((c, i) => {
+            setTimeout(() => downloadSingle(c.id, 'pfp-' + c.id.replace('canvas-', '') + '.png'), i * 200);
+        });
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

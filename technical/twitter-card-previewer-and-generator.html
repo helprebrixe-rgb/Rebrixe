@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Twitter Card Previewer & Generator | Visual Meta Tester | Rebrixe</title>
+    <meta name="description" content="Preview exactly how your Twitter Card will look before tweeting. Test summary, summary_large_image, and app cards. Check crop safety zones and generate meta tags instantly.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin-bottom: 40px;
+        }
+        .config-card {
+            background: rgba(15,23,42,0.6);
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+            min-width: 0;
+        }
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        input[type="text"], input[type="url"], select, textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            margin-bottom: 18px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        textarea { min-height: 80px; resize: vertical; line-height: 1.6; }
+
+        /* ── Card Type Toggle ── */
+        .type-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+            margin-bottom: 22px;
+            width: 100%;
+        }
+        .type-btn {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .type-btn.active { background: var(--primary, #00f2ff); color: #000; }
+
+        /* ── Character Counter ── */
+        .field-wrap { position: relative; }
+        .char-count {
+            position: absolute;
+            right: 12px;
+            bottom: 26px;
+            font-size: 0.65rem;
+            color: #64748b;
+            pointer-events: none;
+        }
+        .char-count.warn { color: #f1c40f; }
+        .char-count.over { color: #e74c3c; }
+
+        /* ── Preview Area ── */
+        .preview-wrap {
+            background: #15202b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .tweet-chrome {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .tweet-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00f2ff22, #2ecc7133);
+            border: 1px solid #2a3f5f;
+            flex-shrink: 0;
+        }
+        .tweet-meta { flex: 1; }
+        .tweet-name { font-size: 0.82rem; font-weight: 700; color: #e7e9ea; }
+        .tweet-handle { font-size: 0.75rem; color: #71767b; }
+        .tweet-text { font-size: 0.85rem; color: #e7e9ea; margin-bottom: 12px; line-height: 1.5; }
+
+        /* ── Card Previews ── */
+        .card-preview {
+            border: 1px solid #2f3336;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            cursor: default;
+            transition: border-color 0.2s;
+        }
+        .card-preview:hover { border-color: #536471; }
+
+        /* Summary card */
+        .summary-card { display: flex; align-items: stretch; height: 130px; }
+        .summary-img {
+            width: 130px;
+            min-width: 130px;
+            background: #1a1a2e;
+            position: relative;
+            overflow: hidden;
+        }
+        .summary-img img { width:100%; height:100%; object-fit:cover; display:block; }
+        .summary-body {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        /* Large image card */
+        .large-card {}
+        .large-img {
+            width: 100%;
+            padding-top: 52.35%;
+            position: relative;
+            background: #1a1a2e;
+            overflow: hidden;
+        }
+        .large-img img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .large-body { padding: 12px 14px; }
+
+        /* Shared card text styles */
+        .card-domain { font-size: 0.68rem; color: #71767b; text-transform: lowercase; }
+        .card-title { font-size: 0.82rem; font-weight: 700; color: #e7e9ea; line-height: 1.3; margin: 2px 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .card-desc { font-size: 0.73rem; color: #71767b; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+        /* ── Crop Safety Overlay ── */
+        .safety-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        .safe-zone {
+            position: absolute;
+            border: 2px dashed rgba(46,204,113,0.7);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+        }
+        .crop-label {
+            position: absolute;
+            top: 4px; left: 4px;
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #2ecc71;
+            background: rgba(0,0,0,0.75);
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .crop-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .crop-toggle-row input[type="checkbox"] {
+            width: auto; margin: 0;
+            accent-color: var(--primary);
+        }
+        .crop-toggle-row span {
+            font-size: 0.72rem;
+            color: #94a3b8;
+        }
+
+        /* ── Placeholder image ── */
+        .img-placeholder {
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            color: #2a3f5f;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: repeating-linear-gradient(
+                45deg,
+                #0f172a,
+                #0f172a 10px,
+                #111827 10px,
+                #111827 20px
+            );
+        }
+        .img-placeholder svg { opacity: 0.3; }
+
+        /* ── Validation bar ── */
+        .validation-bar {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-bottom: 18px; min-height: 24px;
+        }
+        .v-tag {
+            font-size: 0.68rem; font-weight: 700;
+            padding: 4px 10px; border-radius: 6px; letter-spacing: 0.4px;
+        }
+        .v-ok  { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .v-warn{ background: rgba(241,196,15,0.15);  color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+        .v-err { background: rgba(231,76,60,0.15);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .v-info{ background: rgba(0,242,255,0.1);   color: #00f2ff; border: 1px solid rgba(0,242,255,0.25); }
+
+        /* ── Output / Meta Code ── */
+        .output-container {
+            background: #000;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            padding: 18px 20px;
+        }
+        #metaOutput {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.8;
+            margin: 0;
+        }
+        .action-row {
+            display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 18px; border-radius: 9px; border: none;
+            font-family: 'Inter', sans-serif; font-size: 0.72rem;
+            font-weight: 800; cursor: pointer; transition: 0.2s; letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover { opacity: 0.85; }
+
+        /* ── Image URL input row ── */
+        .img-input-row { position: relative; }
+        .img-status {
+            font-size: 0.68rem;
+            color: #64748b;
+            margin-top: -14px;
+            margin-bottom: 14px;
+            min-height: 16px;
+        }
+        .img-status.ok { color: #2ecc71; }
+        .img-status.err { color: #e74c3c; }
+
+        /* ── OG Fallback pill ── */
+        .fallback-note {
+            background: rgba(241,196,15,0.08);
+            border: 1px solid rgba(241,196,15,0.2);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.72rem;
+            color: #f1c40f;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* ── Image dimension tip ── */
+        .dim-tip {
+            font-size: 0.68rem;
+            color: #64748b;
+            margin-top: -14px;
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .dim-tip strong { color: #94a3b8; }
+
+        /* ── Section divider ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: #334155;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 6px 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── FAQ / SEO ── */
+        .seo-content { text-align: left; }
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .faq-item { background: rgba(15,23,42,0.5); padding: 18px; border-radius: 14px; border: 1px solid var(--border); }
+        .faq-item h3 { margin: 0 0 6px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .summary-card { height: 100px; }
+            .summary-img { width: 100px; min-width: 100px; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="seo-validation.html" class="back-btn">← Back to Tools</a>
+
+    <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-2px;background:linear-gradient(90deg,#00f2ff,#2ecc71);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin:0 0 8px;">
+        Twitter Card Previewer
+    </h1>
+    <p style="opacity:0.6;font-weight:500;margin-bottom:8px;text-align:center;">See exactly how your card looks before you tweet — crop zones, live preview, instant meta tags.</p>
+
+    <div class="workspace-grid">
+
+        <!-- ════ LEFT: CONFIG ════ -->
+        <div class="config-card">
+
+            <label>Card Type</label>
+            <div class="type-toggle">
+                <button class="type-btn active" onclick="setType('summary')">Summary</button>
+                <button class="type-btn" onclick="setType('summary_large_image')">Large Image</button>
+                <button class="type-btn" onclick="setType('app')">App Card</button>
+            </div>
+
+            <div class="section-label">Content</div>
+
+            <label>Page Title</label>
+            <div class="field-wrap">
+                <input type="text" id="cardTitle" placeholder="Your page title" maxlength="70" oninput="update()">
+                <span class="char-count" id="titleCount">0/70</span>
+            </div>
+
+            <label>Description</label>
+            <div class="field-wrap">
+                <textarea id="cardDesc" placeholder="A short description of your page content." maxlength="200" oninput="update()"></textarea>
+                <span class="char-count" id="descCount">0/200</span>
+            </div>
+
+            <label>Site Domain</label>
+            <input type="text" id="cardSite" placeholder="yoursite.com" oninput="update()">
+
+            <label>Twitter @handle (optional)</label>
+            <input type="text" id="cardCreator" placeholder="@yourhandle" oninput="update()">
+
+            <div class="section-label">Image</div>
+
+            <label>Image URL</label>
+            <div class="img-input-row">
+                <input type="url" id="cardImage" placeholder="https://yoursite.com/og-image.jpg" oninput="onImageInput()">
+            </div>
+            <div class="img-status" id="imgStatus">Paste an image URL to see live preview</div>
+            <div class="dim-tip" id="dimTip"><strong>Recommended:</strong> 1200×628px for large image, 400×400px min for summary</div>
+
+            <!-- App-specific fields -->
+            <div id="appFields" style="display:none;">
+                <div class="section-label">App Details</div>
+                <label>App Name</label>
+                <input type="text" id="appName" placeholder="My App" oninput="update()">
+                <label>App Store URL (iPhone)</label>
+                <input type="url" id="appIphone" placeholder="https://apps.apple.com/..." oninput="update()">
+                <label>Google Play URL</label>
+                <input type="url" id="appGoogleplay" placeholder="https://play.google.com/..." oninput="update()">
+            </div>
+
+            <div class="section-label">Validation</div>
+            <div class="validation-bar" id="validationBar"></div>
+
+            <div class="fallback-note" id="fallbackNote">
+                ⚠️ <strong>No twitter:image set.</strong> Twitter will attempt to fall back to <code>og:image</code> if present. Add a dedicated twitter:image for best results.
+            </div>
+        </div>
+
+        <!-- ════ RIGHT: PREVIEW + OUTPUT ════ -->
+        <div class="config-card">
+            <label>Live Preview</label>
+
+            <div class="crop-toggle-row">
+                <input type="checkbox" id="showCrop" onchange="update()">
+                <span>Show crop safety zones</span>
+            </div>
+
+            <div class="preview-wrap">
+                <!-- Fake tweet chrome -->
+                <div class="tweet-chrome">
+                    <div class="tweet-avatar"></div>
+                    <div class="tweet-meta">
+                        <div class="tweet-name">Your Name</div>
+                        <div class="tweet-handle">@yourhandle · now</div>
+                    </div>
+                </div>
+                <div class="tweet-text">Check this out 👇</div>
+
+                <!-- Card preview rendered here -->
+                <div id="cardPreview"></div>
+            </div>
+
+            <div style="margin-bottom:18px;">
+                <label>Generated Meta Tags</label>
+                <div class="output-container">
+                    <code id="metaOutput"></code>
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyMeta()">COPY TAGS</button>
+                    <button class="btn btn-ghost" onclick="validateOnTwitter()">TEST ON TWITTER ↗</button>
+                    <button class="btn btn-ghost" onclick="resetForm()">RESET</button>
+                </div>
+            </div>
+
+            <!-- Quick sizes reference -->
+            <div style="background:rgba(0,0,0,0.3);border-radius:12px;padding:14px 16px;border:1px solid var(--border);">
+                <div style="font-size:0.65rem;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Image Size Reference</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <div style="font-size:0.7rem;color:#64748b;"><span style="color:#94a3b8;font-weight:700;">summary</span><br>Min 144×144 · 1:1 ratio<br>Max 5MB</div>
+                    <div style="font-size:0.7rem;color:#64748b;"><span style="color:#94a3b8;font-weight:700;">large_image</span><br>Min 300×157 · 2:1 ratio<br>Ideal 1200×628px</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ════ SEO CONTENT ════ -->
+    <article class="seo-content">
+        <h2>Twitter Cards: What You Need to Know</h2>
+        <p>Twitter Cards control how your links unfurl when shared. Getting the image wrong means awkward crops, cut-off text, or your card falling back to a tiny thumbnail — all of which tank click-through rates.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>Why images get cropped</h3>
+                <p>Twitter renders <code>summary_large_image</code> at a 2:1 ratio but only shows the center ~70% on mobile. Anything outside the safe zone — logos, text, faces — gets cut. Use this tool's overlay to check before you post.</p>
+            </div>
+            <div class="faq-item">
+                <h3>summary vs summary_large_image</h3>
+                <p>Use <code>summary</code> for articles where the image is decorative. Use <code>summary_large_image</code> when your visual is the hook — product shots, infographics, news covers. It gets ~3× more engagement.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Twitter caches cards for ~7 days</h3>
+                <p>Changed your og:image? Use the <strong>Twitter Card Validator</strong> (linked above) to force a cache refresh. Just paste your URL and hit Preview — Twitter re-fetches the tags.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Where to place meta tags</h3>
+                <p>All <code>&lt;meta&gt;</code> tags go inside the <code>&lt;head&gt;</code> of your HTML. For CMS users: WordPress (Yoast/RankMath), Webflow (page settings), and Shopify (theme.liquid) all have dedicated fields so you don't touch code.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ─── State ─── */
+let cardType = 'summary';
+let imgLoaded = false;
+let imgNaturalW = 0, imgNaturalH = 0;
+let imgDataUrl = '';
+
+/* ─── Type Switch ─── */
+function setType(t) {
+    cardType = t;
+    document.querySelectorAll('.type-btn').forEach((b,i) => {
+        b.classList.toggle('active', ['summary','summary_large_image','app'][i] === t);
+    });
+    document.getElementById('appFields').style.display = t === 'app' ? 'block' : 'none';
+    document.getElementById('dimTip').style.display = t === 'app' ? 'none' : 'block';
+    update();
+}
+
+/* ─── Image loader ─── */
+let imgTimer;
+function onImageInput() {
+    clearTimeout(imgTimer);
+    imgTimer = setTimeout(loadImage, 600);
+    update();
+}
+
+function loadImage() {
+    const url = document.getElementById('cardImage').value.trim();
+    const status = document.getElementById('imgStatus');
+    if (!url) { imgLoaded = false; imgDataUrl = ''; status.className = 'img-status'; status.textContent = 'Paste an image URL to see live preview'; update(); return; }
+    status.className = 'img-status'; status.textContent = 'Loading…';
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        imgLoaded = true;
+        imgNaturalW = img.naturalWidth;
+        imgNaturalH = img.naturalHeight;
+        status.className = 'img-status ok';
+        status.textContent = `✓ Loaded — ${imgNaturalW}×${imgNaturalH}px`;
+        update();
+    };
+    img.onerror = () => {
+        imgLoaded = false;
+        status.className = 'img-status err';
+        status.textContent = '✗ Could not load image — check URL or CORS policy';
+        update();
+    };
+    img.src = url;
+}
+
+/* ─── Char counters ─── */
+function updateCharCount(inputId, countId, limit) {
+    const el = document.getElementById(inputId);
+    const cnt = document.getElementById(countId);
+    const len = el.value.length;
+    cnt.textContent = `${len}/${limit}`;
+    cnt.className = 'char-count' + (len > limit ? ' over' : len > limit * 0.85 ? ' warn' : '');
+}
+
+/* ─── Validation ─── */
+function getValidation() {
+    const title = document.getElementById('cardTitle').value.trim();
+    const desc  = document.getElementById('cardDesc').value.trim();
+    const img   = document.getElementById('cardImage').value.trim();
+    const tags  = [];
+
+    if (!title) tags.push({c:'v-warn', t:'Title missing'});
+    else if (title.length > 70) tags.push({c:'v-err', t:`Title too long (${title.length}/70)`});
+    else tags.push({c:'v-ok', t:'Title ✓'});
+
+    if (!desc) tags.push({c:'v-warn', t:'Description missing'});
+    else if (desc.length > 200) tags.push({c:'v-err', t:'Description too long'});
+    else tags.push({c:'v-ok', t:'Description ✓'});
+
+    if (!img) {
+        tags.push({c:'v-warn', t:'No image URL'});
+        document.getElementById('fallbackNote').style.display = 'block';
+    } else {
+        document.getElementById('fallbackNote').style.display = 'none';
+        if (imgLoaded) {
+            const ratio = imgNaturalW / imgNaturalH;
+            if (cardType === 'summary_large_image') {
+                if (imgNaturalW < 300) tags.push({c:'v-err', t:'Image too small (min 300px wide)'});
+                else if (ratio < 1.7 || ratio > 2.4) tags.push({c:'v-warn', t:`Ratio ${ratio.toFixed(2)}:1 (ideal 2:1)`});
+                else tags.push({c:'v-ok', t:`Image ${imgNaturalW}×${imgNaturalH} ✓`});
+            } else {
+                if (imgNaturalW < 144) tags.push({c:'v-err', t:'Image too small (min 144px)'});
+                else tags.push({c:'v-ok', t:`Image ${imgNaturalW}×${imgNaturalH} ✓`});
+            }
+        } else {
+            tags.push({c:'v-info', t:'Image loading…'});
+        }
+    }
+
+    return tags;
+}
+
+/* ─── Render Preview ─── */
+function renderPreview() {
+    const title  = document.getElementById('cardTitle').value.trim() || 'Your Page Title';
+    const desc   = document.getElementById('cardDesc').value.trim()  || 'A description of your page content appears here.';
+    const site   = document.getElementById('cardSite').value.trim()  || 'yoursite.com';
+    const imgUrl = document.getElementById('cardImage').value.trim();
+    const showCrop = document.getElementById('showCrop').checked;
+
+    const imgEl = imgLoaded && imgUrl
+        ? `<img src="${escapeAttr(imgUrl)}" alt="">`
+        : `<div class="img-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>No image</span></div>`;
+
+    const cropOverlay = showCrop ? `
+        <div class="safety-overlay">
+            <div class="safe-zone" style="top:8%;left:8%;right:8%;bottom:8%;">
+                <span class="crop-label">SAFE ZONE</span>
+            </div>
+        </div>` : '';
+
+    if (cardType === 'summary') {
+        return `<div class="card-preview summary-card">
+            <div class="summary-img">${imgEl}${cropOverlay}</div>
+            <div class="summary-body">
+                <div class="card-domain">${esc(site)}</div>
+                <div class="card-title">${esc(title)}</div>
+                <div class="card-desc">${esc(desc)}</div>
+            </div>
+        </div>`;
+    }
+
+    if (cardType === 'summary_large_image') {
+        return `<div class="card-preview large-card">
+            <div class="large-img">${imgEl}${cropOverlay}</div>
+            <div class="large-body">
+                <div class="card-domain">${esc(site)}</div>
+                <div class="card-title">${esc(title)}</div>
+                <div class="card-desc">${esc(desc)}</div>
+            </div>
+        </div>`;
+    }
+
+    // App card
+    const appName = document.getElementById('appName').value.trim() || 'Your App';
+    return `<div class="card-preview large-card">
+        <div class="large-img">${imgEl}${cropOverlay}</div>
+        <div class="large-body">
+            <div class="card-domain">${esc(site)}</div>
+            <div class="card-title">${esc(appName)}</div>
+            <div class="card-desc" style="color:#00f2ff;font-size:0.7rem;">App Card · Download on iOS &amp; Android</div>
+        </div>
+    </div>`;
+}
+
+/* ─── Meta Tag Generator ─── */
+function genMeta() {
+    const title   = document.getElementById('cardTitle').value.trim();
+    const desc    = document.getElementById('cardDesc').value.trim();
+    const site    = document.getElementById('cardSite').value.trim();
+    const creator = document.getElementById('cardCreator').value.trim();
+    const imgUrl  = document.getElementById('cardImage').value.trim();
+
+    const lines = [];
+    lines.push(`<!-- Twitter Card -->`);
+    lines.push(`<meta name="twitter:card" content="${cardType}">`);
+    if (title)   lines.push(`<meta name="twitter:title" content="${escapeAttr(title)}">`);
+    if (desc)    lines.push(`<meta name="twitter:description" content="${escapeAttr(desc)}">`);
+    if (site)    lines.push(`<meta name="twitter:site" content="${site.startsWith('@') ? escapeAttr(site) : '@' + escapeAttr(site)}">`);
+    if (creator) lines.push(`<meta name="twitter:creator" content="${creator.startsWith('@') ? escapeAttr(creator) : '@' + escapeAttr(creator)}">`);
+    if (imgUrl)  lines.push(`<meta name="twitter:image" content="${escapeAttr(imgUrl)}">`);
+    if (title)   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(title)}">`);
+
+    if (cardType === 'app') {
+        const appN = document.getElementById('appName').value.trim();
+        const appI = document.getElementById('appIphone').value.trim();
+        const appG = document.getElementById('appGoogleplay').value.trim();
+        if (appN) lines.push(`<meta name="twitter:app:name:iphone" content="${escapeAttr(appN)}">`);
+        if (appI) lines.push(`<meta name="twitter:app:url:iphone" content="${escapeAttr(appI)}">`);
+        if (appN) lines.push(`<meta name="twitter:app:name:googleplay" content="${escapeAttr(appN)}">`);
+        if (appG) lines.push(`<meta name="twitter:app:url:googleplay" content="${escapeAttr(appG)}">`);
+    }
+
+    lines.push(``);
+    lines.push(`<!-- Open Graph fallback (also used by Twitter) -->`);
+    if (title)  lines.push(`<meta property="og:title" content="${escapeAttr(title)}">`);
+    if (desc)   lines.push(`<meta property="og:description" content="${escapeAttr(desc)}">`);
+    if (imgUrl) lines.push(`<meta property="og:image" content="${escapeAttr(imgUrl)}">`);
+    if (site)   lines.push(`<meta property="og:url" content="https://${escapeAttr(site.replace(/^https?:\/\//,''))}">`);
+    lines.push(`<meta property="og:type" content="website">`);
+
+    return lines.join('\n');
+}
+
+/* ─── Main update ─── */
+function update() {
+    updateCharCount('cardTitle', 'titleCount', 70);
+    updateCharCount('cardDesc', 'descCount', 200);
+
+    document.getElementById('cardPreview').innerHTML = renderPreview();
+    document.getElementById('metaOutput').textContent = genMeta();
+
+    const tags = getValidation();
+    document.getElementById('validationBar').innerHTML = tags.map(t => `<span class="v-tag ${t.c}">${t.t}</span>`).join('');
+}
+
+/* ─── Actions ─── */
+async function copyMeta() {
+    const btn = document.getElementById('copyBtn');
+    await navigator.clipboard.writeText(document.getElementById('metaOutput').textContent);
+    btn.textContent = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.textContent = 'COPY TAGS'; btn.classList.remove('success'); }, 1600);
+}
+
+function validateOnTwitter() {
+    window.open('https://cards-dev.twitter.com/validator', '_blank');
+}
+
+function resetForm() {
+    ['cardTitle','cardDesc','cardSite','cardCreator','cardImage','appName','appIphone','appGoogleplay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    imgLoaded = false;
+    document.getElementById('imgStatus').className = 'img-status';
+    document.getElementById('imgStatus').textContent = 'Paste an image URL to see live preview';
+    setType('summary');
+    update();
+}
+
+/* ─── Helpers ─── */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeAttr(s) { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+/* ─── Init ─── */
+update();
+</script>
+</body>
+</html>

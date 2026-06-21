@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JSON to CSV Flattener | Nested API to Spreadsheet | Rebrixe</title>
+    <meta name="description" content="Convert nested JSON and API responses into clean, flat CSV spreadsheets. Handles deeply nested objects, arrays, and complex API data structures. Free, instant, no upload required.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .panel {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+        }
+        .panel-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* ── Textarea ── */
+        #jsonInput {
+            width: 100%;
+            min-height: 320px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+            box-sizing: border-box;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #jsonInput:focus { border-color: var(--primary, #00f2ff); }
+        #jsonInput::placeholder { color: #334155; }
+
+        /* ── Controls bar ── */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin: 14px 0;
+        }
+        select, input[type="text"] {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 8px 12px;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            outline: none;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+        select:focus, input[type="text"]:focus { border-color: var(--primary, #00f2ff); }
+
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: opacity 0.2s, background 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-success { background: #2ecc71 !important; color: #fff !important; }
+        .btn-danger { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+
+        /* ── Stats ── */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            min-height: 28px;
+        }
+        .stat-chip {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.3px;
+        }
+        .chip-blue  { background: rgba(0,242,255,0.1);  color: #00f2ff; border: 1px solid rgba(0,242,255,0.25); }
+        .chip-green { background: rgba(46,204,113,0.1); color: #2ecc71; border: 1px solid rgba(46,204,113,0.25); }
+        .chip-warn  { background: rgba(241,196,15,0.1); color: #f1c40f; border: 1px solid rgba(241,196,15,0.25); }
+        .chip-err   { background: rgba(231,76,60,0.12); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+
+        /* ── Column picker ── */
+        #colPickerWrap {
+            display: none;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+        .col-picker-header {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .col-picker-header button {
+            font-size: 0.62rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+        }
+        .col-picker-header button:hover { color: #fff; }
+        .col-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .col-tag {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 4px 9px;
+            font-size: 0.68rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.15s;
+            user-select: none;
+        }
+        .col-tag.active {
+            background: rgba(0,242,255,0.1);
+            border-color: rgba(0,242,255,0.35);
+            color: #00f2ff;
+        }
+        .col-tag input[type="checkbox"] {
+            accent-color: var(--primary, #00f2ff);
+            width: 12px;
+            height: 12px;
+            cursor: pointer;
+        }
+
+        /* ── Preview table ── */
+        #previewWrap {
+            display: none;
+            overflow: auto;
+            max-height: 320px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.72rem;
+            font-family: 'Fira Code', monospace;
+        }
+        thead th {
+            background: rgba(0,242,255,0.08);
+            color: #00f2ff;
+            padding: 9px 12px;
+            text-align: left;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.65rem;
+            letter-spacing: 0.5px;
+        }
+        tbody td {
+            padding: 7px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: #94a3b8;
+            white-space: nowrap;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        tbody tr:hover td { background: rgba(255,255,255,0.03); color: #e2e8f0; }
+
+        /* ── Error box ── */
+        #errorBox {
+            display: none;
+            background: rgba(231,76,60,0.08);
+            border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 0.75rem;
+            color: #e74c3c;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        /* ── Format hint ── */
+        .hint-box {
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 10px;
+            border-left: 3px solid var(--primary, #00f2ff);
+            margin-top: 14px;
+        }
+        .hint-box code { color: #94a3b8; background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.92rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── Input actions ── */
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        /* ── Right panel full-height ── */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 800px) {
+            .tool-grid { grid-template-columns: 1fr; }
+            .faq-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+
+    <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(90deg,#00f2ff,#2ecc71);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 6px;text-align:center;">JSON → CSV Flattener</h1>
+    <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Paste any nested JSON or API response — get a clean, ready-to-share spreadsheet.</p>
+
+    <div class="tool-grid">
+
+        <!-- LEFT: Input -->
+        <div class="panel">
+            <div class="panel-label">
+                <span>JSON INPUT</span>
+                <span id="charCount" style="color:#334155;font-weight:600;">0 chars</span>
+            </div>
+
+            <textarea id="jsonInput" placeholder='Paste JSON here — arrays, nested objects, API responses, anything.
+
+Example:
+[
+  {
+    "id": 1,
+    "user": { "name": "Alice", "email": "alice@co.com" },
+    "order": { "total": 99.9, "items": 3 }
+  }
+]' oninput="onInput()" spellcheck="false"></textarea>
+
+            <div class="input-actions">
+                <button class="btn btn-ghost" onclick="loadSample()">Load Sample</button>
+                <button class="btn btn-ghost" onclick="formatJSON()">Format JSON</button>
+                <button class="btn btn-danger" onclick="clearAll()">Clear</button>
+            </div>
+
+            <div class="hint-box" style="margin-top:14px;">
+                Supports <strong>arrays of objects</strong>, <strong>nested objects</strong>, and <strong>mixed structures</strong>. Nested keys become <code>parent.child</code> columns. Arrays inside objects are joined with a separator.
+            </div>
+        </div>
+
+        <!-- RIGHT: Output & Controls -->
+        <div class="panel right-panel">
+            <div class="panel-label">OUTPUT &amp; OPTIONS</div>
+
+            <!-- Stats -->
+            <div class="stats-bar" id="statsBar"></div>
+
+            <!-- Error -->
+            <div id="errorBox"></div>
+
+            <!-- Options row -->
+            <div class="controls">
+                <div>
+                    <select id="delimiter" onchange="rebuild()" title="Delimiter">
+                        <option value=",">CSV (comma)</option>
+                        <option value="&#9;">TSV (tab)</option>
+                        <option value="|">Pipe (|)</option>
+                        <option value=";">Semicolon (;)</option>
+                    </select>
+                </div>
+                <div>
+                    <select id="arraySep" onchange="rebuild()" title="Array values join">
+                        <option value=" | ">Arrays → join with |</option>
+                        <option value=", ">Arrays → join with ,</option>
+                        <option value=";">Arrays → join with ;</option>
+                        <option value="">Arrays → first item only</option>
+                    </select>
+                </div>
+                <div>
+                    <select id="nullStyle" onchange="rebuild()" title="Null/missing values">
+                        <option value="">Blank for nulls</option>
+                        <option value="NULL">NULL text</option>
+                        <option value="N/A">N/A text</option>
+                    </select>
+                </div>
+                <label style="display:flex;align-items:center;gap:6px;color:#94a3b8;font-size:0.72rem;cursor:pointer;">
+                    <input type="checkbox" id="quoteAll" onchange="rebuild()" style="accent-color:var(--primary,#00f2ff);"> Quote all fields
+                </label>
+            </div>
+
+            <!-- Column picker -->
+            <div id="colPickerWrap">
+                <div class="col-picker-header">
+                    <span>COLUMNS</span>
+                    <button onclick="toggleAllCols(true)">All</button>
+                    <button onclick="toggleAllCols(false)">None</button>
+                </div>
+                <div class="col-grid" id="colGrid"></div>
+            </div>
+
+            <!-- Preview toggle -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:0.62rem;font-weight:800;color:var(--primary,#00f2ff);text-transform:uppercase;letter-spacing:1px;">PREVIEW (first 10 rows)</span>
+                <label style="display:flex;align-items:center;gap:6px;color:#64748b;font-size:0.68rem;cursor:pointer;">
+                    <input type="checkbox" id="showPreview" checked onchange="togglePreview()" style="accent-color:var(--primary,#00f2ff);"> Show table
+                </label>
+            </div>
+            <div id="previewWrap"></div>
+
+            <!-- Action buttons -->
+            <div class="controls" style="margin-bottom:0;">
+                <button class="btn btn-primary" id="copyBtn" onclick="copyCSV()">COPY CSV</button>
+                <button class="btn btn-ghost" id="dlBtn" onclick="downloadCSV()">DOWNLOAD FILE</button>
+                <button class="btn btn-ghost" onclick="copyBtn2()" id="copyJsonBtn" title="Copy flattened JSON (array of flat objects)">COPY FLAT JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEO content -->
+    <article style="text-align:left;">
+        <h2>Why JSON to CSV Matters</h2>
+        <p>Modern APIs return deeply nested JSON that Excel, Google Sheets, and most BI tools can't read directly. This tool flattens every level into clean rows — saving your team from writing custom scripts every time a new API integration lands.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>What is "flattening"?</h3>
+                <p>Nested JSON like <code>user.address.city</code> becomes a single column called <code>user.address.city</code> in the CSV. Every nested key gets its own column — no data loss.</p>
+            </div>
+            <div class="faq-item">
+                <h3>What about arrays inside objects?</h3>
+                <p>Arrays of primitives (like tags or IDs) are joined into a single cell using your chosen separator. You can pick pipe, comma, or extract just the first item.</p>
+            </div>
+            <div class="faq-item">
+                <h3>TSV vs CSV — when to use which?</h3>
+                <p>If your data contains commas (addresses, descriptions), use <strong>TSV</strong> (tab-separated). It pastes cleanly into Google Sheets and Excel without format issues.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Column picker — what's it for?</h3>
+                <p>Large API responses often have 30+ fields you don't need. Pick only the columns relevant to your report before exporting — no post-processing in Excel needed.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Is my data safe?</h3>
+                <p>100%. Everything runs in your browser. No data is sent to any server. You can even use this tool offline after the page loads.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Works with real API responses?</h3>
+                <p>Yes. Paste the raw JSON from Postman, curl, or your browser's network tab directly. Handles <code>data[]</code> wrappers, paginated responses, and mixed-type fields.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ═══════════════════════════════════
+   STATE
+═══════════════════════════════════ */
+let allColumns   = [];   // all discovered column keys
+let flatRows     = [];   // array of flat objects
+let activeColumns = new Set();
+
+/* ═══════════════════════════════════
+   FLATTEN ENGINE
+═══════════════════════════════════ */
+function flatten(obj, prefix, arraySep, out) {
+    if (obj === null || obj === undefined) { out[prefix] = null; return; }
+
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) { out[prefix] = ''; return; }
+        // array of primitives → join
+        if (typeof obj[0] !== 'object') {
+            out[prefix] = arraySep !== '' ? obj.join(arraySep) : (obj[0] ?? '');
+        } else {
+            // array of objects → prefix with index
+            obj.forEach((item, i) => flatten(item, prefix ? `${prefix}[${i}]` : `[${i}]`, arraySep, out));
+        }
+        return;
+    }
+
+    if (typeof obj === 'object') {
+        const keys = Object.keys(obj);
+        if (keys.length === 0) { out[prefix] = ''; return; }
+        keys.forEach(k => {
+            const newKey = prefix ? `${prefix}.${k}` : k;
+            flatten(obj[k], newKey, arraySep, out);
+        });
+        return;
+    }
+
+    out[prefix] = obj;
+}
+
+function getDepth(obj, d) {
+    if (typeof obj !== 'object' || obj === null) return d;
+    const vals = Object.values(obj);
+    if (!vals.length) return d;
+    return Math.max(...vals.map(v => getDepth(v, d + 1)));
+}
+
+function findRootArray(data) {
+    if (Array.isArray(data)) return data;
+    // common API wrappers: data.data, data.results, data.items, data.records
+    for (const key of ['data','results','items','records','response','list','rows','content','payload']) {
+        if (data[key] && Array.isArray(data[key])) return data[key];
+    }
+    // wrap single object
+    if (typeof data === 'object') return [data];
+    return null;
+}
+
+/* ═══════════════════════════════════
+   CORE PROCESS
+═══════════════════════════════════ */
+function process(jsonStr) {
+    if (!jsonStr.trim()) { reset(); return; }
+
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); }
+    catch(e) { showError(e.message); return; }
+
+    hideError();
+
+    const arraySep = document.getElementById('arraySep').value;
+    const rows = findRootArray(parsed);
+
+    if (!rows) { showError('Could not find an array of objects in your JSON. Paste an array [ ] or an object with a data/results/items property.'); return; }
+    if (!rows.length) { showError('Array is empty — nothing to convert.'); return; }
+
+    // flatten each row
+    flatRows = rows.map(row => {
+        const out = {};
+        flatten(row, '', arraySep, out);
+        // strip leading dot from root keys
+        const clean = {};
+        for (const k in out) clean[k.replace(/^\./, '')] = out[k];
+        return clean;
+    });
+
+    // discover all columns (union across all rows)
+    const colSet = new Set();
+    flatRows.forEach(r => Object.keys(r).forEach(k => colSet.add(k)));
+    allColumns = [...colSet];
+
+    // preserve active selection if columns overlap
+    const newActive = new Set([...allColumns].filter(c => activeColumns.size === 0 || activeColumns.has(c)));
+    activeColumns = newActive.size ? newActive : new Set(allColumns);
+
+    // stats
+    const depth = rows.reduce((mx, r) => Math.max(mx, getDepth(r, 0)), 0);
+    const statsBar = document.getElementById('statsBar');
+    statsBar.innerHTML = [
+        `<span class="stat-chip chip-green">${rows.length} rows</span>`,
+        `<span class="stat-chip chip-blue">${allColumns.length} columns</span>`,
+        `<span class="stat-chip chip-blue">depth ${depth}</span>`,
+        allColumns.length > 15 ? `<span class="stat-chip chip-warn">Use column picker to slim output</span>` : ''
+    ].join('');
+
+    buildColPicker();
+    rebuild();
+}
+
+/* ═══════════════════════════════════
+   COLUMN PICKER
+═══════════════════════════════════ */
+function buildColPicker() {
+    const wrap = document.getElementById('colPickerWrap');
+    const grid = document.getElementById('colGrid');
+    wrap.style.display = allColumns.length ? 'block' : 'none';
+
+    grid.innerHTML = allColumns.map(col => `
+        <label class="col-tag ${activeColumns.has(col)?'active':''}" onclick="toggleCol(this,'${col.replace(/'/g,"\\'")}')">
+            <input type="checkbox" ${activeColumns.has(col)?'checked':''} style="pointer-events:none;">
+            ${col}
+        </label>
+    `).join('');
+}
+
+function toggleCol(el, col) {
+    if (activeColumns.has(col)) {
+        if (activeColumns.size === 1) return; // keep at least one
+        activeColumns.delete(col);
+        el.classList.remove('active');
+        el.querySelector('input').checked = false;
+    } else {
+        activeColumns.add(col);
+        el.classList.add('active');
+        el.querySelector('input').checked = true;
+    }
+    rebuild();
+}
+
+function toggleAllCols(state) {
+    activeColumns = state ? new Set(allColumns) : new Set([allColumns[0]]);
+    buildColPicker();
+    rebuild();
+}
+
+/* ═══════════════════════════════════
+   BUILD OUTPUT
+═══════════════════════════════════ */
+function rebuild() {
+    if (!flatRows.length) return;
+
+    const delim    = document.getElementById('delimiter').value;
+    const nullVal  = document.getElementById('nullStyle').value;
+    const quoteAll = document.getElementById('quoteAll').checked;
+    const cols     = allColumns.filter(c => activeColumns.has(c));
+
+    function cell(val) {
+        if (val === null || val === undefined || val === '') return quoteAll ? '""' : (nullVal || '');
+        const s = String(val);
+        const needsQuote = quoteAll || s.includes(delim) || s.includes('"') || s.includes('\n');
+        if (needsQuote) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+    }
+
+    const header = cols.map(c => cell(c)).join(delim);
+    const body   = flatRows.map(row => cols.map(c => cell(row[c] ?? '')).join(delim)).join('\n');
+    window._csvOutput = header + '\n' + body;
+
+    renderPreview(cols);
+}
+
+function getExtension() {
+    const d = document.getElementById('delimiter').value;
+    if (d === '\t') return 'tsv';
+    if (d === '|')  return 'txt';
+    return 'csv';
+}
+
+/* ═══════════════════════════════════
+   PREVIEW TABLE
+═══════════════════════════════════ */
+function renderPreview(cols) {
+    const wrap = document.getElementById('previewWrap');
+    if (!document.getElementById('showPreview').checked) { wrap.style.display = 'none'; return; }
+
+    const preview = flatRows.slice(0, 10);
+    const nullVal = document.getElementById('nullStyle').value;
+
+    const th = cols.map(c => `<th title="${c}">${c}</th>`).join('');
+    const rows = preview.map(row =>
+        '<tr>' + cols.map(c => {
+            const v = row[c];
+            const display = (v === null || v === undefined || v === '') ? `<span style="color:#334155">${nullVal||'—'}</span>` : String(v);
+            return `<td title="${String(v ?? '')}">${display}</td>`;
+        }).join('') + '</tr>'
+    ).join('');
+
+    wrap.innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
+    wrap.style.display = 'block';
+}
+
+function togglePreview() {
+    if (flatRows.length) rebuild();
+    else document.getElementById('previewWrap').style.display = 'none';
+}
+
+/* ═══════════════════════════════════
+   ACTIONS
+═══════════════════════════════════ */
+async function copyCSV() {
+    if (!window._csvOutput) return;
+    await navigator.clipboard.writeText(window._csvOutput);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ COPIED'; btn.classList.add('btn-success');
+    setTimeout(() => { btn.textContent = 'COPY CSV'; btn.classList.remove('btn-success'); }, 1600);
+}
+
+async function copyBtn2() {
+    if (!flatRows.length) return;
+    const cols = allColumns.filter(c => activeColumns.has(c));
+    const out  = flatRows.map(row => {
+        const o = {};
+        cols.forEach(c => { o[c] = row[c] ?? null; });
+        return o;
+    });
+    await navigator.clipboard.writeText(JSON.stringify(out, null, 2));
+    const btn = document.getElementById('copyJsonBtn');
+    btn.textContent = '✓ COPIED'; btn.classList.add('btn-success');
+    setTimeout(() => { btn.textContent = 'COPY FLAT JSON'; btn.classList.remove('btn-success'); }, 1600);
+}
+
+function downloadCSV() {
+    if (!window._csvOutput) return;
+    const ext  = getExtension();
+    const mime = ext === 'tsv' ? 'text/tab-separated-values' : 'text/csv';
+    const blob = new Blob([window._csvOutput], { type: mime });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `export.${ext}`;
+    a.click();
+}
+
+/* ═══════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════ */
+function onInput() {
+    const v = document.getElementById('jsonInput').value;
+    document.getElementById('charCount').textContent = v.length.toLocaleString() + ' chars';
+    process(v);
+}
+
+function formatJSON() {
+    const ta = document.getElementById('jsonInput');
+    try {
+        const p = JSON.parse(ta.value);
+        ta.value = JSON.stringify(p, null, 2);
+        onInput();
+    } catch(e) { showError('Cannot format — invalid JSON: ' + e.message); }
+}
+
+function clearAll() {
+    document.getElementById('jsonInput').value = '';
+    document.getElementById('charCount').textContent = '0 chars';
+    reset();
+}
+
+function reset() {
+    flatRows = []; allColumns = []; activeColumns = new Set();
+    document.getElementById('statsBar').innerHTML   = '';
+    document.getElementById('colPickerWrap').style.display = 'none';
+    document.getElementById('previewWrap').style.display   = 'none';
+    window._csvOutput = '';
+    hideError();
+}
+
+function showError(msg) {
+    const b = document.getElementById('errorBox');
+    b.innerHTML = '⚠️ ' + msg;
+    b.style.display = 'block';
+    document.getElementById('statsBar').innerHTML = '<span class="stat-chip chip-err">Invalid JSON</span>';
+}
+
+function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+}
+
+function loadSample() {
+    document.getElementById('jsonInput').value = JSON.stringify([
+        { "id": 1, "user": { "name": "Alice Mehta", "email": "alice@Rebrixe.io" }, "location": { "city": "Mumbai", "country": "IN" }, "order": { "total": 129.99, "items": 3, "tags": ["express", "gift"] }, "status": "completed" },
+        { "id": 2, "user": { "name": "Carlos Rivera", "email": "carlos@Rebrixe.io" }, "location": { "city": "Madrid", "country": "ES" }, "order": { "total": 49.00, "items": 1, "tags": ["standard"] }, "status": "pending" },
+        { "id": 3, "user": { "name": "Yuki Tanaka", "email": "yuki@Rebrixe.io" }, "location": { "city": "Tokyo", "country": "JP" }, "order": { "total": 310.00, "items": 7, "tags": ["bulk", "b2b", "express"] }, "status": "shipped" }
+    ], null, 2);
+    onInput();
+}
+</script>
+</body>
+</html>

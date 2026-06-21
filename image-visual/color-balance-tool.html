@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Colour Balance Tool — Fix Yellow, Blue & Colour Casts in Photos | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Fix colour casts in photos instantly. Separate R, G, B channel sliders to remove yellow indoor light, blue shadows, or any colour cast. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 2.8rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 8px;
+        }
+        .tool-page-sub { font-size: 0.88rem; color: var(--text-sec); }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.7rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 4px 13px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.82rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 44px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01); box-shadow: 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.6rem; margin-bottom: 12px; display: block; }
+        .drop-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 5px; position: relative; }
+        .drop-sub { font-size: 0.82rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 140px; }
+        .img-name { font-size: 0.8rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        .img-dims { font-size: 0.72rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 13px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Main layout */
+        .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 16px; margin-bottom: 16px; }
+
+        /* Preview */
+        .preview-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .preview-tabs { display: flex; border-bottom: 1px solid var(--border); }
+        .ptab { flex: 1; padding: 10px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); background: transparent; border: none; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .ptab.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+        .preview-area { position: relative; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 14px 14px; min-height: 220px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .preview-area canvas { max-width: 100%; max-height: 340px; display: block; object-fit: contain; }
+        .split-label { position: absolute; bottom: 8px; left: 8px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.45); background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 4px; pointer-events: none; }
+
+        /* Histogram */
+        .histogram-wrap { padding: 14px 16px; border-top: 1px solid var(--border); }
+        .hist-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; }
+        #histCanvas { width: 100%; height: 60px; border-radius: 6px; background: #0e0d09; display: block; }
+
+        /* Controls panel */
+        .controls-panel { display: flex; flex-direction: column; gap: 12px; }
+
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+        .card-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Cast presets */
+        .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .cast-btn {
+            padding: 9px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-sec); font-family: 'Outfit', sans-serif;
+            font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; text-align: left;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .cast-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .cast-btn.active { border-color: var(--primary); background: var(--primary-dim); color: var(--primary); }
+        .cast-sub { font-size: 0.6rem; font-weight: 500; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .cast-btn.active .cast-sub { color: rgba(255,214,0,0.6); }
+
+        /* Channel sliders */
+        .ch-row { display: flex; flex-direction: column; gap: 13px; }
+        .ch-item { display: grid; grid-template-columns: 28px 1fr 42px; align-items: center; gap: 10px; }
+        .ch-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin: auto; }
+        .ch-dot.r { background: #ff5555; box-shadow: 0 0 6px rgba(255,85,85,0.5); }
+        .ch-dot.g { background: #55ff88; box-shadow: 0 0 6px rgba(85,255,136,0.5); }
+        .ch-dot.b { background: #5599ff; box-shadow: 0 0 6px rgba(85,153,255,0.5); }
+        .ch-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; outline: none; cursor: pointer; background: var(--border); }
+        .ch-slider.r::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #ff5555; cursor: pointer; box-shadow: 0 0 8px rgba(255,85,85,0.5); }
+        .ch-slider.g::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #55ff88; cursor: pointer; box-shadow: 0 0 8px rgba(85,255,136,0.5); }
+        .ch-slider.b::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #5599ff; cursor: pointer; box-shadow: 0 0 8px rgba(85,153,255,0.5); }
+        .ch-val { font-size: 0.75rem; font-weight: 700; font-family: 'Fira Code', monospace; text-align: right; }
+        .ch-val.r { color: #ff5555; } .ch-val.g { color: #55ff88; } .ch-val.b { color: #5599ff; }
+
+        /* Brightness/contrast */
+        .bc-row { display: flex; flex-direction: column; gap: 12px; }
+        .bc-item { display: grid; grid-template-columns: 70px 1fr 38px; align-items: center; gap: 10px; }
+        .bc-label-txt { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); }
+        .bc-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .bc-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 7px rgba(255,214,0,0.4); }
+        .bc-val { font-size: 0.73rem; font-weight: 700; font-family: 'Fira Code', monospace; color: var(--primary); text-align: right; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 140px; position: relative; padding: 0; border: none; border-radius: 13px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 14px 22px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 13px; color: #000; }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.3); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-reset { padding: 13px 18px; border-radius: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .btn-reset:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 11px 20px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 52px; }
+        .faq-heading { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .faq-item h3 { font-size: 0.83rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .faq-item p { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
+
+        @media (max-width: 680px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .presets-grid { grid-template-columns: repeat(3, 1fr); }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Colour Balance Tool</h1>
+                <p class="tool-page-sub">Fix yellow indoor light, blue shadows, or any colour cast — with live preview.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <div class="main-layout">
+                    <!-- LEFT: Preview -->
+                    <div class="preview-card">
+                        <div class="preview-tabs">
+                            <button class="ptab active" onclick="setView('edited', this)">Edited</button>
+                            <button class="ptab" onclick="setView('original', this)">Original</button>
+                            <button class="ptab" onclick="setView('split', this)">Split</button>
+                        </div>
+                        <div class="preview-area" id="previewArea">
+                            <canvas id="previewCanvas"></canvas>
+                            <span class="split-label" id="splitLabel" style="display:none;">◀ Edited | Original ▶</span>
+                        </div>
+                        <div class="histogram-wrap">
+                            <div class="hist-label">RGB Histogram</div>
+                            <canvas id="histCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Controls -->
+                    <div class="controls-panel">
+
+                        <!-- Cast presets -->
+                        <div class="card">
+                            <div class="card-label">Fix a Common Cast</div>
+                            <div class="presets-grid">
+                                <button class="cast-btn" data-r="0" data-g="-15" data-b="-30" onclick="applyCast(this)">
+                                    🌇 Yellow Room
+                                    <span class="cast-sub">R+0 G-15 B-30</span>
+                                </button>
+                                <button class="cast-btn" data-r="0" data-g="10" data-b="30" onclick="applyCast(this)">
+                                    🌊 Blue Shadows
+                                    <span class="cast-sub">R+0 G+10 B+30</span>
+                                </button>
+                                <button class="cast-btn" data-r="-20" data-g="-10" data-b="0" onclick="applyCast(this)">
+                                    ❄️ Cool / Overcast
+                                    <span class="cast-sub">R-20 G-10 B+0</span>
+                                </button>
+                                <button class="cast-btn" data-r="20" data-g="5" data-b="-15" onclick="applyCast(this)">
+                                    🔆 Warm it Up
+                                    <span class="cast-sub">R+20 G+5 B-15</span>
+                                </button>
+                                <button class="cast-btn" data-r="-10" data-g="15" data-b="-10" onclick="applyCast(this)">
+                                    🌿 Green Tint
+                                    <span class="cast-sub">R-10 G+15 B-10</span>
+                                </button>
+                                <button class="cast-btn" data-r="10" data-g="-15" data-b="10" onclick="applyCast(this)">
+                                    🟣 Magenta Cast
+                                    <span class="cast-sub">R+10 G-15 B+10</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- RGB Sliders -->
+                        <div class="card">
+                            <div class="card-label">RGB Channels</div>
+                            <div class="ch-row">
+                                <div class="ch-item">
+                                    <div class="ch-dot r"></div>
+                                    <input type="range" class="ch-slider r" id="slR" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="ch-val r" id="valR">0</span>
+                                </div>
+                                <div class="ch-item">
+                                    <div class="ch-dot g"></div>
+                                    <input type="range" class="ch-slider g" id="slG" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="ch-val g" id="valG">0</span>
+                                </div>
+                                <div class="ch-item">
+                                    <div class="ch-dot b"></div>
+                                    <input type="range" class="ch-slider b" id="slB" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="ch-val b" id="valB">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Brightness / Contrast -->
+                        <div class="card">
+                            <div class="card-label">Brightness & Contrast</div>
+                            <div class="bc-row">
+                                <div class="bc-item">
+                                    <span class="bc-label-txt">Brightness</span>
+                                    <input type="range" class="bc-slider" id="slBri" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="bc-val" id="valBri">0</span>
+                                </div>
+                                <div class="bc-item">
+                                    <span class="bc-label-txt">Contrast</span>
+                                    <input type="range" class="bc-slider" id="slCon" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="bc-val" id="valCon">0</span>
+                                </div>
+                                <div class="bc-item">
+                                    <span class="bc-label-txt">Saturation</span>
+                                    <input type="range" class="bc-slider" id="slSat" min="-100" max="100" value="0" oninput="updateChannel()">
+                                    <span class="bc-val" id="valSat">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="action-row">
+                            <button class="btn-main" onclick="doDownload()">
+                                <div class="btn-main-inner">⬇ Download</div>
+                            </button>
+                            <button class="btn-reset" onclick="resetSliders()">↺ Reset</button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Why does my photo look yellow?</h3>
+                        <p>Indoor tungsten and LED bulbs emit warm light that cameras struggle to neutralise. Dragging the Blue channel up (and Green slightly) kills the yellow cast instantly.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Blue shadows in outdoor shots?</h3>
+                        <p>Shade and overcast skies bounce blue skylight into shadows. Reduce Blue, lift Red slightly. The "Blue Shadows" preset handles this in one click.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Use the histogram</h3>
+                        <p>The live RGB histogram shows where each channel peaks. If red towers over blue and green, your photo is warm/yellow — balance by lifting blue.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs in your browser using the Canvas API. Your image never touches a server. Works offline once the page is loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let viewMode = 'edited'; // edited | original | split
+    let rAF = null;
+
+    const slR = document.getElementById('slR');
+    const slG = document.getElementById('slG');
+    const slB = document.getElementById('slB');
+    const slBri = document.getElementById('slBri');
+    const slCon = document.getElementById('slCon');
+    const slSat = document.getElementById('slSat');
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const histCanvas = document.getElementById('histCanvas');
+    const histCtx = histCanvas.getContext('2d');
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                renderPreview();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        origImg = null; origFile = null;
+        fi.value = '';
+        resetSliders();
+    }
+
+    // ─── RENDER ────────────────────────────────────────────────────────────────
+    function renderPreview() {
+        if (!origImg) return;
+        const MAX = 700;
+        const scale = Math.min(1, MAX / origImg.naturalWidth, MAX / origImg.naturalHeight);
+        const dw = Math.round(origImg.naturalWidth * scale);
+        const dh = Math.round(origImg.naturalHeight * scale);
+        canvas.width = dw; canvas.height = dh;
+
+        if (viewMode === 'original') {
+            ctx.drawImage(origImg, 0, 0, dw, dh);
+        } else if (viewMode === 'split') {
+            // Draw edited full, then overwrite right half with original
+            drawEdited(dw, dh);
+            ctx.save();
+            ctx.beginPath(); ctx.rect(dw / 2, 0, dw / 2, dh); ctx.clip();
+            ctx.drawImage(origImg, 0, 0, dw, dh);
+            ctx.restore();
+            // divider line
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(dw / 2, 0); ctx.lineTo(dw / 2, dh); ctx.stroke();
+        } else {
+            drawEdited(dw, dh);
+        }
+        drawHistogram();
+    }
+
+    function drawEdited(dw, dh) {
+        ctx.drawImage(origImg, 0, 0, dw, dh);
+        const imgData = ctx.getImageData(0, 0, dw, dh);
+        const d = imgData.data;
+
+        const r = +slR.value, g = +slG.value, b = +slB.value;
+        const brightness = +slBri.value;
+        const contrast = +slCon.value;
+        const saturation = +slSat.value;
+
+        const contrastFactor = contrast === 0 ? 1 : (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+        for (let i = 0; i < d.length; i += 4) {
+            let pr = d[i], pg = d[i+1], pb = d[i+2];
+
+            // Saturation
+            if (saturation !== 0) {
+                const gray = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+                const sf = 1 + saturation / 100;
+                pr = gray + (pr - gray) * sf;
+                pg = gray + (pg - gray) * sf;
+                pb = gray + (pb - gray) * sf;
+            }
+
+            // Brightness
+            if (brightness !== 0) { const bv = brightness * 2.55; pr += bv; pg += bv; pb += bv; }
+
+            // Contrast
+            if (contrast !== 0) {
+                pr = contrastFactor * (pr - 128) + 128;
+                pg = contrastFactor * (pg - 128) + 128;
+                pb = contrastFactor * (pb - 128) + 128;
+            }
+
+            // Channels
+            pr += r * 2.55; pg += g * 2.55; pb += b * 2.55;
+
+            d[i]   = Math.max(0, Math.min(255, pr));
+            d[i+1] = Math.max(0, Math.min(255, pg));
+            d[i+2] = Math.max(0, Math.min(255, pb));
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function drawHistogram() {
+        const dw = canvas.width, dh = canvas.height;
+        const imgData = ctx.getImageData(0, 0, dw, dh);
+        const d = imgData.data;
+
+        const rH = new Float32Array(256), gH = new Float32Array(256), bH = new Float32Array(256);
+        for (let i = 0; i < d.length; i += 4) { rH[d[i]]++; gH[d[i+1]]++; bH[d[i+2]]++; }
+
+        const pw = histCanvas.offsetWidth || 300;
+        const ph = 60;
+        histCanvas.width = pw * devicePixelRatio;
+        histCanvas.height = ph * devicePixelRatio;
+        histCtx.scale(devicePixelRatio, devicePixelRatio);
+
+        const maxV = Math.max(...rH, ...gH, ...bH);
+        histCtx.clearRect(0, 0, pw, ph);
+
+        const drawCh = (hist, color) => {
+            histCtx.beginPath();
+            histCtx.strokeStyle = color;
+            histCtx.lineWidth = 1;
+            histCtx.globalAlpha = 0.75;
+            for (let x = 0; x < 256; x++) {
+                const px = (x / 255) * pw;
+                const py = ph - (hist[x] / maxV) * (ph - 2);
+                x === 0 ? histCtx.moveTo(px, py) : histCtx.lineTo(px, py);
+            }
+            histCtx.stroke();
+        };
+        drawCh(rH, '#ff5555');
+        drawCh(gH, '#55ff88');
+        drawCh(bH, '#5599ff');
+        histCtx.globalAlpha = 1;
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function updateChannel() {
+        document.getElementById('valR').textContent = fmtVal(slR.value);
+        document.getElementById('valG').textContent = fmtVal(slG.value);
+        document.getElementById('valB').textContent = fmtVal(slB.value);
+        document.getElementById('valBri').textContent = fmtVal(slBri.value);
+        document.getElementById('valCon').textContent = fmtVal(slCon.value);
+        document.getElementById('valSat').textContent = fmtVal(slSat.value);
+        // deselect cast preset
+        document.querySelectorAll('.cast-btn').forEach(b => b.classList.remove('active'));
+        scheduleRender();
+    }
+
+    function scheduleRender() {
+        if (rAF) cancelAnimationFrame(rAF);
+        rAF = requestAnimationFrame(renderPreview);
+    }
+
+    function fmtVal(v) { return (+v > 0 ? '+' : '') + v; }
+
+    function applyCast(btn) {
+        document.querySelectorAll('.cast-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        slR.value = btn.dataset.r; slG.value = btn.dataset.g; slB.value = btn.dataset.b;
+        document.getElementById('valR').textContent = fmtVal(btn.dataset.r);
+        document.getElementById('valG').textContent = fmtVal(btn.dataset.g);
+        document.getElementById('valB').textContent = fmtVal(btn.dataset.b);
+        scheduleRender();
+    }
+
+    function setView(mode, btn) {
+        viewMode = mode;
+        document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('splitLabel').style.display = mode === 'split' ? 'block' : 'none';
+        scheduleRender();
+    }
+
+    function resetSliders() {
+        [slR, slG, slB, slBri, slCon, slSat].forEach(s => s.value = 0);
+        ['valR','valG','valB','valBri','valCon','valSat'].forEach(id => document.getElementById(id).textContent = '0');
+        document.querySelectorAll('.cast-btn').forEach(b => b.classList.remove('active'));
+        if (origImg) scheduleRender();
+    }
+
+    // ─── DOWNLOAD ──────────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!origImg) { showToast('Upload a photo first', 'error'); return; }
+        // Render full resolution
+        const fc = document.createElement('canvas');
+        fc.width = origImg.naturalWidth; fc.height = origImg.naturalHeight;
+        const fctx = fc.getContext('2d', { willReadFrequently: true });
+        fctx.drawImage(origImg, 0, 0);
+        const imgData = fctx.getImageData(0, 0, fc.width, fc.height);
+        const d = imgData.data;
+
+        const r = +slR.value * 2.55, g = +slG.value * 2.55, b = +slB.value * 2.55;
+        const brightness = +slBri.value * 2.55;
+        const contrast = +slCon.value;
+        const saturation = +slSat.value;
+        const cf = contrast === 0 ? 1 : (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+        for (let i = 0; i < d.length; i += 4) {
+            let pr = d[i], pg = d[i+1], pb = d[i+2];
+            if (saturation !== 0) { const gray = 0.299*pr+0.587*pg+0.114*pb, sf = 1+saturation/100; pr=gray+(pr-gray)*sf; pg=gray+(pg-gray)*sf; pb=gray+(pb-gray)*sf; }
+            pr+=brightness; pg+=brightness; pb+=brightness;
+            if (contrast !== 0) { pr=cf*(pr-128)+128; pg=cf*(pg-128)+128; pb=cf*(pb-128)+128; }
+            pr+=r; pg+=g; pb+=b;
+            d[i]=Math.max(0,Math.min(255,pr)); d[i+1]=Math.max(0,Math.min(255,pg)); d[i+2]=Math.max(0,Math.min(255,pb));
+        }
+        fctx.putImageData(imgData, 0, 0);
+
+        const ext = origFile ? origFile.name.replace(/^.*\./, '') : 'jpg';
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+        const a = document.createElement('a');
+        a.href = fc.toDataURL(mime, 0.95);
+        a.download = `${base}_balanced.${ext}`;
+        a.click();
+        showToast('Downloaded! ✓', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

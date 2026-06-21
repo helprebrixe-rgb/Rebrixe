@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HTML Code Stripper — Extract Clean Text from HTML | Rebrixe</title>
+    <meta name="description" content="Instantly strip HTML tags and extract clean, readable text from messy source code. Remove scripts, styles, comments, entities and more. Free, fast, no upload needed.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* ── Main Grid ── */
+        .stripper-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 32px 0 0;
+        }
+
+        .panel {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .char-count {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #475569;
+            font-variant-numeric: tabular-nums;
+        }
+
+        textarea {
+            flex: 1;
+            min-height: 320px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.65;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        textarea:focus { border-color: var(--primary); }
+        #outputText { color: #a3e6c8; font-family: 'Inter', sans-serif; font-size: 0.86rem; }
+
+        /* ── Options Strip ── */
+        .options-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 20px 0 16px;
+            padding: 16px 20px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .opt-check {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            transition: 0.18s;
+            user-select: none;
+        }
+        .opt-check:hover { border-color: var(--primary); background: rgba(0,242,255,0.05); }
+        .opt-check input { accent-color: var(--primary); width: 14px; height: 14px; }
+        .opt-check span {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        /* ── Action Row ── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 9px 20px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.73rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.18s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-danger { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .btn.success { background: #2ecc71 !important; color: #fff !important; }
+        .btn:hover { opacity: 0.85; }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .stat-pill {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 11px;
+            border-radius: 20px;
+            background: rgba(0,242,255,0.08);
+            color: #00f2ff;
+            border: 1px solid rgba(0,242,255,0.2);
+        }
+        .stat-pill.green { background: rgba(46,204,113,0.08); color: #2ecc71; border-color: rgba(46,204,113,0.2); }
+        .stat-pill.muted { background: rgba(255,255,255,0.05); color: #64748b; border-color: transparent; }
+
+        /* ── Diff Highlight ── */
+        .diff-view {
+            display: none;
+            margin-top: 20px;
+            background: rgba(15,23,42,0.5);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+        }
+        .diff-view.visible { display: block; }
+        .diff-view .panel-label { margin-bottom: 10px; }
+        .diff-inner {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            color: #64748b;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .diff-inner .removed { color: #e74c3c; text-decoration: line-through; }
+        .diff-inner .kept { color: #2ecc71; }
+
+        /* ── Empty State ── */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #334155;
+            gap: 8px;
+            min-height: 200px;
+        }
+        .empty-state svg { opacity: 0.3; }
+        .empty-state p { font-size: 0.78rem; font-weight: 600; margin: 0; }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin: 48px 0 8px;
+        }
+
+        @media (max-width: 780px) {
+            .stripper-grid, .faq-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+            textarea { min-height: 220px; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+
+    <h1 class="tool-title">HTML Code Stripper</h1>
+    <p style="text-align:center; opacity:0.55; font-weight:500; margin: 8px 0 0;">Paste messy HTML source — get clean, readable text instantly. No upload, no tracking.</p>
+
+    <!-- ── Options ── -->
+    <div class="options-strip">
+        <label class="opt-check">
+            <input type="checkbox" id="optScripts" checked onchange="strip()">
+            <span>Remove &lt;script&gt;</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optStyles" checked onchange="strip()">
+            <span>Remove &lt;style&gt;</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optComments" checked onchange="strip()">
+            <span>Strip Comments</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optEntities" checked onchange="strip()">
+            <span>Decode Entities (&amp;amp; → &amp;)</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optCollapse" checked onchange="strip()">
+            <span>Collapse Whitespace</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optLinks" onchange="strip()">
+            <span>Extract Links Too</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optMeta" onchange="strip()">
+            <span>Extract Meta Tags</span>
+        </label>
+        <label class="opt-check">
+            <input type="checkbox" id="optPreserveHeadings" onchange="strip()">
+            <span>Mark Headings (H1–H3)</span>
+        </label>
+    </div>
+
+    <!-- ── IO Grid ── -->
+    <div class="stripper-grid">
+        <div class="panel">
+            <div class="panel-label">
+                HTML Input
+                <span class="char-count" id="inCount">0 chars</span>
+            </div>
+            <textarea id="inputHTML" placeholder="Paste your HTML source code here...&#10;&#10;&lt;html&gt;&#10;  &lt;head&gt;&lt;title&gt;Example&lt;/title&gt;&lt;/head&gt;&#10;  &lt;body&gt;&#10;    &lt;h1&gt;Hello World&lt;/h1&gt;&#10;    &lt;p&gt;Some &lt;b&gt;bold&lt;/b&gt; text here.&lt;/p&gt;&#10;  &lt;/body&gt;&#10;&lt;/html&gt;" oninput="onInput()"></textarea>
+            <div class="action-row">
+                <button class="btn btn-primary" onclick="strip()">⚡ STRIP HTML</button>
+                <button class="btn btn-ghost" onclick="pasteFromClipboard()">PASTE</button>
+                <button class="btn btn-danger" onclick="clearAll()">CLEAR</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-label">
+                Clean Text Output
+                <span class="char-count" id="outCount">0 chars</span>
+            </div>
+            <div id="outputWrap" style="flex:1; display:flex; flex-direction:column;">
+                <div class="empty-state" id="emptyState">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <p>Output will appear here</p>
+                </div>
+                <textarea id="outputText" style="display:none;" readonly placeholder="Clean text will appear here..."></textarea>
+            </div>
+            <div class="stats-bar" id="statsBar"></div>
+            <div class="action-row">
+                <button class="btn btn-primary" id="copyBtn" onclick="copyOutput()">COPY TEXT</button>
+                <button class="btn btn-ghost" onclick="downloadOutput()">DOWNLOAD .TXT</button>
+                <button class="btn btn-ghost" id="diffBtn" onclick="toggleDiff()" style="display:none;">SHOW DIFF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Extracted Links ── -->
+    <div id="linksPanel" style="display:none;" class="panel" style="margin-top:20px;">
+        <div style="margin-top:20px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 20px; padding: 24px;">
+            <div class="panel-label">Extracted Links <span id="linkCount" class="char-count"></span></div>
+            <textarea id="linksOutput" style="min-height:120px; font-size:0.78rem;" readonly></textarea>
+            <div class="action-row">
+                <button class="btn btn-ghost" onclick="copyLinks()">COPY LINKS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Extracted Meta ── -->
+    <div id="metaPanel" style="display:none; margin-top:20px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 20px; padding: 24px;">
+        <div class="panel-label">Extracted Meta Tags</div>
+        <div id="metaOutput" style="font-family:'Fira Code',monospace; font-size:0.78rem; color:#94a3b8; line-height:1.8; white-space:pre-wrap;"></div>
+    </div>
+
+    <!-- ── Diff ── -->
+    <div class="diff-view" id="diffView">
+        <div class="panel-label">Stripped Tags Preview <span style="color:#475569; font-weight:500; text-transform:none; font-size:0.68rem;">(showing what was removed)</span></div>
+        <div class="diff-inner" id="diffInner"></div>
+    </div>
+
+    <!-- ── SEO Content ── -->
+    <h2 class="section-title">Why use an HTML Stripper?</h2>
+    <p style="color:#64748b; font-size:0.85rem; line-height:1.7; margin-bottom:0;">Copying text from a browser shows rendered output — but when you grab raw source or CMS exports, you're buried in tags, scripts, and noise. This tool rips all of that out and hands you clean, pasteable text in one click.</p>
+
+    <div class="faq-grid">
+        <div class="faq-item">
+            <h3>Scraping & data cleaning</h3>
+            <p>Got a web scrape full of HTML tags? Strip them in bulk and get just the content. No regex headaches, no manual find-replace loops.</p>
+        </div>
+        <div class="faq-item">
+            <h3>CMS & email template work</h3>
+            <p>Email editors and CMS platforms love injecting spans and divs. Paste the exported HTML, strip it, and copy clean text back in.</p>
+        </div>
+        <div class="faq-item">
+            <h3>Content migration</h3>
+            <p>Moving content between platforms? Strip the old HTML structure before pasting into your new editor. Avoids phantom formatting nightmares.</p>
+        </div>
+        <div class="faq-item">
+            <h3>SEO audits</h3>
+            <p>Check what text Google actually indexes by stripping the page source. No scripts, no nav — just the readable content signals on the page.</p>
+        </div>
+    </div>
+
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+// @ts-nocheck
+/* ── Decode HTML entities ── */
+function decodeEntities(str) {
+    const map = { '&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' ','&#39;':"'",'&mdash;':'—','&ndash;':'–','&hellip;':'…','&copy;':'©','&reg;':'®','&trade;':'™' };
+    str = str.replace(/&[a-z]+;/gi, m => map[m] || m);
+    str = str.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
+    str = str.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    return str;
+}
+
+/* ── Extract links ── */
+function extractLinks(html) {
+    const links = [];
+    const re = /href=["']([^"']+)["']/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+        const href = m[1].trim();
+        if (href && !href.startsWith('#') && href !== 'javascript:void(0)' && href !== 'javascript:;') links.push(href);
+    }
+    return [...new Set(links)];
+}
+
+/* ── Extract meta tags ── */
+function extractMeta(html) {
+    const results = [];
+    // title
+    const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (titleM) results.push('title:       ' + titleM[1].trim());
+    // meta tags
+    const re = /<meta\s([^>]+)>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+        const attrs = m[1];
+        const nameM    = attrs.match(/name=["']([^"']+)["']/i);
+        const propM    = attrs.match(/property=["']([^"']+)["']/i);
+        const contentM = attrs.match(/content=["']([^"']+)["']/i);
+        const key = (nameM || propM);
+        if (key && contentM) {
+            results.push(key[1].padEnd(20) + contentM[1].trim().slice(0, 160));
+        }
+    }
+    return results;
+}
+
+/* ── Core strip function ── */
+function doStrip(html) {
+    const rmScripts   = document.getElementById('optScripts').checked;
+    const rmStyles    = document.getElementById('optStyles').checked;
+    const rmComments  = document.getElementById('optComments').checked;
+    const doEntities  = document.getElementById('optEntities').checked;
+    const doCollapse  = document.getElementById('optCollapse').checked;
+    const markHeadings = document.getElementById('optPreserveHeadings').checked;
+
+    let out = html;
+
+    // Remove doctype
+    out = out.replace(/<!DOCTYPE[^>]*>/gi, '');
+
+    // Remove scripts (including content)
+    if (rmScripts) out = out.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+    // Remove styles (including content)
+    if (rmStyles) out = out.replace(/<style[\s\S]*?<\/style>/gi, '');
+
+    // Remove HTML comments
+    if (rmComments) out = out.replace(/<!--[\s\S]*?-->/g, '');
+
+    // Remove block elements with their content
+    ['noscript','head','svg','canvas','iframe','object','embed'].forEach(tag => {
+        out = out.replace(new RegExp('<' + tag + '[^>]*>[\\s\\S]*?<\\/' + tag + '>', 'gi'), '');
+    });
+    
+
+    // Mark headings before stripping
+    if (markHeadings) {
+        out = out.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n');
+        out = out.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n');
+        out = out.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n');
+    }
+
+    // Block-level tags → newlines
+    out = out.replace(/<\/(p|div|section|article|header|footer|main|li|tr|blockquote|h[1-6])>/gi, '\n');
+    out = out.replace(/<br\s*\/?>/gi, '\n');
+    out = out.replace(/<(hr)\s*\/?>/gi, '\n---\n');
+
+    // Strip remaining tags
+    out = out.replace(/<[^>]+>/g, '');
+
+    // Decode entities
+    if (doEntities) out = decodeEntities(out);
+
+    // Collapse whitespace
+    if (doCollapse) {
+        out = out.replace(/[ \t]+/g, ' ');
+        out = out.replace(/\n{3,}/g, '\n\n');
+        out = out.trim();
+    } else {
+        out = out.trim();
+    }
+
+    return out;
+}
+
+/* ── Stat helpers ── */
+function wordCount(str) {
+    return str.trim() ? str.trim().split(/\s+/).length : 0;
+}
+function lineCount(str) {
+    return str.trim() ? str.trim().split('\n').length : 0;
+}
+function readingTime(words) {
+    const mins = Math.ceil(words / 200);
+    return mins + ' min read';
+}
+
+/* ── Main strip trigger ── */
+let lastInput = '';
+let lastOutput = '';
+
+function strip() {
+    const html = document.getElementById('inputHTML').value;
+    if (!html.trim()) return;
+
+    const out = doStrip(html);
+    lastInput = html;
+    lastOutput = out;
+
+    const outEl = document.getElementById('outputText');
+    const empty = document.getElementById('emptyState');
+
+    if (out) {
+        outEl.style.display = 'block';
+        empty.style.display = 'none';
+        outEl.value = out;
+    } else {
+        outEl.style.display = 'none';
+        empty.style.display = 'flex';
+    }
+
+    // Stats
+    const wc = wordCount(out);
+    const lc = lineCount(out);
+    const reduction = html.length > 0 ? Math.round((1 - out.length / html.length) * 100) : 0;
+    const statsBar = document.getElementById('statsBar');
+    statsBar.innerHTML = `
+        <span class="stat-pill">${wc.toLocaleString()} words</span>
+        <span class="stat-pill green">${lc} lines</span>
+        <span class="stat-pill">${out.length.toLocaleString()} chars</span>
+        <span class="stat-pill green">↓ ${reduction}% smaller</span>
+        <span class="stat-pill muted">${readingTime(wc)}</span>
+    `;
+
+    document.getElementById('outCount').textContent = out.length.toLocaleString() + ' chars';
+    document.getElementById('diffBtn').style.display = 'inline-block';
+
+    // Links
+    if (document.getElementById('optLinks').checked) {
+        const links = extractLinks(html);
+        const panel = document.getElementById('linksPanel');
+        panel.style.display = links.length ? 'block' : 'none';
+        document.getElementById('linksOutput').value = links.join('\n');
+        document.getElementById('linkCount').textContent = links.length + ' found';
+    } else {
+        document.getElementById('linksPanel').style.display = 'none';
+    }
+
+    // Meta
+    if (document.getElementById('optMeta').checked) {
+        const meta = extractMeta(html);
+        const panel = document.getElementById('metaPanel');
+        panel.style.display = meta.length ? 'block' : 'none';
+        document.getElementById('metaOutput').textContent = meta.join('\n');
+    } else {
+        document.getElementById('metaPanel').style.display = 'none';
+    }
+
+    // Rebuild diff if visible
+    if (document.getElementById('diffView').classList.contains('visible')) buildDiff();
+}
+
+/* ── Diff ── */
+function buildDiff() {
+    if (!lastInput) return;
+    const stripped = lastInput.replace(/<[^>]+>/g, '<<TAG>>');
+    const chunks = stripped.split('<<TAG>>');
+    const tagRe = /<[^>]+>/g;
+    const tags = [];
+    let m;
+    while ((m = tagRe.exec(lastInput)) !== null) tags.push(m[0]);
+
+    let html = '';
+    chunks.forEach((chunk, i) => {
+        if (chunk) html += `<span class="kept">${escHTML(chunk)}</span>`;
+        if (tags[i]) html += `<span class="removed">${escHTML(tags[i])}</span>`;
+    });
+    document.getElementById('diffInner').innerHTML = html;
+}
+
+function escHTML(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let diffVisible = false;
+function toggleDiff() {
+    diffVisible = !diffVisible;
+    const dv = document.getElementById('diffView');
+    dv.classList.toggle('visible', diffVisible);
+    document.getElementById('diffBtn').textContent = diffVisible ? 'HIDE DIFF' : 'SHOW DIFF';
+    if (diffVisible) buildDiff();
+}
+
+/* ── Input counter ── */
+function onInput() {
+    const v = document.getElementById('inputHTML').value;
+    document.getElementById('inCount').textContent = v.length.toLocaleString() + ' chars';
+    // Auto-strip if user is typing/pasting (debounced)
+    clearTimeout(window._stripTimer);
+    window._stripTimer = setTimeout(strip, 300);
+}
+
+/* ── Actions ── */
+async function pasteFromClipboard() {
+    try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('inputHTML').value = text;
+        onInput();
+    } catch(e) {
+        document.getElementById('inputHTML').focus();
+    }
+}
+
+function clearAll() {
+    document.getElementById('inputHTML').value = '';
+    document.getElementById('outputText').value = '';
+    document.getElementById('outputText').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('statsBar').innerHTML = '';
+    document.getElementById('inCount').textContent = '0 chars';
+    document.getElementById('outCount').textContent = '0 chars';
+    document.getElementById('linksPanel').style.display = 'none';
+    document.getElementById('metaPanel').style.display = 'none';
+    document.getElementById('diffView').classList.remove('visible');
+    document.getElementById('diffBtn').style.display = 'none';
+    diffVisible = false;
+    lastInput = ''; lastOutput = '';
+}
+
+async function copyOutput() {
+    const text = document.getElementById('outputText').value;
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ COPIED';
+    btn.classList.add('success');
+    setTimeout(() => { btn.textContent = 'COPY TEXT'; btn.classList.remove('success'); }, 1600);
+}
+
+function downloadOutput() {
+    const text = document.getElementById('outputText').value;
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stripped-text.txt';
+    a.click();
+}
+
+async function copyLinks() {
+    const text = document.getElementById('linksOutput').value;
+    await navigator.clipboard.writeText(text);
+
+    
+}
+</script>
+</body>
+</html>

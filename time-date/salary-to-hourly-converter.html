@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salary to Hourly Converter | Rebrixe</title>
+    <meta name="description" content="Convert your annual, monthly, or weekly salary to an exact hourly rate. Handles part-time, custom hours, tax deductions, and shows daily, weekly & monthly breakdowns.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap {
+            max-width: 860px;
+            margin: 40px auto;
+        }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* ── Field label ── */
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* ── Salary row ── */
+        .salary-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 24px;
+        }
+        .salary-row > div { margin-bottom: 0; }
+
+        .input-with-prefix {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-prefix {
+            position: absolute;
+            left: 16px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #64748b;
+            pointer-events: none;
+            font-family: 'Outfit', sans-serif;
+            z-index: 1;
+        }
+        .input-with-prefix input {
+            padding-left: 32px !important;
+        }
+
+        /* ── Base inputs ── */
+        input[type="number"],
+        select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        input[type="number"]:focus,
+        select:focus { border-color: var(--primary); }
+
+        /* hide spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        /* error state */
+        input[type="number"].field-error { border-color: #f87171; }
+
+        select {
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+
+        /* ── Work schedule ── */
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .schedule-grid .input-group { margin-bottom: 0; }
+        .input-group { display: flex; flex-direction: column; }
+
+        /* ── Toggle row ── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .toggle-label { font-size: 0.85rem; color: #94a3b8; flex: 1; }
+        .toggle-label strong { color: #fff; }
+
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .3s;
+            border: 1px solid var(--border);
+        }
+        .slider::before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b;
+            border-radius: 50%;
+            transition: .3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider::before { transform: translateX(20px); background: var(--primary); }
+
+        .tax-row { display: none; margin-bottom: 12px; }
+        .tax-row.visible { display: flex; }
+        .tax-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tax-input-wrap input {
+            width: 88px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .tax-suffix { color: #94a3b8; font-size: 0.9rem; white-space: nowrap; }
+
+        /* ── Presets ── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+            margin-top: 8px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+        .pill.active { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+
+        /* ── Divider ── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 0 0 24px 0;
+        }
+
+        /* ── Result panel ── */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        /* Hero rate */
+        .rate-hero {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .rate-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .rate-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        .rate-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.8rem, 8vw, 4.5rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -3px;
+            line-height: 1;
+        }
+        .rate-sub { font-size: 0.82rem; color: #64748b; margin-top: 8px; }
+
+        /* Breakdown */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .bd-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 10px 12px;
+            text-align: center;
+        }
+        .bd-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+            word-break: break-all;
+        }
+        .bd-unit {
+            font-size: 0.58rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* Tax comparison */
+        .tax-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .tc-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .tc-label { font-size: 0.7rem; color: #64748b; margin-bottom: 4px; }
+        .tc-val { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; font-size: 1rem; }
+        .tc-val.deducted { color: #f87171; }
+
+        /* Insight bar */
+        .insight-bar {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
+        .insight-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+        .insight-items { display: flex; flex-wrap: wrap; gap: 8px; }
+        .insight-chip {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+        .insight-chip strong {
+            color: #fff;
+            display: block;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.88rem;
+        }
+
+        /* Actions */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 13px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .15s, letter-spacing .2s;
+        }
+        .btn-action:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+        /* Primary: dark enough for white text — use #334155 → #475569 */
+        .btn-action.primary {
+            background: linear-gradient(135deg, #334155, #475569);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(71,85,105,0.35);
+        }
+        .btn-action.primary:hover {
+            transform: translateY(-2px);
+            letter-spacing: 1.5px;
+            box-shadow: 0 8px 24px rgba(71,85,105,0.5);
+        }
+
+        /* Error message */
+        .error-msg {
+            font-size: 0.78rem;
+            color: #f87171;
+            margin-top: 6px;
+            min-height: 1.1em;
+            display: block;
+        }
+
+        /* Empty hint */
+        .empty-hint {
+            text-align: center;
+            padding: 32px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 24px 18px; }
+            .salary-row { grid-template-columns: 1fr; }
+            .schedule-grid { grid-template-columns: 1fr 1fr; }
+            .breakdown-grid { grid-template-columns: repeat(2, 1fr); }
+            .tax-compare { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .insight-items { flex-direction: column; }
+        }
+        @media (max-width: 380px) {
+            .schedule-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="finance">
+
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Salary to Hourly Converter</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Know exactly what your time is worth — per hour, day, week &amp; month.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- ── SALARY INPUT ── -->
+                <div class="section-label">Your Salary</div>
+
+                <div class="salary-row">
+                    <div>
+                        <label class="field-label" for="salaryAmount">Amount</label>
+                        <div class="input-with-prefix">
+                            <span class="input-prefix" aria-hidden="true">$</span>
+                            <input
+                                type="number"
+                                id="salaryAmount"
+                                placeholder="e.g. 60000"
+                                min="0"
+                                step="any"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <span class="error-msg" id="salaryError"></span>
+                    </div>
+                    <div style="min-width:160px;">
+                        <label class="field-label" for="salaryPeriod">Period</label>
+                        <select id="salaryPeriod">
+                            <option value="annual">Per Year</option>
+                            <option value="monthly">Per Month</option>
+                            <option value="weekly">Per Week</option>
+                            <option value="daily">Per Day</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ── WORK SCHEDULE ── -->
+                <div class="section-label">Work Schedule</div>
+                <div class="schedule-grid">
+                    <div class="input-group">
+                        <label class="field-label" for="hoursDay">Hours / Day</label>
+                        <input type="number" id="hoursDay" value="8" min="1" max="24" step="0.5" autocomplete="off">
+                        <span class="error-msg" id="hoursDayError"></span>
+                    </div>
+                    <div class="input-group">
+                        <label class="field-label" for="daysWeek">Days / Week</label>
+                        <input type="number" id="daysWeek" value="5" min="1" max="7" step="1" autocomplete="off">
+                        <span class="error-msg" id="daysWeekError"></span>
+                    </div>
+                    <div class="input-group">
+                        <label class="field-label" for="weeksYear">Weeks / Year</label>
+                        <input type="number" id="weeksYear" value="52" min="1" max="52" step="1" autocomplete="off">
+                        <span class="error-msg" id="weeksYearError"></span>
+                    </div>
+                </div>
+
+                <!-- ── TAX TOGGLE ── -->
+                <div class="toggle-row">
+                    <div class="toggle-label"><strong>Include Tax Deduction</strong> — see take-home rates too</div>
+                    <label class="switch">
+                        <input type="checkbox" id="taxToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-row tax-row" id="taxRow">
+                    <div class="toggle-label"><strong>Tax Rate</strong></div>
+                    <div class="tax-input-wrap">
+                        <input type="number" id="taxRate" value="25" min="0" max="99" step="0.1" autocomplete="off">
+                        <span class="tax-suffix">%</span>
+                    </div>
+                </div>
+
+                <!-- ── QUICK PRESETS ── -->
+                <div class="quick-label">Work Pattern Presets</div>
+                <div class="quick-pills" role="group" aria-label="Work pattern presets">
+                    <button class="pill" data-preset="fulltime" type="button">Full-Time (9–5)</button>
+                    <button class="pill" data-preset="parttime" type="button">Part-Time (4hr/5d)</button>
+                    <button class="pill" data-preset="3day"     type="button">3-Day Week</button>
+                    <button class="pill" data-preset="freelance" type="button">Freelancer (50wk)</button>
+                    <button class="pill" data-preset="contract"  type="button">Contractor (48wk)</button>
+                </div>
+
+                <hr class="section-divider">
+
+                <!-- ── RESULTS ── -->
+                <div id="resultPanel" class="result-panel" aria-live="polite"></div>
+                <div id="emptyHint" class="empty-hint">Enter your salary above to see exactly what you earn per hour ↑</div>
+
+            </div><!-- /tool-card -->
+        </div><!-- /tool-wrap -->
+    </div><!-- /container -->
+
+    <footer></footer>
+
+    <script>
+    (() => {
+        'use strict';
+
+        /* ── Presets ── */
+        const PRESETS = {
+            fulltime:  { h: 8,  d: 5, w: 52 },
+            parttime:  { h: 4,  d: 5, w: 52 },
+            '3day':    { h: 8,  d: 3, w: 52 },
+            freelance: { h: 8,  d: 5, w: 50 },
+            contract:  { h: 8,  d: 5, w: 48 },
+        };
+
+        /* ── DOM refs ── */
+        const $ = id => document.getElementById(id);
+
+        const salaryAmountEl = $('salaryAmount');
+        const salaryPeriodEl = $('salaryPeriod');
+        const hoursDayEl     = $('hoursDay');
+        const daysWeekEl     = $('daysWeek');
+        const weeksYearEl    = $('weeksYear');
+        const taxToggleEl    = $('taxToggle');
+        const taxRowEl       = $('taxRow');
+        const taxRateEl      = $('taxRate');
+        const resultPanelEl  = $('resultPanel');
+        const emptyHintEl    = $('emptyHint');
+
+        /* ── Formatters ── */
+        const fmtDec  = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtInt  = n => n.toLocaleString('en-US', { minimumFractionDigits: 0,  maximumFractionDigits: 0  });
+
+        /* ── Validation helpers ── */
+        function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+        function validateFields() {
+            let valid = true;
+
+            // Salary amount
+            const rawAmt = parseFloat(salaryAmountEl.value);
+            if (salaryAmountEl.value === '' || isNaN(rawAmt) || rawAmt <= 0) {
+                // silent if empty; only flag if user typed something invalid
+                if (salaryAmountEl.value !== '' && !isNaN(rawAmt) && rawAmt <= 0) {
+                    showFieldError('salaryAmount', 'salaryError', 'Must be greater than 0');
+                } else {
+                    clearFieldError('salaryAmount', 'salaryError');
+                }
+                valid = false;
+            } else {
+                clearFieldError('salaryAmount', 'salaryError');
+            }
+
+            // Hours/day: 0.5–24
+            const hd = parseFloat(hoursDayEl.value);
+            if (isNaN(hd) || hd < 0.5 || hd > 24) {
+                showFieldError('hoursDay', 'hoursDayError', 'Between 0.5 and 24');
+                valid = false;
+            } else {
+                clearFieldError('hoursDay', 'hoursDayError');
+            }
+
+            // Days/week: 1–7 (integers only)
+            const dw = parseInt(daysWeekEl.value, 10);
+            if (isNaN(dw) || dw < 1 || dw > 7) {
+                showFieldError('daysWeek', 'daysWeekError', 'Between 1 and 7');
+                valid = false;
+            } else {
+                clearFieldError('daysWeek', 'daysWeekError');
+                daysWeekEl.value = dw; // snap to integer
+            }
+
+            // Weeks/year: 1–52 (integers only)
+            const wy = parseInt(weeksYearEl.value, 10);
+            if (isNaN(wy) || wy < 1 || wy > 52) {
+                showFieldError('weeksYear', 'weeksYearError', 'Between 1 and 52');
+                valid = false;
+            } else {
+                clearFieldError('weeksYear', 'weeksYearError');
+                weeksYearEl.value = wy;
+            }
+
+            // Tax rate: 0–99 (only checked if toggle on)
+            if (taxToggleEl.checked) {
+                const tx = parseFloat(taxRateEl.value);
+                if (isNaN(tx) || tx < 0 || tx > 99) {
+                    taxRateEl.classList.add('field-error');
+                    valid = false;
+                } else {
+                    taxRateEl.classList.remove('field-error');
+                    taxRateEl.value = clamp(tx, 0, 99);
+                }
+            }
+
+            return valid;
+        }
+
+        function showFieldError(inputId, errorId, msg) {
+            $(inputId).classList.add('field-error');
+            $(errorId).textContent = msg;
+        }
+
+        function clearFieldError(inputId, errorId) {
+            $(inputId).classList.remove('field-error');
+            $(errorId).textContent = '';
+        }
+
+        /* ── Main calculation ── */
+        function calculate() {
+            if (!validateFields()) {
+                resultPanelEl.classList.remove('visible');
+                emptyHintEl.style.display = '';
+                return;
+            }
+
+            const amount = parseFloat(salaryAmountEl.value);
+            const period = salaryPeriodEl.value;
+            const hd     = parseFloat(hoursDayEl.value);
+            const dw     = parseInt(daysWeekEl.value, 10);
+            const wy     = parseInt(weeksYearEl.value, 10);
+
+            const totalHoursYear = hd * dw * wy;
+            const totalDaysYear  = dw * wy;
+
+            // Guard against division by zero (shouldn't happen after validation, but belt-and-suspenders)
+            if (totalHoursYear <= 0) return;
+
+            // Normalise to annual
+            let annual;
+            switch (period) {
+                case 'annual':  annual = amount; break;
+                case 'monthly': annual = amount * 12; break;
+                case 'weekly':  annual = amount * wy; break;
+                case 'daily':   annual = amount * totalDaysYear; break;
+                default:        annual = amount;
+            }
+
+            const hourly  = annual / totalHoursYear;
+            const daily   = annual / totalDaysYear;
+            const weekly  = annual / wy;
+            const monthly = annual / 12;
+
+            // Tax
+            const useTax  = taxToggleEl.checked;
+            const taxPct  = useTax ? clamp(parseFloat(taxRateEl.value) || 0, 0, 99) : 0;
+            const taxMult = 1 - taxPct / 100;
+
+            renderResult({ annual, hourly, daily, weekly, monthly, hd, dw, wy, totalHoursYear, useTax, taxPct, taxMult });
+
+            resultPanelEl.classList.add('visible');
+            emptyHintEl.style.display = 'none';
+        }
+
+        /* ── Render ── */
+        function renderResult({ annual, hourly, daily, weekly, monthly, hd, dw, wy, totalHoursYear, useTax, taxPct, taxMult }) {
+            const schedSummary = `${hd}h/day · ${dw} day${dw !== 1 ? 's' : ''}/week · ${wy} weeks/year = ${fmtInt(totalHoursYear)} hrs/year`;
+
+            const taxHTML = useTax ? `
+                <div class="section-label">Gross vs. Take-Home</div>
+                <div class="tax-compare">
+                    <div class="tc-cell">
+                        <div class="tc-label">Gross Hourly</div>
+                        <div class="tc-val">$${fmtDec(hourly)}</div>
+                    </div>
+                    <div class="tc-cell">
+                        <div class="tc-label">After ${taxPct}% Tax</div>
+                        <div class="tc-val deducted">$${fmtDec(hourly * taxMult)}</div>
+                    </div>
+                    <div class="tc-cell">
+                        <div class="tc-label">Gross Annual</div>
+                        <div class="tc-val">$${fmtInt(annual)}</div>
+                    </div>
+                    <div class="tc-cell">
+                        <div class="tc-label">Take-Home Annual</div>
+                        <div class="tc-val deducted">$${fmtInt(annual * taxMult)}</div>
+                    </div>
+                </div>` : '';
+
+            const insights = [
+                { label: '30-Min Task',           value: hourly * 0.5 },
+                { label: '1-Hour Block',           value: hourly },
+                { label: '1 Full Work Day',        value: daily },
+                { label: '1 Week of Work',         value: weekly },
+                { label: '1 Month of Work',        value: monthly },
+            ];
+
+            const insightChips = insights.map(i =>
+                `<div class="insight-chip"><strong>$${fmtDec(i.value)}</strong>${i.label}</div>`
+            ).join('');
+
+            resultPanelEl.innerHTML = `
+                <div class="rate-hero">
+                    <div class="rate-label">Your Hourly Rate</div>
+                    <div class="rate-value">$${fmtDec(hourly)}</div>
+                    <div class="rate-sub">${schedSummary}</div>
+                </div>
+
+                <div class="section-label">Full Breakdown</div>
+                <div class="breakdown-grid">
+                    <div class="bd-cell">
+                        <div class="bd-num" data-key="hourly">$${fmtDec(hourly)}</div>
+                        <div class="bd-unit">Per Hour</div>
+                    </div>
+                    <div class="bd-cell">
+                        <div class="bd-num" data-key="daily">$${fmtDec(daily)}</div>
+                        <div class="bd-unit">Per Day</div>
+                    </div>
+                    <div class="bd-cell">
+                        <div class="bd-num" data-key="weekly">$${fmtDec(weekly)}</div>
+                        <div class="bd-unit">Per Week</div>
+                    </div>
+                    <div class="bd-cell">
+                        <div class="bd-num" data-key="monthly">$${fmtDec(monthly)}</div>
+                        <div class="bd-unit">Per Month</div>
+                    </div>
+                </div>
+
+                ${taxHTML}
+
+                <div class="insight-bar">
+                    <div class="insight-title">⏱ What Is Your Time Worth?</div>
+                    <div class="insight-items">${insightChips}</div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-action primary" id="copyBtn" type="button">Copy Result</button>
+                    <button class="btn-action" id="resetBtn" type="button">✕ Reset</button>
+                </div>
+            `;
+
+            $('copyBtn').addEventListener('click', () => copyResult({ annual, hourly, daily, weekly, monthly }));
+            $('resetBtn').addEventListener('click', resetTool);
+        }
+
+        /* ── Copy ── */
+        function copyResult({ annual, hourly, daily, weekly, monthly }) {
+            const text = [
+                `Salary to Hourly — ${salaryPeriodEl.options[salaryPeriodEl.selectedIndex].text}: $${fmtInt(parseFloat(salaryAmountEl.value))}`,
+                '',
+                `  Hourly:  $${fmtDec(hourly)}`,
+                `  Daily:   $${fmtDec(daily)}`,
+                `  Weekly:  $${fmtDec(weekly)}`,
+                `  Monthly: $${fmtDec(monthly)}`,
+                `  Annual:  $${fmtInt(annual)}`,
+                '',
+                'Calculated at Rebrixe.com',
+            ].join('\n');
+
+            if (!navigator.clipboard) {
+                // Fallback: execCommand
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity  = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+                flashCopyBtn();
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(flashCopyBtn).catch(() => {
+                // clipboard write denied silently
+            });
+        }
+
+        function flashCopyBtn() {
+            const btn = $('copyBtn');
+            if (!btn) return;
+            btn.textContent = '✓ Copied!';
+            btn.disabled = true;
+            setTimeout(() => {
+                btn.textContent = 'Copy Result';
+                btn.disabled = false;
+            }, 2000);
+        }
+
+        /* ── Reset ── */
+        function resetTool() {
+            salaryAmountEl.value  = '';
+            salaryPeriodEl.value  = 'annual';
+            hoursDayEl.value      = '8';
+            daysWeekEl.value      = '5';
+            weeksYearEl.value     = '52';
+            taxToggleEl.checked   = false;
+            taxRateEl.value       = '25';
+            taxRowEl.classList.remove('visible');
+
+            // Clear all errors
+            ['salaryAmount','hoursDay','daysWeek','weeksYear'].forEach(id => $(id).classList.remove('field-error'));
+            ['salaryError','hoursDayError','daysWeekError','weeksYearError'].forEach(id => $(id).textContent = '');
+            taxRateEl.classList.remove('field-error');
+
+            // Clear preset pills
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+
+            resultPanelEl.classList.remove('visible');
+            resultPanelEl.innerHTML = '';
+            emptyHintEl.style.display = '';
+        }
+
+        /* ── Preset handler ── */
+        function applyPreset(key) {
+            const p = PRESETS[key];
+            if (!p) return;
+            hoursDayEl.value  = p.h;
+            daysWeekEl.value  = p.d;
+            weeksYearEl.value = p.w;
+            document.querySelectorAll('.pill').forEach(pill => {
+                pill.classList.toggle('active', pill.dataset.preset === key);
+            });
+            calculate();
+        }
+
+        /* ── Clear preset active when user edits schedule manually ── */
+        [hoursDayEl, daysWeekEl, weeksYearEl].forEach(el => {
+            el.addEventListener('input', () => {
+                document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            });
+        });
+
+        /* ── Event wiring ── */
+        salaryAmountEl.addEventListener('input', calculate);
+        salaryPeriodEl.addEventListener('change', calculate);
+        hoursDayEl.addEventListener('input', calculate);
+        daysWeekEl.addEventListener('input', calculate);
+        weeksYearEl.addEventListener('input', calculate);
+        taxRateEl.addEventListener('input', calculate);
+
+        taxToggleEl.addEventListener('change', () => {
+            taxRowEl.classList.toggle('visible', taxToggleEl.checked);
+            calculate();
+        });
+
+        document.querySelectorAll('.pill').forEach(pill => {
+            pill.addEventListener('click', () => applyPreset(pill.dataset.preset));
+        });
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

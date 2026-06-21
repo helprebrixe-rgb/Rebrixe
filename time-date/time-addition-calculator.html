@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Addition Calculator | Rebrixe</title>
+    <meta name="description" content="Add multiple time durations instantly. Reliable, bulletproof time addition for video editors, podcasters, and project planners.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool layout ── */
+        .tool-wrap { max-width: 760px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 32px;
+        }
+
+        /* ── Labels ── */
+        .fmt-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 8px;
+        }
+
+        /* ── Format toggle ── */
+        .fmt-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .fmt-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s;
+        }
+        .fmt-btn.active, .fmt-btn:hover {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(139,148,152,0.1);
+        }
+
+        /* ── Duration rows ── */
+        .rows-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+        .dur-row {
+            display: grid;
+            grid-template-columns: 28px 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px 14px;
+            transition: border-color .2s;
+        }
+        .dur-row:focus-within { border-color: var(--primary); }
+
+        .row-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.75rem;
+            color: #334155;
+            text-align: center;
+        }
+
+        /* ── Segment inputs ── */
+        .seg-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .seg-input {
+            width: 52px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--border);
+            border-radius: 0;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-align: center;
+            outline: none;
+            padding: 2px 0;
+            transition: border-color .2s;
+            /* Disable browser spinners */
+            -moz-appearance: textfield;
+        }
+        .seg-input::-webkit-outer-spin-button,
+        .seg-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .seg-input:focus { border-bottom-color: var(--primary); }
+        /* Visual cue when value was clamped */
+        .seg-input.clamped {
+            border-bottom-color: #f59e0b;
+            animation: flash-clamp 0.4s ease;
+        }
+        @keyframes flash-clamp { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+        .seg-sep {
+            color: #334155;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 1.1rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .row-label {
+            font-size: 0.6rem;
+            color: #475569;
+            text-align: right;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-width: 60px;
+        }
+
+        .del-btn {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 2px 6px;
+            transition: color .2s;
+            flex-shrink: 0;
+        }
+        .del-btn:hover { color: #ef4444; }
+
+        /* ── Add row button ── */
+        .add-row-btn {
+            width: 100%;
+            background: rgba(255,255,255,0.02);
+            border: 1px dashed var(--border);
+            border-radius: 14px;
+            color: #334155;
+            padding: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: border-color .2s, color .2s;
+            margin-bottom: 24px;
+            letter-spacing: .5px;
+        }
+        .add-row-btn:hover { border-color: var(--primary); color: #94a3b8; }
+
+        /* ── Result ── */
+        .result-block {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px 28px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .result-big {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 6vw, 3rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .result-meta { flex: 1; min-width: 120px; }
+        .result-meta-item {
+            font-size: 0.78rem;
+            color: #64748b;
+            line-height: 1.8;
+        }
+        .result-meta-item strong { color: #cbd5e1; }
+
+        /* ── Breakdown grid ── */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .bd-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 8px;
+            text-align: center;
+        }
+        .bd-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .bd-unit {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── FPS block ── */
+        .fps-block {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 16px;
+        }
+        .fps-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .fps-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+        }
+        .fps-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+        .fps-pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color .2s, color .2s;
+            user-select: none;
+        }
+        .fps-pill.active, .fps-pill:hover {
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .fps-result {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #94a3b8;
+        }
+        .fps-result span { color: #fff; }
+        .fps-note {
+            font-size: 0.64rem;
+            color: #334155;
+            margin-top: 6px;
+        }
+
+        /* ── Limitations notice ── */
+        .limitations-block {
+            background: rgba(251,191,36,0.04);
+            border: 1px solid rgba(251,191,36,0.18);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+        }
+        .limitations-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #92784a;
+            margin-bottom: 8px;
+        }
+        .limitations-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .limitations-list li {
+            font-size: 0.72rem;
+            color: #78716c;
+            padding: 2px 0;
+            line-height: 1.5;
+        }
+        .limitations-list li::before {
+            content: '⚠ ';
+            color: #92784a;
+        }
+
+        /* ── Action row ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, transform .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+        }
+        .btn-action:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Copy toast ── */
+        .copy-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            padding: 10px 18px;
+            border-radius: 10px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .25s, transform .25s;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .copy-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .copy-toast.error { border-color: #ef4444; color: #f87171; }
+
+        @media(max-width: 560px) {
+            .tool-card { padding: 20px; }
+            .breakdown-grid { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-wrap: wrap; }
+            .dur-row { grid-template-columns: 24px 1fr auto; }
+            .row-label { display: none; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-format-conversion.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Time Addition Calculator
+            </h1>
+            <p style="color:#64748b; font-size:0.92rem;">
+                Add as many durations as you need — HH:MM:SS, MM:SS, or HH:MM. Built for video editors, podcasters &amp; planners.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- FORMAT SELECTOR -->
+                <div class="fmt-label">Input Format</div>
+                <div class="fmt-row" id="fmtRow">
+                    <button class="fmt-btn active" data-fmt="hms" id="btn-hms">HH : MM : SS</button>
+                    <button class="fmt-btn" data-fmt="ms" id="btn-ms">MM : SS</button>
+                    <button class="fmt-btn" data-fmt="hm" id="btn-hm">HH : MM</button>
+                </div>
+
+                <!-- DURATION ROWS -->
+                <div class="fmt-label">Durations</div>
+                <div class="rows-wrap" id="rowsWrap"></div>
+                <button class="add-row-btn" id="addRowBtn">+ Add Duration</button>
+
+                <!-- RESULT -->
+                <div class="result-block" id="resultBlock">
+                    <div class="result-big" id="resultBig">0:00:00</div>
+                    <div class="result-meta" id="resultMeta"></div>
+                </div>
+
+                <!-- BREAKDOWN -->
+                <div class="fmt-label">Breakdown</div>
+                <div class="breakdown-grid" id="breakdownGrid"></div>
+
+                <!-- FPS / FRAME COUNTER -->
+                <div class="fps-block">
+                    <div class="fps-header">
+                        <span class="fps-title">🎬 Frame Count (for editors)</span>
+                        <div class="fps-pills" id="fpsPills">
+                            <span class="fps-pill active" data-fps="24">24fps</span>
+                            <span class="fps-pill" data-fps="25">25fps</span>
+                            <span class="fps-pill" data-fps="30">30fps</span>
+                            <span class="fps-pill" data-fps="60">60fps</span>
+                        </div>
+                    </div>
+                    <div class="fps-result" id="fpsResult">Total frames: <span>—</span></div>
+                    <div class="fps-note">Note: frame count is based on whole-second input only. Sub-second precision is not supported — timecode always shows :00 for frames within the last second.</div>
+                </div>
+
+                <!-- LIMITATIONS NOTICE -->
+                <div class="limitations-block">
+                    <div class="limitations-title">⚠ What this tool does not do</div>
+                    <ul class="limitations-list">
+                        <li>Inputs are whole seconds only — sub-second (frames, milliseconds) are not supported.</li>
+                        <li>Minutes and seconds fields are capped at 59. Hours are capped at 999. Values above these limits are clamped automatically and highlighted in amber.</li>
+                        <li>Paste-to-split (importing a list of timestamps) has been removed — it was unreliable and is not available in this version.</li>
+                        <li>Keyboard shortcut navigation between fields (arrow key / Enter jumping) has been removed — it was buggy and is not available in this version.</li>
+                        <li>Format switching (e.g. HH:MM:SS → MM:SS) converts total seconds accurately, but the display is rounded to whole seconds — no fractional minutes.</li>
+                        <li>Timecode shown in the frame count section assumes 0 sub-frame offset, as all inputs are whole seconds.</li>
+                    </ul>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action primary" id="copyBtn">Copy Result</button>
+                    <button class="btn-action" id="clearBtn">✕ Clear All</button>
+                </div>
+
+            </div><!-- /.tool-card -->
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <!-- Copy toast -->
+    <div class="copy-toast" id="copyToast"></div>
+
+    <footer></footer>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+    /** @type {'hms'|'ms'|'hm'} */
+    let currentFmt = 'hms';
+    let currentFps = 24;
+
+    // ── Row storage: each row is a plain object { id, totalSeconds }
+    // We store canonical total-seconds per row, not individual h/m/s.
+    // This decouples display format from data, fixing the format-switch bug.
+    let rows = [];
+    let nextId = 1;
+
+    // ═══════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════
+    (function init() {
+        // Seed with three example rows (1:30:00, 2:45:00, 0:20:00)
+        rows = [
+            { id: nextId++, totalSeconds: 1*3600 + 30*60 + 0 },
+            { id: nextId++, totalSeconds: 2*3600 + 45*60 + 0 },
+            { id: nextId++, totalSeconds: 0*3600 + 20*60 + 0 }
+        ];
+        renderAllRows();
+        updateResult();
+
+        // Format buttons
+        document.getElementById('fmtRow').addEventListener('click', function(e) {
+            const btn = e.target.closest('.fmt-btn');
+            if (!btn) return;
+            switchFormat(btn.dataset.fmt, btn);
+        });
+
+        // Add row button
+        document.getElementById('addRowBtn').addEventListener('click', function() {
+            addRow();
+        });
+
+        // FPS pills (event delegation)
+        document.getElementById('fpsPills').addEventListener('click', function(e) {
+            const pill = e.target.closest('.fps-pill');
+            if (!pill) return;
+            document.querySelectorAll('.fps-pill').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            currentFps = parseInt(pill.dataset.fps, 10);
+            updateFpsDisplay(getTotalSeconds());
+        });
+
+        // Copy button
+        document.getElementById('copyBtn').addEventListener('click', copyResult);
+
+        // Clear button
+        document.getElementById('clearBtn').addEventListener('click', clearAll);
+    })();
+
+    // ═══════════════════════════════════════════════════════════════
+    // FORMAT SWITCHING
+    // The key insight: we store totalSeconds per row in JS state.
+    // Switching format just re-renders the inputs — no data loss.
+    // ═══════════════════════════════════════════════════════════════
+    function switchFormat(fmt, btn) {
+        // First: read current input values back into rows[] state
+        // This captures any edits made since last oninput event
+        syncInputsToState();
+
+        currentFmt = fmt;
+
+        document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        renderAllRows();
+        updateResult();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SEGMENT DEFINITIONS
+    // ═══════════════════════════════════════════════════════════════
+    /**
+     * Returns segment config for current format.
+     * Each segment: { label, max, getter, setter }
+     * getter(totalSecs) → display value
+     * The segments together reconstruct totalSeconds via segsToSeconds()
+     */
+    function getSegments() {
+        if (currentFmt === 'hms') return [
+            { label: 'HH', max: 999, placeholder: 'HH' },
+            { label: 'MM', max: 59,  placeholder: 'MM' },
+            { label: 'SS', max: 59,  placeholder: 'SS' }
+        ];
+        if (currentFmt === 'ms') return [
+            { label: 'MM', max: 9999, placeholder: 'MM' },
+            { label: 'SS', max: 59,   placeholder: 'SS' }
+        ];
+        if (currentFmt === 'hm') return [
+            { label: 'HH', max: 999, placeholder: 'HH' },
+            { label: 'MM', max: 59,  placeholder: 'MM' }
+        ];
+    }
+
+    /** Convert row totalSeconds → array of segment display values for current fmt */
+    function secondsToSegValues(totalSecs) {
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        const s = totalSecs % 60;
+        if (currentFmt === 'hms') return [h, m, s];
+        if (currentFmt === 'ms')  return [Math.floor(totalSecs / 60), s];
+        if (currentFmt === 'hm')  return [h, m];
+    }
+
+    /** Convert segment values (array of ints) → totalSeconds for current fmt */
+    function segValuesToSeconds(vals) {
+        if (currentFmt === 'hms') return (vals[0]||0)*3600 + (vals[1]||0)*60 + (vals[2]||0);
+        if (currentFmt === 'ms')  return (vals[0]||0)*60  + (vals[1]||0);
+        if (currentFmt === 'hm')  return (vals[0]||0)*3600 + (vals[1]||0)*60;
+    }
+
+    /** Unit label shown on the right of each row */
+    function unitLabel() {
+        if (currentFmt === 'hms') return 'h : m : s';
+        if (currentFmt === 'ms')  return 'm : s';
+        if (currentFmt === 'hm')  return 'h : m';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RENDER
+    // ═══════════════════════════════════════════════════════════════
+    function renderAllRows() {
+        const wrap = document.getElementById('rowsWrap');
+        wrap.innerHTML = '';
+        rows.forEach((row, idx) => renderRow(row, idx + 1, wrap));
+    }
+
+    function renderRow(row, displayNum, wrap) {
+        const segs = getSegments();
+        const vals = secondsToSegValues(row.totalSeconds);
+
+        const div = document.createElement('div');
+        div.className = 'dur-row';
+        div.dataset.rowId = row.id;
+
+        // Row number
+        const numSpan = document.createElement('span');
+        numSpan.className = 'row-num';
+        numSpan.textContent = displayNum;
+        div.appendChild(numSpan);
+
+        // Segment inputs
+        const segWrap = document.createElement('div');
+        segWrap.className = 'seg-wrap';
+
+        segs.forEach((seg, i) => {
+            if (i > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'seg-sep';
+                sep.textContent = ':';
+                segWrap.appendChild(sep);
+            }
+
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.className = 'seg-input';
+            inp.min = 0;
+            inp.max = seg.max;
+            inp.placeholder = seg.placeholder;
+            inp.dataset.rowId = row.id;
+            inp.dataset.segIdx = i;
+            inp.value = (vals[i] !== undefined && vals[i] !== 0) ? vals[i] : '';
+
+            // Use text-change events for calculation
+            inp.addEventListener('input', onSegInput);
+            inp.addEventListener('change', onSegChange);
+            inp.addEventListener('keydown', onSegKeydown);
+
+            segWrap.appendChild(inp);
+        });
+
+        div.appendChild(segWrap);
+
+        // Unit label
+        const label = document.createElement('span');
+        label.className = 'row-label';
+        label.textContent = unitLabel();
+        div.appendChild(label);
+
+        // Delete button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.title = 'Remove this duration';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', function() {
+            deleteRow(row.id);
+        });
+        div.appendChild(delBtn);
+
+        wrap.appendChild(div);
+    }
+
+    function renumberRows() {
+        document.querySelectorAll('.dur-row').forEach((el, i) => {
+            el.querySelector('.row-num').textContent = i + 1;
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // INPUT HANDLING
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Block non-numeric keypresses (allow: digits, Backspace, Delete, Tab,
+     * arrow keys, Home, End). This prevents colons, letters, etc. from
+     * landing in the number inputs.
+     */
+    function onSegKeydown(e) {
+        const allowed = [
+            'Backspace','Delete','Tab','ArrowLeft','ArrowRight',
+            'ArrowUp','ArrowDown','Home','End'
+        ];
+        if (allowed.includes(e.key)) return;
+        if (e.key >= '0' && e.key <= '9') return;
+        // Block everything else (letters, symbols, colons, etc.)
+        e.preventDefault();
+    }
+
+    /**
+     * oninput: clamp, then recalculate.
+     * We do NOT write the clamped value back during typing (to allow interim
+     * states like typing "1" then "2" → "12") — we only write back on blur/change.
+     * But we do recalculate so the result updates live.
+     */
+    function onSegInput(e) {
+        const inp = e.target;
+        const rowId = parseInt(inp.dataset.rowId, 10);
+        const segIdx = parseInt(inp.dataset.segIdx, 10);
+        const segs = getSegments();
+        const max = segs[segIdx].max;
+
+        const raw = parseInt(inp.value, 10);
+        if (!isNaN(raw) && raw > max) {
+            // Will be clamped on blur — show amber hint
+            inp.classList.add('clamped');
+        } else {
+            inp.classList.remove('clamped');
+        }
+
+        updateRowFromInputs(rowId);
+        updateResult();
+    }
+
+    /**
+     * onchange (fires on blur/Enter): enforce the clamp definitively.
+     */
+    function onSegChange(e) {
+        const inp = e.target;
+        const rowId = parseInt(inp.dataset.rowId, 10);
+        const segIdx = parseInt(inp.dataset.segIdx, 10);
+        const segs = getSegments();
+        const max = segs[segIdx].max;
+
+        let val = parseInt(inp.value, 10);
+        if (isNaN(val) || val < 0) val = 0;
+        if (val > max) val = max;
+
+        inp.value = val === 0 ? '' : val; // keep 0 as empty for cleaner UX
+        inp.classList.remove('clamped');
+
+        updateRowFromInputs(rowId);
+        updateResult();
+    }
+
+    /** Read all inputs for a row and write totalSeconds into rows[] state */
+    function updateRowFromInputs(rowId) {
+        const row = rows.find(r => r.id === rowId);
+        if (!row) return;
+
+        const rowEl = document.querySelector(`.dur-row[data-row-id="${rowId}"]`);
+        if (!rowEl) return;
+
+        const inputs = [...rowEl.querySelectorAll('.seg-input')];
+        const vals = inputs.map(inp => {
+            const v = parseInt(inp.value, 10);
+            return isNaN(v) || v < 0 ? 0 : v;
+        });
+        // Clamp each value to its max before storing
+        const segs = getSegments();
+        const clamped = vals.map((v, i) => Math.min(v, segs[i].max));
+
+        row.totalSeconds = segValuesToSeconds(clamped);
+    }
+
+    /** Sync ALL inputs back to rows[] state (used before format switching) */
+    function syncInputsToState() {
+        rows.forEach(row => updateRowFromInputs(row.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ROW MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════
+    function addRow() {
+        const row = { id: nextId++, totalSeconds: 0 };
+        rows.push(row);
+
+        const wrap = document.getElementById('rowsWrap');
+        renderRow(row, rows.length, wrap);
+
+        // Focus first input of new row
+        const newRowEl = document.querySelector(`.dur-row[data-row-id="${row.id}"]`);
+        if (newRowEl) {
+            const firstInput = newRowEl.querySelector('.seg-input');
+            if (firstInput) firstInput.focus();
+        }
+
+        updateResult();
+    }
+
+    function deleteRow(rowId) {
+        rows = rows.filter(r => r.id !== rowId);
+        const el = document.querySelector(`.dur-row[data-row-id="${rowId}"]`);
+        if (el) el.remove();
+        renumberRows();
+        updateResult();
+    }
+
+    function clearAll() {
+        rows = [];
+        nextId = 1;
+        document.getElementById('rowsWrap').innerHTML = '';
+
+        // Reset with three fresh empty rows
+        [0, 0, 0].forEach(() => {
+            rows.push({ id: nextId++, totalSeconds: 0 });
+        });
+        renderAllRows();
+        updateResult();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CALCULATION
+    // ═══════════════════════════════════════════════════════════════
+    function getTotalSeconds() {
+        return rows.reduce((sum, r) => sum + r.totalSeconds, 0);
+    }
+
+    function updateResult() {
+        const total = getTotalSeconds();
+
+        const d = Math.floor(total / 86400);
+        const h = Math.floor((total % 86400) / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+
+        // Big display — respect chosen format
+        let bigText;
+        if (currentFmt === 'ms') {
+            const tm = Math.floor(total / 60);
+            const ts = total % 60;
+            bigText = `${tm}:${pad2(ts)}`;
+        } else if (currentFmt === 'hm') {
+            const th = Math.floor(total / 3600);
+            const tm = Math.floor((total % 3600) / 60);
+            bigText = `${th}:${pad2(tm)}`;
+        } else {
+            const th = Math.floor(total / 3600);
+            const tm = Math.floor((total % 3600) / 60);
+            bigText = `${th}:${pad2(tm)}:${pad2(s)}`;
+        }
+        document.getElementById('resultBig').textContent = bigText;
+
+        // Meta
+        const nonZeroRows = rows.filter(r => r.totalSeconds > 0);
+        const count = nonZeroRows.length;
+        const avgSecs = count > 0 ? Math.round(total / count) : 0;
+        const avgH = Math.floor(avgSecs / 3600);
+        const avgM = Math.floor((avgSecs % 3600) / 60);
+        const avgS = avgSecs % 60;
+        const avgStr = `${avgH}:${pad2(avgM)}:${pad2(avgS)}`;
+
+        document.getElementById('resultMeta').innerHTML =
+            `<div class="result-meta-item">Non-zero entries: <strong>${count}</strong></div>` +
+            `<div class="result-meta-item">Total seconds: <strong>${total.toLocaleString()}</strong></div>` +
+            (count > 0 ? `<div class="result-meta-item">Avg per entry: <strong>${avgStr}</strong></div>` : '');
+
+        // Breakdown
+        document.getElementById('breakdownGrid').innerHTML =
+            `<div class="bd-cell"><div class="bd-num">${d}</div><div class="bd-unit">Days</div></div>` +
+            `<div class="bd-cell"><div class="bd-num">${h}</div><div class="bd-unit">Hours</div></div>` +
+            `<div class="bd-cell"><div class="bd-num">${m}</div><div class="bd-unit">Minutes</div></div>` +
+            `<div class="bd-cell"><div class="bd-num">${s}</div><div class="bd-unit">Seconds</div></div>`;
+
+        updateFpsDisplay(total);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FPS
+    // ═══════════════════════════════════════════════════════════════
+    function updateFpsDisplay(totalSecs) {
+        const frames = totalSecs * currentFps;
+        const tc = toTimecode(totalSecs);
+        document.getElementById('fpsResult').innerHTML =
+            `Total frames @ ${currentFps}fps: <span>${frames.toLocaleString()}</span> &nbsp;·&nbsp; Timecode: <span>${tc}</span>`;
+    }
+
+    function toTimecode(totalSecs) {
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        const s = Math.floor(totalSecs % 60);
+        // Always :00 for sub-second frames — inputs are whole seconds only
+        return `${pad2(h)}:${pad2(m)}:${pad2(s)}:00`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COPY
+    // ═══════════════════════════════════════════════════════════════
+    function copyResult() {
+        const bigText = document.getElementById('resultBig').textContent;
+        const total = getTotalSeconds();
+
+        const lines = rows
+            .filter(r => r.totalSeconds > 0)
+            .map((r, i) => {
+                const vals = secondsToSegValues(r.totalSeconds);
+                if (currentFmt === 'ms') return `  ${i+1}. ${vals[0]}:${pad2(vals[1])}`;
+                if (currentFmt === 'hm') return `  ${i+1}. ${vals[0]}:${pad2(vals[1])}`;
+                return `  ${i+1}. ${vals[0]}:${pad2(vals[1])}:${pad2(vals[2])}`;
+            });
+
+        const text = [
+            'Time Addition Result',
+            '',
+            lines.length ? 'Durations:\n' + lines.join('\n') : 'No durations entered.',
+            '',
+            `Total: ${bigText}`,
+            `(${total.toLocaleString()} seconds)`
+        ].join('\n');
+
+        // Modern clipboard API with textarea fallback
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text)
+                .then(() => showToast('✓ Copied to clipboard', false))
+                .catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
+    }
+
+    function fallbackCopy(text) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast(ok ? '✓ Copied to clipboard' : '✗ Copy failed — please copy manually', !ok);
+        } catch (err) {
+            showToast('✗ Copy not supported in this browser', true);
+        }
+    }
+
+    function showToast(msg, isError) {
+        const toast = document.getElementById('copyToast');
+        toast.textContent = msg;
+        toast.className = 'copy-toast' + (isError ? ' error' : '');
+        // Force reflow so transition fires even on rapid calls
+        toast.offsetWidth; // eslint-disable-line no-unused-expressions
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════════════════════════
+    function pad2(n) { return String(Math.max(0, n)).padStart(2, '0'); }
+
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

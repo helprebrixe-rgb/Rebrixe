@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recurring Meeting Time Finder | Rebrixe</title>
+    <meta name="description" content="Find the best recurring meeting slot across multiple time zones. Perfect for weekly standups, syncs, and global team calls. Export to .ics or copy a Slack message.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool wrapper ── */
+        .tool-wrap { max-width: 900px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Zone builder ── */
+        .zone-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+        .zone-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px;
+        }
+        .zone-row input[type="text"],
+        .zone-row select {
+            background: #000;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 10px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        .zone-row input:focus, .zone-row select:focus { border-color: var(--primary); }
+        .zone-row input::placeholder { color: #475569; }
+
+        .btn-remove {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: .2s;
+        }
+        .btn-remove:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+        .btn-remove:disabled { opacity: 0.25; cursor: not-allowed; }
+
+        .btn-add-zone {
+            background: rgba(255,255,255,0.03);
+            border: 1.5px dashed var(--border);
+            color: #64748b;
+            padding: 11px 18px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+        .btn-add-zone:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Config row ── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .config-box { display: flex; flex-direction: column; gap: 7px; }
+        .config-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .config-box select {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 12px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        .config-box select:focus { border-color: var(--primary); }
+
+        /* ── Day picker ── */
+        .day-picker { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 24px; }
+        .day-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1.5px solid var(--border);
+            color: #64748b;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: .2s;
+            letter-spacing: 0.5px;
+            user-select: none;
+        }
+        .day-btn.active { border-color: var(--primary); color: #fff; background: rgba(120,129,132,0.12); }
+
+        /* ── Find button ── */
+        .btn-find {
+            width: 100%;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            color: #fff;
+            padding: 15px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: .2s;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+            margin-bottom: 28px;
+        }
+        .btn-find:hover { transform: translateY(-2px); letter-spacing: 2px; }
+
+        /* ── Error banner ── */
+        .error-banner {
+            display: none;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #f87171;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            font-family: 'Inter', sans-serif;
+        }
+        .error-banner.visible { display: block; }
+
+        /* ── Results ── */
+        #resultArea { display: none; }
+        #resultArea.visible { display: block; }
+
+        .slot-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: border-color .2s;
+        }
+        .slot-card:hover { border-color: rgba(120,130,135,0.5); }
+        .slot-card.best { border-color: var(--primary); background: rgba(120,129,132,0.06); }
+
+        .slot-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .slot-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .slot-day {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            color: #fff;
+        }
+        .slot-time-utc {
+            font-size: 0.78rem;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+        }
+        .slot-badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        .badge-best   { background: rgba(120,129,132,0.2); color: var(--primary); border: 1px solid rgba(120,129,132,0.4); }
+        .badge-good   { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid #334155; }
+        .badge-overlap{ background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+
+        .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+        .score-bar {
+            width: 60px; height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .score-fill { height: 100%; border-radius: 999px; background: var(--primary); transition: width .4s; }
+
+        /* Collapsible zones */
+        .slot-zones {
+            padding: 0 18px 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+        }
+        .slot-zones.collapsed { display: none; }
+
+        .zone-time-chip {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        .ztc-name { font-size: 0.7rem; color: #64748b; margin-bottom: 3px; font-weight: 600; }
+        .ztc-time { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; color: #fff; }
+        .ztc-time.warn { color: #fbbf24; }
+        .ztc-time.bad  { color: #f87171; }
+        .ztc-day-tag { font-size: 0.62rem; color: #475569; margin-top: 2px; }
+
+        /* Toggle chevron */
+        .chevron { font-size: 0.7rem; color: #475569; transition: transform .2s; flex-shrink: 0; }
+        .chevron.open { transform: rotate(180deg); }
+
+        /* ── No results ── */
+        .no-slots {
+            text-align: center;
+            padding: 32px;
+            color: #475569;
+            font-size: 0.9rem;
+            border: 1.5px dashed var(--border);
+            border-radius: 16px;
+        }
+
+        /* ── Export row ── */
+        .export-row {
+            display: none;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .export-row.visible { display: flex; }
+
+        .btn-export {
+            flex: 1;
+            min-width: 160px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 11px 16px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-export:hover { border-color: var(--primary); color: #fff; transform: translateY(-1px); }
+
+        @media(max-width: 640px) {
+            .tool-card { padding: 20px; }
+            .config-grid { grid-template-columns: 1fr 1fr; }
+            .zone-row { grid-template-columns: 1fr auto; }
+            .zone-row select { grid-column: 1 / -1; }
+            .export-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(1.8rem,5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Recurring Meeting Finder</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Weekly standup across multiple time zones? Find the best slot — no spreadsheet needed.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- ZONES -->
+                <div class="section-label">Team Members &amp; Time Zones</div>
+                <div class="zone-list" id="zoneList"></div>
+                <button class="btn-add-zone" id="btnAddZone">+ Add Another Person / Zone</button>
+
+                <!-- CONFIG -->
+                <div class="section-label">Meeting Preferences</div>
+                <div class="config-grid">
+                    <div class="config-box">
+                        <span class="config-label">Duration</span>
+                        <select id="duration">
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="90">1.5 hours</option>
+                            <option value="120">2 hours</option>
+                        </select>
+                    </div>
+                    <div class="config-box">
+                        <span class="config-label">Work Hours Start</span>
+                        <select id="workStart">
+                            <option value="7">7:00 AM</option>
+                            <option value="8" selected>8:00 AM</option>
+                            <option value="9">9:00 AM</option>
+                            <option value="10">10:00 AM</option>
+                        </select>
+                    </div>
+                    <div class="config-box">
+                        <span class="config-label">Work Hours End</span>
+                        <select id="workEnd">
+                            <option value="17">5:00 PM</option>
+                            <option value="18" selected>6:00 PM</option>
+                            <option value="19">7:00 PM</option>
+                            <option value="20">8:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- DAY PICKER -->
+                <div class="section-label">Preferred Days</div>
+                <div class="day-picker" id="dayPicker"></div>
+
+                <!-- ERROR -->
+                <div class="error-banner" id="errorBanner"></div>
+
+                <button class="btn-find" id="btnFind">🔍 Find Best Meeting Slots</button>
+
+                <!-- RESULTS -->
+                <div id="resultArea">
+                    <div class="section-label" id="resultLabel"></div>
+                    <div id="slotList"></div>
+                    <div class="export-row" id="exportRow">
+                        <button class="btn-export" id="btnICS">📅 Download .ics</button>
+                        <button class="btn-export" id="btnSlack">💬 Copy Slack Message</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────────────────────
+    // TIMEZONE DATA
+    // Uses IANA timezone identifiers only — DST is handled by the browser's
+    // Intl.DateTimeFormat, so offsets are always correct regardless of season.
+    // ─────────────────────────────────────────────────────────────────────────────
+    const ZONES = [
+        { label: "London / Lisbon",           tz: "Europe/London"           },
+        { label: "Paris / Berlin / Rome",     tz: "Europe/Paris"            },
+        { label: "Cairo / Helsinki",          tz: "Africa/Cairo"            },
+        { label: "Moscow / Riyadh",           tz: "Europe/Moscow"           },
+        { label: "Dubai / Baku",              tz: "Asia/Dubai"              },
+        { label: "Karachi",                   tz: "Asia/Karachi"            },
+        { label: "Mumbai / Delhi (IST)",      tz: "Asia/Kolkata"            },
+        { label: "Dhaka / Almaty",            tz: "Asia/Dhaka"              },
+        { label: "Bangkok / Jakarta",         tz: "Asia/Bangkok"            },
+        { label: "Singapore / Beijing",       tz: "Asia/Singapore"          },
+        { label: "Tokyo / Seoul",             tz: "Asia/Tokyo"              },
+        { label: "Sydney",                    tz: "Australia/Sydney"        },
+        { label: "Auckland",                  tz: "Pacific/Auckland"        },
+        { label: "São Paulo / Buenos Aires",  tz: "America/Sao_Paulo"       },
+        { label: "New York / Toronto",        tz: "America/New_York"        },
+        { label: "Chicago / Mexico City",     tz: "America/Chicago"         },
+        { label: "Denver / Phoenix",          tz: "America/Denver"          },
+        { label: "Los Angeles / Vancouver",   tz: "America/Los_Angeles"     },
+        { label: "Anchorage (Alaska)",        tz: "America/Anchorage"       },
+        { label: "Honolulu (Hawaii)",         tz: "Pacific/Honolulu"        },
+    ];
+
+    // Days Mon=0 … Sun=6 (matches JS getDay()-adjusted)
+    const DAY_NAMES_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const DAY_NAMES_FULL  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    // ICS BYDAY values for Mon=0…Sun=6
+    const ICS_BYDAY = ['MO','TU','WE','TH','FR','SA','SU'];
+
+    let activeDays = new Set([0,1,2,3,4]); // Mon–Fri default
+    let bestSlotForExport = null;
+    let zoneCounter = 0;
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // CORE TIMEZONE UTILITY
+    // Given an IANA tz string and a UTC Date, returns the local hour (0–23.999)
+    // AND the local calendar day-of-week offset relative to UTC day-of-week.
+    // This is the only correct way — uses Intl instead of manual offset math.
+    // ─────────────────────────────────────────────────────────────────────────────
+    function getLocalInfo(ianaTimezone, utcDate) {
+        // Extract hour + minute in that timezone
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: ianaTimezone,
+            hour: 'numeric', minute: 'numeric',
+            hour12: false,
+            weekday: 'short'
+        }).formatToParts(utcDate);
+
+        const weekdayStr = parts.find(p => p.type === 'weekday').value; // 'Mon','Tue'...
+        let hour   = parseInt(parts.find(p => p.type === 'hour').value, 10);
+        const min  = parseInt(parts.find(p => p.type === 'minute').value, 10);
+
+        // Intl hour12:false can return 24 for midnight in some environments
+        if (hour === 24) hour = 0;
+
+        const localDecimalHour = hour + min / 60;
+
+        // Determine day offset vs UTC
+        const utcDow = utcDate.getUTCDay(); // 0=Sun,1=Mon,...6=Sat
+        const weekdayMap = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+        const localDow = weekdayMap[weekdayStr] ?? utcDow;
+
+        let dayDelta = localDow - utcDow;
+        // Wrap to [-1, 0, +1]
+        if (dayDelta > 1)  dayDelta -= 7;
+        if (dayDelta < -1) dayDelta += 7;
+
+        return { localHour: localDecimalHour, dayDelta };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FORMAT HOUR — correct 12-hour display, no off-by-one
+    // Input: decimal hour 0–23.999
+    // ─────────────────────────────────────────────────────────────────────────────
+    function formatHour(decimalHour) {
+        // Round to nearest minute
+        const totalMinutes = Math.round(decimalHour * 60);
+        const h24 = Math.floor(totalMinutes / 60) % 24;
+        const m   = totalMinutes % 60;
+        const ampm = h24 < 12 ? 'AM' : 'PM';
+        const h12  = h24 % 12 === 0 ? 12 : h24 % 12;
+        return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+    }
+
+    // Format for ICS timestamp: given a JS Date → "20240101T090000Z"
+    function toICSTimestamp(d) {
+        return d.toISOString().replace(/[-:.]/g,'').slice(0,15) + 'Z';
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // DAY PICKER
+    // ─────────────────────────────────────────────────────────────────────────────
+    const dayPickerEl = document.getElementById('dayPicker');
+    DAY_NAMES_SHORT.forEach((name, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'day-btn' + (activeDays.has(i) ? ' active' : '');
+        btn.textContent = name;
+        btn.dataset.idx = i;
+        btn.addEventListener('click', () => {
+            if (activeDays.has(i)) {
+                activeDays.delete(i);
+                btn.classList.remove('active');
+            } else {
+                activeDays.add(i);
+                btn.classList.add('active');
+            }
+        });
+        dayPickerEl.appendChild(btn);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ZONE ROW BUILDER
+    // ─────────────────────────────────────────────────────────────────────────────
+    function buildZoneSelect(selectedTz) {
+        const sel = document.createElement('select');
+        ZONES.forEach(z => {
+            const opt = document.createElement('option');
+            opt.value = z.tz;
+            opt.textContent = z.label;
+            if (z.tz === selectedTz) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        return sel;
+    }
+
+    function addZone(name = '', tz = 'Europe/London') {
+        zoneCounter++;
+        const row = document.createElement('div');
+        row.className = 'zone-row';
+        row.dataset.id = zoneCounter;
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.placeholder = 'Name / Team (e.g. Alice, NY)';
+        nameInput.value = name;
+        nameInput.setAttribute('aria-label', 'Person name');
+
+        const tzSel = buildZoneSelect(tz);
+        tzSel.setAttribute('aria-label', 'Time zone');
+
+        const rmBtn = document.createElement('button');
+        rmBtn.type = 'button';
+        rmBtn.className = 'btn-remove';
+        rmBtn.innerHTML = '✕';
+        rmBtn.title = 'Remove this zone';
+        rmBtn.setAttribute('aria-label', 'Remove zone');
+        rmBtn.addEventListener('click', () => {
+            const rows = document.querySelectorAll('.zone-row');
+            if (rows.length <= 2) {
+                showError('You need at least 2 time zones to find a meeting slot.');
+                return;
+            }
+            row.remove();
+            updateRemoveButtons();
+        });
+
+        row.appendChild(nameInput);
+        row.appendChild(tzSel);
+        row.appendChild(rmBtn);
+        document.getElementById('zoneList').appendChild(row);
+        updateRemoveButtons();
+    }
+
+    function updateRemoveButtons() {
+        const rows = document.querySelectorAll('.zone-row');
+        rows.forEach(r => {
+            r.querySelector('.btn-remove').disabled = (rows.length <= 2);
+        });
+    }
+
+    // Default 4 zones
+    addZone('New York',  'America/New_York');
+    addZone('London',    'Europe/London');
+    addZone('Dubai',     'Asia/Dubai');
+    addZone('Singapore', 'Asia/Singapore');
+
+    document.getElementById('btnAddZone').addEventListener('click', () => addZone());
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ERROR BANNER
+    // ─────────────────────────────────────────────────────────────────────────────
+    function showError(msg) {
+        const banner = document.getElementById('errorBanner');
+        banner.textContent = msg;
+        banner.classList.add('visible');
+        setTimeout(() => banner.classList.remove('visible'), 4000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // COLLECT ZONES
+    // ─────────────────────────────────────────────────────────────────────────────
+    function collectZones() {
+        return [...document.querySelectorAll('.zone-row')].map(row => ({
+            name: row.querySelector('input').value.trim() || 'Person',
+            tz:   row.querySelector('select').value
+        }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // SCORE a local hour slot.
+    // Returns a score based on how "business-friendly" the local time is.
+    // Returns -1 if the slot falls outside the required work window.
+    // workStart / workEnd: integer hours (e.g. 8, 18)
+    // durationHours: meeting length in fractional hours (e.g. 1.5)
+    // ─────────────────────────────────────────────────────────────────────────────
+    function scoreLocalHour(localHour, workStart, workEnd, durationHours) {
+        const meetingEnd = localHour + durationHours;
+        // Strict: meeting must start AND end within work window
+        if (localHour < workStart || meetingEnd > workEnd) return -1;
+
+        // Core business hours 9–17
+        if (localHour >= 9 && meetingEnd <= 17) return 3;
+        // Extended business hours 8–18
+        if (localHour >= 8 && meetingEnd <= 18) return 2;
+        return 1;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FIND SLOTS — main algorithm
+    // We iterate over every 30-min UTC slot across the selected days.
+    // We use a reference week (Mon=Jan 6 2025 … Sun=Jan 12 2025) so that
+    // Intl.DateTimeFormat can correctly apply DST rules for any real date.
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    // Reference week: Mon Jan 6 2025 = JS day 1 (UTC midnight)
+    // Mon=0 in our index, so refDate for dayIdx=0 is Jan 6, dayIdx=1 is Jan 7, etc.
+    const REF_WEEK_START_MS = Date.UTC(2025, 0, 6); // Mon Jan 6 2025 00:00:00 UTC
+
+    function findSlots() {
+        clearError();
+        const zones = collectZones();
+        const workStart = parseInt(document.getElementById('workStart').value, 10);
+        const workEnd   = parseInt(document.getElementById('workEnd').value, 10);
+        const durationMins = parseInt(document.getElementById('duration').value, 10);
+        const durationHours = durationMins / 60;
+        const days = [...activeDays].sort((a, b) => a - b);
+
+        // ── Validation ──
+        if (zones.length < 2) { showError('Add at least 2 time zones.'); return; }
+        if (days.length === 0) { showError('Select at least one day.'); return; }
+        if (workEnd - workStart < durationHours) {
+            showError('Work window is shorter than the meeting duration. Adjust your preferences.');
+            return;
+        }
+
+        const STEP_MINS = 30;
+        const STEP_HOURS = STEP_MINS / 60;
+        const results = [];
+
+        days.forEach(dayIdx => {
+            // dayIdx: Mon=0, Tue=1, ..., Sun=6
+            const dayBaseMs = REF_WEEK_START_MS + dayIdx * 86400000;
+
+            for (let stepOffset = 0; stepOffset < 24 * 60; stepOffset += STEP_MINS) {
+                const utcMs = dayBaseMs + stepOffset * 60000;
+                const utcDate = new Date(utcMs);
+                const utcHour = stepOffset / 60; // 0 to 23.5
+
+                let totalScore = 0;
+                let valid = true;
+                const localTimes = [];
+
+                for (const zone of zones) {
+                    const { localHour, dayDelta } = getLocalInfo(zone.tz, utcDate);
+                    const s = scoreLocalHour(localHour, workStart, workEnd, durationHours);
+                    if (s === -1) { valid = false; break; }
+                    totalScore += s;
+                    localTimes.push({ name: zone.name, tz: zone.tz, localHour, dayDelta, score: s });
+                }
+
+                if (!valid) continue;
+
+                results.push({
+                    dayIdx,
+                    utcHour,
+                    utcMs,
+                    totalScore,
+                    localTimes
+                });
+            }
+        });
+
+        // Sort: higher total score first, then earlier UTC hour, then earlier day
+        results.sort((a, b) =>
+            b.totalScore - a.totalScore ||
+            a.utcHour - b.utcHour ||
+            a.dayIdx - b.dayIdx
+        );
+
+        renderResults(results.slice(0, 10), durationMins);
+    }
+
+    function clearError() {
+        document.getElementById('errorBanner').classList.remove('visible');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // RENDER RESULTS
+    // ─────────────────────────────────────────────────────────────────────────────
+    function renderResults(slots, durationMins) {
+        const area      = document.getElementById('resultArea');
+        const list      = document.getElementById('slotList');
+        const exportRow = document.getElementById('exportRow');
+        const label     = document.getElementById('resultLabel');
+
+        area.classList.add('visible');
+        list.innerHTML = '';
+        bestSlotForExport = null;
+
+        if (slots.length === 0) {
+            label.textContent = 'No Overlapping Slots Found';
+            list.innerHTML = `<div class="no-slots">😬 No time works for everyone within normal hours.<br><small style="color:#334155">Try widening work hours, selecting more days, or shortening the meeting.</small></div>`;
+            exportRow.classList.remove('visible');
+            return;
+        }
+
+        label.textContent = `${slots.length} Overlapping Slot${slots.length > 1 ? 's' : ''} Found`;
+        const maxScore = slots[0].totalScore;
+
+        slots.forEach((slot, idx) => {
+            const card = document.createElement('div');
+            card.className = 'slot-card' + (idx === 0 ? ' best' : '');
+
+            const dayFull   = DAY_NAMES_FULL[slot.dayIdx];
+            const scoreRatio = slot.totalScore / maxScore;
+            const utcDisplay = formatHour(slot.utcHour);
+
+            let badgeHTML;
+            if (idx === 0) {
+                badgeHTML = `<span class="slot-badge badge-best">⭐ Best Slot</span>`;
+            } else if (scoreRatio >= 0.85) {
+                badgeHTML = `<span class="slot-badge badge-good">Good</span>`;
+            } else {
+                badgeHTML = `<span class="slot-badge badge-overlap">Overlap</span>`;
+            }
+
+            const zonesHTML = slot.localTimes.map(lt => {
+                let timeClass = '';
+                const h = lt.localHour;
+                if (h < 7 || h >= 22)       timeClass = 'bad';
+                else if (h < 8 || h >= 20)  timeClass = 'warn';
+
+                let dayTag = '';
+                if (lt.dayDelta === 1)       dayTag = '<div class="ztc-day-tag">+1 day</div>';
+                else if (lt.dayDelta === -1) dayTag = '<div class="ztc-day-tag">-1 day</div>';
+
+                return `<div class="zone-time-chip">
+                    <div class="ztc-name">${escapeHTML(lt.name)}</div>
+                    <div class="ztc-time ${timeClass}">${formatHour(lt.localHour)}</div>
+                    ${dayTag}
+                </div>`;
+            }).join('');
+
+            // Zones start collapsed except for best slot
+            const zonesClass = idx === 0 ? 'slot-zones' : 'slot-zones collapsed';
+            const chevronClass = idx === 0 ? 'chevron open' : 'chevron';
+
+            card.innerHTML = `
+                <div class="slot-header">
+                    <div class="slot-meta">
+                        <span class="slot-day">${dayFull}</span>
+                        <span class="slot-time-utc">UTC ${utcDisplay}</span>
+                        ${badgeHTML}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div class="score-bar-wrap">
+                            <div class="score-bar">
+                                <div class="score-fill" style="width:${Math.round(scoreRatio * 100)}%"></div>
+                            </div>
+                            <span style="font-size:0.65rem;color:#475569">${Math.round(scoreRatio * 100)}%</span>
+                        </div>
+                        <span class="${chevronClass}">▼</span>
+                    </div>
+                </div>
+                <div class="${zonesClass}">${zonesHTML}</div>
+            `;
+
+            // Correct toggle: target the zones div inside this card
+            const header   = card.querySelector('.slot-header');
+            const zonesDiv = card.querySelector('.slot-zones');
+            const chevron  = card.querySelector('.chevron');
+            header.addEventListener('click', () => {
+                zonesDiv.classList.toggle('collapsed');
+                chevron.classList.toggle('open');
+            });
+
+            list.appendChild(card);
+            if (idx === 0) bestSlotForExport = slot;
+        });
+
+        exportRow.classList.add('visible');
+        area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // XSS GUARD
+    // ─────────────────────────────────────────────────────────────────────────────
+    function escapeHTML(str) {
+        return String(str)
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;')
+            .replace(/'/g,'&#39;');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // EXPORT: .ics
+    // Generates a valid RFC 5545 VCALENDAR with a weekly RRULE.
+    // Start time is the next real-world occurrence of that weekday.
+    // ─────────────────────────────────────────────────────────────────────────────
+    function exportICS() {
+        if (!bestSlotForExport) return;
+        const slot = bestSlotForExport;
+        const durationMins = parseInt(document.getElementById('duration').value, 10);
+
+        // Find the next real occurrence of this weekday (Mon=0…Sun=6)
+        const now = new Date();
+        // JS getDay(): Sun=0 Mon=1…Sat=6 → convert to Mon=0…Sun=6
+        const todayDowJS = now.getDay();
+        const todayDow   = (todayDowJS + 6) % 7; // Mon=0
+        let daysUntil = slot.dayIdx - todayDow;
+        if (daysUntil <= 0) daysUntil += 7;
+
+        // Build the UTC Date for the meeting start
+        // slot.utcHour = decimal hour in UTC (e.g. 9.5 = 09:30)
+        const totalUtcMins = Math.round(slot.utcHour * 60);
+        const utcH = Math.floor(totalUtcMins / 60);
+        const utcM = totalUtcMins % 60;
+
+        const startDate = new Date(Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() + daysUntil,
+            utcH, utcM, 0
+        ));
+        const endDate = new Date(startDate.getTime() + durationMins * 60000);
+
+        const zoneNames = collectZones().map(z => z.name).join(', ');
+
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Rebrixe//Recurring Meeting Finder//EN',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'BEGIN:VEVENT',
+            `UID:Rebrixe-meet-${Date.now()}@Rebrixe`,
+            `DTSTAMP:${toICSTimestamp(new Date())}`,
+            `DTSTART:${toICSTimestamp(startDate)}`,
+            `DTEND:${toICSTimestamp(endDate)}`,
+            `RRULE:FREQ=WEEKLY;BYDAY=${ICS_BYDAY[slot.dayIdx]}`,
+            `SUMMARY:Weekly Sync — ${zoneNames}`,
+            `DESCRIPTION:Recurring meeting across time zones.\\nGenerated by Rebrixe.`,
+            'END:VEVENT',
+            'END:VCALENDAR'
+        ].join('\r\n');
+
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'recurring-meeting.ics';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Revoke after small delay to allow download to start
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // EXPORT: Slack message (clipboard)
+    // ─────────────────────────────────────────────────────────────────────────────
+    function copySlackMsg() {
+        if (!bestSlotForExport) return;
+        const slot = bestSlotForExport;
+        const durationMins = parseInt(document.getElementById('duration').value, 10);
+        const dayFull = DAY_NAMES_FULL[slot.dayIdx];
+
+        const lines = slot.localTimes.map(lt => {
+            const timeStr = formatHour(lt.localHour);
+            const dayNote = lt.dayDelta === 1 ? ' (+1 day)' : lt.dayDelta === -1 ? ' (-1 day)' : '';
+            return `• ${lt.name}: *${timeStr}*${dayNote}`;
+        }).join('\n');
+
+        const msg = `📅 *Weekly Recurring Meeting*\n*Day:* ${dayFull}\n*Duration:* ${durationMins} min\n\n${lines}\n\n_Scheduled via Rebrixe_`;
+
+        navigator.clipboard.writeText(msg).then(() => {
+            const btn = document.getElementById('btnSlack');
+            btn.textContent = '✓ Copied to clipboard!';
+            setTimeout(() => { btn.textContent = '💬 Copy Slack Message'; }, 2500);
+        }).catch(() => {
+            showError('Could not access clipboard. Please copy manually.');
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WIRE UP BUTTONS
+    // ─────────────────────────────────────────────────────────────────────────────
+    document.getElementById('btnFind').addEventListener('click', findSlots);
+    document.getElementById('btnICS').addEventListener('click', exportICS);
+    document.getElementById('btnSlack').addEventListener('click', copySlackMsg);
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

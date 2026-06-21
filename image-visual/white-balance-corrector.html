@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>White Balance Corrector — Fix Yellow, Blue & Green Photos | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Fix yellow, blue or green photos instantly. Click on anything that should be white — auto corrects the whole image. Free, browser-only, image never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, #74d7ff, #ffd600);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(116,215,255,0.5), rgba(255,214,0,0.2) 60%, rgba(116,215,255,0.3));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(116,215,255,0.15); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(116,215,255,0.08), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(116,215,255,0.3); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(116,215,255,0.15), 0 0 0 3px rgba(116,215,255,0.12); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: #74d7ff; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Diagnosis banner */
+        .diagnosis-banner { display: none; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 18px; flex-wrap: wrap; }
+        .diagnosis-banner.visible { display: flex; }
+        .diag-swatch { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .diag-info { flex: 1; }
+        .diag-title { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 3px; }
+        .diag-cast { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+        .diag-kelvin { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 1px; }
+        .diag-fix { font-size: 0.75rem; font-weight: 600; margin-top: 4px; padding: 4px 10px; border-radius: 6px; display: inline-block; }
+
+        /* Main canvas area */
+        .canvas-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 20px; }
+        .canvas-header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .canvas-mode-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .mode-hint { font-size: 0.72rem; color: #74d7ff; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        .mode-hint::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #74d7ff; animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .canvas-wrap { position: relative; cursor: crosshair; overflow: hidden; background: #000; max-height: 420px; display: flex; align-items: center; justify-content: center; }
+        .canvas-wrap canvas { display: block; max-width: 100%; max-height: 420px; object-fit: contain; }
+        #sampleCursor { position: absolute; width: 26px; height: 26px; border: 2.5px solid #fff; border-radius: 50%; pointer-events: none; display: none; transform: translate(-50%, -50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.6); z-index: 10; }
+        #sampleCursor::after { content: '+'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 10px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 3px #000; }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Preset chips */
+        .preset-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .preset-chip { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .preset-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .preset-chip.active { background: rgba(116,215,255,0.08); border-color: rgba(116,215,255,0.3); color: #74d7ff; }
+
+        /* Sliders */
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .slider-group { display: flex; flex-direction: column; gap: 8px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .slider-hint { font-size: 0.62rem; color: var(--text-dim); }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: #74d7ff; font-family: 'Fira Code', monospace; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #74d7ff; cursor: pointer; box-shadow: 0 0 8px rgba(116,215,255,0.4); }
+        .slider-warm .ctrl-slider::-webkit-slider-thumb { background: linear-gradient(135deg, #ffb300, #ff6b00); box-shadow: 0 0 8px rgba(255,150,0,0.4); }
+        .slider-tint .ctrl-slider::-webkit-slider-thumb { background: linear-gradient(135deg, #c084fc, #22d3ee); box-shadow: 0 0 8px rgba(192,132,252,0.4); }
+
+        /* Output options */
+        .output-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); align-items: center; }
+        .output-row .section-label { margin-bottom: 0; margin-right: 4px; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #74d7ff 0%, #38bdf8 50%, #0ea5e9 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(116,215,255,0.3), 0 4px 12px rgba(116,215,255,0.15); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled .btn-main-inner { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+        .btn-reset { padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-reset:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Compare panel */
+        .compare-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .compare-panel.visible { display: block; }
+        .slider-compare-wrap { position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); cursor: ew-resize; user-select: none; touch-action: none; max-height: 380px; background: #000; }
+        .slider-compare-wrap canvas { display: block; width: 100%; height: auto; max-height: 380px; object-fit: contain; pointer-events: none; }
+        .compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: #74d7ff; transform: translateX(-50%); pointer-events: none; z-index: 3; }
+        .compare-handle { position: absolute; top: 50%; left: 0; transform: translate(-50%, -50%); width: 36px; height: 36px; background: #74d7ff; border-radius: 50%; z-index: 4; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #000; font-weight: 900; box-shadow: 0 2px 12px rgba(0,0,0,0.5); pointer-events: none; }
+        .label-before, .label-after { position: absolute; top: 10px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 3px 9px; border-radius: 99px; background: rgba(0,0,0,0.6); z-index: 5; pointer-events: none; }
+        .label-before { left: 10px; color: var(--text-dim); }
+        .label-after { right: 10px; color: #74d7ff; }
+
+        /* Stats */
+        .stats-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: #74d7ff; font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: rgba(116,215,255,0.05); border: 1px solid rgba(116,215,255,0.2); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: #74d7ff; margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(116,215,255,0.2); border-top-color: #74d7ff; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: #74d7ff; margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .sliders-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .stats-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">White Balance Corrector</h1>
+                <p class="tool-page-sub">Photo looks yellow, blue or green? Click on anything that <em>should</em> be white — the whole image corrects instantly.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Diagnosis banner -->
+                <div class="diagnosis-banner" id="diagBanner">
+                    <div class="diag-swatch" id="diagSwatch"></div>
+                    <div class="diag-info">
+                        <div class="diag-title">Color Cast Detected</div>
+                        <div class="diag-cast" id="diagCast">—</div>
+                        <div class="diag-kelvin" id="diagKelvin">—</div>
+                        <span class="diag-fix" id="diagFix">—</span>
+                    </div>
+                </div>
+
+                <!-- Canvas (click-to-sample) -->
+                <div class="canvas-card">
+                    <div class="canvas-header">
+                        <span class="canvas-mode-label">Click to sample white point</span>
+                        <span class="mode-hint" id="modeHint">Click anything that should be white or neutral grey</span>
+                    </div>
+                    <div class="canvas-wrap" id="canvasWrap">
+                        <canvas id="mainCanvas"></canvas>
+                        <div id="sampleCursor"></div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Presets — known lighting problems</div>
+                    <div class="preset-row">
+                        <button class="preset-chip" data-temp="-40" data-tint="0" onclick="applyPreset(this)">🟡 Tungsten/Warm</button>
+                        <button class="preset-chip" data-temp="-20" data-tint="-5" onclick="applyPreset(this)">🟠 Fluorescent</button>
+                        <button class="preset-chip" data-temp="15" data-tint="0" onclick="applyPreset(this)">🔵 Overcast/Cool</button>
+                        <button class="preset-chip" data-temp="25" data-tint="5" onclick="applyPreset(this)">💙 Shade/Blue</button>
+                        <button class="preset-chip" data-temp="0" data-tint="-15" onclick="applyPreset(this)">🟢 Greenish</button>
+                        <button class="preset-chip" data-temp="0" data-tint="0" onclick="applyPreset(this, true)">✕ Reset</button>
+                    </div>
+
+                    <div class="sliders-grid">
+                        <div class="slider-group slider-warm">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Temperature</div>
+                                    <div class="slider-hint">Cool ← → Warm</div>
+                                </div>
+                                <span class="slider-val" id="valTemp" style="color:#74d7ff">0</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderTemp" min="-80" max="80" value="0" oninput="onManualSlide()">
+                        </div>
+                        <div class="slider-group slider-tint">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Tint</div>
+                                    <div class="slider-hint">Green ← → Magenta</div>
+                                </div>
+                                <span class="slider-val" id="valTint" style="color:#74d7ff">0</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderTint" min="-50" max="50" value="0" oninput="onManualSlide()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Brightness</div>
+                                    <div class="slider-hint">Exposure correction</div>
+                                </div>
+                                <span class="slider-val" id="valBright">0</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderBright" min="-80" max="80" value="0" oninput="onManualSlide()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Output Quality</div>
+                                    <div class="slider-hint">JPG/WebP compression</div>
+                                </div>
+                                <span class="slider-val" id="valQ">92%</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderQ" min="10" max="100" value="92" oninput="document.getElementById('valQ').textContent=this.value+'%'">
+                        </div>
+                    </div>
+
+                    <div class="output-row">
+                        <span class="section-label">Format</span>
+                        <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                        <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span>Correcting white balance…</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnApply" onclick="doApply()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Apply Correction</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                    <button class="btn-reset" id="btnResetAdj" onclick="resetAdjustments()">↺ Reset</button>
+                </div>
+
+                <!-- Compare -->
+                <div class="compare-panel" id="comparePanel">
+                    <div class="section-label" style="margin-bottom:12px;">Before / After</div>
+                    <div class="slider-compare-wrap" id="compareWrap">
+                        <canvas id="compareCanvas"></canvas>
+                        <div class="compare-divider" id="dividerLine"></div>
+                        <div class="compare-handle" id="dividerHandle">◀▶</div>
+                        <span class="label-before">Before</span>
+                        <span class="label-after">After</span>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Click on white — done</h3>
+                        <p>Find anything in your photo that should be pure white or neutral grey — a white wall, shirt, paper, teeth. Click it. The tool reads those RGB values and calculates exactly how much to shift red, green and blue to neutralize the cast.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What causes color casts?</h3>
+                        <p>Indoor bulbs add yellow/orange. Fluorescent lights add green. Shade and overcast skies add blue. Your camera guesses the light source — when it guesses wrong, the whole photo shifts. This tool reverses that shift.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Temperature & Tint sliders</h3>
+                        <p>Temperature moves between <code>cool blue</code> and <code>warm yellow</code>. Tint moves between <code>green</code> and <code>magenta</code>. These match how every professional photo editor (Lightroom, Capture One) controls white balance.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs in your browser using the <code>Canvas API</code>. Your image never touches a server. Close the tab and it's gone — no account, no storage.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null, origDataURL = null;
+    let resultDataURL = null, resultFilename = '';
+    let outputFmt = 'jpeg';
+    let dividerPct = 50, isDragging = false;
+    // Correction values from click-sample or sliders
+    let rGain = 1, gGain = 1, bGain = 1;
+    let manualTemp = 0, manualTint = 0, manualBright = 0;
+    let sampledFromClick = false;
+    let origCanvasEl = null, resultCanvasEl = null;
+
+    // ─── DROP ZONE ────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('comparePanel').classList.remove('visible');
+                document.getElementById('btnDownload').style.display = 'none';
+                document.getElementById('btnResetAdj').style.display = 'none';
+                rGain = gGain = bGain = 1; manualTemp = manualTint = manualBright = 0;
+                sampledFromClick = false;
+                resetSliders();
+                renderOrigToCanvas();
+                autoAnalyze();
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+        document.getElementById('diagBanner').classList.remove('visible');
+    }
+
+    function resetSliders() {
+        document.getElementById('sliderTemp').value = 0;
+        document.getElementById('sliderTint').value = 0;
+        document.getElementById('sliderBright').value = 0;
+        document.getElementById('valTemp').textContent = 0;
+        document.getElementById('valTint').textContent = 0;
+        document.getElementById('valBright').textContent = 0;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    }
+
+    // ─── RENDER ORIGINAL TO CANVAS ────────────────────────────────────────────
+    function renderOrigToCanvas() {
+        const wrap = document.getElementById('canvasWrap');
+        const canvas = document.getElementById('mainCanvas');
+        const maxW = wrap.clientWidth || 760;
+        const scale = Math.min(1, maxW / origImg.naturalWidth);
+        canvas.width = Math.round(origImg.naturalWidth * scale);
+        canvas.height = Math.round(origImg.naturalHeight * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+        // Store full-res original canvas
+        origCanvasEl = document.createElement('canvas');
+        origCanvasEl.width = origImg.naturalWidth;
+        origCanvasEl.height = origImg.naturalHeight;
+        origCanvasEl.getContext('2d').drawImage(origImg, 0, 0);
+    }
+
+    // ─── AUTO ANALYZE color cast ──────────────────────────────────────────────
+    function autoAnalyze() {
+        const c = document.createElement('canvas');
+        const scale = Math.min(1, 200 / origImg.naturalWidth);
+        c.width = Math.round(origImg.naturalWidth * scale);
+        c.height = Math.round(origImg.naturalHeight * scale);
+        const ctx = c.getContext('2d');
+        ctx.drawImage(origImg, 0, 0, c.width, c.height);
+        const data = ctx.getImageData(0, 0, c.width, c.height).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            const lum = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
+            if (lum > 180) { r += data[i]; g += data[i+1]; b += data[i+2]; n++; }
+        }
+        if (n === 0) return;
+        r /= n; g /= n; b /= n;
+        showDiagnosis(r, g, b);
+    }
+
+    function showDiagnosis(r, g, b) {
+        const avg = (r + g + b) / 3;
+        const rD = r - avg, gD = g - avg, bD = b - avg;
+        const banner = document.getElementById('diagBanner');
+        const swatch = document.getElementById('diagSwatch');
+        const cast = document.getElementById('diagCast');
+        const kelvin = document.getElementById('diagKelvin');
+        const fix = document.getElementById('diagFix');
+
+        swatch.style.background = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+
+        // Determine dominant cast
+        let castName = '', fixText = '', fixColor = '', kEst = '';
+        const thr = 6;
+        if (rD > thr && bD < -thr) {
+            castName = '🟡 Warm / Yellow-Orange cast'; fixText = 'Common with tungsten/incandescent lights indoors'; fixColor = 'rgba(255,180,0,0.12)'; kEst = '~2700–3200 K (tungsten)';
+        } else if (bD > thr && rD < -thr) {
+            castName = '🔵 Cool / Blue cast'; fixText = 'Common with shade, overcast sky, or LED'; fixColor = 'rgba(100,180,255,0.12)'; kEst = '~7000–9000 K (shade/overcast)';
+        } else if (gD > thr) {
+            castName = '🟢 Green cast'; fixText = 'Common with fluorescent lighting or mixed sources'; fixColor = 'rgba(80,200,100,0.12)'; kEst = '~4000–5000 K (fluorescent)';
+        } else if (rD > thr && gD > 3) {
+            castName = '🟠 Amber / Orange cast'; fixText = 'Strong tungsten or sodium-vapor light source'; fixColor = 'rgba(255,140,0,0.12)'; kEst = '~2000–2500 K (candle/sodium)';
+        } else {
+            castName = '✅ White balance looks neutral'; fixText = 'Highlights appear balanced — no strong cast detected'; fixColor = 'rgba(170,255,0,0.06)'; kEst = '~5500–6500 K (daylight)';
+        }
+
+        cast.textContent = castName;
+        kelvin.textContent = kEst;
+        fix.textContent = fixText;
+        fix.style.background = fixColor;
+        fix.style.color = 'var(--text-sec)';
+        banner.classList.add('visible');
+    }
+
+    // ─── CANVAS CLICK — SAMPLE WHITE POINT ────────────────────────────────────
+    const mainCanvas = document.getElementById('mainCanvas');
+    const sampleCursor = document.getElementById('sampleCursor');
+    const canvasWrap = document.getElementById('canvasWrap');
+
+    canvasWrap.addEventListener('mousemove', e => {
+        const rect = canvasWrap.getBoundingClientRect();
+        sampleCursor.style.display = 'block';
+        sampleCursor.style.left = (e.clientX - rect.left) + 'px';
+        sampleCursor.style.top = (e.clientY - rect.top) + 'px';
+    });
+    canvasWrap.addEventListener('mouseleave', () => { sampleCursor.style.display = 'none'; });
+
+    canvasWrap.addEventListener('click', e => {
+        const rect = mainCanvas.getBoundingClientRect();
+        const scaleX = mainCanvas.width / rect.width;
+        const scaleY = mainCanvas.height / rect.height;
+        const x = Math.round((e.clientX - rect.left) * scaleX);
+        const y = Math.round((e.clientY - rect.top) * scaleY);
+        const ctx = mainCanvas.getContext('2d');
+        // Sample 5x5 area around click for stability
+        const px = ctx.getImageData(Math.max(0,x-2), Math.max(0,y-2), 5, 5).data;
+        let r=0,g=0,b=0,cnt=0;
+        for(let i=0;i<px.length;i+=4){r+=px[i];g+=px[i+1];b+=px[i+2];cnt++;}
+        r/=cnt; g/=cnt; b/=cnt;
+        if(r < 20 && g < 20 && b < 20){ showToast('Sampled area is too dark — click on a lighter area', 'error'); return; }
+
+        // Gains: target is equal RGB (neutral grey / white)
+        const mx = Math.max(r, g, b);
+        rGain = mx / r;
+        gGain = mx / g;
+        bGain = mx / b;
+        sampledFromClick = true;
+        // Sync temp/tint sliders to approximate equivalent
+        const tempApprox = Math.round(((bGain - rGain) * 60));
+        const tintApprox = Math.round(((rGain + bGain)/2 - gGain) * 40);
+        document.getElementById('sliderTemp').value = Math.max(-80, Math.min(80, tempApprox));
+        document.getElementById('sliderTint').value = Math.max(-50, Math.min(50, tintApprox));
+        document.getElementById('valTemp').textContent = document.getElementById('sliderTemp').value;
+        document.getElementById('valTint').textContent = document.getElementById('sliderTint').value;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        document.getElementById('modeHint').textContent = `Sampled (${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}) — click Apply`;
+        showToast('White point sampled! Click Apply Correction.', 'success');
+        previewOnCanvas();
+    });
+
+    canvasWrap.addEventListener('touchend', e => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        const rect = mainCanvas.getBoundingClientRect();
+        const scaleX = mainCanvas.width / rect.width;
+        const scaleY = mainCanvas.height / rect.height;
+        const x = Math.round((t.clientX - rect.left) * scaleX);
+        const y = Math.round((t.clientY - rect.top) * scaleY);
+        const ctx = mainCanvas.getContext('2d');
+        const px = ctx.getImageData(Math.max(0,x-2), Math.max(0,y-2), 5, 5).data;
+        let r=0,g=0,b=0,cnt=0;
+        for(let i=0;i<px.length;i+=4){r+=px[i];g+=px[i+1];b+=px[i+2];cnt++;}
+        r/=cnt; g/=cnt; b/=cnt;
+        if(r < 20 && g < 20 && b < 20){ showToast('Area too dark — tap a lighter region', 'error'); return; }
+        const mx = Math.max(r,g,b);
+        rGain = mx/r; gGain = mx/g; bGain = mx/b;
+        sampledFromClick = true;
+        previewOnCanvas();
+        showToast('Sampled! Tap Apply Correction.', 'success');
+    });
+
+    // ─── PREVIEW ON CANVAS (low res) ──────────────────────────────────────────
+    function previewOnCanvas() {
+        if (!origImg) return;
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(origImg, 0, 0, canvas.width, canvas.height);
+        const idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = idata.data;
+        const [fr, fg, fb, bright] = getEffectiveGains();
+        for (let i = 0; i < d.length; i += 4) {
+            d[i]   = clamp(d[i]   * fr + bright);
+            d[i+1] = clamp(d[i+1] * fg + bright);
+            d[i+2] = clamp(d[i+2] * fb + bright);
+        }
+        ctx.putImageData(idata, 0, 0);
+    }
+
+    // ─── COMBINE click-gains + slider adjustments ─────────────────────────────
+    function getEffectiveGains() {
+        const temp = parseInt(document.getElementById('sliderTemp').value);
+        const tint = parseInt(document.getElementById('sliderTint').value);
+        const bright = parseInt(document.getElementById('sliderBright').value);
+        // Convert slider values to gain multipliers
+        const tempR = 1 + temp * 0.008;
+        const tempB = 1 - temp * 0.008;
+        const tintG = 1 - tint * 0.008;
+        const tintR = 1 + tint * 0.004;
+        const tintB = 1 + tint * 0.004;
+        const fr = (sampledFromClick ? rGain : 1) * tempR * tintR;
+        const fg = (sampledFromClick ? gGain : 1) * tintG;
+        const fb = (sampledFromClick ? bGain : 1) * tempB * tintB;
+        return [fr, fg, fb, bright];
+    }
+
+    function onManualSlide() {
+        document.getElementById('valTemp').textContent = document.getElementById('sliderTemp').value;
+        document.getElementById('valTint').textContent = document.getElementById('sliderTint').value;
+        document.getElementById('valBright').textContent = document.getElementById('sliderBright').value;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        // Sliders alone without click: clear click gains
+        if (!sampledFromClick) { rGain = gGain = bGain = 1; }
+        previewOnCanvas();
+    }
+
+    function applyPreset(btn, isReset) {
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const temp = parseInt(btn.dataset.temp);
+        const tint = parseInt(btn.dataset.tint);
+        document.getElementById('sliderTemp').value = temp;
+        document.getElementById('sliderTint').value = tint;
+        document.getElementById('valTemp').textContent = temp;
+        document.getElementById('valTint').textContent = tint;
+        if (isReset) {
+            rGain = gGain = bGain = 1; sampledFromClick = false;
+            document.getElementById('sliderBright').value = 0;
+            document.getElementById('valBright').textContent = 0;
+        }
+        previewOnCanvas();
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+
+    function resetAdjustments() {
+        rGain = gGain = bGain = 1; sampledFromClick = false;
+        resetSliders();
+        renderOrigToCanvas();
+        document.getElementById('modeHint').textContent = 'Click anything that should be white or neutral grey';
+        showToast('Adjustments reset', '');
+    }
+
+    // ─── APPLY (full resolution) ──────────────────────────────────────────────
+    function doApply() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        document.getElementById('processing').classList.add('visible');
+
+        setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width = origImg.naturalWidth;
+            canvas.height = origImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(origImg, 0, 0);
+            const idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = idata.data;
+            const [fr, fg, fb, bright] = getEffectiveGains();
+            for (let i = 0; i < d.length; i += 4) {
+                d[i]   = clamp(d[i]   * fr + bright);
+                d[i+1] = clamp(d[i+1] * fg + bright);
+                d[i+2] = clamp(d[i+2] * fb + bright);
+            }
+            ctx.putImageData(idata, 0, 0);
+            resultCanvasEl = canvas;
+            const quality = parseInt(document.getElementById('sliderQ').value) / 100;
+            const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+            const q = outputFmt === 'png' ? undefined : quality;
+            resultDataURL = canvas.toDataURL(mime, q);
+            const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+            const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+            resultFilename = `${base}_wb_corrected.${ext}`;
+
+            document.getElementById('processing').classList.remove('visible');
+            document.getElementById('btnDownload').style.display = 'block';
+            document.getElementById('btnResetAdj').style.display = 'block';
+
+            setupCompare();
+
+            const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+            const temp = parseInt(document.getElementById('sliderTemp').value);
+            const tint = parseInt(document.getElementById('sliderTint').value);
+            document.getElementById('statsRow').innerHTML = `
+                <div class="stat-pill"><div class="stat-label">Dimensions</div><div class="stat-val green">${canvas.width} × ${canvas.height}</div></div>
+                <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(resultBytes)}</div></div>
+                <div class="stat-pill"><div class="stat-label">Temperature</div><div class="stat-val">${temp > 0 ? '+' : ''}${temp}</div></div>
+                <div class="stat-pill"><div class="stat-label">Tint</div><div class="stat-val">${tint > 0 ? '+' : ''}${tint}</div></div>
+            `;
+            document.getElementById('comparePanel').classList.add('visible');
+            document.getElementById('comparePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast('Correction applied! Drag to compare ✓', 'success');
+        }, 30);
+    }
+
+    // ─── COMPARE ──────────────────────────────────────────────────────────────
+    function setupCompare() {
+        dividerPct = 50;
+        renderCompare();
+    }
+
+    function renderCompare() {
+        if (!origCanvasEl || !resultCanvasEl) return;
+        const wrap = document.getElementById('compareWrap');
+        const canvas = document.getElementById('compareCanvas');
+        const displayW = wrap.clientWidth || 760;
+        const aspect = origCanvasEl.height / origCanvasEl.width;
+        const displayH = Math.min(380, Math.round(displayW * aspect));
+        canvas.width = displayW; canvas.height = displayH;
+        const ctx = canvas.getContext('2d');
+        const splitX = Math.round(displayW * dividerPct / 100);
+        ctx.drawImage(origCanvasEl, 0, 0, displayW, displayH);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(splitX, 0, displayW - splitX, displayH); ctx.clip();
+        ctx.drawImage(resultCanvasEl, 0, 0, displayW, displayH);
+        ctx.restore();
+        document.getElementById('dividerLine').style.left = splitX + 'px';
+        document.getElementById('dividerHandle').style.left = splitX + 'px';
+    }
+
+    const cmpWrap = document.getElementById('compareWrap');
+    function getX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+    cmpWrap.addEventListener('mousedown', e => { isDragging = true; e.preventDefault(); });
+    cmpWrap.addEventListener('touchstart', () => { isDragging = true; }, { passive: true });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const rect = cmpWrap.getBoundingClientRect();
+        dividerPct = Math.max(2, Math.min(98, (getX(e) - rect.left) / rect.width * 100));
+        renderCompare();
+    });
+    window.addEventListener('touchmove', e => {
+        if (!isDragging) return;
+        const rect = cmpWrap.getBoundingClientRect();
+        dividerPct = Math.max(2, Math.min(98, (getX(e) - rect.left) / rect.width * 100));
+        renderCompare();
+    }, { passive: true });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('touchend', () => isDragging = false);
+    window.addEventListener('resize', () => { if (resultCanvasEl) renderCompare(); });
+
+    // ─── DOWNLOAD ─────────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a'); a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ────────────────────────────────────────────────────────────────
+    function clamp(v) { return Math.min(255, Math.max(0, Math.round(v))); }
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Copyright Stamp Tool — Add © Watermark to Photos | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add a customizable © copyright stamp to your photos. Set name, year, position, style. Save settings for reuse. One-click batch apply. Free, browser-only — images never leave your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FF8800;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Stamp settings panel */
+        .settings-panel {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 22px; margin-bottom: 16px;
+        }
+        .settings-panel.hidden { display: none; }
+        .sp-title {
+            font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px;
+            color: var(--text-dim); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .sp-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .setting-group { display: flex; flex-direction: column; gap: 6px; }
+        .setting-group.full { grid-column: 1 / -1; }
+        .s-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+
+        .s-input {
+            background: var(--surface); border: 1px solid var(--border-mid); color: var(--text);
+            font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 500;
+            padding: 9px 12px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%;
+        }
+        .s-input:focus { border-color: var(--primary); }
+
+        .s-select {
+            background: var(--surface); border: 1px solid var(--border-mid); color: var(--text);
+            font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 500;
+            padding: 9px 12px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%;
+            cursor: pointer; -webkit-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6855' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+        }
+        .s-select:focus { border-color: var(--primary); }
+
+        /* Position picker grid */
+        .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .pos-btn {
+            padding: 7px 4px; border-radius: 7px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.65rem; font-weight: 700; cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .pos-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .pos-btn:hover:not(.active) { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Color / opacity row */
+        .color-row { display: flex; gap: 8px; align-items: center; }
+        .color-swatch {
+            width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-mid);
+            cursor: pointer; overflow: hidden; flex-shrink: 0; position: relative;
+        }
+        .color-swatch input[type="color"] {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            border: none; outline: none; cursor: pointer; opacity: 0; padding: 0;
+        }
+        .color-preview { position: absolute; inset: 0; border-radius: 8px; pointer-events: none; }
+
+        .range-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+        .s-range { flex: 1; accent-color: var(--primary); height: 4px; cursor: pointer; }
+        .range-val { font-size: 0.72rem; font-family: 'Fira Code', monospace; color: var(--text-sec); min-width: 32px; text-align: right; }
+
+        /* Preview + stamp text display */
+        .stamp-preview-bar {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 10px 14px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        .stamp-preview-text { font-family: 'Fira Code', monospace; font-size: 0.82rem; color: var(--primary); font-weight: 500; }
+        .save-preset-btn {
+            padding: 5px 12px; border-radius: 7px; border: 1px solid var(--primary-border);
+            background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+        }
+        .save-preset-btn:hover { background: rgba(255,214,0,0.13); }
+
+        /* Saved presets */
+        .presets-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+        .preset-tag {
+            display: flex; align-items: center; gap: 5px;
+            padding: 5px 10px; border-radius: 99px; border: 1px solid var(--border);
+            background: var(--surface); font-size: 0.7rem; color: var(--text-sec); font-weight: 600; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .preset-tag:hover { border-color: var(--primary-border); color: var(--primary); }
+        .preset-del { color: var(--text-dim); font-size: 0.75rem; line-height: 1; transition: color 0.15s; }
+        .preset-del:hover { color: var(--error); }
+        .presets-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+
+        /* Image table */
+        .img-table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; display: none; }
+        .img-table-wrap.visible { display: block; }
+        .table-header {
+            display: grid; grid-template-columns: 52px 1fr 100px 90px;
+            gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border);
+            font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);
+        }
+        .img-rows { max-height: 400px; overflow-y: auto; }
+        .img-rows::-webkit-scrollbar { width: 4px; }
+        .img-rows::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+        .img-row {
+            display: grid; grid-template-columns: 52px 1fr 100px 90px;
+            gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); align-items: center;
+            transition: background 0.15s;
+        }
+        .img-row:last-child { border-bottom: none; }
+        .img-row:hover { background: rgba(255,255,255,0.02); }
+        .img-thumb { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-mid); }
+        .img-name-text { font-size: 0.78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .img-dims-text { font-size: 0.65rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+
+        .status-cell { font-size: 0.7rem; font-weight: 700; }
+        .st-pending { color: var(--text-dim); }
+        .st-processing { color: var(--accent); }
+        .st-done { color: var(--success); }
+        .st-error { color: var(--error); }
+
+        .dl-btn-sm {
+            padding: 6px 12px; border-radius: 7px; border: 1px solid var(--primary-border);
+            background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.18s; white-space: nowrap;
+            display: none;
+        }
+        .dl-btn-sm.visible { display: block; }
+        .dl-btn-sm:hover { background: rgba(255,214,0,0.14); }
+
+        /* Progress */
+        .progress-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 22px; margin-bottom: 16px; display: none; }
+        .progress-wrap.visible { display: block; }
+        .prog-label { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .prog-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .prog-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; width: 0%; transition: width 0.3s ease; }
+
+        /* Stats */
+        .stats-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .stats-strip.hidden { display: none; }
+        .stat-pill {
+            padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border);
+            background: var(--card); font-size: 0.72rem; font-weight: 700; color: var(--text-dim);
+            display: flex; align-items: center; gap: 5px;
+        }
+        .stat-pill b { color: var(--primary); font-family: 'Fira Code', monospace; }
+
+        /* Actions */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .action-row.hidden { display: none; }
+        .btn-main { flex: 1; min-width: 150px; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-main:disabled .btn-main-inner { opacity: 0.45; }
+        .btn-main:disabled { cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary { flex: 1; min-width: 140px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+        .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .btn-ghost { padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .btn-ghost:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Canvas preview modal */
+        .preview-modal { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px; }
+        .preview-modal.open { display: flex; }
+        .preview-inner { background: var(--card); border: 1px solid var(--border-mid); border-radius: var(--radius-lg); padding: 20px; max-width: 700px; width: 100%; }
+        .preview-inner h3 { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 14px; }
+        #previewCanvas { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
+        .preview-close { margin-top: 14px; padding: 9px 18px; border-radius: 9px; border: 1px solid var(--border); background: transparent; color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        .preview-btn-sm {
+            padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; display: none;
+        }
+        .preview-btn-sm.visible { display: block; }
+        .preview-btn-sm:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        @media (max-width: 600px) {
+            .settings-grid { grid-template-columns: 1fr; }
+            .table-header, .img-row { grid-template-columns: 42px 1fr 80px; }
+            .table-header .col-dl, .img-row .dl-btn-sm { display: none !important; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="text-watermark-overlay.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Copyright Stamp Tool</h1>
+                <p class="tool-page-sub">Add your © watermark to any photo. Customize text, position, font, and style. Save presets for instant reuse.</p>
+                <span class="privacy-badge">100% browser-based — images never leave your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*" multiple>
+                <span class="drop-icon">©</span>
+                <p class="drop-title">Drop your photos here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — JPG, PNG, WebP · up to 50 images</p>
+            </div>
+
+            <!-- STAMP SETTINGS PANEL -->
+            <div class="settings-panel" id="settingsPanel">
+                <div class="sp-title">Stamp Settings</div>
+
+                <div class="settings-grid">
+                    <!-- Name -->
+                    <div class="setting-group">
+                        <span class="s-label">Your Name / Brand</span>
+                        <input class="s-input" type="text" id="stampName" placeholder="e.g. John Doe Photography" oninput="updatePreview()">
+                    </div>
+                    <!-- Year -->
+                    <div class="setting-group">
+                        <span class="s-label">Year</span>
+                        <input class="s-input" type="text" id="stampYear" placeholder="2025" oninput="updatePreview()">
+                    </div>
+                    <!-- Font -->
+                    <div class="setting-group">
+                        <span class="s-label">Font Style</span>
+                        <select class="s-select" id="stampFont" onchange="updatePreview()">
+                            <option value="'Outfit', sans-serif">Outfit (Modern)</option>
+                            <option value="Georgia, serif">Georgia (Classic)</option>
+                            <option value="'Courier New', monospace">Courier (Typewriter)</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="Arial, sans-serif">Arial (Clean)</option>
+                            <option value="Impact, sans-serif">Impact (Bold)</option>
+                        </select>
+                    </div>
+                    <!-- Size -->
+                    <div class="setting-group">
+                        <span class="s-label">Text Size</span>
+                        <select class="s-select" id="stampSize" onchange="updatePreview()">
+                            <option value="small">Small (1.2% of width)</option>
+                            <option value="medium" selected>Medium (1.8% of width)</option>
+                            <option value="large">Large (2.6% of width)</option>
+                            <option value="xlarge">X-Large (3.5% of width)</option>
+                        </select>
+                    </div>
+
+                    <!-- Position -->
+                    <div class="setting-group">
+                        <span class="s-label">Position</span>
+                        <div class="pos-grid" id="posGrid">
+                            <button class="pos-btn" data-pos="top-left" onclick="setPos(this)">↖ Top L</button>
+                            <button class="pos-btn" data-pos="top-center" onclick="setPos(this)">↑ Top C</button>
+                            <button class="pos-btn" data-pos="top-right" onclick="setPos(this)">↗ Top R</button>
+                            <button class="pos-btn" data-pos="center-left" onclick="setPos(this)">← Mid L</button>
+                            <button class="pos-btn" data-pos="center" onclick="setPos(this)">✛ Center</button>
+                            <button class="pos-btn" data-pos="center-right" onclick="setPos(this)">→ Mid R</button>
+                            <button class="pos-btn" data-pos="bottom-left" onclick="setPos(this)">↙ Bot L</button>
+                            <button class="pos-btn active" data-pos="bottom-right" onclick="setPos(this)">↘ Bot R</button>
+                            <button class="pos-btn" data-pos="bottom-center" onclick="setPos(this)">↓ Bot C</button>
+                        </div>
+                    </div>
+
+                    <!-- Color + Opacity -->
+                    <div class="setting-group">
+                        <span class="s-label">Color & Opacity</span>
+                        <div class="color-row" style="margin-bottom:8px;">
+                            <div class="color-swatch" title="Pick color">
+                                <div class="color-preview" id="colorPreview" style="background:#ffffff;"></div>
+                                <input type="color" id="stampColor" value="#ffffff" oninput="syncColor(this)">
+                            </div>
+                            <div class="range-wrap">
+                                <input type="range" class="s-range" id="stampOpacity" min="10" max="100" value="70" oninput="updatePreview(); document.getElementById('opacityVal').textContent=this.value+'%'">
+                                <span class="range-val" id="opacityVal">70%</span>
+                            </div>
+                        </div>
+                        <span class="s-label" style="margin-top:6px;">Shadow</span>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                            <input type="checkbox" id="stampShadow" checked onchange="updatePreview()" style="accent-color:var(--primary); width:15px; height:15px; cursor:pointer;">
+                            <span style="font-size:0.78rem; color:var(--text-sec);">Drop shadow (improves readability on any bg)</span>
+                        </div>
+                    </div>
+
+                    <!-- Output format -->
+                    <div class="setting-group">
+                        <span class="s-label">Output Format</span>
+                        <select class="s-select" id="outputFmt">
+                            <option value="jpeg">JPG (smaller file)</option>
+                            <option value="png">PNG (lossless)</option>
+                            <option value="webp">WebP (best ratio)</option>
+                        </select>
+                    </div>
+
+                    <!-- Quality -->
+                    <div class="setting-group">
+                        <span class="s-label">JPG/WebP Quality</span>
+                        <div class="range-wrap">
+                            <input type="range" class="s-range" id="outputQuality" min="50" max="100" value="92" oninput="document.getElementById('qualityVal').textContent=this.value+'%'">
+                            <span class="range-val" id="qualityVal">92%</span>
+                        </div>
+                    </div>
+
+                    <!-- Live stamp text preview -->
+                    <div class="setting-group full">
+                        <span class="s-label">Stamp Preview</span>
+                        <div class="stamp-preview-bar">
+                            <span class="stamp-preview-text" id="stampPreviewText">© Your Name 2025</span>
+                            <button class="save-preset-btn" onclick="savePreset()">💾 Save as Preset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved presets -->
+                <div id="presetsArea" style="display:none; margin-top:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span class="presets-label">Saved Presets</span>
+                    </div>
+                    <div class="presets-row" id="presetsList"></div>
+                </div>
+            </div>
+
+            <!-- STATS STRIP -->
+            <div class="stats-strip hidden" id="statsStrip">
+                <div class="stat-pill">Images: <b id="statCount">0</b></div>
+                <div class="stat-pill">Stamped: <b id="statDone">0</b></div>
+                <div class="stat-pill">Stamp: <b id="statStamp">—</b></div>
+            </div>
+
+            <!-- IMAGE TABLE -->
+            <div class="img-table-wrap" id="tableWrap">
+                <div class="table-header">
+                    <span></span>
+                    <span>File</span>
+                    <span>Status</span>
+                    <span class="col-dl">Download</span>
+                </div>
+                <div class="img-rows" id="imgRows"></div>
+            </div>
+
+            <!-- PROGRESS -->
+            <div class="progress-wrap" id="progressWrap">
+                <div class="prog-label">
+                    <span id="progText">Stamping…</span>
+                    <span id="progPct">0%</span>
+                </div>
+                <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="action-row hidden" id="actionRow">
+                <button class="btn-main" id="btnStamp" onclick="startBatch()">
+                    <div class="btn-main-inner">
+                        <span style="font-size:1.1rem;">©</span>
+                        <span style="font-weight:800; font-size:0.95rem;">Stamp All Images</span>
+                    </div>
+                </button>
+                <button class="btn-secondary" id="btnZip" onclick="downloadZip()" disabled>⬇ Download ZIP</button>
+                <button class="btn-ghost" onclick="resetAll()">✕ Clear</button>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="container" style="padding-top:0;">
+            <article class="faq-section">
+                <h2 class="faq-heading">Why photographers love this</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Saved presets — set and forget</h3>
+                        <p>Configure your stamp once — name, font, position, opacity — then save as a preset. Next time you open the tool, load it in one click. No re-typing, ever.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Smart positioning</h3>
+                        <p>9-point grid lets you place your © exactly where you want. <code>Bottom Right</code> is the industry standard — or go centered for editorial watermarks.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Drop shadow for readability</h3>
+                        <p>White stamp on a bright sky, or black stamp on a dark background? The drop shadow option ensures your copyright is readable on any image, every time.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Batch + ZIP — done in seconds</h3>
+                        <p>Upload up to 50 photos, stamp all in one click, download as a ZIP. No per-image clicking. Original filenames preserved with a <code>_stamped</code> suffix.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <!-- PREVIEW MODAL -->
+    <div class="preview-modal" id="previewModal">
+        <div class="preview-inner">
+            <h3>Stamp Preview</h3>
+            <canvas id="previewCanvas"></canvas>
+            <button class="preview-close" onclick="document.getElementById('previewModal').classList.remove('open')">✕ Close</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    const MAX_FILES = 50;
+    let files = []; // { file, resultBlob, status }
+    let stampPos = 'bottom-right';
+
+    // ── INIT ─────────────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('stampYear').value = new Date().getFullYear();
+        loadPresets();
+        updatePreview();
+    });
+
+    // ── DROP ZONE ────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => handleFiles(fi.files));
+
+    function handleFiles(fileList) {
+        const imgs = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+        if (!imgs.length) { showToast('No image files found', 'error'); return; }
+        const toAdd = imgs.slice(0, MAX_FILES - files.length);
+        if (!toAdd.length) { showToast('Already at 50 image limit', 'error'); return; }
+        toAdd.forEach(f => files.push({ file: f, resultBlob: null, status: 'pending' }));
+        dz.style.display = 'none';
+        renderUI();
+        showToast(`${toAdd.length} image${toAdd.length>1?'s':''} loaded`, 'success');
+    }
+
+    function renderUI() {
+        document.getElementById('statsStrip').classList.remove('hidden');
+        document.getElementById('actionRow').classList.remove('hidden');
+        document.getElementById('tableWrap').classList.add('visible');
+        renderRows();
+        updateStats();
+    }
+
+    function renderRows() {
+        const wrap = document.getElementById('imgRows');
+        wrap.innerHTML = '';
+        files.forEach((r, i) => {
+            const row = document.createElement('div');
+            row.className = 'img-row'; row.id = `row-${i}`;
+
+            const thumb = document.createElement('img');
+            thumb.className = 'img-thumb';
+            thumb.src = URL.createObjectURL(r.file);
+
+            const nameCell = document.createElement('div');
+            nameCell.innerHTML = `<div class="img-name-text">${esc(r.file.name)}</div><div class="img-dims-text">${fmtBytes(r.file.size)}</div>`;
+
+            const statusCell = document.createElement('div');
+            statusCell.className = 'status-cell'; statusCell.id = `status-${i}`;
+            statusCell.innerHTML = '<span class="st-pending">Pending</span>';
+
+            const dlWrap = document.createElement('div');
+            dlWrap.style.cssText = 'display:flex;gap:5px;';
+
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'preview-btn-sm'; prevBtn.id = `prevbtn-${i}`;
+            prevBtn.textContent = '👁'; prevBtn.title = 'Preview stamp';
+            prevBtn.onclick = () => showPreview(i);
+
+            const dlBtn = document.createElement('button');
+            dlBtn.className = 'dl-btn-sm'; dlBtn.id = `dlbtn-${i}`;
+            dlBtn.textContent = '⬇ Save';
+            dlBtn.onclick = () => downloadOne(i);
+
+            dlWrap.append(prevBtn, dlBtn);
+            row.append(thumb, nameCell, statusCell, dlWrap);
+            wrap.appendChild(row);
+        });
+    }
+
+    function updateStats() {
+        document.getElementById('statCount').textContent = files.length;
+        document.getElementById('statDone').textContent = files.filter(r => r.status === 'done').length;
+        document.getElementById('statStamp').textContent = getStampText();
+    }
+
+    // ── STAMP CONFIG ─────────────────────────────────────────────────────────
+    function getStampText() {
+        const name = document.getElementById('stampName').value.trim() || 'Your Name';
+        const year = document.getElementById('stampYear').value.trim() || new Date().getFullYear();
+        return `© ${name} ${year}`;
+    }
+
+    function updatePreview() {
+        document.getElementById('stampPreviewText').textContent = getStampText();
+    }
+
+    function syncColor(input) {
+        document.getElementById('colorPreview').style.background = input.value;
+        updatePreview();
+    }
+
+    function setPos(btn) {
+        document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        stampPos = btn.dataset.pos;
+    }
+
+    function getSizeMultiplier() {
+        return { small: 0.012, medium: 0.018, large: 0.026, xlarge: 0.035 }[document.getElementById('stampSize').value] || 0.018;
+    }
+
+    // ── CANVAS STAMP ENGINE ───────────────────────────────────────────────────
+    function stampImage(bmp, w, h) {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bmp, 0, 0, w, h);
+
+        const text = getStampText();
+        const fontSize = Math.max(12, Math.round(w * getSizeMultiplier()));
+        const font = document.getElementById('stampFont').value;
+        const color = document.getElementById('stampColor').value;
+        const opacity = parseInt(document.getElementById('stampOpacity').value) / 100;
+        const shadow = document.getElementById('stampShadow').checked;
+        const pad = Math.round(fontSize * 0.8);
+
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.font = `bold ${fontSize}px ${font}`;
+        ctx.textBaseline = 'bottom';
+
+        const metrics = ctx.measureText(text);
+        const tw = metrics.width;
+        const th = fontSize;
+
+        // Resolve x
+        let x, textAlign;
+        if (stampPos.includes('left')) { x = pad; textAlign = 'left'; }
+        else if (stampPos.includes('right')) { x = w - pad; textAlign = 'right'; }
+        else { x = w / 2; textAlign = 'center'; }
+
+        // Resolve y
+        let y;
+        if (stampPos.includes('top')) { y = th + pad; ctx.textBaseline = 'top'; y = pad; }
+        else if (stampPos.includes('bottom')) { y = h - pad; ctx.textBaseline = 'bottom'; }
+        else { y = h / 2 + th / 2; ctx.textBaseline = 'bottom'; }
+
+        ctx.textAlign = textAlign;
+
+        if (shadow) {
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = Math.max(4, fontSize * 0.35);
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+        }
+
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+        ctx.restore();
+
+        return canvas;
+    }
+
+    async function processOne(r) {
+        const bmp = await createImageBitmap(r.file);
+        const canvas = stampImage(bmp, bmp.width, bmp.height);
+        bmp.close();
+        const fmt = document.getElementById('outputFmt').value;
+        const mime = fmt === 'webp' ? 'image/webp' : fmt === 'png' ? 'image/png' : 'image/jpeg';
+        const quality = parseInt(document.getElementById('outputQuality').value) / 100;
+        return new Promise(res => canvas.toBlob(blob => res(blob), mime, quality));
+    }
+
+    // ── BATCH ─────────────────────────────────────────────────────────────────
+    async function startBatch() {
+        if (!files.length) return;
+        const name = document.getElementById('stampName').value.trim();
+        if (!name) { showToast('Enter your name or brand first', 'error'); document.getElementById('stampName').focus(); return; }
+
+        const btn = document.getElementById('btnStamp');
+        btn.disabled = true;
+        document.getElementById('progressWrap').classList.add('visible');
+        document.getElementById('btnZip').disabled = true;
+
+        for (let i = 0; i < files.length; i++) {
+            const r = files[i];
+            setRowStatus(i, 'processing', '⏳ Stamping…');
+            try {
+                r.resultBlob = await processOne(r);
+                r.status = 'done';
+                setRowStatus(i, 'done', '✓ Done');
+                const dlBtn = document.getElementById(`dlbtn-${i}`);
+                const prevBtn = document.getElementById(`prevbtn-${i}`);
+                if (dlBtn) dlBtn.classList.add('visible');
+                if (prevBtn) prevBtn.classList.add('visible');
+            } catch(e) {
+                r.status = 'error';
+                setRowStatus(i, 'error', 'Failed');
+            }
+            const pct = Math.round((i + 1) / files.length * 100);
+            document.getElementById('progFill').style.width = pct + '%';
+            document.getElementById('progPct').textContent = pct + '%';
+            document.getElementById('progText').textContent = `Stamping ${i+1} of ${files.length}…`;
+            updateStats();
+        }
+
+        document.getElementById('progText').textContent = 'All done!';
+        btn.disabled = false;
+        document.getElementById('btnZip').disabled = false;
+        showToast('All images stamped! Download ZIP or save individually.', 'success');
+    }
+
+    function setRowStatus(i, type, msg) {
+        const cell = document.getElementById(`status-${i}`);
+        if (!cell) return;
+        const cls = { processing:'st-processing', done:'st-done', error:'st-error' }[type] || 'st-pending';
+        cell.innerHTML = `<span class="${cls}">${msg}</span>`;
+    }
+
+    // ── PREVIEW MODAL ─────────────────────────────────────────────────────────
+    async function showPreview(i) {
+        const r = files[i];
+        if (!r.resultBlob) {
+            // Live preview from original
+            const bmp = await createImageBitmap(r.file);
+            const canvas = stampImage(bmp, bmp.width, bmp.height);
+            bmp.close();
+            const pc = document.getElementById('previewCanvas');
+            pc.width = canvas.width; pc.height = canvas.height;
+            pc.getContext('2d').drawImage(canvas, 0, 0);
+        } else {
+            const img = new Image();
+            img.onload = () => {
+                const pc = document.getElementById('previewCanvas');
+                pc.width = img.width; pc.height = img.height;
+                pc.getContext('2d').drawImage(img, 0, 0);
+            };
+            img.src = URL.createObjectURL(r.resultBlob);
+        }
+        document.getElementById('previewModal').classList.add('open');
+    }
+
+    // ── DOWNLOAD ──────────────────────────────────────────────────────────────
+    function downloadOne(i) {
+        const r = files[i];
+        if (!r.resultBlob) return;
+        const ext = { jpeg:'jpg', png:'png', webp:'webp' }[document.getElementById('outputFmt').value] || 'jpg';
+        const base = r.file.name.replace(/\.[^.]+$/, '');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(r.resultBlob);
+        a.download = `${base}_stamped.${ext}`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+
+    async function downloadZip() {
+        const done = files.filter(r => r.resultBlob);
+        if (!done.length) { showToast('Nothing stamped yet', 'error'); return; }
+        showToast('Building ZIP…');
+        const zip = new JSZip();
+        const ext = { jpeg:'jpg', png:'png', webp:'webp' }[document.getElementById('outputFmt').value] || 'jpg';
+        done.forEach(r => {
+            const base = r.file.name.replace(/\.[^.]+$/, '');
+            zip.file(`${base}_stamped.${ext}`, r.resultBlob);
+        });
+        const blob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:1} });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Rebrixe_stamped_${Date.now()}.zip`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+        showToast(`ZIP with ${done.length} files downloaded!`, 'success');
+    }
+
+    function resetAll() {
+        files = [];
+        document.getElementById('statsStrip').classList.add('hidden');
+        document.getElementById('actionRow').classList.add('hidden');
+        document.getElementById('tableWrap').classList.remove('visible');
+        document.getElementById('progressWrap').classList.remove('visible');
+        document.getElementById('imgRows').innerHTML = '';
+        document.getElementById('progFill').style.width = '0%';
+        dz.style.display = '';
+        fi.value = '';
+    }
+
+    // ── PRESETS ───────────────────────────────────────────────────────────────
+    function savePreset() {
+        const name = document.getElementById('stampName').value.trim();
+        if (!name) { showToast('Enter a name first', 'error'); return; }
+        const preset = {
+            id: Date.now(),
+            name,
+            year: document.getElementById('stampYear').value,
+            font: document.getElementById('stampFont').value,
+            size: document.getElementById('stampSize').value,
+            color: document.getElementById('stampColor').value,
+            opacity: document.getElementById('stampOpacity').value,
+            shadow: document.getElementById('stampShadow').checked,
+            pos: stampPos
+        };
+        const presets = loadPresetsRaw();
+        presets.push(preset);
+        try { localStorage.setItem('Rebrixe_copyright_presets', JSON.stringify(presets)); } catch(e) {}
+        renderPresets(presets);
+        showToast(`Preset "${name} ${preset.year}" saved!`, 'success');
+    }
+
+    function loadPresetsRaw() {
+        try { return JSON.parse(localStorage.getItem('Rebrixe_copyright_presets') || '[]'); } catch(e) { return []; }
+    }
+
+    function loadPresets() { renderPresets(loadPresetsRaw()); }
+
+    function renderPresets(presets) {
+        const area = document.getElementById('presetsArea');
+        const list = document.getElementById('presetsList');
+        if (!presets.length) { area.style.display = 'none'; return; }
+        area.style.display = 'block';
+        list.innerHTML = '';
+        presets.forEach(p => {
+            const tag = document.createElement('div');
+            tag.className = 'preset-tag';
+            tag.title = `Click to load: © ${p.name} ${p.year}`;
+            tag.innerHTML = `<span onclick="applyPreset(${p.id})">© ${p.name} ${p.year}</span><span class="preset-del" onclick="deletePreset(${p.id},event)" title="Delete">✕</span>`;
+            list.appendChild(tag);
+        });
+    }
+
+    function applyPreset(id) {
+        const p = loadPresetsRaw().find(x => x.id === id);
+        if (!p) return;
+        document.getElementById('stampName').value = p.name;
+        document.getElementById('stampYear').value = p.year;
+        document.getElementById('stampFont').value = p.font;
+        document.getElementById('stampSize').value = p.size;
+        document.getElementById('stampColor').value = p.color;
+        document.getElementById('colorPreview').style.background = p.color;
+        document.getElementById('stampOpacity').value = p.opacity;
+        document.getElementById('opacityVal').textContent = p.opacity + '%';
+        document.getElementById('stampShadow').checked = p.shadow;
+        stampPos = p.pos;
+        document.querySelectorAll('.pos-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.pos === p.pos);
+        });
+        updatePreview();
+        showToast(`Preset loaded!`, 'success');
+    }
+
+    function deletePreset(id, e) {
+        e.stopPropagation();
+        const presets = loadPresetsRaw().filter(x => x.id !== id);
+        try { localStorage.setItem('Rebrixe_copyright_presets', JSON.stringify(presets)); } catch(e) {}
+        renderPresets(presets);
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (!b) return '—';
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function esc(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function showToast(msg, type='') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

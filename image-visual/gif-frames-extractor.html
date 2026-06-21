@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GIF to Frames Extractor — Extract Every Frame as PNG | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Extract every frame from any GIF as individual PNG images. See frame delays, preview all frames, download selected or all as ZIP. Free, browser-only — nothing uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .gif-thumb-wrap { position: relative; flex-shrink: 0; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); display: block; }
+        .gif-badge { position: absolute; bottom: -4px; right: -4px; background: var(--primary); color: #000; font-size: 0.5rem; font-weight: 900; padding: 2px 5px; border-radius: 4px; letter-spacing: 0.5px; }
+        .img-meta { flex: 1; min-width: 140px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Stats row */
+        .stats-strip { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Controls */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .controls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Range */
+        .range-group { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 180px; }
+        .range-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); white-space: nowrap; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .range-val { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 28px; text-align: right; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+        .btn-main { flex: 1; min-width: 160px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 800; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+        .btn-secondary:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #progressText { flex: 1; }
+        .progress-bar-wrap { height: 3px; background: rgba(255,214,0,0.12); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--primary); border-radius: 99px; transition: width 0.15s; width: 0%; }
+
+        /* Frames grid */
+        .frames-panel { display: none; }
+        .frames-panel.visible { display: block; }
+
+        .frames-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .frames-toolbar h2 { font-size: 0.9rem; font-weight: 800; color: var(--text); flex: 1; }
+        .frame-count-badge { font-size: 0.7rem; font-weight: 700; color: var(--primary); background: var(--primary-dim); border: 1px solid var(--primary-border); padding: 3px 10px; border-radius: 99px; }
+
+        .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.75rem; color: var(--text-sec); font-weight: 600; }
+        .select-all-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .select-all-row input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
+        .sel-count { color: var(--text-dim); font-family: 'Fira Code', monospace; }
+
+        /* Preview playback */
+        .preview-bar { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .preview-canvas-wrap { border-radius: 8px; overflow: hidden; border: 1px solid var(--border-mid); flex-shrink: 0; background: #000; }
+        #previewCanvas { display: block; max-width: 80px; max-height: 60px; }
+        .preview-info { flex: 1; min-width: 120px; }
+        .preview-info p { font-size: 0.72rem; color: var(--text-sec); margin-bottom: 4px; font-weight: 600; }
+        .preview-info .frame-indicator { font-size: 0.78rem; font-family: 'Fira Code', monospace; color: var(--primary); }
+        .playback-btns { display: flex; gap: 6px; }
+        .play-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-sec); font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; font-family: 'Outfit', sans-serif; }
+        .play-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+        .play-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .speed-tog { display: flex; gap: 4px; }
+        .speed-chip { padding: 5px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Fira Code', monospace; font-size: 0.64rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .speed-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Frames grid */
+        .frames-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .frame-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; transition: all 0.18s; position: relative; }
+        .frame-card:hover { border-color: var(--border-mid); transform: translateY(-2px); }
+        .frame-card.selected { border-color: var(--primary-border); background: var(--primary-dim); }
+        .frame-card.selected .frame-thumb-wrap::after { content: '✓'; position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 900; color: #000; z-index: 2; }
+        .frame-thumb-wrap { position: relative; aspect-ratio: 1; background: repeating-conic-gradient(#1e1c17 0% 25%, #252319 0% 50%) 0 0 / 12px 12px; }
+        .frame-thumb-wrap canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .frame-info { padding: 6px 8px; }
+        .frame-num { font-size: 0.62rem; font-weight: 800; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .frame-delay { font-size: 0.6rem; color: var(--text-dim); margin-top: 1px; }
+        .frame-dl { position: absolute; top: 5px; left: 5px; width: 22px; height: 22px; background: rgba(0,0,0,0.7); border: 1px solid var(--border-mid); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--text-dim); opacity: 0; transition: opacity 0.18s; cursor: pointer; z-index: 3; }
+        .frame-card:hover .frame-dl { opacity: 1; }
+        .frame-dl:hover { background: rgba(255,214,0,0.15); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Download actions */
+        .download-bar { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+        .dl-info { flex: 1; min-width: 140px; }
+        .dl-info p { font-size: 0.78rem; color: var(--text-sec); font-weight: 600; }
+        .dl-info span { font-size: 0.72rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .dl-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 560px) {
+            .frames-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+            .action-row { flex-direction: column; }
+            .download-bar { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="gif-animation.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">GIF to Frames</h1>
+                <p class="tool-page-sub">Extract every frame from a GIF as individual PNGs. Preview, pick, download all or selected as a ZIP.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept=".gif,image/gif">
+                <span class="drop-icon">🎞️</span>
+                <p class="drop-title">Drop a GIF here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> · GIF only</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <div class="gif-thumb-wrap">
+                        <img class="img-thumb" id="imgThumb" src="" alt="">
+                        <span class="gif-badge">GIF</span>
+                    </div>
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Options -->
+                <div class="controls-card">
+                    <div class="section-label">Options</div>
+                    <div class="controls-row">
+                        <div class="range-group">
+                            <span class="range-label">Frame Step</span>
+                            <input type="range" class="ctrl-slider" id="stepSlider" min="1" max="10" value="1" oninput="document.getElementById('stepVal').textContent=this.value">
+                            <span class="range-val" id="stepVal">1</span>
+                        </div>
+                        <span style="font-size:0.7rem;color:var(--text-dim)">every Nth frame</span>
+                        <button class="tog-btn active" id="scaleToggle" onclick="toggleScale(this)">Keep original size</button>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <div style="flex:1">
+                        <div id="progressText">Decoding GIF frames…</div>
+                        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-main" id="btnExtract" onclick="doExtract()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎞️</span>
+                            <span style="font-weight:800;font-size:0.95rem">Extract Frames</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Frames panel -->
+                <div class="frames-panel" id="framesPanel">
+
+                    <!-- Mini preview player -->
+                    <div class="preview-bar">
+                        <div class="preview-canvas-wrap">
+                            <canvas id="previewCanvas" width="80" height="60"></canvas>
+                        </div>
+                        <div class="preview-info">
+                            <p>Preview playback</p>
+                            <div class="frame-indicator" id="frameIndicator">Frame 1 / 1</div>
+                        </div>
+                        <div class="playback-btns">
+                            <button class="play-btn" onclick="stepFrame(-1)" title="Previous">◀</button>
+                            <button class="play-btn" id="btnPlay" onclick="togglePlay()" title="Play/Pause">▶</button>
+                            <button class="play-btn" onclick="stepFrame(1)" title="Next">▶|</button>
+                        </div>
+                        <div class="speed-tog">
+                            <button class="speed-chip" onclick="setSpeed(0.5,this)">0.5×</button>
+                            <button class="speed-chip active" onclick="setSpeed(1,this)">1×</button>
+                            <button class="speed-chip" onclick="setSpeed(2,this)">2×</button>
+                        </div>
+                    </div>
+
+                    <!-- Frames grid header -->
+                    <div class="frames-toolbar">
+                        <h2>Extracted Frames</h2>
+                        <span class="frame-count-badge" id="frameCountBadge">0 frames</span>
+                    </div>
+
+                    <div class="select-all-row">
+                        <label>
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)"> Select all
+                        </label>
+                        <span class="sel-count" id="selCount">0 selected</span>
+                    </div>
+
+                    <div class="frames-grid" id="framesGrid"></div>
+
+                    <!-- Download bar -->
+                    <div class="download-bar">
+                        <div class="dl-info">
+                            <p id="dlInfoText">Select frames to download</p>
+                            <span id="dlInfoSub">ZIP will contain numbered PNGs</span>
+                        </div>
+                        <div class="dl-btns">
+                            <button class="btn-secondary" id="btnDlSelected" onclick="downloadSelected()" disabled>⬇ Download Selected</button>
+                            <button class="btn-secondary" id="btnDlAll" onclick="downloadAll()" disabled>⬇ Download All as ZIP</button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Pure browser decoding</h3>
+                        <p>The GIF is parsed entirely in JavaScript using the Canvas API. Each frame is drawn and captured as a PNG — no servers, no uploads, no account needed.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Frame step for large GIFs</h3>
+                        <p>The <code>Frame Step</code> option lets you grab every Nth frame. Set it to <code>2</code> to halve the frame count, useful for long GIFs with hundreds of frames.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Select only what you need</h3>
+                        <p>Click frames to select them individually. Use the checkbox to select all, then download just your picks as a ZIP — saves time for editors who need specific moments.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Frame delay is shown</h3>
+                        <p>Each frame card shows its original delay in <code>ms</code>. This helps when you need to rebuild the animation or match frame timing in your video editor.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <!-- GIF parsing library (omggif) via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/omggif/1.0.10/omggif.min.js"></script>
+    <!-- JSZip for downloading as ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null;
+    let frames = []; // { canvas, delay }
+    let selectedFrames = new Set();
+    let playInterval = null;
+    let playFrame = 0;
+    let playSpeed = 1;
+    let keepScale = true;
+    let gifBaseName = 'frame';
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && (f.type === 'image/gif' || f.name.toLowerCase().endsWith('.gif'))) loadFile(f);
+        else showToast('Please drop a GIF file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        gifBaseName = file.name.replace(/\.gif$/i, '');
+        const url = URL.createObjectURL(file);
+        document.getElementById('imgThumb').src = url;
+        document.getElementById('imgName').textContent = file.name;
+        document.getElementById('imgDims').textContent = fmtBytes(file.size) + ' · ready to extract';
+        dz.style.display = 'none';
+        document.getElementById('toolPanel').classList.add('visible');
+        document.getElementById('framesPanel').classList.remove('visible');
+        frames = []; selectedFrames.clear(); stopPlay();
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; frames = []; selectedFrames.clear(); stopPlay();
+    }
+
+    function toggleScale(btn) {
+        keepScale = !keepScale;
+        btn.textContent = keepScale ? 'Keep original size' : 'Fit to 300px';
+        btn.classList.toggle('active', keepScale);
+    }
+
+    // ─── EXTRACT ───────────────────────────────────────────────────────────────
+    function doExtract() {
+        if (!origFile) return;
+        const step = parseInt(document.getElementById('stepSlider').value);
+
+        document.getElementById('processing').classList.add('visible');
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressText').textContent = 'Reading GIF…';
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const buf = e.target.result;
+                const arr = new Uint8Array(buf);
+                const gr = new GifReader(arr);
+                const totalFrames = gr.numFrames();
+                const w = gr.width, h = gr.height;
+
+                document.getElementById('imgDims').textContent = `${w} × ${h} px · ${totalFrames} frames · ${fmtBytes(origFile.size)}`;
+
+                frames = [];
+                selectedFrames.clear();
+
+                // Decode frames in chunks to avoid blocking UI
+                let i = 0;
+                const prevPixels = new Uint8ClampedArray(w * h * 4);
+
+                function decodeChunk() {
+                    const end = Math.min(i + 4, totalFrames);
+                    while (i < end) {
+                        if (i % step === 0) {
+                            const info = gr.frameInfo(i);
+                            const pixels = new Uint8ClampedArray(w * h * 4);
+
+                            // GIF disposal: handle compositing
+                            const disp = info.disposal;
+                            if (disp === 0 || disp === 1) {
+                                // Keep previous
+                                pixels.set(prevPixels);
+                            } else if (disp === 2) {
+                                // Restore to background — clear
+                                pixels.fill(0);
+                            } else {
+                                pixels.set(prevPixels);
+                            }
+
+                            gr.decodeAndBlitFrameRGBA(i, pixels);
+
+                            const c = document.createElement('canvas');
+                            const maxSz = keepScale ? Math.max(w, h) : 300;
+                            const scale = keepScale ? 1 : Math.min(1, 300 / Math.max(w, h));
+                            c.width = Math.round(w * scale);
+                            c.height = Math.round(h * scale);
+                            const ctx = c.getContext('2d');
+
+                            const id = new ImageData(pixels, w, h);
+                            const tmp = document.createElement('canvas');
+                            tmp.width = w; tmp.height = h;
+                            tmp.getContext('2d').putImageData(id, 0, 0);
+                            ctx.drawImage(tmp, 0, 0, c.width, c.height);
+
+                            prevPixels.set(pixels);
+                            frames.push({ canvas: c, delay: (info.delay || 10) * 10 });
+                        }
+                        i++;
+                    }
+
+                    const pct = Math.round(i / totalFrames * 100);
+                    document.getElementById('progressBar').style.width = pct + '%';
+                    document.getElementById('progressText').textContent = `Decoding frame ${i} of ${totalFrames}…`;
+
+                    if (i < totalFrames) {
+                        requestAnimationFrame(decodeChunk);
+                    } else {
+                        finishExtract();
+                    }
+                }
+                decodeChunk();
+
+            } catch(err) {
+                document.getElementById('processing').classList.remove('visible');
+                showToast('Could not parse GIF — file may be corrupted', 'error');
+            }
+        };
+        reader.readAsArrayBuffer(origFile);
+    }
+
+    function finishExtract() {
+        document.getElementById('processing').classList.remove('visible');
+        document.getElementById('framesPanel').classList.add('visible');
+        document.getElementById('frameCountBadge').textContent = frames.length + ' frames';
+
+        // Enable download buttons
+        document.getElementById('btnDlAll').disabled = false;
+
+        // Select all by default
+        selectedFrames = new Set(frames.map((_, i) => i));
+        document.getElementById('selectAll').checked = true;
+        updateSelCount();
+
+        renderGrid();
+        setupPreview();
+        document.getElementById('framesPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast(`${frames.length} frames extracted ✓`, 'success');
+    }
+
+    // ─── GRID ──────────────────────────────────────────────────────────────────
+    function renderGrid() {
+        const grid = document.getElementById('framesGrid');
+        grid.innerHTML = '';
+        frames.forEach((f, i) => {
+            const card = document.createElement('div');
+            card.className = 'frame-card' + (selectedFrames.has(i) ? ' selected' : '');
+            card.dataset.idx = i;
+            card.onclick = e => { if (e.target.classList.contains('frame-dl')) return; toggleSelect(i, card); };
+
+            const wrap = document.createElement('div');
+            wrap.className = 'frame-thumb-wrap';
+
+            const tc = document.createElement('canvas');
+            const maxDim = 120;
+            const scale = Math.min(1, maxDim / Math.max(f.canvas.width, f.canvas.height));
+            tc.width = Math.round(f.canvas.width * scale);
+            tc.height = Math.round(f.canvas.height * scale);
+            tc.getContext('2d').drawImage(f.canvas, 0, 0, tc.width, tc.height);
+            wrap.appendChild(tc);
+
+            const dlBtn = document.createElement('div');
+            dlBtn.className = 'frame-dl';
+            dlBtn.title = 'Download this frame';
+            dlBtn.textContent = '⬇';
+            dlBtn.onclick = () => downloadSingle(i);
+            wrap.appendChild(dlBtn);
+
+            const info = document.createElement('div');
+            info.className = 'frame-info';
+            info.innerHTML = `<div class="frame-num">#${String(i+1).padStart(3,'0')}</div><div class="frame-delay">${f.delay}ms</div>`;
+
+            card.appendChild(wrap);
+            card.appendChild(info);
+            grid.appendChild(card);
+        });
+    }
+
+    function toggleSelect(idx, card) {
+        if (selectedFrames.has(idx)) {
+            selectedFrames.delete(idx);
+            card.classList.remove('selected');
+        } else {
+            selectedFrames.add(idx);
+            card.classList.add('selected');
+        }
+        updateSelCount();
+    }
+
+    function toggleSelectAll(checked) {
+        if (checked) selectedFrames = new Set(frames.map((_, i) => i));
+        else selectedFrames.clear();
+        document.querySelectorAll('.frame-card').forEach((c, i) => {
+            c.classList.toggle('selected', checked);
+        });
+        updateSelCount();
+    }
+
+    function updateSelCount() {
+        const n = selectedFrames.size;
+        document.getElementById('selCount').textContent = n + ' selected';
+        document.getElementById('dlInfoText').textContent = n > 0 ? `${n} frame${n>1?'s':''} selected` : 'Select frames to download';
+        document.getElementById('btnDlSelected').disabled = n === 0;
+        document.getElementById('selectAll').checked = n === frames.length && n > 0;
+        document.getElementById('selectAll').indeterminate = n > 0 && n < frames.length;
+    }
+
+    // ─── PREVIEW PLAYER ────────────────────────────────────────────────────────
+    let previewIdx = 0;
+
+    function setupPreview() {
+        previewIdx = 0;
+        renderPreviewFrame();
+    }
+
+    function renderPreviewFrame() {
+        if (!frames.length) return;
+        const f = frames[previewIdx];
+        const pc = document.getElementById('previewCanvas');
+        pc.width = f.canvas.width;
+        pc.height = f.canvas.height;
+        pc.getContext('2d').drawImage(f.canvas, 0, 0);
+        document.getElementById('frameIndicator').textContent = `Frame ${previewIdx + 1} / ${frames.length}`;
+    }
+
+    function stepFrame(dir) {
+        stopPlay();
+        previewIdx = (previewIdx + dir + frames.length) % frames.length;
+        renderPreviewFrame();
+    }
+
+    function togglePlay() {
+        if (playInterval) { stopPlay(); return; }
+        document.getElementById('btnPlay').textContent = '⏸';
+        document.getElementById('btnPlay').classList.add('active');
+        function tick() {
+            previewIdx = (previewIdx + 1) % frames.length;
+            renderPreviewFrame();
+            const delay = Math.max(20, frames[previewIdx].delay / playSpeed);
+            playInterval = setTimeout(tick, delay);
+        }
+        playInterval = setTimeout(tick, Math.max(20, frames[previewIdx].delay / playSpeed));
+    }
+
+    function stopPlay() {
+        clearTimeout(playInterval); playInterval = null;
+        document.getElementById('btnPlay').textContent = '▶';
+        document.getElementById('btnPlay').classList.remove('active');
+    }
+
+    function setSpeed(s, btn) {
+        playSpeed = s;
+        document.querySelectorAll('.speed-chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    // ─── DOWNLOADS ─────────────────────────────────────────────────────────────
+    function downloadSingle(idx) {
+        const f = frames[idx];
+        f.canvas.toBlob(blob => {
+            saveAs(blob, `${gifBaseName}_frame_${String(idx+1).padStart(3,'0')}.png`);
+        }, 'image/png');
+    }
+
+    async function downloadSelected() {
+        const idxs = Array.from(selectedFrames).sort((a,b) => a-b);
+        if (!idxs.length) return;
+        if (idxs.length === 1) { downloadSingle(idxs[0]); return; }
+        await buildZip(idxs, `${gifBaseName}_selected_frames.zip`);
+    }
+
+    async function downloadAll() {
+        const idxs = frames.map((_, i) => i);
+        await buildZip(idxs, `${gifBaseName}_all_frames.zip`);
+    }
+
+    async function buildZip(idxs, filename) {
+        showToast('Building ZIP…');
+        const zip = new JSZip();
+        const folder = zip.folder('frames');
+
+        // Convert canvases to blobs sequentially
+        for (const idx of idxs) {
+            const blob = await canvasToBlob(frames[idx].canvas);
+            folder.file(`${gifBaseName}_frame_${String(idx+1).padStart(3,'0')}.png`, blob);
+        }
+
+        const content = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        saveAs(content, filename);
+        showToast(`Downloaded ${idxs.length} frames ✓`, 'success');
+    }
+
+    function canvasToBlob(canvas) {
+        return new Promise(res => canvas.toBlob(res, 'image/png'));
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

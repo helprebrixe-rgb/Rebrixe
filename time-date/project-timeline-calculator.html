@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Timeline Calculator | Rebrixe</title>
+    <meta name="description" content="Enter your project start date, end date, and milestones — get an instant Gantt-style visual breakdown with duration, working days, and phase planning.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── CSS variable fallbacks (standalone safety) ── */
+        :root {
+            --border: #1e293b;
+            --primary: #7dd3fc;
+        }
+
+        /* ── Layout ── */
+        .tool-wrap { max-width: 960px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+            margin-bottom: 16px;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 12px;
+            margin-top: 4px;
+        }
+
+        /* ── Project header row ── */
+        .project-name-row { margin-bottom: 20px; }
+
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        input[type="text"],
+        input[type="date"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        input[type="text"]:focus,
+        input[type="date"]:focus { border-color: var(--primary); }
+        input[type="text"]::placeholder { color: #334155; }
+
+        /* ── Date row ── */
+        .date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        /* ── Stats strip ── */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        .stat-num.accent { color: var(--primary); }
+        .stat-lbl {
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #475569;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
+        /* ── Milestone / Phase builder ── */
+        .milestone-add-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 14px;
+        }
+
+        .color-pick-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .color-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform .15s, border-color .15s;
+            flex-shrink: 0;
+        }
+        .color-dot.selected { border-color: #fff; transform: scale(1.25); }
+
+        .btn-add {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            color: #000;
+            padding: 14px 20px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .2s, letter-spacing .2s;
+        }
+        .btn-add:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        /* Milestone / Phase list */
+        .item-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: border-color .15s;
+        }
+        .list-item:hover { border-color: #334155; }
+        .item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .item-dot.square { border-radius: 3px; }
+        .item-name { font-size: 0.88rem; color: #cbd5e1; flex: 1; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-date { font-size: 0.78rem; color: #64748b; font-family: 'Outfit', sans-serif; font-weight: 700; white-space: nowrap; }
+        .item-badge {
+            font-size: 0.72rem;
+            color: #475569;
+            white-space: nowrap;
+            padding: 3px 8px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .item-del {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 2px 6px;
+            transition: color .15s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .item-del:hover { color: #ef4444; }
+
+        /* ── Gantt ── */
+        .gantt-wrap {
+            overflow-x: auto;
+        }
+        /* The gantt-inner sets up a relative container so today-line can span all rows */
+        .gantt-inner {
+            min-width: 560px;
+            position: relative;
+        }
+
+        /* Month header row */
+        .gantt-header {
+            height: 20px;
+            position: relative;
+            margin-left: 140px;
+            margin-bottom: 8px;
+            overflow: visible;
+        }
+        .gantt-month-label {
+            position: absolute;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #475569;
+            font-weight: 700;
+            white-space: nowrap;
+            transform: translateX(-50%);
+        }
+
+        /* Gantt rows area – today line spans this */
+        .gantt-rows-area {
+            position: relative;
+        }
+
+        /* Today vertical line – spans entire rows area */
+        .gantt-today-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: rgba(251,191,36,0.55);
+            z-index: 10;
+            pointer-events: none;
+        }
+        .gantt-today-label {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.55rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fbbf24;
+            white-space: nowrap;
+        }
+
+        /* Rows */
+        .gantt-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+        .gantt-row-label {
+            width: 130px;
+            min-width: 130px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 10px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .gantt-row-label.main { color: #fff; font-weight: 700; }
+        .gantt-row-track {
+            flex: 1;
+            height: 28px;
+            position: relative;
+        }
+
+        /* Bar */
+        .gantt-bar {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            overflow: hidden;
+            min-width: 4px;
+            box-sizing: border-box;
+        }
+        .gantt-bar-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: rgba(0,0,0,0.75);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: 0.5px;
+        }
+
+        /* Milestone diamond */
+        .gantt-diamond {
+            position: absolute;
+            top: 50%;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            transform: translate(-50%, -50%) rotate(45deg);
+            z-index: 5;
+        }
+
+        /* ── Phase builder ── */
+        .phase-add-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 14px;
+        }
+
+        /* ── Action buttons ── */
+        .action-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .2s;
+            min-width: 100px;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            color: #000;
+        }
+        .btn-action.primary:hover { background: linear-gradient(135deg, #7a8384, #d0dadb); }
+
+        /* ── Health badge ── */
+        .health-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 4px;
+            background: rgba(255,255,255,0.02);
+            flex-wrap: wrap;
+        }
+        .health-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 4px 14px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .hb-tight { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .hb-ok    { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .hb-good  { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+        .health-text { font-size: 0.85rem; color: #94a3b8; }
+        .health-text strong { color: #fff; }
+
+        /* ── Validation message ── */
+        .val-msg {
+            font-size: 0.78rem;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(239,68,68,0.3);
+            background: rgba(239,68,68,0.08);
+            color: #f87171;
+        }
+
+        /* ── Empty state ── */
+        .empty-hint {
+            text-align: center;
+            padding: 40px 20px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+        .empty-hint .big { font-size: 2rem; display: block; margin-bottom: 10px; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            z-index: 9999;
+            transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { color: #4ade80; border-color: rgba(74,222,128,0.3); }
+        .toast.error   { color: #f87171; border-color: rgba(248,113,113,0.3); }
+
+        /* ── Tabs ── */
+        .tab-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 4px;
+        }
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #64748b;
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+        }
+        .tab-btn.active { background: rgba(255,255,255,0.07); color: #fff; }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 20px; }
+            .date-row { grid-template-columns: 1fr; }
+            .stats-strip { grid-template-columns: repeat(2, 1fr); }
+            .milestone-add-row { grid-template-columns: 1fr 1fr; }
+            .milestone-add-row .btn-add { grid-column: 1 / -1; }
+            .phase-add-row { grid-template-columns: 1fr 1fr; }
+            .phase-add-row .btn-add { grid-column: 1 / -1; }
+            .action-row { flex-direction: column; }
+            .gantt-row-label { width: 90px; min-width: 90px; font-size: 0.68rem; }
+            .gantt-header { margin-left: 90px; }
+        }
+
+        /* ── Print styles ── */
+        @media print {
+            nav, footer, .back-btn, .tab-row, .milestone-add-row,
+            .phase-add-row, .btn-add, .action-row, .item-del, header p { display: none !important; }
+            body { background: #fff !important; color: #000 !important; }
+            .tool-card { border: 1px solid #ccc !important; background: #fff !important; break-inside: avoid; }
+            .gantt-row-label { color: #333 !important; }
+            .stat-num { color: #000 !important; }
+            .stat-lbl, .section-label { color: #555 !important; }
+            h1 { color: #000 !important; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="date-calculators.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Project Timeline Calculator
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Enter start, end &amp; milestones — get a live Gantt chart, duration stats, and health check.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- ── SETUP CARD ── -->
+            <div class="tool-card">
+                <div class="section-label">Project Setup</div>
+
+                <div class="project-name-row">
+                    <span class="field-label">Project Name</span>
+                    <input type="text" id="projectName" placeholder="e.g. Product Launch Q3" oninput="render()">
+                </div>
+
+                <div class="date-row">
+                    <div>
+                        <span class="field-label">Start Date</span>
+                        <input type="date" id="startDate" oninput="render()">
+                    </div>
+                    <div>
+                        <span class="field-label">End / Deadline</span>
+                        <input type="date" id="endDate" oninput="render()">
+                    </div>
+                </div>
+
+                <div id="statsStrip" class="stats-strip" style="display:none;">
+                    <div class="stat-cell">
+                        <div class="stat-num accent" id="sTotalDays">—</div>
+                        <div class="stat-lbl">Total Days</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-num" id="sWorkDays">—</div>
+                        <div class="stat-lbl">Working Days</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-num" id="sWeeks">—</div>
+                        <div class="stat-lbl">Weeks</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-num" id="sDaysLeft">—</div>
+                        <div class="stat-lbl">Days Left / Over</div>
+                    </div>
+                </div>
+
+                <div id="healthBar" class="health-bar" style="display:none;"></div>
+            </div>
+
+            <!-- ── MILESTONES + PHASES CARD ── -->
+            <div class="tool-card">
+                <div class="tab-row">
+                    <button class="tab-btn active" onclick="switchTab('milestones', this)">🏁 Milestones</button>
+                    <button class="tab-btn" onclick="switchTab('phases', this)">📦 Phases</button>
+                </div>
+
+                <!-- Milestones tab -->
+                <div id="tab-milestones" class="tab-panel active">
+                    <div class="section-label">Add Milestone</div>
+                    <div class="milestone-add-row">
+                        <div>
+                            <span class="field-label">Milestone Name</span>
+                            <input type="text" id="mName" placeholder="e.g. Design Review">
+                        </div>
+                        <div>
+                            <span class="field-label">Date</span>
+                            <input type="date" id="mDate">
+                        </div>
+                        <div>
+                            <span class="field-label">Color</span>
+                            <div class="color-pick-row" id="mColorPicker"></div>
+                        </div>
+                    </div>
+                    <button class="btn-add" onclick="addMilestone()">+ Add Milestone</button>
+                    <div id="milestoneList" class="item-list"></div>
+                </div>
+
+                <!-- Phases tab -->
+                <div id="tab-phases" class="tab-panel">
+                    <div class="section-label">Add Phase</div>
+                    <div class="phase-add-row">
+                        <div>
+                            <span class="field-label">Phase Name</span>
+                            <input type="text" id="phName" placeholder="e.g. Development">
+                        </div>
+                        <div>
+                            <span class="field-label">Phase Start</span>
+                            <input type="date" id="phStart">
+                        </div>
+                        <div>
+                            <span class="field-label">Phase End</span>
+                            <input type="date" id="phEnd">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <span class="field-label">Color</span>
+                            <div class="color-pick-row" id="phColorPicker"></div>
+                        </div>
+                    </div>
+                    <button class="btn-add" onclick="addPhase()">+ Add Phase</button>
+                    <div id="phaseList" class="item-list"></div>
+                </div>
+            </div>
+
+            <!-- ── GANTT CARD ── -->
+            <div class="tool-card" id="ganttCard">
+                <div class="section-label">Gantt Timeline</div>
+                <div id="ganttContainer">
+                    <div class="empty-hint">
+                        <span class="big">📅</span>
+                        Set a start &amp; end date above to generate your timeline.
+                    </div>
+                </div>
+                <div class="action-row" id="actionRow" style="display:none;">
+                    <button class="btn-action primary" id="copyBtn" onclick="copyText()">📋 Copy Summary</button>
+                    <button class="btn-action" onclick="printGantt()">🖨 Print / Save PDF</button>
+                    <button class="btn-action" onclick="resetAll()">✕ Reset</button>
+                </div>
+            </div>
+
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <footer></footer>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+    const PALETTE = ['#7dd3fc','#86efac','#fde68a','#fca5a5','#c4b5fd','#fb923c','#67e8f9','#f9a8d4'];
+
+    const state = {
+        milestones: [],   // { name, date (YYYY-MM-DD), color }
+        phases:     [],   // { name, start, end (YYYY-MM-DD), color }
+        mColor:  PALETTE[0],
+        phColor: PALETTE[2],
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // DATE HELPERS (DST-safe: use UTC for all arithmetic)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Parse a YYYY-MM-DD string to a Date at local midnight (no tz shift).
+     */
+    function parseDate(s) {
+        if (!s) return null;
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    /**
+     * Format a Date to YYYY-MM-DD.
+     */
+    function toYMD(d) {
+        const yyyy = d.getFullYear();
+        const mm   = String(d.getMonth() + 1).padStart(2, '0');
+        const dd   = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    /**
+     * Difference in calendar days (b - a). DST-safe via integer math.
+     */
+    function diffDays(a, b) {
+        // Strip time component to midnight before diffing
+        const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+        const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+        return Math.round((utcB - utcA) / 86400000);
+    }
+
+    /**
+     * Count Mon–Fri days between two Dates (inclusive).
+     */
+    function workDayCount(start, end) {
+        const totalDays = diffDays(start, end);
+        if (totalDays < 0) return 0;
+        const fullWeeks = Math.floor(totalDays / 7);
+        const remainder = totalDays % 7;
+        // Day of week for start (0=Sun)
+        const dow = start.getDay();
+        // Count weekdays in the partial week
+        let extraWork = 0;
+        for (let i = 0; i <= remainder; i++) {
+            const day = (dow + i) % 7;
+            if (day !== 0 && day !== 6) extraWork++;
+        }
+        return fullWeeks * 5 + extraWork;
+    }
+
+    /**
+     * Human-readable date: "12 Jun 2025"
+     */
+    function fmtLabel(d) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    /**
+     * Short date: "12 Jun"
+     */
+    function fmtShort(d) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COLOR PICKER
+    // ═══════════════════════════════════════════════════════════════
+
+    function buildColorPicker(containerId, defaultColor, onChangeFn) {
+        const wrap = document.getElementById(containerId);
+        wrap.innerHTML = '';
+        PALETTE.forEach(c => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot' + (c === defaultColor ? ' selected' : '');
+            dot.style.background = c;
+            dot.setAttribute('aria-label', c);
+            dot.onclick = () => {
+                wrap.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+                dot.classList.add('selected');
+                onChangeFn(c);
+            };
+            wrap.appendChild(dot);
+        });
+    }
+
+    function resetColorPicker(containerId, defaultColor, onChangeFn) {
+        // Re-build and update state variable
+        buildColorPicker(containerId, defaultColor, onChangeFn);
+        onChangeFn(defaultColor);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════════════════════════
+
+    function switchTab(name, btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // VALIDATION HELPERS
+    // ═══════════════════════════════════════════════════════════════
+
+    function shakeField(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.borderColor = '#ef4444';
+        el.classList.add('shake');
+        setTimeout(() => {
+            el.style.borderColor = '';
+            el.classList.remove('shake');
+        }, 600);
+    }
+
+    let toastTimer = null;
+    function showToast(msg, type = 'default') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast ' + type + ' show';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { t.classList.remove('show'); }, 2500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ADD / DELETE MILESTONE
+    // ═══════════════════════════════════════════════════════════════
+
+    function addMilestone() {
+        const name = document.getElementById('mName').value.trim();
+        const dateVal = document.getElementById('mDate').value;
+
+        if (!name) { shakeField('mName'); showToast('Enter a milestone name.', 'error'); return; }
+        if (!dateVal) { shakeField('mDate'); showToast('Pick a date for this milestone.', 'error'); return; }
+
+        state.milestones.push({ name, date: dateVal, color: state.mColor });
+        state.milestones.sort((a, b) => a.date.localeCompare(b.date));
+
+        document.getElementById('mName').value = '';
+        render();
+    }
+
+    function deleteMilestone(idx) {
+        state.milestones.splice(idx, 1);
+        render();
+    }
+
+    function renderMilestoneList() {
+        const startD = parseDate(document.getElementById('startDate').value);
+        const list = document.getElementById('milestoneList');
+        if (!state.milestones.length) {
+            list.innerHTML = '';
+            return;
+        }
+        list.innerHTML = state.milestones.map((m, i) => {
+            const d = parseDate(m.date);
+            const offsetHtml = startD
+                ? `<span class="item-badge">Day ${diffDays(startD, d)}</span>`
+                : '';
+            return `
+            <div class="list-item">
+                <div class="item-dot" style="background:${m.color}"></div>
+                <span class="item-name" title="${escHtml(m.name)}">${escHtml(m.name)}</span>
+                <span class="item-date">${fmtLabel(d)}</span>
+                ${offsetHtml}
+                <button class="item-del" onclick="deleteMilestone(${i})" aria-label="Remove">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ADD / DELETE PHASE
+    // ═══════════════════════════════════════════════════════════════
+
+    function addPhase() {
+        const name  = document.getElementById('phName').value.trim();
+        const start = document.getElementById('phStart').value;
+        const end   = document.getElementById('phEnd').value;
+
+        if (!name)  { shakeField('phName');  showToast('Enter a phase name.', 'error'); return; }
+        if (!start) { shakeField('phStart'); showToast('Pick a start date for this phase.', 'error'); return; }
+        if (!end)   { shakeField('phEnd');   showToast('Pick an end date for this phase.', 'error'); return; }
+        if (start > end) { shakeField('phEnd'); showToast('Phase end must be after its start.', 'error'); return; }
+
+        state.phases.push({ name, start, end, color: state.phColor });
+        state.phases.sort((a, b) => a.start.localeCompare(b.start));
+
+        document.getElementById('phName').value = '';
+        render();
+    }
+
+    function deletePhase(idx) {
+        state.phases.splice(idx, 1);
+        render();
+    }
+
+    function renderPhaseList() {
+        const list = document.getElementById('phaseList');
+        if (!state.phases.length) {
+            list.innerHTML = '';
+            return;
+        }
+        list.innerHTML = state.phases.map((p, i) => {
+            const s = parseDate(p.start), e = parseDate(p.end);
+            const days = diffDays(s, e) + 1;
+            return `
+            <div class="list-item">
+                <div class="item-dot square" style="background:${p.color}"></div>
+                <span class="item-name" title="${escHtml(p.name)}">${escHtml(p.name)}</span>
+                <span class="item-date">${fmtShort(s)} → ${fmtShort(e)}</span>
+                <span class="item-badge">${days}d</span>
+                <button class="item-del" onclick="deletePhase(${i})" aria-label="Remove">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // XSS SAFETY
+    // ═══════════════════════════════════════════════════════════════
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GANTT HELPERS
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Convert a date to a left-% offset within the gantt range.
+     * Clamps to [0, 100].
+     */
+    function ganttPct(d, rangeStart, rangeTotal) {
+        if (rangeTotal === 0) return 0;
+        const raw = diffDays(rangeStart, d) / rangeTotal * 100;
+        return Math.max(0, Math.min(100, raw));
+    }
+
+    /**
+     * Width % for a bar from s to e within range. Min 0.5%.
+     */
+    function ganttWidth(s, e, rangeTotal) {
+        if (rangeTotal === 0) return 100;
+        return Math.max(0.5, diffDays(s, e) / rangeTotal * 100);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MAIN RENDER
+    // ═══════════════════════════════════════════════════════════════
+
+    function render() {
+        renderMilestoneList();
+        renderPhaseList();
+
+        const sv = document.getElementById('startDate').value;
+        const ev = document.getElementById('endDate').value;
+
+        const strip     = document.getElementById('statsStrip');
+        const healthEl  = document.getElementById('healthBar');
+        const ganttCont = document.getElementById('ganttContainer');
+        const actionRow = document.getElementById('actionRow');
+
+        // ── Guard: no dates ──
+        if (!sv || !ev) {
+            strip.style.display     = 'none';
+            healthEl.style.display  = 'none';
+            actionRow.style.display = 'none';
+            ganttCont.innerHTML     = `<div class="empty-hint"><span class="big">📅</span>Set a start &amp; end date above to generate your timeline.</div>`;
+            return;
+        }
+
+        const startD = parseDate(sv);
+        const endD   = parseDate(ev);
+
+        // ── Guard: end before start ──
+        if (diffDays(startD, endD) < 0) {
+            strip.style.display     = 'none';
+            healthEl.style.display  = 'none';
+            actionRow.style.display = 'none';
+            ganttCont.innerHTML     = `<div class="empty-hint" style="color:#f87171;">⚠️ End date must be after start date.</div>`;
+            return;
+        }
+
+        const today   = new Date(); today.setHours(0, 0, 0, 0);
+        const totalD  = diffDays(startD, endD);
+        const workD   = workDayCount(startD, endD);
+        const weeksN  = (totalD / 7).toFixed(1);
+        const daysLeft = diffDays(today, endD);
+
+        // ── Stats strip ──
+        strip.style.display = 'grid';
+        document.getElementById('sTotalDays').textContent = totalD;
+        document.getElementById('sWorkDays').textContent  = workD;
+        document.getElementById('sWeeks').textContent     = weeksN;
+
+        const dlEl = document.getElementById('sDaysLeft');
+        if (daysLeft > 0)        { dlEl.textContent = `${daysLeft}d`;                  dlEl.style.color = '#4ade80'; }
+        else if (daysLeft === 0) { dlEl.textContent = 'Today!';                         dlEl.style.color = '#fbbf24'; }
+        else                     { dlEl.textContent = `${Math.abs(daysLeft)}d over`;   dlEl.style.color = '#f87171'; }
+
+        // ── Health check ──
+        healthEl.style.display = 'flex';
+        let hClass, hLabel, hMsg;
+        if (daysLeft < 0) {
+            hClass = 'hb-tight'; hLabel = '⚠️ Overdue';
+            hMsg = `Deadline was <strong>${Math.abs(daysLeft)}</strong> day${Math.abs(daysLeft) !== 1 ? 's' : ''} ago.`;
+        } else if (totalD < 14) {
+            hClass = 'hb-tight'; hLabel = '🔴 Very Tight';
+            hMsg = `Only <strong>${totalD}</strong> days total — very little buffer for delays.`;
+        } else if (totalD < 30) {
+            hClass = 'hb-ok'; hLabel = '🟡 Manageable';
+            hMsg = `<strong>${totalD}</strong> days — tight but workable. Plan phases carefully.`;
+        } else {
+            hClass = 'hb-good'; hLabel = '🟢 Healthy';
+            hMsg = `<strong>${totalD}</strong> days gives solid room for planning, reviews &amp; revisions.`;
+        }
+        healthEl.innerHTML = `
+            <span class="health-badge ${hClass}">${hLabel}</span>
+            <span class="health-text">${hMsg} <strong>${workD}</strong> working days available.</span>`;
+
+        // ── Build Gantt ──
+        actionRow.style.display = 'flex';
+
+        // Compute range: expand to fit all milestones and phases
+        let rangeStart = new Date(startD);
+        let rangeEnd   = new Date(endD);
+
+        state.milestones.forEach(m => {
+            const d = parseDate(m.date);
+            if (d < rangeStart) rangeStart = new Date(d);
+            if (d > rangeEnd)   rangeEnd   = new Date(d);
+        });
+        state.phases.forEach(p => {
+            const s = parseDate(p.start), e = parseDate(p.end);
+            if (s < rangeStart) rangeStart = new Date(s);
+            if (e > rangeEnd)   rangeEnd   = new Date(e);
+        });
+
+        // Pad range by 2 days on each side so bars don't touch the edge
+        rangeStart.setDate(rangeStart.getDate() - 2);
+        rangeEnd.setDate(rangeEnd.getDate() + 2);
+
+        const rangeTotal = diffDays(rangeStart, rangeEnd) || 1;
+
+        // ── Month header labels ──
+        const monthLabels = buildMonthLabels(rangeStart, rangeEnd, rangeTotal);
+
+        // ── Today line ──
+        let todayLineHtml = '';
+        if (today >= rangeStart && today <= rangeEnd) {
+            const tp = ganttPct(today, rangeStart, rangeTotal);
+            todayLineHtml = `
+                <div class="gantt-today-line" style="left:${tp}%;">
+                    <span class="gantt-today-label">Today</span>
+                </div>`;
+        }
+
+        // ── Project master bar ──
+        const projectName = escHtml(document.getElementById('projectName').value.trim() || 'Project');
+        const mainLeft    = ganttPct(startD, rangeStart, rangeTotal);
+        const mainWidth   = ganttWidth(startD, endD, rangeTotal);
+
+        // ── Collect all gantt rows HTML ──
+        let rowsHtml = '';
+
+        // Master bar row
+        rowsHtml += ganttRowHtml(
+            projectName,
+            `<div class="gantt-bar" style="left:${mainLeft}%; width:${mainWidth}%; background:linear-gradient(90deg,#616768,#c0cbcc);">
+                <span class="gantt-bar-label">${totalD}d</span>
+            </div>`,
+            true
+        );
+
+        // Phase rows
+        state.phases.forEach(ph => {
+            const s = parseDate(ph.start), e = parseDate(ph.end);
+            const l = ganttPct(s, rangeStart, rangeTotal);
+            const w = ganttWidth(s, e, rangeTotal);
+            const days = diffDays(s, e) + 1;
+            rowsHtml += ganttRowHtml(
+                escHtml(ph.name),
+                `<div class="gantt-bar" style="left:${l}%; width:${w}%; background:${ph.color}; opacity:0.88;">
+                    <span class="gantt-bar-label">${days}d</span>
+                </div>`
+            );
+        });
+
+        // Milestone rows (diamond markers)
+        state.milestones.forEach(m => {
+            const d = parseDate(m.date);
+            const l = ganttPct(d, rangeStart, rangeTotal);
+            rowsHtml += ganttRowHtml(
+                escHtml(m.name),
+                `<div class="gantt-diamond" style="left:${l}%; background:${m.color};"></div>`
+            );
+        });
+
+        // ── Assemble final Gantt HTML ──
+        // Key fix: today-line is in .gantt-rows-area (position:relative), spans all rows
+        ganttCont.innerHTML = `
+        <div class="gantt-wrap">
+            <div class="gantt-inner">
+                <div class="gantt-header" style="margin-left:140px;">${monthLabels}</div>
+                <div class="gantt-rows-area" style="margin-left:140px; position:relative;">
+                    ${todayLineHtml}
+                    <div style="margin-left:-140px;">
+                        ${rowsHtml}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function buildMonthLabels(rangeStart, rangeEnd, rangeTotal) {
+        const labels = [];
+        const cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+        while (cur <= rangeEnd) {
+            const pct = ganttPct(cur, rangeStart, rangeTotal);
+            const label = cur.toLocaleString('en', { month: 'short', year: '2-digit' });
+            labels.push(`<span class="gantt-month-label" style="left:${pct}%">${label}</span>`);
+            cur.setMonth(cur.getMonth() + 1);
+        }
+        return labels.join('');
+    }
+
+    function ganttRowHtml(label, trackInnerHtml, isMain = false) {
+        return `
+        <div class="gantt-row">
+            <div class="gantt-row-label${isMain ? ' main' : ''}">${label}</div>
+            <div class="gantt-row-track">${trackInnerHtml}</div>
+        </div>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COPY SUMMARY
+    // ═══════════════════════════════════════════════════════════════
+
+    function copyText() {
+        const sv = document.getElementById('startDate').value;
+        const ev = document.getElementById('endDate').value;
+        if (!sv || !ev) return;
+
+        const name   = document.getElementById('projectName').value.trim() || 'Project';
+        const startD = parseDate(sv), endD = parseDate(ev);
+        const totalD = diffDays(startD, endD);
+        const workD  = workDayCount(startD, endD);
+
+        let txt = `📅 ${name}\nStart: ${fmtLabel(startD)}\nEnd:   ${fmtLabel(endD)}\nTotal: ${totalD} days (${workD} working)\n`;
+
+        if (state.phases.length) {
+            txt += '\nPhases:\n';
+            state.phases.forEach(p => {
+                const ps = parseDate(p.start), pe = parseDate(p.end);
+                txt += `  • ${p.name}: ${fmtShort(ps)} → ${fmtShort(pe)} (${diffDays(ps, pe) + 1}d)\n`;
+            });
+        }
+        if (state.milestones.length) {
+            txt += '\nMilestones:\n';
+            state.milestones.forEach(m => {
+                txt += `  🏁 ${m.name}: ${fmtLabel(parseDate(m.date))}\n`;
+            });
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt)
+                .then(() => showToast('✓ Summary copied to clipboard', 'success'))
+                .catch(() => fallbackCopy(txt));
+        } else {
+            fallbackCopy(txt);
+        }
+    }
+
+    function fallbackCopy(txt) {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            showToast('✓ Summary copied', 'success');
+        } catch {
+            showToast('Could not copy — try manually.', 'error');
+        }
+        document.body.removeChild(ta);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PRINT
+    // ═══════════════════════════════════════════════════════════════
+
+    function printGantt() {
+        window.print();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RESET
+    // ═══════════════════════════════════════════════════════════════
+
+    function resetAll() {
+        state.milestones = [];
+        state.phases     = [];
+        state.mColor     = PALETTE[0];
+        state.phColor    = PALETTE[2];
+
+        ['projectName', 'startDate', 'endDate', 'mName', 'mDate', 'phName', 'phStart', 'phEnd']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+
+        // Rebuild color pickers with reset defaults
+        buildColorPicker('mColorPicker',  PALETTE[0], c => { state.mColor  = c; });
+        buildColorPicker('phColorPicker', PALETTE[2], c => { state.phColor = c; });
+
+        render();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════
+
+    (function init() {
+        // Build color pickers
+        buildColorPicker('mColorPicker',  PALETTE[0], c => { state.mColor  = c; });
+        buildColorPicker('phColorPicker', PALETTE[2], c => { state.phColor = c; });
+
+        // Default dates: today → +60 days
+        const today = new Date();
+        const end   = new Date(today);
+        end.setDate(end.getDate() + 60);
+
+        document.getElementById('startDate').value   = toYMD(today);
+        document.getElementById('endDate').value     = toYMD(end);
+        document.getElementById('projectName').value = 'My Project';
+
+        // Seed demo data
+        state.milestones.push({ name: 'Kickoff',    date: toYMD(today),                      color: PALETTE[0] });
+        const mid = new Date(today); mid.setDate(mid.getDate() + 30);
+        state.milestones.push({ name: 'Mid Review', date: toYMD(mid),                         color: PALETTE[3] });
+
+        const ph1e = new Date(today); ph1e.setDate(ph1e.getDate() + 25);
+        state.phases.push({ name: 'Discovery', start: toYMD(today),  end: toYMD(ph1e), color: PALETTE[1] });
+
+        const ph2s = new Date(ph1e); ph2s.setDate(ph2s.getDate() + 1);
+        state.phases.push({ name: 'Build',      start: toYMD(ph2s),   end: toYMD(end),  color: PALETTE[4] });
+
+        render();
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Blur Generator | Rebrixe</title>
+    <meta name="description" content="Instantly generate blurred background images for your stories with our Story Blur Generator. Perfect for marketers, content creators, and social media managers looking to create visually appealing story backgrounds that enhance text readability and engagement. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent: #ff007f; --border: #334155; --bg: #05070a; --card: #0f172a; }
+
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 20px; }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 310px;
+            gap: 28px;
+            margin-top: 24px;
+            align-items: start;
+        }
+
+        /* ───────── Story Stage ───────── */
+        .stage-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .story-stage {
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            /* Fixed 9:16 height, width follows aspect ratio */
+            height: 560px;
+            width: calc(560px * 9 / 16);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            touch-action: none;
+            cursor: default;
+        }
+
+        #bgLayer {
+            position: absolute;
+            inset: -30px;               /* extend beyond so blur doesn't show edges */
+            width: calc(100% + 60px);
+            height: calc(100% + 60px);
+            object-fit: cover;
+            z-index: 1;
+            pointer-events: none;
+            will-change: filter;
+        }
+
+        /* Subtle vignette always present */
+        .vignette {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%);
+            pointer-events: none;
+        }
+
+        #fgLayer {
+            position: absolute;
+            z-index: 5;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            cursor: grab;
+            user-select: none;
+            display: none;
+            /* width is set by JS; transform-origin center */
+            transform: translate(-50%, -50%);
+            left: 50%;
+            top: 50%;
+            will-change: transform, left, top;
+        }
+        #fgLayer.dragging { cursor: grabbing; }
+
+        /* Drop zone */
+        #dropZone {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            transition: background 0.2s;
+        }
+        #dropZone.drag-over {
+            background: rgba(255,0,127,0.08);
+        }
+        .drop-icon {
+            width: 52px; height: 52px;
+            border: 2px dashed #334155;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            color: #475569;
+            font-size: 1.4rem;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        #dropZone.drag-over .drop-icon { border-color: var(--accent); color: var(--accent); }
+        .drop-hint { font-size: 0.65rem; color: #475569; margin-top: 4px; }
+
+        /* Stage footer strip */
+        .stage-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: calc(560px * 9 / 16);
+            padding: 0 4px;
+        }
+        .stage-meta span { font-size: 0.65rem; color: #475569; font-family: monospace; }
+        .reupload-btn {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #64748b;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: none;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .reupload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ───────── Sidebar ───────── */
+        .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+        .control-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 18px 20px;
+            border-radius: 15px;
+        }
+        .control-card h3 {
+            font-family: 'Outfit';
+            font-size: 0.65rem;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .slider-row { margin-bottom: 14px; }
+        .slider-row:last-child { margin-bottom: 0; }
+        .slider-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+        .slider-label-row label {
+            font-size: 0.68rem;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .slider-value {
+            font-size: 0.68rem;
+            font-family: monospace;
+            color: var(--accent);
+            font-weight: 700;
+            min-width: 30px;
+            text-align: right;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            height: 4px;
+            cursor: pointer;
+        }
+
+        /* Foreground fit toggles */
+        .fit-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .fit-btn {
+            flex: 1;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #64748b;
+            padding: 7px 0;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+        }
+        .fit-btn.active {
+            background: rgba(255,0,127,0.12);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .pos-indicator {
+            font-family: monospace;
+            font-size: 0.65rem;
+            color: var(--accent);
+            text-align: center;
+            margin-top: 8px;
+            height: 16px;
+        }
+        .drag-hint {
+            font-size: 0.62rem;
+            color: #475569;
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        /* Overlay presets */
+        .overlay-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .overlay-swatch {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s, transform 0.15s;
+            flex-shrink: 0;
+        }
+        .overlay-swatch:hover { transform: scale(1.1); }
+        .overlay-swatch.active { border-color: var(--accent); }
+
+        /* Export / buttons */
+        .btn-main {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s;
+            font-size: 0.88rem;
+            letter-spacing: 0.3px;
+        }
+        .btn-main:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn-main:active { transform: translateY(0); }
+        .btn-main:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            filter: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.78rem;
+            margin-top: 8px;
+            transition: border-color 0.2s, color 0.2s;
+            letter-spacing: 0.3px;
+        }
+        .btn-secondary:hover { border-color: #64748b; color: white; }
+
+        /* Export progress */
+        .export-status {
+            font-size: 0.65rem;
+            color: #64748b;
+            text-align: center;
+            margin-top: 8px;
+            min-height: 16px;
+            font-family: monospace;
+        }
+
+        /* Format tabs */
+        .format-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .format-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 8px 0;
+            font-size: 0.68rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .format-tab + .format-tab { border-left: 1px solid var(--border); }
+        .format-tab.active { background: rgba(255,0,127,0.12); color: var(--accent); }
+
+        /* Overlay canvas on stage */
+        #overlayLayer {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        @media (max-width: 860px) {
+            .layout-grid { grid-template-columns: 1fr; }
+            .story-stage { width: 85vw; height: calc(85vw * 16 / 9); max-height: 70vh; }
+            .stage-meta { max-width: 85vw; }
+        }
+
+        #exportCanvas { display: none; }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">Back to tools</a>
+
+        <header style="text-align: center; margin: 10px 0 24px;">
+            <h1 style="font-family: 'Outfit'; font-size: 2.2rem;">Story Blur Generator</h1>
+            <p style="color: #64748b; margin-top: 6px;">Aesthetic backdrops with custom positioning.</p>
+        </header>
+
+        <div class="layout-grid">
+            <!-- LEFT: Preview Stage -->
+            <div class="stage-wrapper">
+                <div class="story-stage" id="stage">
+                    <img id="bgLayer" src="" alt="" style="display:none;">
+                    <div class="vignette"></div>
+                    <canvas id="overlayLayer"></canvas>
+                    <img id="fgLayer" src="" alt="" draggable="false">
+
+                    <div id="dropZone">
+                        <div class="drop-icon">↑</div>
+                        <button class="btn-main" style="width:auto; padding:10px 28px;" onclick="document.getElementById('imgIn').click()">Upload Image</button>
+                        <p class="drop-hint">or drag & drop here · JPG, PNG, WEBP</p>
+                        <input type="file" id="imgIn" hidden accept="image/*" onchange="processImage(this)">
+                    </div>
+                </div>
+
+                <div class="stage-meta">
+                    <span id="posLabel">X: 50% · Y: 50%</span>
+                    <button class="reupload-btn" id="reuploadBtn" onclick="document.getElementById('imgIn').click()">↺ Change Image</button>
+                </div>
+            </div>
+
+            <!-- RIGHT: Controls -->
+            <div class="sidebar">
+
+                <!-- Backdrop -->
+                <div class="control-card">
+                    <h3>Backdrop</h3>
+
+                    <div class="slider-row">
+                        <div class="slider-label-row">
+                            <label>Blur</label>
+                            <span class="slider-value" id="blurVal">40px</span>
+                        </div>
+                        <input type="range" id="blurRange" min="0" max="80" value="40" oninput="updateStyle()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label-row">
+                            <label>Brightness</label>
+                            <span class="slider-value" id="brightVal">70%</span>
+                        </div>
+                        <input type="range" id="brightRange" min="10" max="100" value="70" oninput="updateStyle()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label-row">
+                            <label>Saturation</label>
+                            <span class="slider-value" id="satVal">100%</span>
+                        </div>
+                        <input type="range" id="satRange" min="0" max="200" value="100" oninput="updateStyle()">
+                    </div>
+                </div>
+
+                <!-- Color Overlay -->
+                <div class="control-card">
+                    <h3>Color Overlay</h3>
+                    <div class="overlay-row" id="overlaySwatches">
+                        <!-- Populated by JS -->
+                    </div>
+                    <div class="slider-row" style="margin-top:14px;">
+                        <div class="slider-label-row">
+                            <label>Intensity</label>
+                            <span class="slider-value" id="overlayVal">0%</span>
+                        </div>
+                        <input type="range" id="overlayRange" min="0" max="60" value="0" oninput="updateOverlay()">
+                    </div>
+                </div>
+
+                <!-- Foreground -->
+                <div class="control-card">
+                    <h3>Foreground</h3>
+
+                    <div class="fit-toggle">
+                        <button class="fit-btn active" id="fitContain" onclick="setFit('contain')">Fit</button>
+                        <button class="fit-btn" id="fitFill" onclick="setFit('fill')">Fill</button>
+                        <button class="fit-btn" id="fitOriginal" onclick="setFit('original')">1:1</button>
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label-row">
+                            <label>Scale</label>
+                            <span class="slider-value" id="sizeVal">85%</span>
+                        </div>
+                        <input type="range" id="sizeRange" min="20" max="100" value="85" oninput="updateStyle()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label-row">
+                            <label>Corner Radius</label>
+                            <span class="slider-value" id="radiusVal">10px</span>
+                        </div>
+                        <input type="range" id="radiusRange" min="0" max="48" value="10" oninput="updateStyle()">
+                    </div>
+
+                    <div class="pos-indicator" id="posIndicator">—</div>
+                    <p class="drag-hint">Drag the image in preview to reposition</p>
+                </div>
+
+                <!-- Export -->
+                <div class="control-card">
+                    <h3>Export</h3>
+
+                    <div class="format-tabs">
+                        <button class="format-tab active" id="tab1080" onclick="setRes(1080,1920,this)">1080×1920</button>
+                        <button class="format-tab" id="tab720" onclick="setRes(720,1280,this)">720×1280</button>
+                    </div>
+
+                    <button class="btn-main" id="dlBtn" onclick="exportStory()" disabled>Download PNG</button>
+                    <div class="export-status" id="exportStatus">Upload an image to export.</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <canvas id="exportCanvas"></canvas>
+
+    <footer style="margin-top: 120px; padding: 80px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3 style="color: white; font-family: 'Outfit'; margin-bottom: 10px;">Rebrixe Engine</h3>
+            <p style="font-size: 0.85rem; margin-bottom: 20px;">The Digital Identity & Growth Suite for 2026.</p>
+            <div style="height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin-bottom: 20px;"></div>
+            <p style="font-size: 0.75rem;">© 2026 Rebrixe Engine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+    /* ─────────────────────────────────────────
+       GLOBALS
+    ───────────────────────────────────────── */
+    const bgEl     = document.getElementById('bgLayer');
+    const fgEl     = document.getElementById('fgLayer');
+    const stage    = document.getElementById('stage');
+    const dlBtn    = document.getElementById('dlBtn');
+    const posLabel = document.getElementById('posLabel');
+    const posInd   = document.getElementById('posIndicator');
+    const exportStatus = document.getElementById('exportStatus');
+    const overlayCanvas = document.getElementById('overlayLayer');
+
+    let imageLoaded = false;
+    let posX = 50, posY = 50;           // percentage
+    let isDragging = false;
+    let dragOffX = 0, dragOffY = 0;     // grab offset so image doesn't jump
+    let fitMode = 'contain';
+    let exportW = 1080, exportH = 1920;
+
+    // Color overlay state
+    let overlayColor = null;
+    const OVERLAYS = [
+        { label: 'None',    color: null,          bg: '#1e293b' },
+        { label: 'Rose',    color: '#ff007f',      bg: 'linear-gradient(135deg,#ff007f,#ff6b6b)' },
+        { label: 'Ocean',   color: '#0ea5e9',      bg: 'linear-gradient(135deg,#0ea5e9,#38bdf8)' },
+        { label: 'Purple',  color: '#7c3aed',      bg: 'linear-gradient(135deg,#7c3aed,#a78bfa)' },
+        { label: 'Gold',    color: '#f59e0b',      bg: 'linear-gradient(135deg,#f59e0b,#fcd34d)' },
+        { label: 'Noir',    color: '#000000',      bg: '#0f0f0f' },
+        { label: 'Mist',    color: '#ffffff',      bg: '#e2e8f0' },
+        { label: 'Forest',  color: '#16a34a',      bg: 'linear-gradient(135deg,#16a34a,#4ade80)' },
+    ];
+
+    /* ─────────────────────────────────────────
+       OVERLAY SWATCHES BUILD
+    ───────────────────────────────────────── */
+    function buildSwatches() {
+        const row = document.getElementById('overlaySwatches');
+        OVERLAYS.forEach((o, i) => {
+            const s = document.createElement('button');
+            s.className = 'overlay-swatch' + (i === 0 ? ' active' : '');
+            s.style.background = o.bg;
+            s.title = o.label;
+            if (i === 0) {
+                s.style.border = '2px dashed #334155';
+                s.style.display = 'flex';
+                s.style.alignItems = 'center';
+                s.style.justifyContent = 'center';
+                s.style.color = '#475569';
+                s.style.fontSize = '0.8rem';
+                s.textContent = '✕';
+            }
+            s.onclick = () => {
+                document.querySelectorAll('.overlay-swatch').forEach(x => x.classList.remove('active'));
+                s.classList.add('active');
+                overlayColor = o.color;
+                updateOverlay();
+            };
+            row.appendChild(s);
+        });
+    }
+    buildSwatches();
+
+    /* ─────────────────────────────────────────
+       IMAGE UPLOAD
+    ───────────────────────────────────────── */
+    function processImage(input) {
+        const file = input.files[0];
+        if (!file) return;
+        loadFile(file);
+    }
+
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const src = e.target.result;
+
+            // Pre-load to get natural dimensions
+            const img = new Image();
+            img.onload = () => {
+                bgEl.src = src;
+                fgEl.src = src;
+                bgEl.style.display = 'block';
+                fgEl.style.display = 'block';
+
+                // Reset position
+                posX = 50; posY = 50;
+                updatePos();
+
+                // Show controls
+                document.getElementById('dropZone').style.display = 'none';
+                document.getElementById('reuploadBtn').style.display = 'block';
+
+                dlBtn.disabled = false;
+                exportStatus.textContent = 'Ready to export.';
+                imageLoaded = true;
+
+                updateStyle();
+                resizeOverlayCanvas();
+            };
+            img.src = src;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /* ─────────────────────────────────────────
+       DRAG & DROP ON STAGE
+    ───────────────────────────────────────── */
+    stage.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.add('drag-over');
+    });
+    stage.addEventListener('dragleave', () => {
+        document.getElementById('dropZone').classList.remove('drag-over');
+    });
+    stage.addEventListener('drop', (e) => {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) loadFile(file);
+    });
+
+    /* ─────────────────────────────────────────
+       FOREGROUND DRAG-TO-REPOSITION
+       Uses grab offset so image doesn't jump
+    ───────────────────────────────────────── */
+    fgEl.addEventListener('pointerdown', (e) => {
+        if (!imageLoaded) return;
+        e.preventDefault();
+        isDragging = true;
+        fgEl.classList.add('dragging');
+        fgEl.setPointerCapture(e.pointerId);
+
+        const rect = stage.getBoundingClientRect();
+        // Offset from fg center (since fg uses translate(-50%,-50%))
+        const fgCX = rect.left + (posX / 100) * rect.width;
+        const fgCY = rect.top  + (posY / 100) * rect.height;
+        dragOffX = e.clientX - fgCX;
+        dragOffY = e.clientY - fgCY;
+    });
+
+    fgEl.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const rect = stage.getBoundingClientRect();
+
+        const rawX = ((e.clientX - dragOffX - rect.left) / rect.width)  * 100;
+        const rawY = ((e.clientY - dragOffY - rect.top)  / rect.height) * 100;
+
+        posX = Math.max(0, Math.min(100, rawX));
+        posY = Math.max(0, Math.min(100, rawY));
+
+        updatePos();
+    });
+
+    fgEl.addEventListener('pointerup', () => {
+        isDragging = false;
+        fgEl.classList.remove('dragging');
+    });
+
+    function updatePos() {
+        fgEl.style.left = posX + '%';
+        fgEl.style.top  = posY + '%';
+        const xLabel = Math.round(posX);
+        const yLabel = Math.round(posY);
+        posLabel.textContent = `X: ${xLabel}% · Y: ${yLabel}%`;
+        posInd.textContent   = `X: ${xLabel}% · Y: ${yLabel}%`;
+    }
+
+    /* ─────────────────────────────────────────
+       FIT MODE
+    ───────────────────────────────────────── */
+    function setFit(mode) {
+        fitMode = mode;
+        ['fitContain','fitFill','fitOriginal'].forEach(id => document.getElementById(id).classList.remove('active'));
+        document.getElementById('fit' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+        updateStyle();
+    }
+
+    /* ─────────────────────────────────────────
+       STYLE UPDATE (LIVE PREVIEW)
+    ───────────────────────────────────────── */
+    function updateStyle() {
+        const blur   = document.getElementById('blurRange').value;
+        const bright = document.getElementById('brightRange').value;
+        const sat    = document.getElementById('satRange').value;
+        const size   = document.getElementById('sizeRange').value;
+        const radius = document.getElementById('radiusRange').value;
+
+        // Update labels
+        document.getElementById('blurVal').textContent   = blur + 'px';
+        document.getElementById('brightVal').textContent = bright + '%';
+        document.getElementById('satVal').textContent    = sat + '%';
+        document.getElementById('sizeVal').textContent   = size + '%';
+        document.getElementById('radiusVal').textContent = radius + 'px';
+
+        // Background
+        bgEl.style.filter = `blur(${blur}px) brightness(${bright / 100}) saturate(${sat / 100})`;
+
+        // Foreground size based on fit mode
+        const stageW = stage.offsetWidth;
+        const stageH = stage.offsetHeight;
+
+        if (fitMode === 'fill') {
+            fgEl.style.width  = '100%';
+            fgEl.style.height = '100%';
+            fgEl.style.objectFit = 'cover';
+            fgEl.style.borderRadius = '0';
+        } else if (fitMode === 'original') {
+            fgEl.style.width  = 'auto';
+            fgEl.style.height = 'auto';
+            fgEl.style.maxWidth  = (size / 100 * stageW) + 'px';
+            fgEl.style.maxHeight = (size / 100 * stageH) + 'px';
+            fgEl.style.objectFit = 'contain';
+            fgEl.style.borderRadius = radius + 'px';
+        } else {
+            // contain (default)
+            fgEl.style.width  = size + '%';
+            fgEl.style.height = 'auto';
+            fgEl.style.maxHeight = stageH + 'px';
+            fgEl.style.objectFit = 'contain';
+            fgEl.style.borderRadius = radius + 'px';
+        }
+
+        updateOverlay();
+    }
+
+    /* ─────────────────────────────────────────
+       COLOR OVERLAY (drawn on canvas layer)
+    ───────────────────────────────────────── */
+    function resizeOverlayCanvas() {
+        overlayCanvas.width  = stage.offsetWidth;
+        overlayCanvas.height = stage.offsetHeight;
+        updateOverlay();
+    }
+
+    function updateOverlay() {
+        const intensity = document.getElementById('overlayRange').value;
+        document.getElementById('overlayVal').textContent = intensity + '%';
+
+        const ctx = overlayCanvas.getContext('2d');
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        if (!overlayColor || intensity == 0) {
+            overlayCanvas.style.opacity = 0;
+            return;
+        }
+
+        overlayCanvas.style.opacity = 1;
+        ctx.fillStyle = overlayColor;
+        ctx.globalAlpha = intensity / 100;
+        ctx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        ctx.globalAlpha = 1;
+    }
+
+    window.addEventListener('resize', () => {
+        resizeOverlayCanvas();
+        updateStyle();
+    });
+
+    /* ─────────────────────────────────────────
+       EXPORT RESOLUTION
+    ───────────────────────────────────────── */
+    function setRes(w, h, btn) {
+        exportW = w; exportH = h;
+        document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    /* ─────────────────────────────────────────
+       EXPORT — CORRECT CANVAS APPROACH
+       CSS blur on canvas doesn't render the same
+       way. We use a two-pass method:
+       1. Draw bg enlarged + use ctx.filter blur
+       2. Draw fg on top with clip path for radius
+    ───────────────────────────────────────── */
+    async function exportStory() {
+        if (!imageLoaded) return;
+
+        dlBtn.disabled = true;
+        exportStatus.textContent = 'Rendering…';
+
+        // Small delay so UI updates
+        await new Promise(r => setTimeout(r, 60));
+
+        try {
+            const canvas = document.getElementById('exportCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width  = exportW;
+            canvas.height = exportH;
+
+            const blur   = parseInt(document.getElementById('blurRange').value);
+            const bright = parseInt(document.getElementById('brightRange').value) / 100;
+            const sat    = parseInt(document.getElementById('satRange').value) / 100;
+            const size   = parseInt(document.getElementById('sizeRange').value) / 100;
+            const radius = parseInt(document.getElementById('radiusRange').value);
+
+            // ── 1. Background ──
+            // We need to load the source image (fgEl has the same src as bg)
+            const srcImg = await loadImage(fgEl.src);
+
+            // Scale to fill canvas (cover) then add extra for blur bleed
+            const bleedPx = blur * 3;
+            const scale   = Math.max(
+                (exportW + bleedPx * 2) / srcImg.width,
+                (exportH + bleedPx * 2) / srcImg.height
+            );
+            const bW = srcImg.width  * scale;
+            const bH = srcImg.height * scale;
+            const bX = (exportW - bW) / 2;
+            const bY = (exportH - bH) / 2;
+
+            ctx.filter = `blur(${blur}px) brightness(${bright}) saturate(${sat})`;
+            ctx.drawImage(srcImg, bX - bleedPx, bY - bleedPx, bW + bleedPx*2, bH + bleedPx*2);
+            ctx.filter = 'none';
+
+            // ── 2. Vignette ──
+            const vig = ctx.createRadialGradient(
+                exportW/2, exportH/2, exportH * 0.2,
+                exportW/2, exportH/2, exportH * 0.75
+            );
+            vig.addColorStop(0, 'rgba(0,0,0,0)');
+            vig.addColorStop(1, 'rgba(0,0,0,0.45)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, exportW, exportH);
+
+            // ── 3. Color Overlay ──
+            const overlayIntensity = parseInt(document.getElementById('overlayRange').value);
+            if (overlayColor && overlayIntensity > 0) {
+                ctx.globalAlpha = overlayIntensity / 100;
+                ctx.fillStyle   = overlayColor;
+                ctx.fillRect(0, 0, exportW, exportH);
+                ctx.globalAlpha = 1;
+            }
+
+            // ── 4. Foreground image ──
+            if (fitMode === 'fill') {
+                ctx.drawImage(srcImg, 0, 0, exportW, exportH);
+            } else {
+                const fgW  = exportW * size;
+                const fgH  = (srcImg.height / srcImg.width) * fgW;
+                const fgX  = (exportW * (posX / 100)) - (fgW / 2);
+                const fgY  = (exportH * (posY / 100)) - (fgH / 2);
+
+                // Rounded rectangle clip
+                const radiusExport = radius * (exportW / stage.offsetWidth);
+                roundedClip(ctx, fgX, fgY, fgW, fgH, radiusExport);
+                ctx.drawImage(srcImg, fgX, fgY, fgW, fgH);
+                ctx.restore();
+
+                // Subtle shadow
+                ctx.shadowColor   = 'rgba(0,0,0,0.4)';
+                ctx.shadowBlur    = 40 * (exportW / 1080);
+                ctx.shadowOffsetY = 12 * (exportW / 1080);
+            }
+
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur  = 0;
+
+            // ── 5. Download ──
+            const link = document.createElement('a');
+            link.download = `Rebrixe_story_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            exportStatus.textContent = '✓ Downloaded!';
+        } catch (err) {
+            console.error(err);
+            exportStatus.textContent = 'Export failed. Try again.';
+        }
+
+        dlBtn.disabled = false;
+        setTimeout(() => {
+            if (exportStatus.textContent === '✓ Downloaded!') exportStatus.textContent = 'Ready to export.';
+        }, 3000);
+    }
+
+    function roundedClip(ctx, x, y, w, h, r) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.clip();
+    }
+
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload  = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+        });
+    }
+
+    /* ─────────────────────────────────────────
+       INIT
+    ───────────────────────────────────────── */
+    resizeOverlayCanvas();
+    updateStyle();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

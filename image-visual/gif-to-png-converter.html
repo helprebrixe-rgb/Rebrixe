@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GIF to PNG Converter — Extract Any Frame from GIF as Static PNG | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Extract any frame from a GIF as a static PNG. Pick a specific frame, grab all frames, or export a sprite sheet. Free, browser-only, instant.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Progress bar */
+        .progress-bar-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 99px; height: 5px; margin-bottom: 18px; overflow: hidden; display: none; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; transition: width 0.2s; width: 0%; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; image-rendering: pixelated; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Frame scrubber */
+        .scrubber-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        .frame-preview-area { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
+        .frame-canvas-wrap {
+            flex: 1; min-width: 200px; max-width: 360px;
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center; min-height: 160px;
+        }
+        #frameCanvas { max-width: 100%; max-height: 280px; display: block; }
+        .frame-info { min-width: 160px; display: flex; flex-direction: column; gap: 10px; }
+        .frame-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .frame-stat:last-child { border-bottom: none; }
+        .fs-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .fs-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+
+        /* Scrubber controls */
+        .scrubber-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+        .frame-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; min-width: 120px; }
+        .frame-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 10px rgba(255,214,0,0.45); }
+        .frame-counter { font-size: 0.82rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 68px; text-align: right; white-space: nowrap; }
+        .frame-nav-btns { display: flex; gap: 6px; }
+        .frame-nav-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border-mid); background: var(--surface); color: var(--text-sec); font-size: 0.9rem; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; }
+        .frame-nav-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Playback toggle */
+        .playback-row { display: flex; gap: 8px; align-items: center; margin-bottom: 0; }
+        .play-btn { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .play-btn:hover { background: rgba(255,214,0,0.14); }
+        .play-speed { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .play-speed.active { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .play-speed:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Action buttons */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 22px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-outline { flex: 1; min-width: 140px; padding: 14px 20px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-outline:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.14); }
+        .btn-outline:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* Sprite sheet section */
+        .sprite-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .sprite-card.visible { display: block; }
+        .sprite-options { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .sprite-note { font-size: 0.75rem; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .frame-preview-area { flex-direction: column; }
+            .frame-canvas-wrap { max-width: 100%; }
+            .action-row { flex-direction: column; }
+            .btn-main, .btn-outline { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="format-conversion.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">GIF to PNG Converter</h1>
+                <p class="tool-page-sub">Extract any frame from a GIF as a crisp static PNG — scrub, preview, export single frames or all at once.</p>
+                <span class="privacy-badge">Runs entirely in your browser — nothing is uploaded</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/gif">
+                <span class="drop-icon">🎞️</span>
+                <p class="drop-title">Drop a GIF here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- PROGRESS -->
+            <div class="progress-bar-wrap" id="progressWrap">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <!-- File info bar -->
+                <div class="image-info-bar">
+                    <canvas id="thumbCanvas" class="img-thumb" width="52" height="52"></canvas>
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Frame scrubber -->
+                <div class="scrubber-card">
+                    <div class="section-label">Frame Picker</div>
+
+                    <div class="frame-preview-area">
+                        <div class="frame-canvas-wrap">
+                            <canvas id="frameCanvas"></canvas>
+                        </div>
+                        <div class="frame-info" id="frameInfo"></div>
+                    </div>
+
+                    <div class="scrubber-row">
+                        <div class="frame-nav-btns">
+                            <button class="frame-nav-btn" onclick="stepFrame(-1)" title="Previous frame">‹</button>
+                            <button class="frame-nav-btn" onclick="stepFrame(1)" title="Next frame">›</button>
+                        </div>
+                        <input type="range" class="frame-slider" id="frameSlider" min="0" value="0" oninput="goToFrame(+this.value)">
+                        <span class="frame-counter" id="frameCounter">1 / 1</span>
+                    </div>
+
+                    <div class="playback-row">
+                        <button class="play-btn" id="playBtn" onclick="togglePlay()">▶ Play</button>
+                        <button class="play-speed active" data-speed="1" onclick="setSpeed(this)">1×</button>
+                        <button class="play-speed" data-speed="2" onclick="setSpeed(this)">2×</button>
+                        <button class="play-speed" data-speed="0.5" onclick="setSpeed(this)">0.5×</button>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-main" onclick="downloadCurrentFrame()">
+                            <div class="btn-main-inner">
+                                <span style="font-size:1.1rem;">⬇</span>
+                                <span style="font-size:0.88rem; font-weight:800;">Download This Frame</span>
+                            </div>
+                        </button>
+                        <button class="btn-outline" id="btnAllFrames" onclick="downloadAllFrames()">⬇ All Frames (ZIP)</button>
+                    </div>
+                </div>
+
+                <!-- Sprite sheet -->
+                <div class="sprite-card" id="spriteCard">
+                    <div class="section-label">Sprite Sheet Export</div>
+                    <p style="font-size:0.8rem; color:var(--text-sec); margin-bottom:14px; line-height:1.5;">Export all frames tiled into a single PNG — great for CSS animations, game assets, or frame-by-frame review.</p>
+                    <div class="sprite-options">
+                        <span style="font-size:0.72rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.8px;">Columns:</span>
+                        <button class="tog-btn active" data-cols="4" onclick="setCols(this)">4</button>
+                        <button class="tog-btn" data-cols="6" onclick="setCols(this)">6</button>
+                        <button class="tog-btn" data-cols="8" onclick="setCols(this)">8</button>
+                        <button class="tog-btn" data-cols="10" onclick="setCols(this)">10</button>
+                    </div>
+                    <button class="btn-outline" onclick="downloadSpriteSheet()" style="min-width:unset; width:100%;">🗂 Download Sprite Sheet PNG</button>
+                    <p class="sprite-note">💡 Sprite sheets let designers quickly review all GIF frames at once or use them directly in CSS <code>animation-timing-function: steps()</code>.</p>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Pick any frame, not just frame 1</h3>
+                        <p>Scrub through every frame of the GIF with a slider. Jump forward or back one frame at a time. Play it back at half or double speed to find the perfect still.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Download all frames at once</h3>
+                        <p>Export every frame as individual PNGs packed into a <code>.zip</code> file — ideal when you need multiple stills from the same GIF without exporting one by one.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Sprite sheet in one click</h3>
+                        <p>Tile all frames into a single sprite sheet PNG. Choose 4, 6, 8, or 10 columns. Perfect for CSS animations or handing assets to a developer.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private — zero upload</h3>
+                        <p>All processing happens inside your browser with the <code>Canvas API</code>. Your GIF never touches a server. Works offline after the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <!-- gifuct-js: lightweight GIF decoder, MIT license, ~12kb gzip -->
+    <script src="https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/dist/gifuct-js.min.js"></script>
+    <!-- JSZip for all-frames export -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let frames = [], gifWidth = 0, gifHeight = 0, origFileName = '';
+    let currentFrame = 0, playTimer = null, playSpeed = 1, spriteSheetCols = 4;
+    const tmpCanvas = document.createElement('canvas');
+    const tmpCtx = tmpCanvas.getContext('2d');
+
+    // ── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type === 'image/gif') loadGif(f); else showToast('Please drop a GIF file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadGif(fi.files[0]); });
+
+    // ── LOAD & DECODE GIF ──────────────────────────────────────────────────────
+    async function loadGif(file) {
+        origFileName = file.name.replace(/\.gif$/i, '');
+        showProgress(10);
+        const buf = await file.arrayBuffer();
+        showProgress(30);
+
+        let parsedGif;
+        try {
+            parsedGif = parseGIF(buf);
+        } catch(e) {
+            showToast('Could not parse this GIF', 'error'); hideProgress(); return;
+        }
+
+        const decompressed = decompressFrames(parsedGif, true);
+        if (!decompressed.length) { showToast('No frames found in this GIF', 'error'); hideProgress(); return; }
+
+        showProgress(60);
+        gifWidth = parsedGif.lsd.width;
+        gifHeight = parsedGif.lsd.height;
+        tmpCanvas.width = gifWidth;
+        tmpCanvas.height = gifHeight;
+
+        // Render all frames into ImageData arrays (compositing disposal)
+        frames = [];
+        let prevImageData = null;
+        for (let i = 0; i < decompressed.length; i++) {
+            const f = decompressed[i];
+            const imageData = renderFrame(f, prevImageData);
+            frames.push({ imageData, delay: f.delay || 10 });
+            prevImageData = imageData;
+            showProgress(60 + Math.round((i / decompressed.length) * 35));
+        }
+
+        showProgress(98);
+
+        // Thumbnail
+        const thumb = document.getElementById('thumbCanvas');
+        const tCtx = thumb.getContext('2d');
+        tCtx.putImageData(frames[0].imageData, 0, 0, 0, 0, 52, 52);
+
+        document.getElementById('imgName').textContent = file.name;
+        document.getElementById('imgDims').textContent = `${gifWidth} × ${gifHeight} px  ·  ${decompressed.length} frames  ·  ${fmtBytes(file.size)}`;
+
+        const slider = document.getElementById('frameSlider');
+        slider.max = frames.length - 1; slider.value = 0;
+
+        dz.style.display = 'none';
+        document.getElementById('toolPanel').classList.add('visible');
+        document.getElementById('spriteCard').classList.add('visible');
+
+        currentFrame = 0;
+        renderFrameToCanvas(0);
+        updateFrameCounter();
+        hideProgress();
+        showToast(`Loaded ${frames.length} frames ✓`, 'success');
+    }
+
+    function renderFrame(f, prevImageData) {
+        // Composite frame onto canvas respecting disposal method
+        const fCtx = tmpCtx;
+
+        if (f.disposalType === 2) {
+            // Restore to background — clear region
+            fCtx.clearRect(f.dims.left, f.dims.top, f.dims.width, f.dims.height);
+        } else if (prevImageData) {
+            fCtx.putImageData(prevImageData, 0, 0);
+        }
+
+        const patch = new ImageData(new Uint8ClampedArray(f.patch), f.dims.width, f.dims.height);
+        fCtx.putImageData(patch, f.dims.left, f.dims.top);
+        return fCtx.getImageData(0, 0, gifWidth, gifHeight);
+    }
+
+    function renderFrameToCanvas(idx) {
+        const fc = document.getElementById('frameCanvas');
+        fc.width = gifWidth; fc.height = gifHeight;
+        fc.style.maxWidth = '100%'; fc.style.maxHeight = '280px';
+        fc.getContext('2d').putImageData(frames[idx].imageData, 0, 0);
+        updateFrameInfo(idx);
+    }
+
+    function updateFrameInfo(idx) {
+        const f = frames[idx];
+        const delay = f.delay * 10; // centiseconds → ms
+        document.getElementById('frameInfo').innerHTML = `
+            <div class="frame-stat"><span class="fs-label">Frame</span><span class="fs-val">${idx + 1} / ${frames.length}</span></div>
+            <div class="frame-stat"><span class="fs-label">Delay</span><span class="fs-val">${delay} ms</span></div>
+            <div class="frame-stat"><span class="fs-label">FPS</span><span class="fs-val">${delay > 0 ? (1000/delay).toFixed(1) : '—'}</span></div>
+            <div class="frame-stat"><span class="fs-label">Dimensions</span><span class="fs-val">${gifWidth}×${gifHeight}</span></div>
+        `;
+    }
+
+    function updateFrameCounter() {
+        document.getElementById('frameCounter').textContent = `${currentFrame + 1} / ${frames.length}`;
+        document.getElementById('frameSlider').value = currentFrame;
+    }
+
+    function goToFrame(idx) {
+        if (!frames.length) return;
+        currentFrame = Math.max(0, Math.min(idx, frames.length - 1));
+        renderFrameToCanvas(currentFrame);
+        updateFrameCounter();
+    }
+
+    function stepFrame(dir) { goToFrame(currentFrame + dir); }
+
+    // ── PLAYBACK ───────────────────────────────────────────────────────────────
+    function togglePlay() {
+        if (playTimer) { clearTimeout(playTimer); playTimer = null; document.getElementById('playBtn').textContent = '▶ Play'; }
+        else { document.getElementById('playBtn').textContent = '⏸ Pause'; scheduleNext(); }
+    }
+
+    function scheduleNext() {
+        if (!playTimer && document.getElementById('playBtn').textContent.includes('Pause')) {
+            const delay = Math.max(20, (frames[currentFrame].delay * 10) / playSpeed);
+            playTimer = setTimeout(() => {
+                playTimer = null;
+                currentFrame = (currentFrame + 1) % frames.length;
+                renderFrameToCanvas(currentFrame);
+                updateFrameCounter();
+                scheduleNext();
+            }, delay);
+        }
+    }
+
+    function setSpeed(btn) {
+        document.querySelectorAll('.play-speed').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        playSpeed = +btn.dataset.speed;
+    }
+
+    // ── EXPORT ─────────────────────────────────────────────────────────────────
+    function getFrameBlob(idx) {
+        return new Promise(resolve => {
+            const c = document.createElement('canvas');
+            c.width = gifWidth; c.height = gifHeight;
+            c.getContext('2d').putImageData(frames[idx].imageData, 0, 0);
+            c.toBlob(resolve, 'image/png');
+        });
+    }
+
+    function downloadCurrentFrame() {
+        if (!frames.length) return;
+        const c = document.createElement('canvas');
+        c.width = gifWidth; c.height = gifHeight;
+        c.getContext('2d').putImageData(frames[currentFrame].imageData, 0, 0);
+        const url = c.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url; a.download = `${origFileName}_frame${String(currentFrame + 1).padStart(3, '0')}.png`; a.click();
+        showToast(`Frame ${currentFrame + 1} downloaded!`, 'success');
+    }
+
+    async function downloadAllFrames() {
+        if (!frames.length) return;
+        const btn = document.getElementById('btnAllFrames');
+        btn.disabled = true; btn.textContent = 'Packing…';
+        showToast('Preparing ZIP…');
+
+        const zip = new JSZip();
+        for (let i = 0; i < frames.length; i++) {
+            const blob = await getFrameBlob(i);
+            zip.file(`${origFileName}_frame${String(i + 1).padStart(3, '0')}.png`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = `${origFileName}_frames.zip`; a.click();
+        URL.revokeObjectURL(a.href);
+        btn.disabled = false; btn.textContent = '⬇ All Frames (ZIP)';
+        showToast(`${frames.length} frames downloaded!`, 'success');
+    }
+
+    function setCols(btn) {
+        document.querySelectorAll('[data-cols]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        spriteSheetCols = +btn.dataset.cols;
+    }
+
+    function downloadSpriteSheet() {
+        if (!frames.length) return;
+        const cols = spriteSheetCols;
+        const rows = Math.ceil(frames.length / cols);
+        const c = document.createElement('canvas');
+        c.width = gifWidth * cols; c.height = gifHeight * rows;
+        const ctx = c.getContext('2d');
+        frames.forEach((f, i) => {
+            const col = i % cols, row = Math.floor(i / cols);
+            ctx.putImageData(f.imageData, col * gifWidth, row * gifHeight);
+        });
+        const a = document.createElement('a');
+        a.href = c.toDataURL('image/png');
+        a.download = `${origFileName}_sprite_${cols}col.png`; a.click();
+        showToast('Sprite sheet downloaded!', 'success');
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function resetTool() {
+        if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+        document.getElementById('playBtn').textContent = '▶ Play';
+        dz.style.display = ''; fi.value = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        document.getElementById('spriteCard').classList.remove('visible');
+        frames = []; currentFrame = 0;
+    }
+
+    function showProgress(pct) {
+        document.getElementById('progressWrap').style.display = 'block';
+        document.getElementById('progressFill').style.width = pct + '%';
+    }
+    function hideProgress() {
+        setTimeout(() => { document.getElementById('progressWrap').style.display = 'none'; document.getElementById('progressFill').style.width = '0%'; }, 400);
+    }
+
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

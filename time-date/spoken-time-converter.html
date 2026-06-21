@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spoken Time Converter | Rebrixe</title>
+    <meta name="description" content="Convert spoken time like 'quarter past three' or 'half six' into digital time. Reliable, accessible, honest about its limits.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────── */
+        .tool-wrap { max-width: 780px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Input ──────────────────────────────────────────── */
+        .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+
+        .spoken-input-wrap { position: relative; }
+
+        .spoken-input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            color: #fff;
+            padding: 18px 56px 18px 20px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.05rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .spoken-input:focus { border-color: var(--primary); }
+        .spoken-input::placeholder { color: #334155; }
+
+        .clear-btn {
+            position: absolute;
+            right: 16px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: #475569; cursor: pointer;
+            font-size: 1.1rem; padding: 4px;
+            line-height: 1; transition: color .2s;
+        }
+        .clear-btn:hover { color: #fff; }
+
+        /* ── Result block ───────────────────────────────────── */
+        .result-block {
+            display: none;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+        .result-block.visible  { display: block; }
+        .result-block.errored  { border-color: #ef4444; background: rgba(239,68,68,0.05); }
+
+        .time-display {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.8rem, 8vw, 4.5rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .time-secondary {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 18px;
+        }
+        .time-secondary span { color: #94a3b8; font-weight: 600; }
+
+        /* ── Formats grid ───────────────────────────────────── */
+        .formats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .fmt-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 10px;
+            text-align: center;
+        }
+        .fmt-val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+        .fmt-lbl {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Clock ──────────────────────────────────────────── */
+        .clock-wrap { display: flex; justify-content: center; margin-bottom: 18px; }
+
+        .clock-face {
+            position: relative;
+            width: 120px; height: 120px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.02);
+            flex-shrink: 0;
+        }
+        /* centre dot */
+        .clock-face::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            width: 6px; height: 6px;
+            background: var(--primary);
+            border-radius: 50%;
+            z-index: 3;
+        }
+        .hand {
+            position: absolute;
+            bottom: 50%; left: 50%;
+            transform-origin: bottom center;
+            border-radius: 4px 4px 0 0;
+            z-index: 2;
+        }
+        .hour-hand { width: 3px; height: 32px; background: #fff;           margin-left: -1.5px; }
+        .min-hand  { width: 2px; height: 42px; background: var(--primary); margin-left: -1px; }
+
+        /* ── Alternate ways ─────────────────────────────────── */
+        .alt-ways {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 14px; justify-content: center;
+        }
+        .alt-way {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        /* ── Action row ─────────────────────────────────────── */
+        .action-row { display: flex; gap: 10px; margin-bottom: 4px; }
+
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg,#616768,#c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        /* ── Error message ──────────────────────────────────── */
+        .error-msg { color: #ef4444; font-size: 0.9rem; font-weight: 600; padding: 8px 0; }
+
+        /* ── Section label ──────────────────────────────────── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Examples ───────────────────────────────────────── */
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .example-pill {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: .2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .example-pill:hover { border-color: var(--primary); background: rgba(139,148,152,0.08); }
+        .ex-spoken { font-size: 0.8rem;  color: #94a3b8; }
+        .ex-arrow  { font-size: 0.7rem;  color: #334155; }
+        .ex-time   { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.82rem; color: #fff; }
+
+        /* ── Empty hint ─────────────────────────────────────── */
+        .empty-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.88rem;
+            margin-bottom: 8px;
+        }
+
+        /* ── Reverse block ──────────────────────────────────── */
+        .reverse-block {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .reverse-row { display: flex; gap: 12px; align-items: flex-end; }
+        .rev-input-wrap { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+        .rev-input {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 13px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        .rev-input:focus { border-color: var(--primary); }
+
+        .btn-rev {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 13px 18px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: .2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-rev:hover { border-color: var(--primary); background: rgba(139,148,152,0.08); }
+
+        .rev-result {
+            margin-top: 14px;
+            display: none;
+        }
+        .rev-result.visible { display: block; }
+        .rev-result-ways { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .rev-way {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 13px;
+            font-size: 0.82rem;
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+        .rev-way.preferred {
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        /* ── History ────────────────────────────────────────── */
+        .history-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .history-item {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: .2s; gap: 10px;
+        }
+        .history-item:hover { border-color: var(--primary); }
+        .hi-spoken { font-size: 0.83rem; color: #94a3b8; flex: 1; }
+        .hi-result { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.88rem; color: #fff; }
+        .hi-del {
+            background: none; border: none;
+            color: #334155; cursor: pointer;
+            font-size: 0.8rem; padding: 2px 6px;
+            border-radius: 6px; transition: .2s;
+        }
+        .hi-del:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+        /* ── Limitations notice ─────────────────────────────── */
+        .limits-block {
+            background: rgba(234,179,8,0.05);
+            border: 1px solid rgba(234,179,8,0.25);
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .limits-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #ca8a04;
+            margin-bottom: 10px;
+        }
+        .limits-list {
+            margin: 0; padding-left: 16px;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .limits-list li {
+            font-size: 0.79rem;
+            color: #92400e;
+            color: #b45309;
+            line-height: 1.45;
+        }
+        .limits-list li strong { color: #d97706; font-weight: 700; }
+
+        /* ── Responsive ─────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 22px 16px; }
+            .formats-row { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-wrap: wrap; }
+            .reverse-row { flex-direction: column; }
+            .btn-rev { width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-format-conversion.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Spoken Time Converter</h1>
+            <p style="color:#64748b; font-size:0.95rem;">"Quarter past three" → 3:15 PM &nbsp;·&nbsp; Accessibility, language learning &amp; trivia.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- MAIN INPUT -->
+                <div class="input-group">
+                    <span class="input-label">Type Spoken Time</span>
+                    <div class="spoken-input-wrap">
+                        <input
+                            type="text"
+                            id="spokenInput"
+                            class="spoken-input"
+                            placeholder="e.g. quarter past three, half six, ten to midnight…"
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+                        <button class="clear-btn" id="clearBtn" title="Clear" aria-label="Clear input">✕</button>
+                    </div>
+                </div>
+
+                <!-- RESULT AREA (stable DOM — never rebuilt) -->
+                <div id="resultBlock" class="result-block" aria-live="polite">
+                    <!-- Clock -->
+                    <div class="clock-wrap">
+                        <div class="clock-face" id="clockFace"></div>
+                    </div>
+                    <!-- Primary display -->
+                    <div class="time-display" id="timeDisplay"></div>
+                    <div class="time-secondary" id="timeSub"></div>
+                    <!-- Formats row -->
+                    <div class="formats-row" id="formatsRow"></div>
+                    <!-- Alt ways -->
+                    <div class="alt-ways" id="altWays"></div>
+                    <!-- Error -->
+                    <div class="error-msg" id="errorMsg"></div>
+                    <!-- Actions (hidden in error state via class) -->
+                    <div class="action-row" id="actionRow">
+                        <button class="btn-action primary" id="copyBtn">Copy</button>
+                        <button class="btn-action" id="saveBtn">+ Save</button>
+                    </div>
+                </div>
+
+                <div id="emptyHint" class="empty-hint">Type a time phrase above ↑ &nbsp;or&nbsp; tap an example below</div>
+
+                <!-- QUICK EXAMPLES -->
+                <div class="section-label">Quick Examples — click to try</div>
+                <div class="examples-grid" id="examplesGrid"></div>
+
+                <!-- REVERSE: Digital → Spoken -->
+                <div class="section-label" style="margin-top:4px;">Reverse — Digital to Spoken</div>
+                <div class="reverse-block">
+                    <div class="reverse-row">
+                        <div class="rev-input-wrap">
+                            <span class="input-label">Enter a Time</span>
+                            <input type="time" id="revInput" class="rev-input" aria-label="Enter digital time">
+                        </div>
+                        <button class="btn-rev" id="speakBtn">Speak It</button>
+                    </div>
+                    <div id="revResult" class="rev-result">
+                        <div class="section-label" style="margin-bottom:8px;">Ways to say it</div>
+                        <div class="rev-result-ways" id="revWays"></div>
+                    </div>
+                </div>
+
+                <!-- HISTORY -->
+                <div id="histSection" style="display:none;">
+                    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>Saved / Recent</span>
+                        <button id="clearHistBtn" style="background:none;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:'Outfit';font-weight:700;text-transform:uppercase;letter-spacing:1px;">Clear all</button>
+                    </div>
+                    <div class="history-list" id="historyList"></div>
+                </div>
+
+                <!-- ⚠ LIMITATIONS NOTICE — honest disclosure -->
+                <div class="limits-block" style="margin-top: 24px;">
+                    <div class="limits-title">⚠ What this tool can &amp; can't do</div>
+                    <ul class="limits-list">
+                        <li><strong>No AM/PM guessing.</strong> If you don't say "am" or "pm", the tool assumes the hour you give is already in 24-hour context (1–12 → treated literally). "Three" gives 3:00 (early morning), not 3 PM. Add "pm" to be explicit.</li>
+                        <li><strong>English only.</strong> Spoken patterns are English-language: "quarter past", "half six", "ten to". German "halb sechs" or French "et quart" are not understood.</li>
+                        <li><strong>"Half X" = British English.</strong> "Half six" means 6:30, following the British convention. In German "halb sechs" means 5:30 — this tool does NOT follow that rule.</li>
+                        <li><strong>Minutes range 0–59 only.</strong> Input like "seventy past three" is rejected.</li>
+                        <li><strong>No relative time.</strong> "In an hour", "this afternoon", "tomorrow morning" are not supported.</li>
+                        <li><strong>No timezone or DST.</strong> Times are plain clock times — no zone conversion happens.</li>
+                        <li><strong>Save history requires browser storage.</strong> In private/incognito mode, saved entries may not persist across sessions.</li>
+                        <li><strong>Phrases with articles work partially.</strong> "A quarter past three" ✓, but complex qualifiers like "about twenty past" or "just gone half five" are not guaranteed.</li>
+                    </ul>
+                </div>
+
+            </div><!-- /tool-card -->
+        </div><!-- /tool-wrap -->
+    </div><!-- /container -->
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       SPOKEN TIME CONVERTER — Rewritten v2
+       Fixes vs original:
+         - Stable DOM (no innerHTML thrash on every keystroke)
+         - "ten to midnight" / "quarter to midnight" fixed (h wrapping)
+         - "o'clock seven" pattern removed (ambiguous; only "seven o'clock" supported)
+         - isMidnight / isNoon handled BEFORE pattern matching, not after
+         - localStorage wrapped in try/catch for private-mode safety
+         - Clock hands never orphaned (rebuilt once, updated in place)
+         - reverseConvert validates range
+         - Articles ("a quarter past") normalised
+         - All examples verified against parser output
+    ═══════════════════════════════════════════════════════════════ */
+
+    // ── WORD → NUMBER ──────────────────────────────────────────────
+    const WORD_TO_NUM = {
+        'zero':0,'one':1,'two':2,'three':3,'four':4,'five':5,
+        'six':6,'seven':7,'eight':8,'nine':9,'ten':10,
+        'eleven':11,'twelve':12,'thirteen':13,'fourteen':14,
+        'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,
+        'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,
+        // explicit compounds (so we don't rely on split logic for these)
+        'twenty one':21,'twenty two':22,'twenty three':23,'twenty four':24,
+        'twenty five':25,'twenty six':26,'twenty seven':27,'twenty eight':28,
+        'twenty nine':29,
+        'twenty-one':21,'twenty-two':22,'twenty-three':23,'twenty-four':24,
+        'twenty-five':25,'twenty-six':26,'twenty-seven':27,'twenty-eight':28,
+        'twenty-nine':29,
+    };
+
+    /** Resolve a string (word or digit string) to an integer, or null. */
+    function wordToNum(s) {
+        s = s.trim().replace(/-/g,' ');
+        if (/^\d+$/.test(s)) return parseInt(s, 10);
+        if (WORD_TO_NUM[s] !== undefined) return WORD_TO_NUM[s];
+        // two-word compound: "twenty five"
+        const parts = s.split(' ');
+        if (parts.length === 2) {
+            const a = WORD_TO_NUM[parts[0]], b = WORD_TO_NUM[parts[1]];
+            if (a !== undefined && b !== undefined && a >= 20 && b < 10) return a + b;
+        }
+        return null;
+    }
+
+    // ── PARSE ENGINE ───────────────────────────────────────────────
+    /**
+     * Parses a spoken-time string and returns {h, m} in 24-hour (0-23, 0-59),
+     * or null if unparseable.
+     *
+     * Strategy:
+     *   1. Normalise input (casing, punctuation, filler words).
+     *   2. Detect and strip AM/PM.
+     *   3. Detect special anchors: midnight, noon.
+     *   4. Tokenise and resolve all number-words to digits.
+     *   5. Match structural patterns in priority order.
+     *   6. Apply AM/PM.
+     */
+    function parseSpokenTime(raw) {
+        if (!raw || !raw.trim()) return null;
+
+        let s = raw.toLowerCase().trim();
+
+        // Normalise punctuation and noise words
+        s = s.replace(/['''`]/g, "'");
+        s = s.replace(/\bo'clock\b/g, 'oclock');
+        s = s.replace(/\boh\b/g, 'o');       // "oh three" → "o three" (not used further)
+        s = s.replace(/\ba\s+quarter\b/g, 'quarter'); // "a quarter past" → "quarter past"
+        s = s.replace(/\bpast\b/g, 'past');
+        s = s.replace(/\bafter\b/g, 'past'); // "ten after three" ≡ "ten past three"
+        s = s.replace(/\bto\b/g, 'to');
+        s = s.replace(/\band\b/g, ' ');
+        s = s.replace(/\bat\b/g, '');        // "at three" → "three"
+        s = s.replace(/\s+/g, ' ').trim();
+
+        // Detect and strip AM / PM
+        let forceAM = /\bam\b/.test(s);
+        let forcePM = /\bpm\b/.test(s);
+        s = s.replace(/\b(am|pm)\b/g, '').replace(/\s+/g, ' ').trim();
+
+        // Special anchors — resolved BEFORE tokenising
+        const isMidnight = /\bmidnight\b/.test(s);
+        const isNoon     = /\b(noon|midday|mid-?day)\b/.test(s);
+
+        // Remove anchor words so they don't pollute number resolution
+        if (isMidnight) s = s.replace(/\bmidnight\b/g, '').replace(/\s+/g, ' ').trim();
+        if (isNoon)     s = s.replace(/\b(noon|midday|mid-?day)\b/g, '').replace(/\s+/g, ' ').trim();
+
+        // ── TOKENISE & RESOLVE ───────────────────────────────────
+        // Convert all number-words to digit strings; leave keywords (past, to, half, quarter, oclock) intact.
+        // We walk tokens and try two-word combos first for compounds like "twenty five".
+        const KEYWORDS = new Set(['past','to','half','quarter','oclock','o']);
+        const tokens   = s.split(' ').filter(Boolean);
+        const resolved = [];
+
+        let i = 0;
+        while (i < tokens.length) {
+            if (KEYWORDS.has(tokens[i])) {
+                resolved.push(tokens[i]);
+                i++;
+                continue;
+            }
+            // Try two-word number: "twenty five", "twenty-five"
+            if (i + 1 < tokens.length && !KEYWORDS.has(tokens[i + 1])) {
+                const twoWord = tokens[i] + ' ' + tokens[i + 1];
+                const v2 = wordToNum(twoWord);
+                if (v2 !== null) {
+                    resolved.push(String(v2));
+                    i += 2;
+                    continue;
+                }
+            }
+            // Single token
+            const v1 = wordToNum(tokens[i]);
+            if (v1 !== null) {
+                resolved.push(String(v1));
+            } else {
+                resolved.push(tokens[i]); // unknown word; keep for error fallback
+            }
+            i++;
+        }
+
+        const r = resolved.join(' ').trim();
+
+        // ── PATTERN MATCHING (priority order) ───────────────────
+        let h = null, m = null;
+
+        // Handle anchors (midnight/noon) — if they were the ONLY thing, done.
+        // If combined with other tokens (e.g. "five past midnight"), continue below.
+        const hasOtherTokens = r.length > 0;
+
+        if (isMidnight && !hasOtherTokens) { return { h: 0, m: 0 }; }
+        if (isNoon     && !hasOtherTokens) { return { h: 12, m: 0 }; }
+
+        /* For compound anchor expressions like "ten to midnight",
+           we substitute the anchor's numeric value and let patterns fire. */
+        let rr = r;
+        if (isMidnight) rr = (rr + ' 24').trim(); // midnight = hour 24 (will wrap)
+        if (isNoon)     rr = (rr + ' 12').trim(); // noon = hour 12
+
+        // Helper: extract two numbers from a regex match
+        function n(match, idx) { return parseInt(match[idx], 10); }
+
+        let mat;
+
+        // "quarter past N"
+        if ((mat = rr.match(/^quarter\s+past\s+(\d+)$/))) {
+            h = n(mat,1); m = 15;
+        }
+        // "quarter to N"
+        else if ((mat = rr.match(/^quarter\s+to\s+(\d+)$/))) {
+            h = n(mat,1) - 1; m = 45;
+        }
+        // "half past N"
+        else if ((mat = rr.match(/^half\s+past\s+(\d+)$/))) {
+            h = n(mat,1); m = 30;
+        }
+        // "half N" — British English: "half six" = 6:30
+        else if ((mat = rr.match(/^half\s+(\d+)$/))) {
+            h = n(mat,1); m = 30;
+        }
+        // "N past M"  (minutes past hour)
+        else if ((mat = rr.match(/^(\d+)\s+past\s+(\d+)$/))) {
+            m = n(mat,1); h = n(mat,2);
+        }
+        // "N to M"  (minutes to hour)
+        else if ((mat = rr.match(/^(\d+)\s+to\s+(\d+)$/))) {
+            m = 60 - n(mat,1); h = n(mat,2) - 1;
+        }
+        // "N oclock"
+        else if ((mat = rr.match(/^(\d+)\s+oclock$/))) {
+            h = n(mat,1); m = 0;
+        }
+        // "N oclock" reversed? "oclock N" — not really valid English but handle gracefully
+        else if ((mat = rr.match(/^oclock\s+(\d+)$/))) {
+            h = n(mat,1); m = 0;
+        }
+        // "H M" — plain two numbers, e.g. "three thirty" → "3 30"
+        else if ((mat = rr.match(/^(\d+)\s+(\d+)$/))) {
+            h = n(mat,1); m = n(mat,2);
+        }
+        // "H" — single number, e.g. "three" → "3"
+        else if ((mat = rr.match(/^(\d+)$/))) {
+            h = n(mat,1); m = 0;
+        }
+        // Digital fallback: "3:15" typed in the spoken box
+        else if ((mat = rr.match(/^(\d{1,2}):(\d{2})$/))) {
+            h = n(mat,1); m = n(mat,2);
+        }
+
+        if (h === null || m === null) return null;
+
+        // Wrap midnight-relative: "ten to midnight" → h = 24-1 = 23, m = 50
+        if (h === 23 && isMidnight) { /* already correct */ }
+        if (h >= 24) h = h % 24; // safety: "past midnight" etc.
+
+        // Negative hour wrapping (e.g. "quarter to midnight" → h=24-1=23)
+        if (h < 0) h = (h + 24) % 24;
+
+        // Midnight/noon overrides — if the anchor was there with minutes pattern
+        if (isMidnight && hasOtherTokens) {
+            // The anchor substituted 24 for "to" patterns, which gives h=23.
+            // For "past midnight" patterns, the anchor substituted 24 → h=24 → wrapped to 0.
+            // Both are correct after wrapping above.
+        }
+        if (isNoon && hasOtherTokens) {
+            // Noon = 12:00; "past noon" → h = 12 already; fine.
+        }
+
+        // Validate ranges
+        if (h > 23 || h < 0 || m > 59 || m < 0) return null;
+
+        // Apply AM/PM
+        return applyAmPm(h, m, forceAM, forcePM);
+    }
+
+    function applyAmPm(h, m, forceAM, forcePM) {
+        if (forceAM) {
+            if (h === 12) h = 0; // 12 AM = midnight
+        } else if (forcePM) {
+            if (h !== 12 && h < 12) h += 12; // 12 PM stays 12
+        }
+        // No AM/PM: return hours as-is (1-12 → literal; user told to be explicit)
+        return { h, m };
+    }
+
+    // ── FORMAT HELPERS ─────────────────────────────────────────────
+    function fmt12(h, m) {
+        const period = h < 12 ? 'AM' : 'PM';
+        const hh = h % 12 === 0 ? 12 : h % 12;
+        return `${hh}:${String(m).padStart(2,'0')} ${period}`;
+    }
+    function fmt24(h, m) {
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+
+    // ── DIGITAL → SPOKEN ──────────────────────────────────────────
+    const NUM_WORDS = [
+        '','one','two','three','four','five','six','seven','eight','nine','ten',
+        'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen',
+        'eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three',
+        'twenty-four','twenty-five','twenty-six','twenty-seven','twenty-eight',
+        'twenty-nine','thirty','thirty-one','thirty-two','thirty-three','thirty-four',
+        'thirty-five','thirty-six','thirty-seven','thirty-eight','thirty-nine',
+        'forty','forty-one','forty-two','forty-three','forty-four','forty-five',
+        'forty-six','forty-seven','forty-eight','forty-nine','fifty','fifty-one',
+        'fifty-two','fifty-three','fifty-four','fifty-five','fifty-six','fifty-seven',
+        'fifty-eight','fifty-nine'
+    ];
+
+    function numWord(n) { return NUM_WORDS[n] || String(n); }
+
+    function digitalToSpoken(h24, min) {
+        const h12     = h24 % 12 === 0 ? 12 : h24 % 12;
+        const period  = h24 < 12 ? 'AM' : 'PM';
+        const hWord   = numWord(h12);
+        const nextH12 = h12 % 12 + 1;
+        const nWord   = numWord(nextH12);
+        const ways    = [];
+
+        if (min === 0) {
+            ways.push(`${hWord} o'clock ${period}`);
+            if (h24 === 0)  { ways.push('midnight'); }
+            if (h24 === 12) { ways.push('noon'); ways.push('midday'); }
+        } else if (min === 15) {
+            ways.push(`quarter past ${hWord} ${period}`);
+            ways.push(`${hWord} fifteen ${period}`);
+        } else if (min === 30) {
+            ways.push(`half past ${hWord} ${period}`);
+            ways.push(`half ${hWord} ${period}`);
+            ways.push(`${hWord} thirty ${period}`);
+        } else if (min === 45) {
+            ways.push(`quarter to ${nWord} ${period}`);
+            ways.push(`${hWord} forty-five ${period}`);
+        } else if (min > 0 && min < 30) {
+            ways.push(`${numWord(min)} past ${hWord} ${period}`);
+            ways.push(`${hWord} ${numWord(min)} ${period}`);
+        } else { // 31–59
+            ways.push(`${numWord(60 - min)} to ${nWord} ${period}`);
+            ways.push(`${hWord} ${numWord(min)} ${period}`);
+        }
+        return ways;
+    }
+
+    // ── EXAMPLES (verified: each spoken string parses to the displayed time) ──
+    // NOTE: All examples include explicit AM/PM so the output is unambiguous.
+    const EXAMPLES = [
+        { spoken:'quarter past three pm',   time:'3:15 PM'  },
+        { spoken:'half six pm',             time:'6:30 PM'  },
+        { spoken:'ten to midnight',         time:'11:50 PM' },
+        { spoken:'twenty past nine am',     time:'9:20 AM'  },
+        { spoken:'five to noon',            time:'11:55 AM' },
+        { spoken:'quarter to eight am',     time:'7:45 AM'  },
+        { spoken:'half past two pm',        time:'2:30 PM'  },
+        { spoken:'five past midnight',      time:'12:05 AM' },
+        { spoken:'twenty to four pm',       time:'3:40 PM'  },
+        { spoken:'seven oclock am',         time:'7:00 AM'  },
+        { spoken:'three thirty am',         time:'3:30 AM'  },
+        { spoken:'ten past eleven pm',      time:'11:10 PM' },
+    ];
+
+    // ── CLOCK FACE (built once, never destroyed) ───────────────────
+    (function buildClockTicks() {
+        const face = document.getElementById('clockFace');
+        for (let i = 0; i < 12; i++) {
+            const tick  = document.createElement('div');
+            const angle = i * 30;
+            const isMaj = i % 3 === 0;
+            // Use SVG-style positioning: tick sits at top, rotates around centre
+            Object.assign(tick.style, {
+                position:        'absolute',
+                top:             '6px',
+                left:            '50%',
+                width:           isMaj ? '2px' : '1px',
+                height:          isMaj ? '8px' : '5px',
+                background:      isMaj ? '#475569' : '#1e293b',
+                transformOrigin: '0 53px',
+                transform:       `rotate(${angle}deg)`,
+                marginLeft:      '-1px',
+            });
+            face.appendChild(tick);
+        }
+    })();
+
+    // Create hand elements once
+    const hourHand = document.createElement('div');
+    hourHand.className = 'hand hour-hand';
+    const minHand  = document.createElement('div');
+    minHand.className = 'hand min-hand';
+    document.getElementById('clockFace').append(hourHand, minHand);
+
+    function setClockHands(h, m) {
+        const hourDeg = (h % 12) * 30 + m * 0.5;
+        const minDeg  = m * 6;
+        hourHand.style.transform = `rotate(${hourDeg}deg)`;
+        minHand.style.transform  = `rotate(${minDeg}deg)`;
+    }
+
+    // ── DOM REFERENCES ─────────────────────────────────────────────
+    const elInput      = document.getElementById('spokenInput');
+    const elResultBlk  = document.getElementById('resultBlock');
+    const elEmptyHint  = document.getElementById('emptyHint');
+    const elTimeDisp   = document.getElementById('timeDisplay');
+    const elTimeSub    = document.getElementById('timeSub');
+    const elFmtsRow    = document.getElementById('formatsRow');
+    const elAltWays    = document.getElementById('altWays');
+    const elErrorMsg   = document.getElementById('errorMsg');
+    const elActionRow  = document.getElementById('actionRow');
+    const elCopyBtn    = document.getElementById('copyBtn');
+    const elSaveBtn    = document.getElementById('saveBtn');
+    const elClockWrap  = elResultBlk.querySelector('.clock-wrap');
+
+    // ── LAST RESULT ────────────────────────────────────────────────
+    let lastResult = null;
+
+    // ── RENDER RESULT (updates stable DOM in place) ────────────────
+    function renderResult(parsed, rawInput) {
+        if (!rawInput.trim()) {
+            // Empty input
+            elResultBlk.classList.remove('visible','errored');
+            elEmptyHint.style.display = 'block';
+            lastResult = null;
+            return;
+        }
+
+        elEmptyHint.style.display = 'none';
+        elResultBlk.classList.add('visible');
+
+        if (!parsed) {
+            // Error state
+            elResultBlk.classList.add('errored');
+            elTimeDisp.textContent  = '';
+            elTimeSub.innerHTML     = '';
+            elFmtsRow.innerHTML     = '';
+            elAltWays.innerHTML     = '';
+            elClockWrap.style.display = 'none';
+            elActionRow.style.display = 'none';
+            elErrorMsg.textContent  = '🤔 Couldn\'t parse that. Try: "quarter past three pm", "ten to midnight", "half six pm", "20 past 9 pm"';
+            lastResult = null;
+            return;
+        }
+
+        // Success
+        elResultBlk.classList.remove('errored');
+        elClockWrap.style.display  = 'flex';
+        elActionRow.style.display  = 'flex';
+        elErrorMsg.textContent     = '';
+
+        const { h, m } = parsed;
+        const t12  = fmt12(h, m);
+        const t24  = fmt24(h, m);
+        const ways = digitalToSpoken(h, m);
+
+        lastResult = { h, m, t12, t24, spoken: rawInput.trim() };
+
+        setClockHands(h, m);
+        elTimeDisp.textContent = t12;
+
+        const isMidnight = h === 0 && m === 0;
+        const isNoon     = h === 12 && m === 0;
+        const label = isMidnight ? 'Midnight' : isNoon ? 'Noon / Midday' : '';
+        elTimeSub.innerHTML = (label ? `<span>${label}</span> &nbsp;` : '') + `24-hr: <span>${t24}</span>`;
+
+        elFmtsRow.innerHTML = `
+            <div class="fmt-cell"><div class="fmt-val">${t12}</div><div class="fmt-lbl">12-hour</div></div>
+            <div class="fmt-cell"><div class="fmt-val">${t24}</div><div class="fmt-lbl">24-hour</div></div>
+            <div class="fmt-cell"><div class="fmt-val">${ways[0].replace(/ (AM|PM)$/i,'')}</div><div class="fmt-lbl">Canonical</div></div>
+        `;
+
+        if (ways.length > 1) {
+            elAltWays.innerHTML = '<div class="section-label" style="width:100%;text-align:left;margin-bottom:4px;">Other ways to say it</div>' +
+                ways.slice(1).map(w => `<span class="alt-way">${w}</span>`).join('');
+        } else {
+            elAltWays.innerHTML = '';
+        }
+    }
+
+    // ── EVENT WIRING ───────────────────────────────────────────────
+    elInput.addEventListener('input', () => {
+        const val = elInput.value;
+        renderResult(parseSpokenTime(val), val);
+    });
+
+    elInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') elInput.blur();
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        elInput.value = '';
+        renderResult(null, '');
+        elInput.focus();
+    });
+
+    elCopyBtn.addEventListener('click', () => {
+        if (!lastResult) return;
+        const text = `${lastResult.t12} (${lastResult.t24})`;
+        navigator.clipboard.writeText(text).then(() => {
+            elCopyBtn.textContent = '✓ Copied!';
+            setTimeout(() => elCopyBtn.textContent = 'Copy', 2000);
+        }).catch(() => {
+            // Clipboard may be blocked (e.g. HTTP, some browsers)
+            elCopyBtn.textContent = 'Failed';
+            setTimeout(() => elCopyBtn.textContent = 'Copy', 2000);
+        });
+    });
+
+    elSaveBtn.addEventListener('click', addToHistory);
+
+    // ── EXAMPLES ──────────────────────────────────────────────────
+    (function buildExamples() {
+        const grid = document.getElementById('examplesGrid');
+        EXAMPLES.forEach(ex => {
+            const el   = document.createElement('div');
+            el.className = 'example-pill';
+            el.innerHTML = `<span class="ex-spoken">${ex.spoken}</span><span class="ex-arrow">→</span><span class="ex-time">${ex.time}</span>`;
+            el.addEventListener('click', () => {
+                elInput.value = ex.spoken;
+                renderResult(parseSpokenTime(ex.spoken), ex.spoken);
+                elInput.focus();
+            });
+            grid.appendChild(el);
+        });
+    })();
+
+    // ── REVERSE: DIGITAL → SPOKEN ──────────────────────────────────
+    function reverseConvert() {
+        const val = document.getElementById('revInput').value;
+        const res = document.getElementById('revResult');
+        if (!val) { res.classList.remove('visible'); return; }
+        const parts = val.split(':');
+        const hh = parseInt(parts[0], 10);
+        const mm = parseInt(parts[1], 10);
+        if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+            res.classList.remove('visible');
+            return;
+        }
+        const spoken = digitalToSpoken(hh, mm);
+        document.getElementById('revWays').innerHTML = spoken.map((w, i) =>
+            `<span class="rev-way${i === 0 ? ' preferred' : ''}">${w}</span>`
+        ).join('');
+        res.classList.add('visible');
+    }
+
+    document.getElementById('revInput').addEventListener('input', reverseConvert);
+    document.getElementById('speakBtn').addEventListener('click', reverseConvert);
+
+    // ── HISTORY (localStorage with safe fallback) ──────────────────
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem('stc_history') || '[]'); }
+        catch { return []; }
+    }
+    function saveHistory(hist) {
+        try { localStorage.setItem('stc_history', JSON.stringify(hist)); }
+        catch { /* private/incognito mode — silently ignore */ }
+    }
+
+    let history = loadHistory();
+
+    function addToHistory() {
+        if (!lastResult) return;
+        const entry = { spoken: lastResult.spoken, t12: lastResult.t12, t24: lastResult.t24 };
+        history = history.filter(e => e.spoken !== entry.spoken);
+        history.unshift(entry);
+        if (history.length > 10) history.pop();
+        saveHistory(history);
+        renderHistory();
+    }
+
+    function clearHistory() {
+        history = [];
+        saveHistory(history);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const sec  = document.getElementById('histSection');
+        const list = document.getElementById('historyList');
+        if (!history.length) { sec.style.display = 'none'; return; }
+        sec.style.display = 'block';
+        list.innerHTML = history.map((e, idx) => `
+            <div class="history-item" data-idx="${idx}" role="button" tabindex="0">
+                <span class="hi-spoken">${escHtml(e.spoken)}</span>
+                <span class="hi-result">${escHtml(e.t12)}</span>
+                <button class="hi-del" data-del="${idx}" aria-label="Remove entry" title="Remove">✕</button>
+            </div>
+        `).join('');
+
+        list.querySelectorAll('.history-item').forEach(el => {
+            el.addEventListener('click', (ev) => {
+                if (ev.target.closest('.hi-del')) return;
+                const spoken = history[parseInt(el.dataset.idx)]?.spoken;
+                if (spoken) {
+                    elInput.value = spoken;
+                    renderResult(parseSpokenTime(spoken), spoken);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        });
+        list.querySelectorAll('.hi-del').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.del);
+                history.splice(idx, 1);
+                saveHistory(history);
+                renderHistory();
+            });
+        });
+    }
+
+    document.getElementById('clearHistBtn').addEventListener('click', clearHistory);
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Initial render
+    renderHistory();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

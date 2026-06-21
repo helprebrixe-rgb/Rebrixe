@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Metadata & EXIF Stripper — Remove GPS, Camera & Location Data | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Remove hidden EXIF metadata from photos before sharing. Strips GPS location, camera model, date, and all personal data. Free, browser-only — your image never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FF8800;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --danger-dim: rgba(255,68,68,0.07);
+            --danger-border: rgba(255,68,68,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Danger alert */
+        .danger-alert { background: var(--danger-dim); border: 1px solid var(--danger-border); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 20px; display: none; }
+        .danger-alert.visible { display: block; }
+        .danger-title { font-size: 0.8rem; font-weight: 800; color: var(--error); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+        .danger-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+        .danger-tag { font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--danger-border); color: var(--error); background: rgba(255,68,68,0.05); font-family: 'Fira Code', monospace; }
+        .danger-tag.warn { color: var(--warn); border-color: rgba(255,136,0,0.3); background: rgba(255,136,0,0.05); }
+
+        /* Metadata panel */
+        .meta-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+        .meta-count { font-size: 0.68rem; font-weight: 700; color: var(--text-dim); background: var(--surface); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); font-family: 'Fira Code', monospace; }
+        .meta-count.has-data { color: var(--error); border-color: var(--danger-border); background: var(--danger-dim); }
+        .meta-count.no-data { color: var(--success); border-color: rgba(170,255,0,0.2); background: rgba(170,255,0,0.05); }
+
+        .meta-table { width: 100%; border-collapse: collapse; }
+        .meta-table tr { border-bottom: 1px solid var(--border); }
+        .meta-table tr:last-child { border-bottom: none; }
+        .meta-table td { padding: 9px 4px; font-size: 0.78rem; vertical-align: top; }
+        .meta-key { color: var(--text-dim); font-family: 'Fira Code', monospace; font-size: 0.72rem; width: 42%; padding-right: 12px; }
+        .meta-val { color: var(--text-sec); word-break: break-all; }
+        .meta-val.sensitive { color: var(--error); font-weight: 700; }
+        .meta-val.warn { color: var(--warn); font-weight: 600; }
+        .sensitivity-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+        .dot-red { background: var(--error); box-shadow: 0 0 6px var(--error); }
+        .dot-warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+        .dot-ok { background: var(--text-dim); }
+
+        .no-meta-msg { text-align: center; padding: 24px 0; color: var(--text-dim); font-size: 0.82rem; }
+        .no-meta-msg span { font-size: 1.6rem; display: block; margin-bottom: 8px; }
+
+        /* Options */
+        .options-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+        .opt-group { flex: 1; min-width: 180px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.14); }
+
+        /* Result */
+        .result-info { font-size: 0.75rem; color: var(--success); background: rgba(170,255,0,0.06); border: 1px solid rgba(170,255,0,0.15); border-radius: var(--radius-sm); padding: 10px 16px; margin-top: 10px; display: none; }
+        .result-info.visible { display: flex; align-items: center; gap: 8px; }
+        .result-info::before { content: '✓'; font-weight: 800; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .action-row { flex-direction: column; }
+            .options-card { flex-direction: column; gap: 16px; }
+            .btn-main, .btn-secondary { min-width: unset; }
+            .meta-key { width: 38%; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="compress-optimise.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">EXIF Metadata Stripper</h1>
+                <p class="tool-page-sub">See exactly what's hidden in your photo — then remove it all before sharing.</p>
+                <span class="privacy-badge">100% browser-only — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/webp,image/tiff">
+                <span class="drop-icon">🔍</span>
+                <p class="drop-title">Drop a photo to scan its hidden data</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — JPG, PNG, WebP, TIFF</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Danger alert for sensitive finds -->
+                <div class="danger-alert" id="dangerAlert">
+                    <div class="danger-title">⚠️ Sensitive data found in this image</div>
+                    <div class="danger-tags" id="dangerTags"></div>
+                </div>
+
+                <!-- Metadata display -->
+                <div class="meta-panel">
+                    <div class="section-label">
+                        Embedded Metadata
+                        <span class="meta-count" id="metaCount">scanning…</span>
+                    </div>
+                    <div id="metaBody"></div>
+                </div>
+
+                <!-- Options -->
+                <div class="options-card">
+                    <div class="opt-group">
+                        <label>Output Format</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                            <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                            <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        </div>
+                    </div>
+                    <div class="opt-group">
+                        <label>Quality (JPG / WebP)</label>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:2px;">
+                            <input type="range" style="-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:99px;background:var(--border);outline:none;cursor:pointer;" id="qualSlider" min="60" max="100" value="92" oninput="document.getElementById('qualVal').textContent=this.value+'%'">
+                            <span id="qualVal" style="font-size:0.8rem;font-weight:700;color:var(--primary);font-family:'Fira Code',monospace;min-width:38px;text-align:right;">92%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doStrip()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">🧹</span>
+                            <span style="font-weight:800;font-size:0.95rem;">Strip All Metadata & Download</span>
+                        </div>
+                    </button>
+                </div>
+                <div class="result-info" id="resultInfo"></div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why this matters</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Your photo contains your home address</h3>
+                        <p>Every photo taken on a modern smartphone embeds your <code>GPS coordinates</code> — latitude and longitude accurate to a few metres. Anyone receiving the original file can open it in any EXIF viewer and see exactly where you were.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What is EXIF data?</h3>
+                        <p>EXIF (Exchangeable Image File Format) is metadata baked into photos by cameras and phones. It can include GPS location, timestamp, camera make/model, lens info, serial numbers, and even the device owner's name.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>When to strip before sharing</h3>
+                        <p>Before posting on social media, sending via email, listing items for sale, sharing in public forums, or submitting photos professionally. Most platforms strip EXIF — but not all, and not always instantly.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Completely private, zero upload</h3>
+                        <p>Everything runs in your browser using the <code>Canvas API</code>. Your photo is never sent anywhere. Works offline once the page is loaded. No account, no tracking.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── EXIF TAG MAP ──────────────────────────────────────────────────────────
+    // Sensitivity: 2 = high (red), 1 = medium (warn), 0 = info
+    const TAG_MAP = {
+        0x010F: { name: 'Camera Make',        sens: 1 },
+        0x0110: { name: 'Camera Model',       sens: 1 },
+        0x0112: { name: 'Orientation',        sens: 0 },
+        0x011A: { name: 'X Resolution',       sens: 0 },
+        0x011B: { name: 'Y Resolution',       sens: 0 },
+        0x0128: { name: 'Resolution Unit',    sens: 0 },
+        0x0131: { name: 'Software',           sens: 0 },
+        0x0132: { name: 'Date / Time',        sens: 1 },
+        0x013B: { name: 'Artist / Author',    sens: 2 },
+        0x013E: { name: 'White Point',        sens: 0 },
+        0x013F: { name: 'Primary Chromaticities', sens: 0 },
+        0x0213: { name: 'YCbCr Positioning',  sens: 0 },
+        0x8298: { name: 'Copyright',          sens: 1 },
+        0x8769: { name: 'EXIF Offset',        sens: 0 },
+        0x8825: { name: 'GPS Info Offset',    sens: 2 },
+        0x9000: { name: 'EXIF Version',       sens: 0 },
+        0x9003: { name: 'Date Taken',         sens: 1 },
+        0x9004: { name: 'Date Digitized',     sens: 1 },
+        0x9010: { name: 'Offset Time',        sens: 0 },
+        0x9011: { name: 'Offset Time Original', sens: 0 },
+        0x9101: { name: 'Components Config',  sens: 0 },
+        0x9102: { name: 'Compressed Bits/Px', sens: 0 },
+        0x9201: { name: 'Shutter Speed',      sens: 0 },
+        0x9202: { name: 'Aperture',           sens: 0 },
+        0x9203: { name: 'Brightness',         sens: 0 },
+        0x9204: { name: 'Exposure Bias',      sens: 0 },
+        0x9205: { name: 'Max Aperture',       sens: 0 },
+        0x9207: { name: 'Metering Mode',      sens: 0 },
+        0x9208: { name: 'Light Source',       sens: 0 },
+        0x9209: { name: 'Flash',              sens: 0 },
+        0x920A: { name: 'Focal Length',       sens: 0 },
+        0x9214: { name: 'Subject Area',       sens: 0 },
+        0x927C: { name: 'Maker Note',         sens: 1 },
+        0x9286: { name: 'User Comment',       sens: 2 },
+        0x9290: { name: 'Subsec Time',        sens: 0 },
+        0x9291: { name: 'Subsec Time Original', sens: 0 },
+        0x9292: { name: 'Subsec Time Digitized', sens: 0 },
+        0xA000: { name: 'FlashPix Version',   sens: 0 },
+        0xA001: { name: 'Color Space',        sens: 0 },
+        0xA002: { name: 'Pixel Width',        sens: 0 },
+        0xA003: { name: 'Pixel Height',       sens: 0 },
+        0xA20E: { name: 'Focal Plane X Res',  sens: 0 },
+        0xA20F: { name: 'Focal Plane Y Res',  sens: 0 },
+        0xA210: { name: 'Focal Plane Res Unit', sens: 0 },
+        0xA217: { name: 'Sensing Method',     sens: 0 },
+        0xA300: { name: 'File Source',        sens: 0 },
+        0xA301: { name: 'Scene Type',         sens: 0 },
+        0xA401: { name: 'Custom Rendered',    sens: 0 },
+        0xA402: { name: 'Exposure Mode',      sens: 0 },
+        0xA403: { name: 'White Balance',      sens: 0 },
+        0xA404: { name: 'Digital Zoom Ratio', sens: 0 },
+        0xA405: { name: 'Focal Length (35mm)', sens: 0 },
+        0xA406: { name: 'Scene Capture Type', sens: 0 },
+        0xA408: { name: 'Contrast',           sens: 0 },
+        0xA409: { name: 'Saturation',         sens: 0 },
+        0xA40A: { name: 'Sharpness',          sens: 0 },
+        0xA432: { name: 'Lens Info',          sens: 1 },
+        0xA433: { name: 'Lens Make',          sens: 1 },
+        0xA434: { name: 'Lens Model',         sens: 1 },
+        // GPS tags
+        0x0001: { name: 'GPS Latitude Ref',   sens: 2 },
+        0x0002: { name: 'GPS Latitude',       sens: 2 },
+        0x0003: { name: 'GPS Longitude Ref',  sens: 2 },
+        0x0004: { name: 'GPS Longitude',      sens: 2 },
+        0x0005: { name: 'GPS Altitude Ref',   sens: 2 },
+        0x0006: { name: 'GPS Altitude',       sens: 2 },
+        0x0007: { name: 'GPS Time',           sens: 1 },
+        0x0012: { name: 'GPS Map Datum',      sens: 1 },
+        0x001D: { name: 'GPS Date',           sens: 1 },
+    };
+
+    // ── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let outputFmt = 'jpeg';
+
+    // ── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const ab = e.target.result;
+            // Load image for thumbnail and canvas
+            const blob = new Blob([ab], { type: file.type });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = url;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultInfo').classList.remove('visible');
+                // Parse EXIF from raw bytes
+                if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+                    parseEXIF(ab);
+                } else {
+                    showNoExif('This format (' + file.type.split('/')[1].toUpperCase() + ') typically has no embedded EXIF. Still safe to re-export as a clean copy.');
+                }
+            };
+            img.src = url;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null;
+        document.getElementById('dangerAlert').classList.remove('visible');
+    }
+
+    // ── EXIF PARSER ───────────────────────────────────────────────────────────
+    function parseEXIF(ab) {
+        const view = new DataView(ab);
+        if (view.getUint16(0) !== 0xFFD8) { showNoExif('Not a valid JPEG.'); return; }
+
+        let offset = 2, tags = [], hasGPS = false;
+        while (offset < view.byteLength - 4) {
+            if (view.getUint8(offset) !== 0xFF) break;
+            const marker = view.getUint16(offset);
+            offset += 2;
+            if (marker === 0xFFE1) { // APP1 — EXIF
+                const segLen = view.getUint16(offset);
+                const exifStart = offset + 2;
+                // Check "Exif\0\0" header
+                if (view.getUint32(exifStart) === 0x45786966 && view.getUint16(exifStart + 4) === 0x0000) {
+                    const tiffStart = exifStart + 6;
+                    const littleEndian = view.getUint16(tiffStart) === 0x4949;
+                    const ifdOffset = view.getUint32(tiffStart + 4, littleEndian);
+                    tags = tags.concat(readIFD(view, tiffStart, tiffStart + ifdOffset, littleEndian, false));
+                }
+                offset += segLen;
+            } else if (marker >= 0xFFE0 && marker <= 0xFFEF) {
+                offset += view.getUint16(offset);
+            } else if (marker === 0xFFDA) {
+                break;
+            } else {
+                offset += view.getUint16(offset);
+            }
+        }
+        renderTags(tags);
+    }
+
+    function readIFD(view, tiffStart, ifdOffset, le, isGPS) {
+        const tags = [];
+        try {
+            const count = view.getUint16(ifdOffset, le);
+            for (let i = 0; i < count && i < 80; i++) {
+                const e = ifdOffset + 2 + i * 12;
+                const tag = view.getUint16(e, le);
+                const type = view.getUint16(e + 2, le);
+                const numVal = view.getUint32(e + 4, le);
+                let val = readTagValue(view, tiffStart, e, type, numVal, le);
+                const info = TAG_MAP[tag] || { name: `Tag 0x${tag.toString(16).toUpperCase().padStart(4,'0')}`, sens: 0 };
+                // Recurse into EXIF / GPS sub-IFDs
+                if (tag === 0x8769 || tag === 0x8825) {
+                    const subOffset = view.getUint32(e + 8, le);
+                    const sub = readIFD(view, tiffStart, tiffStart + subOffset, le, tag === 0x8825);
+                    tags.push(...sub);
+                    continue;
+                }
+                if (val !== null && val !== undefined) tags.push({ tag, name: info.name, val: String(val).trim(), sens: isGPS ? 2 : info.sens });
+            }
+        } catch(_) {}
+        return tags;
+    }
+
+    function readTagValue(view, tiffStart, entryOffset, type, count, le) {
+        const totalSize = [0,1,1,2,4,8,1,1,2,4,8,4,8][type] * count;
+        let offset = entryOffset + 8;
+        if (totalSize > 4) offset = tiffStart + view.getUint32(entryOffset + 8, le);
+        try {
+            if (type === 2) { // ASCII
+                let s = '';
+                for (let i = 0; i < Math.min(count - 1, 80); i++) s += String.fromCharCode(view.getUint8(offset + i));
+                return s;
+            }
+            if (type === 3) return view.getUint16(offset, le); // SHORT
+            if (type === 4) return view.getUint32(offset, le); // LONG
+            if (type === 5) { // RATIONAL
+                const n = view.getUint32(offset, le), d = view.getUint32(offset + 4, le);
+                return d ? (n / d).toFixed(4) : n + '/0';
+            }
+            if (type === 10) { // SRATIONAL
+                const n = view.getInt32(offset, le), d = view.getInt32(offset + 4, le);
+                return d ? (n / d).toFixed(4) : n + '/0';
+            }
+            if (type === 7) return '[binary data]';
+        } catch(_) {}
+        return null;
+    }
+
+    function renderTags(tags) {
+        const body = document.getElementById('metaBody');
+        const countEl = document.getElementById('metaCount');
+        const alert = document.getElementById('dangerAlert');
+        const dangerTags = document.getElementById('dangerTags');
+
+        if (!tags.length) { showNoExif('No EXIF metadata found. This image is already clean.'); return; }
+
+        countEl.textContent = tags.length + ' fields found';
+        countEl.className = 'meta-count has-data';
+
+        // Find sensitive
+        const sensitive = tags.filter(t => t.sens === 2);
+        const warned = tags.filter(t => t.sens === 1);
+        if (sensitive.length || warned.length) {
+            alert.classList.add('visible');
+            dangerTags.innerHTML = '';
+            sensitive.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'danger-tag';
+                span.textContent = '📍 ' + t.name + ': ' + truncate(t.val, 32);
+                dangerTags.appendChild(span);
+            });
+            warned.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'danger-tag warn';
+                span.textContent = t.name;
+                dangerTags.appendChild(span);
+            });
+        }
+
+        // Table
+        const table = document.createElement('table');
+        table.className = 'meta-table';
+        tags.forEach(t => {
+            const tr = document.createElement('tr');
+            const dot = t.sens === 2 ? '<span class="sensitivity-dot dot-red"></span>' : t.sens === 1 ? '<span class="sensitivity-dot dot-warn"></span>' : '<span class="sensitivity-dot dot-ok"></span>';
+            const valClass = t.sens === 2 ? 'meta-val sensitive' : t.sens === 1 ? 'meta-val warn' : 'meta-val';
+            tr.innerHTML = `<td class="meta-key">${dot}${t.name}</td><td class="${valClass}">${escHtml(truncate(t.val, 60))}</td>`;
+            table.appendChild(tr);
+        });
+        body.innerHTML = '';
+        body.appendChild(table);
+    }
+
+    function showNoExif(msg) {
+        const countEl = document.getElementById('metaCount');
+        countEl.textContent = 'clean';
+        countEl.className = 'meta-count no-data';
+        document.getElementById('metaBody').innerHTML = `<div class="no-meta-msg"><span>✅</span>${msg}</div>`;
+        document.getElementById('dangerAlert').classList.remove('visible');
+    }
+
+    // ── STRIP & DOWNLOAD ──────────────────────────────────────────────────────
+    function doStrip() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : parseInt(document.getElementById('qualSlider').value) / 100;
+        const canvas = document.createElement('canvas');
+        canvas.width = origImg.naturalWidth;
+        canvas.height = origImg.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(origImg, 0, 0);
+        const dataURL = canvas.toDataURL(mime, q);
+
+        // Estimate size
+        const bytes = Math.round(dataURL.split(',')[1].length * 0.75);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const filename = `${base}_clean.${ext}`;
+
+        const a = document.createElement('a');
+        a.href = dataURL; a.download = filename; a.click();
+
+        const info = document.getElementById('resultInfo');
+        info.textContent = `Downloaded ${filename} — ${fmtBytes(bytes)} — all metadata removed.`;
+        info.classList.add('visible');
+        showToast('Metadata stripped & saved! ✓', 'success');
+    }
+
+    // ── CONTROLS ──────────────────────────────────────────────────────────────
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : s; }
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject Line A/B Tester | Rebrixe</title>
+    <meta name="description" content="Simulate subscriber psychology to predict the winner of your subject line A/B tests with our Subject Line A/B Tester. Perfect for marketers, content creators, and email strategists looking to optimize their open rates and engagement through data-driven insights. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .ab-tester-card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 960px;
+            margin: 40px auto;
+        }
+
+        /* ── Inputs ── */
+        .battle-arena {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 0;
+            align-items: start;
+            margin-top: 30px;
+        }
+
+        .subject-input-group {
+            background: rgba(255,255,255,0.02);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+            transition: border-color 0.3s;
+        }
+        .subject-input-group:focus-within {
+            border-color: var(--primary);
+        }
+
+        .subject-input-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Outfit';
+            font-size: 0.7rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .char-counter {
+            font-family: 'Inter';
+            font-size: 0.65rem;
+            color: #64748b;
+            letter-spacing: 0;
+            transition: color 0.3s;
+        }
+        .char-counter.warn  { color: #f59e0b; }
+        .char-counter.good  { color: #22c55e; }
+
+        input[type="text"].subject-input {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input[type="text"].subject-input:focus {
+            border-color: var(--primary);
+        }
+
+        .input-tip {
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #475569;
+            font-style: italic;
+        }
+
+        /* VS divider */
+        .vs-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 18px;
+            padding-top: 52px;
+        }
+        .vs-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 0.75rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        /* ── Loader ── */
+        #loaderArea {
+            display: none;
+            text-align: center;
+            padding: 30px 0 10px;
+        }
+        .loader-label {
+            font-family: 'Inter';
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        .loader-bar-bg {
+            height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.15s linear;
+        }
+
+        /* ── Results ── */
+        .simulation-results {
+            margin-top: 30px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        .results-header {
+            text-align: center;
+            font-family: 'Outfit';
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 24px;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .result-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 20px;
+            transition: border-color 0.4s;
+            position: relative;
+            overflow: hidden;
+        }
+        .result-card.winner {
+            border-color: var(--primary);
+        }
+        .result-card.winner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top left, rgba(var(--primary-rgb, 99,102,241), 0.08), transparent 70%);
+            pointer-events: none;
+        }
+
+        .winner-tag {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            display: inline-block;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .variant-label {
+            font-family: 'Outfit';
+            font-size: 0.65rem;
+            color: #475569;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .result-subject-text {
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 14px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .open-rate-big {
+            font-family: 'Outfit';
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .open-rate-label {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 12px;
+            margin-top: 2px;
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 10px;
+            margin: 10px 0 16px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border-radius: 10px;
+        }
+
+        /* Score Breakdown */
+        .score-breakdown {
+            margin-top: 4px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 12px;
+        }
+        .score-breakdown-title {
+            font-size: 0.65rem;
+            color: #475569;
+            letter-spacing: 1px;
+            font-family: 'Outfit';
+            margin-bottom: 8px;
+        }
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.72rem;
+            color: #94a3b8;
+        }
+        .score-row span:last-child {
+            font-family: 'Outfit';
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .score-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary);
+            margin-right: 6px;
+            opacity: 0.6;
+        }
+
+        /* Psychology Analysis */
+        .analysis-box {
+            margin-top: 24px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 20px 24px;
+        }
+        .analysis-box-title {
+            font-family: 'Outfit';
+            font-size: 0.7rem;
+            color: var(--primary);
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        .analysis-text {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            line-height: 1.7;
+        }
+        .improvement-list {
+            margin-top: 14px;
+            padding: 0;
+            list-style: none;
+        }
+        .improvement-list li {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            padding: 6px 0 6px 20px;
+            position: relative;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            line-height: 1.5;
+        }
+        .improvement-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+        }
+
+        /* History */
+        .history-section {
+            margin-top: 24px;
+        }
+        .history-title {
+            font-family: 'Outfit';
+            font-size: 0.7rem;
+            color: #475569;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .clear-history-btn {
+            background: none;
+            border: none;
+            color: #475569;
+            font-size: 0.65rem;
+            cursor: pointer;
+            font-family: 'Inter';
+            padding: 0;
+            transition: color 0.2s;
+        }
+        .clear-history-btn:hover { color: #e2e8f0; }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .history-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            font-size: 0.75rem;
+        }
+        .history-item:hover {
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.04);
+        }
+        .history-subject {
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-subject.won { color: #e2e8f0; font-weight: 600; }
+        .history-winner-badge {
+            font-size: 0.6rem;
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* Util */
+        .reset-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: 'Inter';
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .reset-btn:hover {
+            border-color: var(--primary);
+            color: #e2e8f0;
+        }
+
+        /* Mobile */
+        @media (max-width: 680px) {
+            .ab-tester-card { padding: 24px 16px; }
+            .battle-arena {
+                grid-template-columns: 1fr;
+            }
+            .vs-divider { padding: 14px 0; }
+            .vs-circle { width: 34px; height: 34px; font-size: 0.65rem; }
+            .results-grid { grid-template-columns: 1fr; }
+            .history-item { grid-template-columns: 1fr 1fr; }
+            .history-winner-badge { display: none; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="prompt-engineering.html" class="back-btn">back to tools</a>
+
+        <div class="ab-tester-card">
+            <header style="text-align: center;">
+                <h1 style="font-family: 'Outfit'; font-size: 2.5rem;">Subject Line A/B Tester</h1>
+                <p style="color: #64748b;">Simulate subscriber psychology to predict your winner.</p>
+            </header>
+
+            <!-- Input Arena -->
+            <div class="battle-arena">
+                <div class="subject-input-group">
+                    <label>
+                        VARIANT A
+                        <span id="counterA" class="char-counter">0 chars</span>
+                    </label>
+                    <input type="text" id="subjectA" class="subject-input" placeholder="e.g. 5 secrets for explosive growth..." maxlength="150">
+                    <div class="input-tip">Tip: 30–50 chars often performs best on mobile</div>
+                </div>
+
+                <div class="vs-divider">
+                    <div class="vs-circle">VS</div>
+                </div>
+
+                <div class="subject-input-group">
+                    <label>
+                        VARIANT B
+                        <span id="counterB" class="char-counter">0 chars</span>
+                    </label>
+                    <input type="text" id="subjectB" class="subject-input" placeholder="e.g. Why you're leaving money on the table..." maxlength="150">
+                    <div class="input-tip">Tip: Try a question or negative framing here</div>
+                </div>
+            </div>
+
+            <button class="generator-btn" id="runBtn" onclick="runBattle()" style="width: 100%; margin-top: 30px;">
+                Run A/B Simulation ⚡
+            </button>
+
+            <!-- Loader -->
+            <div id="loaderArea">
+                <div class="loader-label" id="loaderLabel">Analyzing psychological triggers...</div>
+                <div class="loader-bar-bg"><div class="loader-bar-fill" id="loaderBar"></div></div>
+            </div>
+
+            <!-- Results -->
+            <div id="resultsArea" class="simulation-results">
+                <div class="results-header">— SIMULATION COMPLETE —</div>
+
+                <div class="results-grid">
+                    <!-- Variant A -->
+                    <div class="result-card" id="cardA">
+                        <div class="variant-label">VARIANT A</div>
+                        <div id="tagA"></div>
+                        <div id="textA" class="result-subject-text"></div>
+                        <div class="open-rate-big" id="rateNumA"></div>
+                        <div class="open-rate-label">Predicted Open Rate</div>
+                        <div class="progress-bar-bg"><div id="barA" class="progress-bar-fill"></div></div>
+                        <div class="score-breakdown">
+                            <div class="score-breakdown-title">SCORE BREAKDOWN</div>
+                            <div id="breakdownA"></div>
+                        </div>
+                    </div>
+
+                    <!-- Variant B -->
+                    <div class="result-card" id="cardB">
+                        <div class="variant-label">VARIANT B</div>
+                        <div id="tagB"></div>
+                        <div id="textB" class="result-subject-text"></div>
+                        <div class="open-rate-big" id="rateNumB"></div>
+                        <div class="open-rate-label">Predicted Open Rate</div>
+                        <div class="progress-bar-bg"><div id="barB" class="progress-bar-fill"></div></div>
+                        <div class="score-breakdown">
+                            <div class="score-breakdown-title">SCORE BREAKDOWN</div>
+                            <div id="breakdownB"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis -->
+                <div class="analysis-box">
+                    <div class="analysis-box-title">🧠 PSYCHOLOGICAL ANALYSIS</div>
+                    <div class="analysis-text" id="analysisText"></div>
+                    <ul class="improvement-list" id="improvementList"></ul>
+                </div>
+
+                <div style="text-align:center; margin-top: 16px;">
+                    <button class="reset-btn" onclick="resetTool()">← Run Another Test</button>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="history-section" id="historySection" style="display:none;">
+                <div class="history-title">
+                    RECENT TESTS
+                    <button class="clear-history-btn" onclick="clearHistory()">Clear history</button>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────
+    // SCORING ENGINE
+    // Analyses real text signals to produce weighted scores
+    // ─────────────────────────────────────────────
+
+    const POWER_WORDS = {
+        curiosity:   ['secret','secrets','revealed','hidden','truth','behind','untold','nobody','they','won\'t','you don\'t','what happens','what really','you didn\'t','little-known','here\'s why','why most'],
+        urgency:     ['now','today','tonight','last chance','expires','ending','hours','limited','don\'t miss','act','fast','quick','deadline','urgent'],
+        fomo:        ['everyone','every','most people','top marketers','millions','before they','while you','others are','your competitors','losing','missing out','left behind'],
+        personal:    ['you','your','i ','i\'m ','i\'ve ','i was','we ','we\'re','me ','my '],
+        negative:    ['mistake','fail','wrong','stop','avoid','worst','never','don\'t','bad','problem','struggle','lose','losing','broke','painful','warning','danger'],
+        numbers:     /\b\d+\b/g,
+        question:    ['?'],
+        emoji:       /[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,
+        brackets:    /[\[\(\{][^\]\)\}]+[\]\)\}]/g,
+    };
+
+    function scoreSubjectLine(text) {
+        const lower = text.toLowerCase();
+        const scores = {};
+
+        // Length score: sweet spot 30-50 chars
+        const len = text.length;
+        if (len === 0) return null;
+        let lengthScore;
+        if (len >= 30 && len <= 50)      lengthScore = 10;
+        else if (len >= 20 && len < 30)  lengthScore = 8;
+        else if (len > 50 && len <= 65)  lengthScore = 7;
+        else if (len > 65 && len <= 80)  lengthScore = 5;
+        else if (len < 20)               lengthScore = 6;
+        else                             lengthScore = 3;
+        scores['Length Optimisation'] = lengthScore;
+
+        // Curiosity gap
+        let curiosityHits = POWER_WORDS.curiosity.filter(w => lower.includes(w)).length;
+        scores['Curiosity Gap'] = Math.min(curiosityHits * 4, 10);
+
+        // Urgency
+        let urgencyHits = POWER_WORDS.urgency.filter(w => lower.includes(w)).length;
+        scores['Urgency Signals'] = Math.min(urgencyHits * 4, 10);
+
+        // FOMO
+        let fomoHits = POWER_WORDS.fomo.filter(w => lower.includes(w)).length;
+        scores['FOMO Factor'] = Math.min(fomoHits * 4, 10);
+
+        // Personalisation
+        let personalHits = POWER_WORDS.personal.filter(w => lower.includes(w)).length;
+        scores['Personalisation'] = Math.min(personalHits * 3, 10);
+
+        // Negative framing (high open rates)
+        let negHits = POWER_WORDS.negative.filter(w => lower.includes(w)).length;
+        scores['Negative Framing'] = Math.min(negHits * 3, 10);
+
+        // Numbers
+        const nums = lower.match(POWER_WORDS.numbers) || [];
+        scores['Specific Numbers'] = nums.length > 0 ? Math.min(nums.length * 4, 10) : 0;
+
+        // Question mark
+        scores['Question Hook'] = text.includes('?') ? 8 : 0;
+
+        // Emoji (slight positive in B2C, neutral weight)
+        const emojis = text.match(POWER_WORDS.emoji) || [];
+        scores['Emoji Usage'] = emojis.length > 0 ? 5 : 0;
+
+        // Brackets / parentheses (e.g. [FREE], (important))
+        const brackets = text.match(POWER_WORDS.brackets) || [];
+        scores['Power Brackets'] = brackets.length > 0 ? 6 : 0;
+
+        // Total & predicted open rate
+        const rawTotal = Object.values(scores).reduce((a, b) => a + b, 0);
+        const maxPossible = 84; // sum of all max scores
+        const normalised = rawTotal / maxPossible; // 0–1
+
+        // Map to realistic open rate range: 12% – 42%
+        const predictedRate = 12 + normalised * 30;
+        // Add small noise ±1.5
+        const noise = (Math.random() - 0.5) * 3;
+        const finalRate = Math.min(42, Math.max(12, predictedRate + noise));
+
+        return { scores, finalRate };
+    }
+
+    // ─────────────────────────────────────────────
+    // ANALYSIS GENERATION
+    // ─────────────────────────────────────────────
+
+    const psychologyDatabase = {
+        curiosity: [
+            "The curiosity gap—leaving information just out of reach—is one of the most potent inbox levers. Your subject triggers the brain's information gap theory, compelling opens to close the loop.",
+            "Curiosity-based framing activates the anterior cingulate cortex, creating an itch the reader must scratch. Subjects that hint at surprising or withheld information consistently outperform straightforward ones by 20–30%.",
+            "The Zeigarnik Effect explains why incomplete information drives action—your subject creates an open loop the brain desperately wants to close, forcing the click.",
+        ],
+        urgency: [
+            "Urgency language activates loss aversion, which is 2× more powerful than gain framing. Time-sensitive triggers create cortisol spikes that push readers toward immediate action.",
+            "Scarcity and urgency signals bypass rational deliberation. The amygdala responds before the prefrontal cortex can second-guess—this is why 'last chance' subject lines produce outsized open rates.",
+            "Deadline framing shifts decision-making from 'should I?' to 'can I afford not to?'—a fundamentally different psychological posture that dramatically reduces friction.",
+        ],
+        negative: [
+            "Negative framing outperforms positive in most verticals. The brain's negativity bias—evolved for survival—makes threats, mistakes, and warnings feel more urgent than opportunities.",
+            "Loss-aversion framing ('stop making this mistake') activates threat-response circuits. Subscribers perceive they have something to lose, creating stronger open compulsion than benefit-led copy.",
+            "Calling out failure or mistakes generates instant identification. If subscribers have faced this pain point, they feel seen—and people open emails that feel personally relevant to their struggles.",
+        ],
+        numbers: [
+            "Specific numbers create perceived credibility and cognitive ease. '7 frameworks' is more trustworthy than 'several frameworks'—specificity signals research and expertise.",
+            "Numbered subject lines set clear expectations, reducing cognitive load. The subscriber knows exactly what they're getting, lowering the risk perception of opening.",
+            "Digits (not words) catch the eye during inbox scanning. '3' visually interrupts the pattern of letter-based text, acting as a natural attention anchor.",
+        ],
+        question: [
+            "Question-format subjects trigger the brain's drive for cognitive closure. Unanswered questions create genuine psychological discomfort—the open is relief.",
+            "Rhetorical questions work by getting the subscriber to mentally answer 'yes' or engage with the premise, creating micro-commitment before they even open.",
+            "Questions imply a conversation, not a broadcast. In an era of cold marketing, a question-subject line feels personal and dialogue-driven—a strong differentiator.",
+        ],
+        fomo: [
+            "Social proof and FOMO trigger the herd instinct—a deeply wired human tendency to follow group behavior. 'What your competitors already know' exploits this at inbox level.",
+            "Fear of missing out is amplified when the perceived group is a desirable peer set. Framing information as what successful people already know creates identity-based motivation.",
+            "FOMO copy shortens the decision window. When subscribers believe others are acting, waiting feels like falling behind—a feeling powerful enough to override inbox paralysis.",
+        ],
+        personal: [
+            "Personalisation—even the word 'you'—activates the default mode network, the brain region associated with self-referential thought. Subjects that feel personal feel relevant.",
+            "First-person and second-person language creates a sense of direct communication in a channel full of broadcast messaging. The subscriber feels they were written to, not sent to.",
+            "Personal language reduces the perceived distance between sender and reader, increasing trust signals and making the open feel lower-risk.",
+        ],
+        length: [
+            "At 30–50 characters, your subject fits cleanly on mobile preview panes—where 60%+ of email opens now happen. Every character over 60 risks being cut mid-message.",
+            "Short subjects create intrigue through incompleteness. The preview pane cuts off the thought, forcing the open to complete the sentence.",
+            "Long subjects can signal over-explanation or desperation. Concise subjects signal confidence—you don't need to oversell the click.",
+        ],
+        generic: [
+            "Email subject lines are the most tested variable in digital marketing. Even small copy shifts—a single word—can swing open rates by 10–15 percentage points.",
+            "The inbox is a competition for attention measured in milliseconds. Strong subjects must pass the 'squint test'—the dominant emotion or hook should land at a glance.",
+            "The best subject lines create a specific feeling: curiosity, urgency, or recognition. Subjects that trigger none of these are invisible in a crowded inbox.",
+        ]
+    };
+
+    function generateAnalysis(textA, textB, scoresA, scoresB, winner) {
+        const winnerText = winner === 'A' ? textA : textB;
+        const loserText  = winner === 'A' ? textB : textA;
+        const wScores    = winner === 'A' ? scoresA.scores : scoresB.scores;
+
+        // Identify the winner's top signal
+        const topSignal = Object.entries(wScores).sort((a,b) => b[1]-a[1])[0][0];
+        const signalKey = topSignal.toLowerCase().replace(/ /g,'');
+
+        let psychNote = '';
+        const matchKeys = ['curiosity','urgency','negative','numbers','question','fomo','personal','length'];
+        for (const k of matchKeys) {
+            if (signalKey.includes(k)) {
+                const pool = psychologyDatabase[k];
+                psychNote = pool[Math.floor(Math.random() * pool.length)];
+                break;
+            }
+        }
+        if (!psychNote) {
+            const pool = psychologyDatabase.generic;
+            psychNote = pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        // Build improvement suggestions for the loser
+        const loserScoresObj = winner === 'A' ? scoresB.scores : scoresA.scores;
+        const lowSignals = Object.entries(loserScoresObj).filter(([,v]) => v < 4).map(([k]) => k);
+
+        const improvementMap = {
+            'Curiosity Gap':        'Add an open loop — hint at something surprising without revealing it (e.g. "…and this is why it works").',
+            'Urgency Signals':      'Introduce a soft deadline or time anchor (e.g. "before the week ends", "this quarter only").',
+            'FOMO Factor':          'Reference what peers or competitors are already doing to trigger social proof.',
+            'Personalisation':      'Add "you" or "your" to make the subject feel direct and relevant to the individual reader.',
+            'Negative Framing':     'Try flipping to a loss-aversion frame — what is the reader losing or risking by not opening?',
+            'Specific Numbers':     'Swap a vague descriptor for a precise number (e.g. "some tips" → "7 tips").',
+            'Question Hook':        'Rewrite as a question to trigger the brain\'s cognitive closure drive.',
+            'Length Optimisation':  'Aim for 35–50 characters for optimal mobile preview pane performance.',
+        };
+
+        const suggestions = lowSignals.slice(0, 3).map(k => improvementMap[k]).filter(Boolean);
+
+        return { psychNote, suggestions };
+    }
+
+    // ─────────────────────────────────────────────
+    // HISTORY
+    // ─────────────────────────────────────────────
+    let history = JSON.parse(localStorage.getItem('ab_history') || '[]');
+
+    function saveHistory(a, b, winner, rateA, rateB) {
+        history.unshift({ a, b, winner, rateA: rateA.toFixed(1), rateB: rateB.toFixed(1), ts: Date.now() });
+        if (history.length > 8) history = history.slice(0, 8);
+        localStorage.setItem('ab_history', JSON.stringify(history));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const section = document.getElementById('historySection');
+        const list    = document.getElementById('historyList');
+        if (history.length === 0) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        list.innerHTML = history.map((item, i) => `
+            <div class="history-item" onclick="loadHistory(${i})">
+                <div class="history-subject ${item.winner === 'A' ? 'won' : ''}" title="${escHtml(item.a)}">A: ${escHtml(item.a)}</div>
+                <div class="history-subject ${item.winner === 'B' ? 'won' : ''}" title="${escHtml(item.b)}">B: ${escHtml(item.b)}</div>
+                <div class="history-winner-badge">Variant ${item.winner} won</div>
+            </div>
+        `).join('');
+    }
+
+    function loadHistory(i) {
+        const item = history[i];
+        document.getElementById('subjectA').value = item.a;
+        document.getElementById('subjectB').value = item.b;
+        updateCounter('A'); updateCounter('B');
+        runBattle();
+    }
+
+    function clearHistory() {
+        history = [];
+        localStorage.removeItem('ab_history');
+        renderHistory();
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ─────────────────────────────────────────────
+    // CHAR COUNTERS
+    // ─────────────────────────────────────────────
+    function updateCounter(id) {
+        const input   = document.getElementById('subject' + id);
+        const counter = document.getElementById('counter' + id);
+        const len     = input.value.length;
+        counter.textContent = len + ' chars';
+        counter.className   = 'char-counter';
+        if (len >= 30 && len <= 50)      counter.classList.add('good');
+        else if (len > 50 && len <= 70)  counter.classList.add('warn');
+        else if (len > 70)               counter.classList.add('warn');
+    }
+
+    document.getElementById('subjectA').addEventListener('input', () => updateCounter('A'));
+    document.getElementById('subjectB').addEventListener('input', () => updateCounter('B'));
+
+    // ─────────────────────────────────────────────
+    // LOADER SIMULATION
+    // ─────────────────────────────────────────────
+    const loaderSteps = [
+        'Scanning psychological triggers…',
+        'Calculating curiosity gap scores…',
+        'Simulating 10,000 subscriber responses…',
+        'Applying FOMO & urgency weights…',
+        'Running mobile preview analysis…',
+        'Generating report…',
+    ];
+
+    function runLoader(onComplete) {
+        const loaderArea  = document.getElementById('loaderArea');
+        const loaderBar   = document.getElementById('loaderBar');
+        const loaderLabel = document.getElementById('loaderLabel');
+        const btn         = document.getElementById('runBtn');
+
+        loaderArea.style.display = 'block';
+        btn.disabled = true;
+        btn.textContent = 'Simulating…';
+        loaderBar.style.width = '0%';
+
+        let step = 0;
+        let pct  = 0;
+
+        const interval = setInterval(() => {
+            pct += Math.random() * 18 + 8;
+            if (pct > 100) pct = 100;
+            loaderBar.style.width = pct + '%';
+            if (step < loaderSteps.length) {
+                loaderLabel.textContent = loaderSteps[step++];
+            }
+            if (pct >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    loaderArea.style.display = 'none';
+                    loaderBar.style.width = '0%';
+                    btn.disabled = false;
+                    btn.textContent = 'Run A/B Simulation ⚡';
+                    onComplete();
+                }, 350);
+            }
+        }, 250);
+    }
+
+    // ─────────────────────────────────────────────
+    // MAIN BATTLE FUNCTION
+    // ─────────────────────────────────────────────
+    function runBattle() {
+        const a = document.getElementById('subjectA').value.trim();
+        const b = document.getElementById('subjectB').value.trim();
+        if (!a || !b) {
+            alert('Please enter both subject lines before running the simulation!');
+            return;
+        }
+
+        // Hide results while loading
+        document.getElementById('resultsArea').style.display = 'none';
+
+        // Reset bars for animation
+        document.getElementById('barA').style.width = '0%';
+        document.getElementById('barB').style.width = '0%';
+
+        runLoader(() => {
+            const resultA = scoreSubjectLine(a);
+            const resultB = scoreSubjectLine(b);
+
+            const winner = resultA.finalRate >= resultB.finalRate ? 'A' : 'B';
+
+            // Show results
+            const resultsArea = document.getElementById('resultsArea');
+            resultsArea.style.display = 'block';
+
+            renderVariant('A', a, resultA, winner === 'A');
+            renderVariant('B', b, resultB, winner === 'B');
+
+            const { psychNote, suggestions } = generateAnalysis(a, b, resultA, resultB, winner);
+
+            document.getElementById('analysisText').textContent = psychNote;
+
+            const ul = document.getElementById('improvementList');
+            if (suggestions.length > 0) {
+                ul.innerHTML = '<div style="font-size:0.7rem;color:var(--primary);letter-spacing:1px;font-family:Outfit;margin-bottom:6px;margin-top:10px;">IMPROVEMENTS FOR VARIANT ' + (winner === 'A' ? 'B' : 'A') + '</div>' +
+                    suggestions.map(s => `<li>${s}</li>`).join('');
+            } else {
+                ul.innerHTML = '';
+            }
+
+            // Style winner card
+            document.getElementById('cardA').className = 'result-card' + (winner === 'A' ? ' winner' : '');
+            document.getElementById('cardB').className = 'result-card' + (winner === 'B' ? ' winner' : '');
+
+            // Animate bars after a tick
+            setTimeout(() => {
+                document.getElementById('barA').style.width = Math.round(resultA.finalRate) + '%';
+                document.getElementById('barB').style.width = Math.round(resultB.finalRate) + '%';
+            }, 80);
+
+            saveHistory(a, b, winner, resultA.finalRate, resultB.finalRate);
+        });
+    }
+
+    function renderVariant(id, text, result, isWinner) {
+        document.getElementById('tag'    + id).innerHTML = isWinner
+            ? '<span class="winner-tag">🏆 WINNER</span>'
+            : '<span style="height:24px;display:block;"></span>';
+        document.getElementById('text'   + id).textContent = text;
+        document.getElementById('rateNum'+ id).textContent  = result.finalRate.toFixed(1) + '%';
+
+        // Breakdown rows — only show non-zero signals
+        const topSignals = Object.entries(result.scores)
+            .filter(([,v]) => v > 0)
+            .sort((a,b) => b[1]-a[1])
+            .slice(0, 5);
+
+        document.getElementById('breakdown' + id).innerHTML = topSignals.map(([label, val]) =>
+            `<div class="score-row">
+                <span><span class="score-dot"></span>${label}</span>
+                <span>${val}/10</span>
+            </div>`
+        ).join('') + (topSignals.length === 0
+            ? '<div style="font-size:0.7rem;color:#475569;">No strong signals detected</div>'
+            : '');
+    }
+
+    function resetTool() {
+        document.getElementById('resultsArea').style.display = 'none';
+        document.getElementById('subjectA').value = '';
+        document.getElementById('subjectB').value = '';
+        updateCounter('A');
+        updateCounter('B');
+        document.getElementById('subjectA').focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Init
+    renderHistory();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

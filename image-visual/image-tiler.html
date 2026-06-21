@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Tiler — Create Seamless Tile Pattern Backgrounds | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Repeat any image in a tile grid to create seamless background patterns. Control tile count, spacing, opacity, and export as PNG or copy CSS instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls grid */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+
+        /* Tile count buttons */
+        .tile-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tile-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tile-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tile-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Sliders */
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-val { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 38px; text-align: right; }
+
+        /* Color picker */
+        .color-row { display: flex; align-items: center; gap: 10px; }
+        .color-swatch { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--border-mid); cursor: pointer; overflow: hidden; flex-shrink: 0; position: relative; }
+        .color-swatch input[type=color] { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); border: none; padding: 0; cursor: pointer; opacity: 0; }
+        .color-swatch-preview { width: 100%; height: 100%; border-radius: 6px; }
+        .color-name { font-size: 0.75rem; font-family: 'Fira Code', monospace; color: var(--text-sec); }
+        .transparent-btn { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .transparent-btn.active { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .transparent-btn:hover:not(.active) { color: var(--text-sec); }
+
+        /* Canvas preview */
+        .preview-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .canvas-wrap {
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center; min-height: 200px;
+            max-height: 420px;
+        }
+        #tileCanvas { max-width: 100%; max-height: 420px; display: block; }
+
+        /* Stats row */
+        .stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+        .stat-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; display: flex; flex-direction: column; gap: 2px; }
+        .stat-chip-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-chip-val { font-size: 0.82rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+
+        /* CSS snippet */
+        .css-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 20px; }
+        .css-snippet-wrap { position: relative; }
+        .css-snippet { background: var(--surface); border: 1px solid var(--border-mid); border-radius: var(--radius-sm); padding: 14px 16px; font-family: 'Fira Code', monospace; font-size: 0.75rem; color: var(--text-sec); line-height: 1.7; overflow-x: auto; white-space: pre; }
+        .css-key { color: #7DD3FC; }
+        .css-val { color: #86EFAC; }
+        .css-comment { color: var(--text-dim); }
+        .copy-css-btn { position: absolute; top: 10px; right: 10px; font-size: 0.7rem; font-weight: 700; color: var(--text-dim); background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .copy-css-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.14); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Divider inside controls */
+        .ctrl-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0 0; }
+
+        @media (max-width: 640px) {
+            .controls-grid { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-direction: column; }
+        }
+        @media (max-width: 420px) {
+            .controls-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Tiler</h1>
+                <p class="tool-page-sub">Tile any image into a seamless repeat pattern. Control grid, spacing, opacity — export PNG or grab the CSS.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🖼️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="thumb">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="controls-grid">
+
+                        <!-- Columns -->
+                        <div class="opt-group">
+                            <label>Columns</label>
+                            <div class="tile-presets" id="colBtns">
+                                <button class="tile-btn" data-val="2" onclick="setCol(this)">2</button>
+                                <button class="tile-btn active" data-val="3" onclick="setCol(this)">3</button>
+                                <button class="tile-btn" data-val="4" onclick="setCol(this)">4</button>
+                                <button class="tile-btn" data-val="5" onclick="setCol(this)">5</button>
+                                <button class="tile-btn" data-val="6" onclick="setCol(this)">6</button>
+                                <button class="tile-btn" data-val="8" onclick="setCol(this)">8</button>
+                            </div>
+                        </div>
+
+                        <!-- Rows -->
+                        <div class="opt-group">
+                            <label>Rows</label>
+                            <div class="tile-presets" id="rowBtns">
+                                <button class="tile-btn" data-val="2" onclick="setRow(this)">2</button>
+                                <button class="tile-btn active" data-val="3" onclick="setRow(this)">3</button>
+                                <button class="tile-btn" data-val="4" onclick="setRow(this)">4</button>
+                                <button class="tile-btn" data-val="5" onclick="setRow(this)">5</button>
+                                <button class="tile-btn" data-val="6" onclick="setRow(this)">6</button>
+                                <button class="tile-btn" data-val="8" onclick="setRow(this)">8</button>
+                            </div>
+                        </div>
+
+                        <!-- Spacing -->
+                        <div class="opt-group">
+                            <label>Spacing — <span id="spacingLabel">0px</span></label>
+                            <div class="slider-row">
+                                <input type="range" class="ctrl-slider" id="spacingSlider" min="0" max="40" value="0" oninput="setSpacing(this.value)">
+                                <span class="slider-val" id="spacingVal">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Opacity -->
+                        <div class="opt-group">
+                            <label>Tile Opacity — <span id="opacityLabel">100%</span></label>
+                            <div class="slider-row">
+                                <input type="range" class="ctrl-slider" id="opacitySlider" min="5" max="100" value="100" oninput="setOpacity(this.value)">
+                                <span class="slider-val" id="opacityVal">100</span>
+                            </div>
+                        </div>
+
+                        <!-- Background color -->
+                        <div class="opt-group">
+                            <label>Background</label>
+                            <div class="color-row">
+                                <div class="color-swatch">
+                                    <div class="color-swatch-preview" id="colorPreview" style="background:#ffffff;"></div>
+                                    <input type="color" id="bgColorPicker" value="#ffffff" oninput="setBgColor(this.value)">
+                                </div>
+                                <span class="color-name" id="colorName">#ffffff</span>
+                                <button class="transparent-btn active" id="transparentBtn" onclick="toggleTransparent()">Transparent</button>
+                            </div>
+                        </div>
+
+                        <!-- Canvas output size -->
+                        <div class="opt-group">
+                            <label>Canvas Width</label>
+                            <div class="tile-presets">
+                                <button class="tile-btn" data-val="800" onclick="setCanvasW(this)">800</button>
+                                <button class="tile-btn active" data-val="1200" onclick="setCanvasW(this)">1200</button>
+                                <button class="tile-btn" data-val="1920" onclick="setCanvasW(this)">1920</button>
+                                <button class="tile-btn" data-val="2560" onclick="setCanvasW(this)">2560</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Live Preview Canvas -->
+                <div class="preview-card">
+                    <div class="section-label">Live Preview</div>
+                    <div class="canvas-wrap">
+                        <canvas id="tileCanvas"></canvas>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+                <!-- CSS Snippet -->
+                <div class="css-card">
+                    <div class="section-label">CSS Snippet — copy and use directly in your stylesheet</div>
+                    <div class="css-snippet-wrap">
+                        <pre class="css-snippet" id="cssSnippet"></pre>
+                        <button class="copy-css-btn" onclick="copyCSS()">Copy CSS</button>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="downloadPNG()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⬇</span>
+                            <span style="font-weight:800;font-size:0.95rem;">Download Tiled PNG</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" onclick="copyCSS()">📋 Copy CSS</button>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Instant pattern backgrounds</h3>
+                        <p>Turn any logo, icon, or texture into a tiled background in seconds. No Photoshop, no fuss — just drop, configure, download.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>CSS snippet included</h3>
+                        <p>For web designers — get a ready-to-paste <code>background-repeat: repeat</code> snippet with exact pixel sizing. Skip the trial-and-error in DevTools.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Spacing & opacity control</h3>
+                        <p>Add gaps between tiles for a grid-style pattern, or reduce opacity for a subtle watermark texture behind your content.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs on the <code>Canvas API</code> inside your browser. Your image never leaves your device. Works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ────────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let cols = 3, rows = 3, spacing = 0, opacity = 1, bgColor = '#ffffff', transparent = true, canvasW = 1200;
+
+    // ── DROP / LOAD ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; f && f.type.startsWith('image/') ? loadFile(f) : showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => fi.files[0] && loadFile(fi.files[0]));
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                draw();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origImg = null; origFile = null;
+    }
+
+    // ── CONTROLS ─────────────────────────────────────────────────────────────────
+    function setCol(btn) { document.querySelectorAll('#colBtns .tile-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); cols = +btn.dataset.val; draw(); }
+    function setRow(btn) { document.querySelectorAll('#rowBtns .tile-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); rows = +btn.dataset.val; draw(); }
+    function setCanvasW(btn) { document.querySelectorAll('[data-val="800"],[data-val="1200"],[data-val="1920"],[data-val="2560"]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); canvasW = +btn.dataset.val; draw(); }
+
+    function setSpacing(v) {
+        spacing = +v;
+        document.getElementById('spacingLabel').textContent = v + 'px';
+        document.getElementById('spacingVal').textContent = v;
+        draw();
+    }
+    function setOpacity(v) {
+        opacity = v / 100;
+        document.getElementById('opacityLabel').textContent = v + '%';
+        document.getElementById('opacityVal').textContent = v;
+        draw();
+    }
+    function setBgColor(v) {
+        bgColor = v;
+        document.getElementById('colorPreview').style.background = v;
+        document.getElementById('colorName').textContent = v;
+        if (transparent) { toggleTransparent(); return; } // turn off transparent
+        draw();
+    }
+    function toggleTransparent() {
+        transparent = !transparent;
+        const btn = document.getElementById('transparentBtn');
+        btn.classList.toggle('active', transparent);
+        draw();
+    }
+
+    // ── DRAW ─────────────────────────────────────────────────────────────────────
+    function draw() {
+        if (!origImg) return;
+        const canvas = document.getElementById('tileCanvas');
+        const tileW = Math.floor((canvasW - spacing * (cols - 1)) / cols);
+        const tileH = Math.round(tileW * origImg.naturalHeight / origImg.naturalWidth);
+        const totalH = tileH * rows + spacing * (rows - 1);
+        canvas.width = canvasW;
+        canvas.height = totalH;
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvasW, totalH);
+
+        // background
+        if (!transparent) {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvasW, totalH);
+        }
+
+        ctx.globalAlpha = opacity;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = c * (tileW + spacing);
+                const y = r * (tileH + spacing);
+                ctx.drawImage(origImg, x, y, tileW, tileH);
+            }
+        }
+        ctx.globalAlpha = 1;
+
+        updateStats(canvasW, totalH, tileW, tileH);
+        updateCSS(tileW, tileH);
+    }
+
+    function updateStats(w, h, tw, th) {
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-chip"><span class="stat-chip-label">Canvas</span><span class="stat-chip-val">${w} × ${h}px</span></div>
+            <div class="stat-chip"><span class="stat-chip-label">Each Tile</span><span class="stat-chip-val">${tw} × ${th}px</span></div>
+            <div class="stat-chip"><span class="stat-chip-label">Total Tiles</span><span class="stat-chip-val">${cols * rows}</span></div>
+            <div class="stat-chip"><span class="stat-chip-label">Grid</span><span class="stat-chip-val">${cols} × ${rows}</span></div>
+        `;
+    }
+
+    function updateCSS(tw, th) {
+        const bgLine = transparent ? 'transparent' : bgColor;
+        document.getElementById('cssSnippet').innerHTML =
+`<span class="css-comment">/* Seamless tile background — generated by Rebrixe */</span>
+.your-element {
+  <span class="css-key">background-image</span>: <span class="css-val">url('your-tile.png')</span>;
+  <span class="css-key">background-repeat</span>: <span class="css-val">repeat</span>;
+  <span class="css-key">background-size</span>: <span class="css-val">${tw}px ${th}px</span>;
+  <span class="css-key">background-color</span>: <span class="css-val">${bgLine}</span>;
+  <span class="css-key">opacity</span>: <span class="css-val">${opacity}</span>;
+}`;
+    }
+
+    // ── EXPORT ───────────────────────────────────────────────────────────────────
+    function downloadPNG() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const canvas = document.getElementById('tileCanvas');
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'tiled';
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `${base}_tiled_${cols}x${rows}.png`;
+        a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    function copyCSS() {
+        const el = document.getElementById('cssSnippet');
+        navigator.clipboard.writeText(el.innerText).then(() => showToast('CSS copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
+    }
+
+    // ── UTILS ────────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

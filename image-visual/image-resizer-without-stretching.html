@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Resize Image Without Stretching — Blur Pad, Solid Fill & Smart Fit | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Resize any image to exact dimensions without distorting or squishing it. Choose blur pad, solid colour fill, or smart fit. Free, browser-only, instant.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Section card */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Dimensions row */
+        .dims-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 90px; }
+        .input-label { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.7px; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .px-input:focus { border-color: var(--primary); }
+        .x-sep { font-size: 1.2rem; color: var(--text-dim); padding-bottom: 8px; font-weight: 300; }
+
+        /* Quick presets */
+        .quick-presets { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .qp-btn { padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .qp-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Toggle row */
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Options grid */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+
+        /* Colour picker row */
+        .color-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .color-swatch { width: 30px; height: 30px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+        .color-swatch.active { border-color: var(--primary); transform: scale(1.15); }
+        .color-swatch:hover { transform: scale(1.1); }
+        #customColorInput { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border-mid); cursor: pointer; padding: 0; background: none; }
+
+        /* Blur slider */
+        .quality-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .quality-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-wrap { display: flex; align-items: center; gap: 10px; }
+        .slider-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 30px; text-align: right; }
+
+        /* Format & quality */
+        .quality-slider-wrap { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+
+        /* Padding mode hint */
+        .mode-hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; min-height: 16px; transition: color 0.2s; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Preview panel */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .preview-panel.visible { display: block; }
+        .preview-inner { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .preview-box { flex: 1; min-width: 200px; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 140px; max-height: 280px; border: 1px solid var(--border-mid); }
+        .preview-box img { max-width: 100%; max-height: 280px; object-fit: contain; display: block; }
+        .preview-meta { min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; text-align: right; }
+        .ps-val.green { color: var(--success); }
+
+        /* Before/after toggle */
+        .ba-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+        .ba-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .ba-btn { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .ba-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Color picker hidden state */
+        .color-options { display: none; margin-top: 10px; }
+        .color-options.visible { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .blur-options { display: none; margin-top: 10px; }
+        .blur-options.visible { display: block; }
+
+        @media (max-width: 600px) {
+            .options-grid { grid-template-columns: 1fr; gap: 16px; }
+            .action-row { flex-direction: column; }
+            .preview-inner { flex-direction: column; }
+            .btn-main, .btn-secondary { min-width: unset; }
+            .dims-row { flex-direction: column; }
+            .x-sep { display: none; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Resize Without Stretching</h1>
+                <p class="tool-page-sub">Pad with blurred background, solid colour, or transparency — subject never squished.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🖼️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="thumb">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Dimensions -->
+                <div class="section-card">
+                    <div class="section-label">Target Dimensions</div>
+                    <div class="dims-row">
+                        <div class="input-group">
+                            <label class="input-label" for="targetW">Width (px)</label>
+                            <input class="px-input" type="number" id="targetW" placeholder="1080" min="1" max="8000">
+                        </div>
+                        <span class="x-sep">×</span>
+                        <div class="input-group">
+                            <label class="input-label" for="targetH">Height (px)</label>
+                            <input class="px-input" type="number" id="targetH" placeholder="1080" min="1" max="8000">
+                        </div>
+                    </div>
+                    <!-- Quick presets -->
+                    <div class="quick-presets" id="quickPresets">
+                        <span style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); align-self:center;">Quick:</span>
+                    </div>
+                </div>
+
+                <!-- Padding mode + options -->
+                <div class="section-card">
+                    <div class="options-grid">
+                        <div class="opt-group">
+                            <label>Padding Style</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-mode="blur" onclick="setMode(this)">Blur Pad</button>
+                                <button class="tog-btn" data-mode="color" onclick="setMode(this)">Solid Fill</button>
+                                <button class="tog-btn" data-mode="transparent" onclick="setMode(this)">Transparent</button>
+                            </div>
+                            <div class="mode-hint" id="modeHint">Zoomed blurred copy fills the letterbox — looks great on social.</div>
+                            <!-- Blur strength -->
+                            <div class="blur-options visible" id="blurOptions">
+                                <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+                                    <span style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);">Blur</span>
+                                    <div class="slider-wrap" style="flex:1;">
+                                        <input type="range" class="quality-slider" id="blurSlider" min="5" max="60" value="28" oninput="document.getElementById('blurVal').textContent=this.value">
+                                        <span class="slider-val" id="blurVal">28</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Colour picker -->
+                            <div class="color-options" id="colorOptions">
+                                <div class="color-swatch active" style="background:#000000;" data-color="#000000" onclick="pickSwatch(this)"></div>
+                                <div class="color-swatch" style="background:#ffffff;" data-color="#ffffff" onclick="pickSwatch(this)"></div>
+                                <div class="color-swatch" style="background:#1a1a2e;" data-color="#1a1a2e" onclick="pickSwatch(this)"></div>
+                                <div class="color-swatch" style="background:#f5f0e8;" data-color="#f5f0e8" onclick="pickSwatch(this)"></div>
+                                <div class="color-swatch" style="background:#FFD600;" data-color="#FFD600" onclick="pickSwatch(this)"></div>
+                                <div class="color-swatch" style="background:#e63946;" data-color="#e63946" onclick="pickSwatch(this)"></div>
+                                <input type="color" id="customColorInput" value="#000000" title="Custom colour" oninput="setCustomColor(this.value)">
+                            </div>
+                        </div>
+
+                        <div class="opt-group">
+                            <label>Output Format</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                            <div style="margin-top:14px;">
+                                <label style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:1.1px; color:var(--text-dim); display:block; margin-bottom:6px;">Quality — <span id="qualLabel">92%</span></label>
+                                <div class="quality-slider-wrap">
+                                    <input type="range" class="quality-slider" id="qualSlider" min="10" max="100" value="92" oninput="setQuality(this.value)">
+                                    <span class="slider-val" id="qualVal">92</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnResize" onclick="doResize()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✨</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Resize Without Stretching</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Preview panel -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="ba-row">
+                        <span class="ba-label">Preview</span>
+                        <button class="ba-btn active" id="baAfter" onclick="showAfter()">After</button>
+                        <button class="ba-btn" id="baBefore" onclick="showBefore()">Before</button>
+                    </div>
+                    <div class="preview-inner">
+                        <div class="preview-box" id="previewBox">
+                            <img id="previewImg" src="" alt="Result preview">
+                        </div>
+                        <div class="preview-meta" id="previewMeta"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>No distortion, ever</h3>
+                        <p>The image fits inside the target size at its natural ratio. Padding fills the gaps — your subject stays pixel-perfect, no squishing.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Blur pad looks pro</h3>
+                        <p>A zoomed blurred copy of your image fills the letterbox. It looks intentional and native on Instagram, LinkedIn and YouTube thumbnails.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Transparent PNG for editors</h3>
+                        <p>Choose <code>Transparent</code> + <code>PNG</code> to get a canvas-ready image with empty padding — drop it straight into Figma, Canva or Photoshop.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>All processing runs in your browser via the <code>Canvas API</code>. Nothing is uploaded. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── QUICK PRESETS ─────────────────────────────────────────────────────────
+    const QUICK = [
+        { l:'1:1 (1080)', w:1080, h:1080 },
+        { l:'4:5 Insta', w:1080, h:1350 },
+        { l:'16:9 YT', w:1280, h:720 },
+        { l:'9:16 Story', w:1080, h:1920 },
+        { l:'Twitter', w:1200, h:675 },
+        { l:'OG 1200×630', w:1200, h:630 },
+    ];
+    const qpEl = document.getElementById('quickPresets');
+    QUICK.forEach(p => {
+        const b = document.createElement('button');
+        b.className = 'qp-btn';
+        b.textContent = p.l;
+        b.onclick = () => { document.getElementById('targetW').value = p.w; document.getElementById('targetH').value = p.h; };
+        qpEl.appendChild(b);
+    });
+
+    // ── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null, origDataURL = null;
+    let padMode = 'blur', outputFmt = 'jpeg', quality = 0.92;
+    let fillColor = '#000000', blurAmt = 28;
+    let resultDataURL = null, resultFilename = '';
+
+    // ── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${fmtBytes(file.size)}`;
+                // auto-fill dims with original
+                document.getElementById('targetW').value = img.naturalWidth;
+                document.getElementById('targetH').value = img.naturalHeight;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('previewPanel').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+    }
+
+    // ── CONTROLS ──────────────────────────────────────────────────────────────
+    const HINTS = {
+        blur: 'Zoomed blurred copy fills the letterbox — looks great on social.',
+        color: 'Solid colour padding — choose from swatches or pick custom.',
+        transparent: 'Empty padding — perfect for PNG export into design tools.'
+    };
+
+    function setMode(btn) {
+        document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        padMode = btn.dataset.mode;
+        document.getElementById('modeHint').textContent = HINTS[padMode];
+        document.getElementById('blurOptions').className = 'blur-options' + (padMode === 'blur' ? ' visible' : '');
+        document.getElementById('colorOptions').className = 'color-options' + (padMode === 'color' ? ' visible' : '');
+        // force PNG if transparent
+        if (padMode === 'transparent') {
+            document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-fmt="png"]').classList.add('active');
+            outputFmt = 'png';
+        }
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+
+    function setQuality(v) { quality = v / 100; document.getElementById('qualVal').textContent = v; document.getElementById('qualLabel').textContent = v + '%'; }
+
+    function pickSwatch(el) {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        fillColor = el.dataset.color;
+        document.getElementById('customColorInput').value = fillColor;
+    }
+
+    function setCustomColor(v) {
+        fillColor = v;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    }
+
+    // ── RESIZE ────────────────────────────────────────────────────────────────
+    function doResize() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const tw = parseInt(document.getElementById('targetW').value);
+        const th = parseInt(document.getElementById('targetH').value);
+        if (!tw || !th || tw < 1 || th < 1) { showToast('Enter valid target dimensions', 'error'); return; }
+
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        const scale = Math.min(tw / sw, th / sh);
+        const fw = Math.round(sw * scale), fh = Math.round(sh * scale);
+        const ox = Math.round((tw - fw) / 2), oy = Math.round((th - fh) / 2);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = tw; canvas.height = th;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        if (padMode === 'blur') {
+            // Draw zoomed blurred bg
+            const bgScale = Math.max(tw / sw, th / sh) * 1.1;
+            const bw = sw * bgScale, bh = sh * bgScale;
+            const bx = (tw - bw) / 2, by = (th - bh) / 2;
+            ctx.filter = `blur(${document.getElementById('blurSlider').value}px)`;
+            ctx.drawImage(origImg, bx, by, bw, bh);
+            ctx.filter = 'none';
+            // darken slightly for contrast
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            ctx.fillRect(0, 0, tw, th);
+        } else if (padMode === 'color') {
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(0, 0, tw, th);
+        }
+        // transparent: canvas is already empty
+
+        ctx.drawImage(origImg, ox, oy, fw, fh);
+
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : quality;
+        resultDataURL = canvas.toDataURL(mime, q);
+
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_${tw}x${th}_padded.${ext}`;
+
+        document.getElementById('previewImg').src = resultDataURL;
+        document.getElementById('previewMeta').innerHTML = `
+            <div class="preview-stat"><span class="ps-label">Output Size</span><span class="ps-val green">${tw} × ${th}</span></div>
+            <div class="preview-stat"><span class="ps-label">Subject Size</span><span class="ps-val">${fw} × ${fh}</span></div>
+            <div class="preview-stat"><span class="ps-label">Padding</span><span class="ps-val">${ox}px / ${oy}px</span></div>
+            <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(resultBytes)}</span></div>
+            <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">${outputFmt.toUpperCase()}</span></div>
+            <div class="preview-stat"><span class="ps-label">Style</span><span class="ps-val">${padMode}</span></div>
+        `;
+        document.getElementById('previewPanel').classList.add('visible');
+        document.getElementById('btnDownload').classList.add('visible');
+        showAfter();
+        document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Resized! ✓', 'success');
+    }
+
+    function showAfter() {
+        document.getElementById('previewImg').src = resultDataURL;
+        document.getElementById('baAfter').classList.add('active');
+        document.getElementById('baBefore').classList.remove('active');
+    }
+    function showBefore() {
+        document.getElementById('previewImg').src = origDataURL;
+        document.getElementById('baBefore').classList.add('active');
+        document.getElementById('baAfter').classList.remove('active');
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL;
+        a.download = resultFilename;
+        a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

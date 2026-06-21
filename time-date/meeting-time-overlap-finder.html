@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Time Overlap Finder | Rebrixe</title>
+    <meta name="description" content="Find overlapping business hours across 2–5 cities instantly. The essential scheduling tool for remote teams, freelancers, and global agencies.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap { max-width: 900px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── City inputs ── */
+        .cities-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .city-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px 14px;
+            transition: border-color .2s;
+        }
+        .city-row:focus-within { border-color: var(--primary); }
+        .city-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 0.75rem;
+            color: var(--primary);
+            min-width: 18px;
+        }
+        .city-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.92rem;
+            outline: none;
+            min-width: 0;
+        }
+        .city-input::placeholder { color: #334155; }
+        .city-tz-badge {
+            font-size: 0.62rem;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px 7px;
+        }
+        .city-remove {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0 2px;
+            transition: color .2s;
+            flex-shrink: 0;
+        }
+        .city-remove:hover { color: #ef4444; }
+
+        /* ── Suggestions dropdown ── */
+        .city-wrap { position: relative; flex: 1; min-width: 0; }
+        .suggestions {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: -44px;
+            right: -30px;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            z-index: 99;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .sugg-item {
+            padding: 9px 14px;
+            font-size: 0.83rem;
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            user-select: none;
+        }
+        .sugg-item:hover,
+        .sugg-item.active { background: rgba(255,255,255,0.07); color: #fff; }
+        .sugg-tz { font-size: 0.7rem; color: #475569; }
+
+        /* ── Options row ── */
+        .options-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+            align-items: center;
+        }
+        .opt-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+        }
+        .opt-select {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 7px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            outline: none;
+            color-scheme: dark;
+            cursor: pointer;
+        }
+        .opt-select:focus { border-color: var(--primary); }
+
+        .add-city-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            margin-left: auto;
+        }
+        .add-city-btn:hover { border-color: var(--primary); color: #fff; }
+        .add-city-btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+        /* ── Quick presets ── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Find button ── */
+        .find-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            border-radius: 14px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 16px;
+            cursor: pointer;
+            transition: .2s;
+            margin-bottom: 28px;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.2);
+        }
+        .find-btn:hover { transform: translateY(-2px); letter-spacing: 2.5px; }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Timeline ── */
+        .timeline-wrap { margin-bottom: 24px; overflow-x: auto; }
+        .timeline-header {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .hour-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.58rem;
+            color: #334155;
+            padding: 0 0 2px;
+        }
+        .tl-row {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+        .tl-city-name {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tl-city-time {
+            font-size: 0.6rem;
+            color: #475569;
+            margin-top: 2px;
+        }
+        .tl-bar-wrap {
+            position: relative;
+            height: 28px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .tl-segment {
+            position: absolute;
+            height: 100%;
+        }
+        .seg-work    { background: rgba(148,163,184,0.18); border-radius: 0; }
+        .seg-overlap { background: rgba(120,148,152,0.55); }
+        .seg-best    { background: var(--primary, #78989a); }
+
+        /* ── Overlap slot pills ── */
+        .overlap-slots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .slot-pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 16px;
+            text-align: center;
+            position: relative;
+        }
+        .slot-pill.best {
+            border-color: var(--primary);
+            background: rgba(120,148,152,0.1);
+        }
+        .slot-time {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.92rem;
+            color: #fff;
+            line-height: 1;
+        }
+        .slot-duration {
+            font-size: 0.6rem;
+            color: #64748b;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .slot-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: var(--primary);
+            color: #000;
+            font-size: 0.5rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-radius: 4px;
+            padding: 2px 5px;
+        }
+
+        /* ── City time cards ── */
+        .city-times-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .ct-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .ct-city { font-size: 0.72rem; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+        .ct-time { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.3rem; color: #fff; line-height: 1; }
+        .ct-tz   { font-size: 0.6rem; color: #334155; margin-top: 3px; }
+        .ct-offset { font-size: 0.65rem; color: #475569; }
+
+        /* ── No-overlap notice ── */
+        .no-overlap {
+            text-align: center;
+            padding: 28px;
+            background: rgba(239,68,68,0.05);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 16px;
+            color: #ef4444;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+        }
+        .no-overlap strong {
+            display: block;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            margin-bottom: 6px;
+        }
+
+        /* ── Action buttons ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+        }
+
+        /* ── Error / hint ── */
+        .status-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+        .status-error {
+            color: #ef4444;
+            background: rgba(239,68,68,0.05);
+            border: 1px solid rgba(239,68,68,0.15);
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        /* ── Result panel ── */
+        #resultPanel { display: none; }
+        #resultPanel.visible { display: block; }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 20px; }
+            .cities-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .options-row { flex-wrap: wrap; }
+            .suggestions { left: 0; right: 0; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Meeting Time Overlap Finder
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Enter 2–5 cities and instantly find the window where everyone's actually at work.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <div class="cities-grid" id="citiesGrid"></div>
+
+                <div class="options-row">
+                    <span class="opt-label">Work Hours</span>
+                    <select class="opt-select" id="workStart">
+                        <option value="7">7 AM</option>
+                        <option value="8">8 AM</option>
+                        <option value="9" selected>9 AM</option>
+                        <option value="10">10 AM</option>
+                    </select>
+                    <span class="opt-label" style="color:#475569;">to</span>
+                    <select class="opt-select" id="workEnd">
+                        <option value="16">4 PM</option>
+                        <option value="17">5 PM</option>
+                        <option value="18" selected>6 PM</option>
+                        <option value="19">7 PM</option>
+                        <option value="20">8 PM</option>
+                    </select>
+                    <button class="add-city-btn" id="addCityBtn">+ Add City</button>
+                </div>
+
+                <div class="quick-label">Quick Teams</div>
+                <div class="quick-pills">
+                    <span class="pill" data-preset="usuk">🇺🇸 US + 🇬🇧 UK</span>
+                    <span class="pill" data-preset="usasia">🇺🇸 US + 🇯🇵 Asia</span>
+                    <span class="pill" data-preset="euroasia">🇪🇺 Europe + 🇮🇳 India</span>
+                    <span class="pill" data-preset="global">🌍 Global Team</span>
+                    <span class="pill" data-preset="latamuk">🇧🇷 LatAm + 🇬🇧 UK</span>
+                </div>
+
+                <button class="find-btn" id="findBtn">Find Overlap Windows →</button>
+
+                <div id="resultPanel"></div>
+                <div id="statusHint" class="status-hint">Add your cities above and click Find Overlap ↑</div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* =========================================================
+       TIMEZONE DATABASE
+       city → { label, iana, abbr }
+    ========================================================= */
+    const TZ_DB = {
+        "New York":       { label:"New York",       iana:"America/New_York",                  abbr:"ET"      },
+        "Los Angeles":    { label:"Los Angeles",    iana:"America/Los_Angeles",               abbr:"PT"      },
+        "Chicago":        { label:"Chicago",        iana:"America/Chicago",                   abbr:"CT"      },
+        "San Francisco":  { label:"San Francisco",  iana:"America/Los_Angeles",               abbr:"PT"      },
+        "Denver":         { label:"Denver",         iana:"America/Denver",                    abbr:"MT"      },
+        "Phoenix":        { label:"Phoenix",        iana:"America/Phoenix",                   abbr:"MST"     },
+        "Seattle":        { label:"Seattle",        iana:"America/Los_Angeles",               abbr:"PT"      },
+        "Boston":         { label:"Boston",         iana:"America/New_York",                  abbr:"ET"      },
+        "Miami":          { label:"Miami",          iana:"America/New_York",                  abbr:"ET"      },
+        "Austin":         { label:"Austin",         iana:"America/Chicago",                   abbr:"CT"      },
+        "Dallas":         { label:"Dallas",         iana:"America/Chicago",                   abbr:"CT"      },
+        "Atlanta":        { label:"Atlanta",        iana:"America/New_York",                  abbr:"ET"      },
+        "Washington DC":  { label:"Washington DC",  iana:"America/New_York",                  abbr:"ET"      },
+        "Toronto":        { label:"Toronto",        iana:"America/Toronto",                   abbr:"ET"      },
+        "Vancouver":      { label:"Vancouver",      iana:"America/Vancouver",                 abbr:"PT"      },
+        "Mexico City":    { label:"Mexico City",    iana:"America/Mexico_City",               abbr:"CST"     },
+        "São Paulo":      { label:"São Paulo",      iana:"America/Sao_Paulo",                 abbr:"BRT"     },
+        "Buenos Aires":   { label:"Buenos Aires",   iana:"America/Argentina/Buenos_Aires",    abbr:"ART"     },
+        "London":         { label:"London",         iana:"Europe/London",                     abbr:"GMT/BST" },
+        "Dublin":         { label:"Dublin",         iana:"Europe/Dublin",                     abbr:"IST"     },
+        "Lisbon":         { label:"Lisbon",         iana:"Europe/Lisbon",                     abbr:"WET"     },
+        "Paris":          { label:"Paris",          iana:"Europe/Paris",                      abbr:"CET"     },
+        "Berlin":         { label:"Berlin",         iana:"Europe/Berlin",                     abbr:"CET"     },
+        "Amsterdam":      { label:"Amsterdam",      iana:"Europe/Amsterdam",                  abbr:"CET"     },
+        "Madrid":         { label:"Madrid",         iana:"Europe/Madrid",                     abbr:"CET"     },
+        "Rome":           { label:"Rome",           iana:"Europe/Rome",                       abbr:"CET"     },
+        "Zurich":         { label:"Zurich",         iana:"Europe/Zurich",                     abbr:"CET"     },
+        "Stockholm":      { label:"Stockholm",      iana:"Europe/Stockholm",                  abbr:"CET"     },
+        "Oslo":           { label:"Oslo",           iana:"Europe/Oslo",                       abbr:"CET"     },
+        "Warsaw":         { label:"Warsaw",         iana:"Europe/Warsaw",                     abbr:"CET"     },
+        "Athens":         { label:"Athens",         iana:"Europe/Athens",                     abbr:"EET"     },
+        "Istanbul":       { label:"Istanbul",       iana:"Europe/Istanbul",                   abbr:"TRT"     },
+        "Moscow":         { label:"Moscow",         iana:"Europe/Moscow",                     abbr:"MSK"     },
+        "Cairo":          { label:"Cairo",          iana:"Africa/Cairo",                      abbr:"EET"     },
+        "Nairobi":        { label:"Nairobi",        iana:"Africa/Nairobi",                    abbr:"EAT"     },
+        "Lagos":          { label:"Lagos",          iana:"Africa/Lagos",                      abbr:"WAT"     },
+        "Johannesburg":   { label:"Johannesburg",   iana:"Africa/Johannesburg",               abbr:"SAST"    },
+        "Dubai":          { label:"Dubai",          iana:"Asia/Dubai",                        abbr:"GST"     },
+        "Riyadh":         { label:"Riyadh",         iana:"Asia/Riyadh",                       abbr:"AST"     },
+        "Tel Aviv":       { label:"Tel Aviv",       iana:"Asia/Jerusalem",                    abbr:"IST"     },
+        "Mumbai":         { label:"Mumbai",         iana:"Asia/Kolkata",                      abbr:"IST"     },
+        "Bangalore":      { label:"Bangalore",      iana:"Asia/Kolkata",                      abbr:"IST"     },
+        "Delhi":          { label:"Delhi",          iana:"Asia/Kolkata",                      abbr:"IST"     },
+        "Karachi":        { label:"Karachi",        iana:"Asia/Karachi",                      abbr:"PKT"     },
+        "Bangkok":        { label:"Bangkok",        iana:"Asia/Bangkok",                      abbr:"ICT"     },
+        "Singapore":      { label:"Singapore",      iana:"Asia/Singapore",                    abbr:"SGT"     },
+        "Jakarta":        { label:"Jakarta",        iana:"Asia/Jakarta",                      abbr:"WIB"     },
+        "Hong Kong":      { label:"Hong Kong",      iana:"Asia/Hong_Kong",                    abbr:"HKT"     },
+        "Beijing":        { label:"Beijing",        iana:"Asia/Shanghai",                     abbr:"CST"     },
+        "Shanghai":       { label:"Shanghai",       iana:"Asia/Shanghai",                     abbr:"CST"     },
+        "Taipei":         { label:"Taipei",         iana:"Asia/Taipei",                       abbr:"CST"     },
+        "Seoul":          { label:"Seoul",          iana:"Asia/Seoul",                        abbr:"KST"     },
+        "Tokyo":          { label:"Tokyo",          iana:"Asia/Tokyo",                        abbr:"JST"     },
+        "Sydney":         { label:"Sydney",         iana:"Australia/Sydney",                  abbr:"AEST"    },
+        "Melbourne":      { label:"Melbourne",      iana:"Australia/Melbourne",               abbr:"AEST"    },
+        "Auckland":       { label:"Auckland",       iana:"Pacific/Auckland",                  abbr:"NZST"    },
+    };
+
+    const CITY_NAMES = Object.keys(TZ_DB);
+
+    const PRESETS = {
+        usuk:     ["New York", "London", "Los Angeles"],
+        usasia:   ["New York", "Tokyo", "Singapore"],
+        euroasia: ["Berlin", "Mumbai", "Singapore"],
+        global:   ["New York", "London", "Dubai", "Singapore", "Sydney"],
+        latamuk:  ["São Paulo", "London", "New York"],
+    };
+
+    /* =========================================================
+       STATE
+    ========================================================= */
+    let cities   = ["New York", "London", "Mumbai"];
+    let lastResult = null; // { blocks, validCities, wsH, weH } – cached for copy
+
+    /* =========================================================
+       TIMEZONE UTILITIES
+       Uses Intl.DateTimeFormat for correct DST-aware offsets.
+       Works for half-hour zones (India +5:30, Iran +3:30, etc.)
+    ========================================================= */
+
+    /**
+     * Get the UTC offset in MINUTES for an IANA timezone at the current moment.
+     * This is DST-aware and handles half-hour offsets correctly.
+     */
+    function getOffsetMinutes(iana) {
+        try {
+            // Intl.DateTimeFormat gives us the local wall-clock time for a UTC epoch.
+            // By comparing that to the UTC time we recover the exact offset.
+            const now = Date.now();
+            const utcDate = new Date(now);
+
+            // Build a date string in the target timezone
+            const fmt = new Intl.DateTimeFormat('en-CA', {
+                timeZone:  iana,
+                year:      'numeric',
+                month:     '2-digit',
+                day:       '2-digit',
+                hour:      '2-digit',
+                minute:    '2-digit',
+                second:    '2-digit',
+                hour12:    false,
+            });
+            const parts = fmt.formatToParts(utcDate);
+            const p = {};
+            parts.forEach(({ type, value }) => { p[type] = value; });
+
+            // Handle hour24 edge: "24" → treat as next midnight (rare but handle it)
+            let h = parseInt(p.hour, 10);
+            if (h === 24) h = 0;
+
+            const localMs = Date.UTC(
+                parseInt(p.year,   10),
+                parseInt(p.month,  10) - 1,
+                parseInt(p.day,    10),
+                h,
+                parseInt(p.minute, 10),
+                parseInt(p.second, 10)
+            );
+            return Math.round((localMs - now) / 60000);
+        } catch {
+            return 0;
+        }
+    }
+
+    /**
+     * Convert a UTC hour (0-47) to local fractional hour for a timezone.
+     * Returns a float so 5:30 offset gives correct decimals.
+     * We use 0-47 range internally to detect next-day wrapping.
+     */
+    function utcToLocalMinutes(utcHour, iana) {
+        const offsetMin = getOffsetMinutes(iana);
+        // work in minutes to avoid float issues
+        return ((utcHour * 60 + offsetMin) % (24 * 60) + 24 * 60) % (24 * 60);
+    }
+
+    /** Return the wall-clock hour (0-23) for a given UTC hour in a timezone */
+    function utcToLocalHour(utcHour, iana) {
+        return Math.floor(utcToLocalMinutes(utcHour, iana) / 60);
+    }
+
+    /**
+     * Format an integer UTC hour as a local time string for a timezone.
+     * e.g. 14 in Asia/Kolkata → "7:30 PM"
+     */
+    function fmtUtcHourInTz(utcHour, iana) {
+        const totalMin = utcToLocalMinutes(utcHour, iana);
+        const h = Math.floor(totalMin / 60) % 24;
+        const m = Math.round(totalMin % 60);
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12    = h % 12 || 12;
+        return m === 0
+            ? `${h12}:00 ${period}`
+            : `${h12}:${String(m).padStart(2,'0')} ${period}`;
+    }
+
+    /** Format a plain integer hour (0-24) as 12h AM/PM */
+    function fmtHour(h) {
+        h = ((h % 24) + 24) % 24;
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12    = h % 12 || 12;
+        return `${h12}:00 ${period}`;
+    }
+
+    /** Get UTC offset label e.g. "UTC+5:30" */
+    function getOffsetLabel(iana) {
+        const offsetMin = getOffsetMinutes(iana);
+        const sign = offsetMin >= 0 ? '+' : '-';
+        const abs  = Math.abs(offsetMin);
+        const h    = Math.floor(abs / 60);
+        const m    = abs % 60;
+        return m === 0
+            ? `UTC${sign}${h}`
+            : `UTC${sign}${h}:${String(m).padStart(2,'0')}`;
+    }
+
+    /** Get current local time string for a timezone */
+    function getLocalTimeStr(iana) {
+        try {
+            return new Date().toLocaleTimeString('en-US', {
+                timeZone: iana,
+                hour:     '2-digit',
+                minute:   '2-digit',
+                hour12:   true,
+            });
+        } catch {
+            return '--:--';
+        }
+    }
+
+    /* =========================================================
+       CORE OVERLAP CALCULATION
+       Operates entirely in UTC minutes (0–1439) for precision.
+       Returns { blocks, validCities, wsH, weH }
+    ========================================================= */
+    function calcOverlap(validCities, wsH, weH) {
+        // For each UTC minute (granularity: 1 min, but we check per hour slot)
+        // Check: is this UTC hour within business hours for ALL cities?
+        // We use per-minute offsets, checking the full hour slot [utcH, utcH+1).
+
+        // Actually we iterate UTC hours 0-23 and check if the
+        // local wall-clock time falls within [wsH, weH) for every city.
+        // Using minute-precise offsets handles half-hour timezones.
+
+        const overlapHours = []; // list of UTC hours (0-23) that are overlap
+
+        for (let utcH = 0; utcH < 24; utcH++) {
+            const allInWindow = validCities.every(city => {
+                const totalLocalMin = utcToLocalMinutes(utcH, TZ_DB[city].iana);
+                const localH = totalLocalMin / 60; // float
+                // The hour slot [localH, localH+1) must be fully within [wsH, weH)
+                return localH >= wsH && (localH + 1) <= weH;
+            });
+            if (allInWindow) overlapHours.push(utcH);
+        }
+
+        // Build contiguous blocks. Since hours are 0-23, we don't wrap midnight
+        // (global teams rarely have overlap spanning midnight UTC).
+        const blocks = [];
+        if (overlapHours.length === 0) return { blocks, validCities, wsH, weH };
+
+        let start = overlapHours[0];
+        let prev  = overlapHours[0];
+        for (let i = 1; i <= overlapHours.length; i++) {
+            const cur = overlapHours[i];
+            if (cur !== prev + 1) {
+                blocks.push({ start, end: prev + 1, duration: prev + 1 - start });
+                if (cur !== undefined) { start = cur; }
+            }
+            prev = cur;
+        }
+
+        // Sort by duration descending (longest = best)
+        blocks.sort((a, b) => b.duration - a.duration);
+
+        return { blocks, overlapHours, validCities, wsH, weH };
+    }
+
+    /* =========================================================
+       RENDER CITIES GRID
+    ========================================================= */
+    function renderCities() {
+        const grid = document.getElementById('citiesGrid');
+        grid.innerHTML = cities.map((c, i) => {
+            const tz = TZ_DB[c];
+            return `
+            <div class="city-row" id="crow-${i}">
+                <span class="city-num">${i + 1}</span>
+                <div class="city-wrap">
+                    <input
+                        class="city-input"
+                        id="ci-${i}"
+                        value="${escHtml(c)}"
+                        placeholder="City name…"
+                        autocomplete="off"
+                        spellcheck="false"
+                        data-idx="${i}"
+                    >
+                    <div class="suggestions" id="sugg-${i}" role="listbox" hidden></div>
+                </div>
+                <span class="city-tz-badge" id="badge-${i}">${tz ? tz.abbr : ''}</span>
+                ${cities.length > 2
+                    ? `<button class="city-remove" data-remove="${i}" aria-label="Remove ${escHtml(c)}">✕</button>`
+                    : ''}
+            </div>`;
+        }).join('');
+
+        document.getElementById('addCityBtn').disabled = cities.length >= 5;
+
+        // Attach events after DOM insertion
+        cities.forEach((_, i) => {
+            const input = document.getElementById(`ci-${i}`);
+            input.addEventListener('input',   () => handleInput(i));
+            input.addEventListener('focus',   () => handleInput(i));
+            input.addEventListener('blur',    () => handleBlur(i));
+            input.addEventListener('keydown', (e) => handleKey(e, i));
+        });
+
+        // Remove buttons
+        grid.querySelectorAll('[data-remove]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cities.splice(parseInt(btn.dataset.remove, 10), 1);
+                renderCities();
+            });
+        });
+    }
+
+    /* =========================================================
+       AUTOCOMPLETE
+    ========================================================= */
+    let activeSuggIdx = -1;
+    let blurTimeout   = null;
+
+    function handleInput(i) {
+        const val  = document.getElementById(`ci-${i}`).value.trim().toLowerCase();
+        const sugg = document.getElementById(`sugg-${i}`);
+        activeSuggIdx = -1;
+
+        if (!val) { sugg.hidden = true; return; }
+
+        const matches = CITY_NAMES
+            .filter(c => c.toLowerCase().includes(val))
+            .slice(0, 8);
+
+        if (!matches.length) { sugg.hidden = true; return; }
+
+        sugg.innerHTML = matches.map((c, idx) =>
+            `<div class="sugg-item" role="option" data-city="${escHtml(c)}" data-idx="${idx}">
+                <span>${escHtml(c)}</span>
+                <span class="sugg-tz">${TZ_DB[c].abbr}</span>
+            </div>`
+        ).join('');
+
+        sugg.querySelectorAll('.sugg-item').forEach(item => {
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // prevent blur from firing before mousedown
+                selectCity(i, item.dataset.city);
+            });
+        });
+
+        sugg.hidden = false;
+    }
+
+    function handleBlur(i) {
+        // Delay so mousedown on sugg-item fires first
+        blurTimeout = setTimeout(() => {
+            const sugg = document.getElementById(`sugg-${i}`);
+            if (sugg) sugg.hidden = true;
+            // Commit typed value if it matches a known city (case-insensitive)
+            const val = document.getElementById(`ci-${i}`)?.value.trim();
+            if (val) {
+                const match = CITY_NAMES.find(c => c.toLowerCase() === val.toLowerCase());
+                cities[i] = match || val;
+                const badge = document.getElementById(`badge-${i}`);
+                if (badge) badge.textContent = match ? TZ_DB[match].abbr : '';
+            }
+        }, 160);
+    }
+
+    function handleKey(e, i) {
+        const sugg  = document.getElementById(`sugg-${i}`);
+        const items = sugg?.querySelectorAll('.sugg-item');
+        if (!items?.length || sugg.hidden) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeSuggIdx = Math.min(activeSuggIdx + 1, items.length - 1);
+            highlightSugg(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeSuggIdx = Math.max(activeSuggIdx - 1, 0);
+            highlightSugg(items);
+        } else if (e.key === 'Enter' && activeSuggIdx >= 0) {
+            e.preventDefault();
+            selectCity(i, items[activeSuggIdx].dataset.city);
+        } else if (e.key === 'Escape') {
+            sugg.hidden = true;
+        }
+    }
+
+    function highlightSugg(items) {
+        items.forEach((el, j) => {
+            el.classList.toggle('active', j === activeSuggIdx);
+        });
+    }
+
+    function selectCity(i, name) {
+        cities[i] = name;
+        const input = document.getElementById(`ci-${i}`);
+        const badge = document.getElementById(`badge-${i}`);
+        const sugg  = document.getElementById(`sugg-${i}`);
+        if (input) input.value = name;
+        if (badge) badge.textContent = TZ_DB[name]?.abbr || '';
+        if (sugg)  sugg.hidden = true;
+        if (blurTimeout) { clearTimeout(blurTimeout); blurTimeout = null; }
+    }
+
+    /* =========================================================
+       PRESETS
+    ========================================================= */
+    function loadPreset(key) {
+        cities = [...PRESETS[key]];
+        renderCities();
+        findOverlap();
+    }
+
+    /* =========================================================
+       MAIN: FIND OVERLAP
+    ========================================================= */
+    function findOverlap() {
+        // Sync any manually typed values
+        cities.forEach((_, i) => {
+            const el = document.getElementById(`ci-${i}`);
+            if (!el) return;
+            const val = el.value.trim();
+            const match = CITY_NAMES.find(c => c.toLowerCase() === val.toLowerCase());
+            cities[i] = match || val;
+        });
+
+        const validCities = cities.filter(c => TZ_DB[c]);
+        const panel = document.getElementById('resultPanel');
+        const hint  = document.getElementById('statusHint');
+
+        if (validCities.length < 2) {
+            panel.classList.remove('visible');
+            panel.innerHTML = '';
+            hint.style.display = 'block';
+            hint.innerHTML = cities.filter(Boolean).length > 0
+                ? '<span class="status-error">No recognised cities found. Try "New York", "London", or "Mumbai".</span>'
+                : 'Add at least 2 cities above and click Find Overlap ↑';
+            lastResult = null;
+            return;
+        }
+
+        const wsH = parseInt(document.getElementById('workStart').value, 10);
+        const weH = parseInt(document.getElementById('workEnd').value,   10);
+
+        if (wsH >= weH) {
+            hint.style.display = 'block';
+            hint.innerHTML = '<span class="status-error">Work end time must be after start time.</span>';
+            return;
+        }
+
+        const result = calcOverlap(validCities, wsH, weH);
+        lastResult = result;
+
+        const { blocks, overlapHours } = result;
+
+        // Gather city display data
+        const now = new Date();
+        const cityData = validCities.map(city => ({
+            city,
+            iana:       TZ_DB[city].iana,
+            abbr:       TZ_DB[city].abbr,
+            localTime:  getLocalTimeStr(TZ_DB[city].iana),
+            offsetLabel: getOffsetLabel(TZ_DB[city].iana),
+        }));
+
+        let html = '';
+
+        /* ── Current local times ── */
+        html += `<div class="section-label">Current Local Times</div>`;
+        html += `<div class="city-times-grid">`;
+        cityData.forEach(d => {
+            html += `
+            <div class="ct-card">
+                <div class="ct-city">${escHtml(d.city)}</div>
+                <div class="ct-time">${d.localTime}</div>
+                <div class="ct-tz">${d.abbr}</div>
+                <div class="ct-offset">${d.offsetLabel}</div>
+            </div>`;
+        });
+        html += `</div>`;
+
+        /* ── Timeline ── */
+        html += `<div class="section-label">24-Hour Work Window</div>`;
+        html += buildTimeline(cityData, wsH, weH, overlapHours || []);
+
+        /* ── Overlap windows ── */
+        if (blocks.length === 0) {
+            html += `
+            <div class="no-overlap">
+                <strong>No Overlap Found</strong>
+                These cities have no shared business hours with the current settings.
+                Try widening the work window or removing the most distant city.
+            </div>`;
+        } else {
+            html += `<div class="section-label">Overlap Windows (UTC)</div>`;
+            html += `<div class="overlap-slots">`;
+            blocks.forEach((b, idx) => {
+                const isBest = idx === 0;
+                html += `
+                <div class="slot-pill${isBest ? ' best' : ''}">
+                    ${isBest ? '<span class="slot-badge">Best</span>' : ''}
+                    <div class="slot-time">${fmtHour(b.start)} – ${fmtHour(b.end)} UTC</div>
+                    <div class="slot-duration">${b.duration}h window</div>
+                </div>`;
+            });
+            html += `</div>`;
+
+            /* ── Best window local breakdown ── */
+            const best = blocks[0];
+            html += `<div class="section-label">Best Window — Local Times</div>`;
+            html += `<div class="city-times-grid">`;
+            cityData.forEach(d => {
+                const startStr = fmtUtcHourInTz(best.start, d.iana);
+                const endStr   = fmtUtcHourInTz(best.end,   d.iana);
+                html += `
+                <div class="ct-card" style="border-color:var(--primary);">
+                    <div class="ct-city">${escHtml(d.city)}</div>
+                    <div class="ct-time" style="font-size:1rem;">${startStr} – ${endStr}</div>
+                    <div class="ct-tz">${d.abbr} · ${best.duration}h</div>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        /* ── Actions ── */
+        html += `
+        <div class="action-row">
+            <button class="btn-action primary" id="copyBtn">Copy Best Window</button>
+            <button class="btn-action" id="resetBtn">✕ Reset</button>
+        </div>`;
+
+        panel.innerHTML = html;
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+
+        // Bind action buttons
+        document.getElementById('copyBtn')?.addEventListener('click', copyResult);
+        document.getElementById('resetBtn')?.addEventListener('click', resetAll);
+    }
+
+    /* =========================================================
+       TIMELINE BUILDER
+       Renders a per-city 24h bar with work window and overlap.
+       All positions are in LOCAL time space (0-24h = 0-100%).
+    ========================================================= */
+    function buildTimeline(cityData, wsH, weH, overlapHours) {
+        let html = `<div class="timeline-wrap">`;
+
+        // Hour labels: 12A, 3A, 6A, 9A, 12P, 3P, 6P, 9P, 12A
+        const hourLabels = ['12A','3A','6A','9A','12P','3P','6P','9P','12A'];
+        html += `
+        <div class="timeline-header">
+            <div></div>
+            <div class="hour-labels">
+                ${hourLabels.map(l => `<span>${l}</span>`).join('')}
+            </div>
+        </div>`;
+
+        cityData.forEach(d => {
+            html += `<div class="tl-row">
+                <div>
+                    <div class="tl-city-name">${escHtml(d.city)}</div>
+                    <div class="tl-city-time">${d.localTime}</div>
+                </div>
+                <div class="tl-bar-wrap">`;
+
+            // Work window segment — in LOCAL time space
+            const wLeft  = (wsH / 24 * 100).toFixed(3);
+            const wWidth = ((weH - wsH) / 24 * 100).toFixed(3);
+            html += `<div class="tl-segment seg-work" style="left:${wLeft}%;width:${wWidth}%"></div>`;
+
+            // Overlap segments — convert each UTC overlap hour to local position
+            overlapHours.forEach(utcH => {
+                const localMin = utcToLocalMinutes(utcH, d.iana);
+                const left  = (localMin / (24 * 60) * 100).toFixed(3);
+                const width = (60 / (24 * 60) * 100).toFixed(3); // 1 hour = 1/24 = ~4.167%
+                html += `<div class="tl-segment seg-overlap" style="left:${left}%;width:${width}%"></div>`;
+            });
+
+            html += `</div></div>`;
+        });
+
+        html += `</div>`;
+        return html;
+    }
+
+    /* =========================================================
+       COPY RESULT
+    ========================================================= */
+    function copyResult() {
+        if (!lastResult || lastResult.blocks.length === 0) {
+            copyToClipboard('No overlapping business hours found.');
+            return;
+        }
+        const { blocks, validCities } = lastResult;
+        const best = blocks[0];
+        const lines = validCities.map(c => {
+            const startStr = fmtUtcHourInTz(best.start, TZ_DB[c].iana);
+            const endStr   = fmtUtcHourInTz(best.end,   TZ_DB[c].iana);
+            return `  ${c}: ${startStr} – ${endStr}`;
+        });
+        const text = `Best Meeting Window (${best.duration}h):\n${lines.join('\n')}\n\nFound at Rebrixe.co`;
+        copyToClipboard(text, 'copyBtn', 'Copy Best Window');
+    }
+
+    function copyToClipboard(text, btnId, originalLabel) {
+        if (!navigator.clipboard) {
+            // Fallback for non-secure contexts
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity  = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            } catch { /* silent */ }
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            if (!btnId) return;
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = originalLabel; }, 2000);
+        }).catch(() => { /* silent */ });
+    }
+
+    /* =========================================================
+       RESET
+    ========================================================= */
+    function resetAll() {
+        cities = ["New York", "London", "Mumbai"];
+        document.getElementById('workStart').value = '9';
+        document.getElementById('workEnd').value   = '18';
+        lastResult = null;
+        renderCities();
+        const panel = document.getElementById('resultPanel');
+        panel.classList.remove('visible');
+        panel.innerHTML = '';
+        const hint = document.getElementById('statusHint');
+        hint.style.display = 'block';
+        hint.innerHTML = 'Add your cities above and click Find Overlap ↑';
+    }
+
+    /* =========================================================
+       UTILITY: HTML ESCAPE
+    ========================================================= */
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /* =========================================================
+       INIT
+    ========================================================= */
+    (function init() {
+        // Read URL params (shared links)
+        const params = new URLSearchParams(window.location.search);
+        const urlCitiesRaw = params.get('cities');
+        if (urlCitiesRaw) {
+            const urlCities = urlCitiesRaw.split(',').map(s => s.trim()).filter(c => TZ_DB[c]);
+            if (urlCities.length >= 2) cities = urlCities;
+        }
+        const ws = params.get('ws');
+        const we = params.get('we');
+        if (ws && ['7','8','9','10'].includes(ws)) {
+            document.getElementById('workStart').value = ws;
+        }
+        if (we && ['16','17','18','19','20'].includes(we)) {
+            document.getElementById('workEnd').value = we;
+        }
+
+        renderCities();
+
+        // Only auto-run if we have valid cities
+        if (cities.filter(c => TZ_DB[c]).length >= 2) {
+            findOverlap();
+        }
+
+        // Wire up buttons that live outside the dynamic result panel
+        document.getElementById('findBtn').addEventListener('click', findOverlap);
+        document.getElementById('addCityBtn').addEventListener('click', () => {
+            if (cities.length < 5) {
+                cities.push('');
+                renderCities();
+                setTimeout(() => document.getElementById(`ci-${cities.length - 1}`)?.focus(), 50);
+            }
+        });
+
+        // Preset pills
+        document.querySelectorAll('[data-preset]').forEach(pill => {
+            pill.addEventListener('click', () => loadPreset(pill.dataset.preset));
+        });
+
+        // Work hour selects: auto re-run on change
+        document.getElementById('workStart').addEventListener('change', findOverlap);
+        document.getElementById('workEnd').addEventListener('change', findOverlap);
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

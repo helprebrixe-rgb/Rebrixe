@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Browser User Agent Parser — Decode Any UA String | Rebrixe</title>
+    <meta name="description" content="Instantly parse and decode any browser user agent string. Detect browser, OS, device type, engine, bot status, and architecture. Free UA parser tool with plain-English explanations.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #0bb5b5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Input card ── */
+        .ua-input-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 20px;
+        }
+
+        .ua-textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 13px 15px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+            min-height: 72px;
+            box-sizing: border-box;
+            outline: none;
+            line-height: 1.6;
+            transition: border-color 0.2s;
+        }
+        .ua-textarea:focus { border-color: #16e6f9; }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .btn-primary { background: #16a6f9; color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #e2e8f0; border: 1px solid var(--border); }
+        .btn-danger  { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .btn:hover   { opacity: 0.82; }
+        .btn.success { background: #2ecc71 !important; color: #fff !important; }
+
+        /* ── Device badge ── */
+        .device-hero {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 22px;
+            background: rgba(22,249,241,0.05);
+            border: 1px solid rgba(22,249,219,0.18);
+            border-radius: 16px;
+            margin-bottom: 18px;
+        }
+        .device-icon { font-size: 2.4rem; line-height: 1; }
+        .device-summary h2 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 700; color: #e2e8f0; }
+        .device-summary p  { margin: 0; font-size: 0.75rem; color: #64748b; font-family: 'Fira Code', monospace; line-height: 1.5; }
+        .badge {
+            margin-left: auto;
+            padding: 5px 13px;
+            border-radius: 30px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .badge-mobile  { background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.35); }
+        .badge-tablet  { background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.35); }
+        .badge-desktop { background: rgba(22,249,162,0.12); color: #16f9a2; border: 1px solid rgba(22,249,162,0.3); }
+        .badge-bot     { background: rgba(231,76,60,0.15);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.35); }
+
+        /* ── Results grid ── */
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .result-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            backdrop-filter: blur(10px);
+        }
+
+        .result-card-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #16f9f9;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 12px;
+        }
+
+        .field-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            gap: 8px;
+        }
+        .field-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .field-key {
+            font-size: 0.68rem;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+            flex-shrink: 0;
+            min-width: 90px;
+        }
+        .field-val {
+            font-size: 0.75rem;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            text-align: right;
+            word-break: break-all;
+        }
+        .field-val.detected { color: #16d6f9; }
+        .field-val.unknown  { color: #475569; font-style: italic; }
+        .field-val.flagged  { color: #e74c3c; }
+
+        .copy-field-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 5px;
+            color: #475569;
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            cursor: pointer;
+            transition: 0.15s;
+            flex-shrink: 0;
+        }
+        .copy-field-btn:hover { border-color: #16d6f9; color: #16d6f9; }
+        .copy-field-btn.ok    { border-color: #2ecc71; color: #2ecc71; }
+
+        /* ── Plain-english explanation ── */
+        .explain-card {
+            background: rgba(15,23,42,0.5);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .explain-card .result-card-label { margin-bottom: 10px; }
+        .explain-text {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            line-height: 1.75;
+        }
+        .explain-text strong { color: #e2e8f0; }
+        .explain-text .pill {
+            display: inline-block;
+            background: rgba(22,196,249,0.1);
+            color: #16c4f9;
+            border-radius: 5px;
+            padding: 1px 7px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+        }
+
+        /* ── Raw token breakdown ── */
+        .token-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .token {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.7rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            cursor: default;
+        }
+        .token.token-browser  { background: rgba(22,180,249,0.1);  border-color: rgba(22,180,249,0.3);  color: #16b4f9; }
+        .token.token-os       { background: rgba(22,249,162,0.1);  border-color: rgba(22,249,162,0.3);  color: #16f9a2; }
+        .token.token-engine   { background: rgba(168,85,247,0.1);  border-color: rgba(168,85,247,0.3);  color: #c084fc; }
+        .token.token-device   { background: rgba(249,115,22,0.1);  border-color: rgba(249,115,22,0.3);  color: #fb923c; }
+        .token.token-bot      { background: rgba(231,76,60,0.1);   border-color: rgba(231,76,60,0.35);  color: #e74c3c; }
+
+        /* ── Quick test UAs ── */
+        .test-ua-row {
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .test-btn {
+            padding: 5px 12px;
+            border-radius: 7px;
+            border: 1px solid rgba(22,230,249,0.3);
+            background: rgba(22,230,249,0.06);
+            color: #16c8f9;
+            font-size: 0.67rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: 0.15s;
+            white-space: nowrap;
+        }
+        .test-btn:hover { background: rgba(22,230,249,0.16); }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #475569;
+            font-size: 0.82rem;
+        }
+        .empty-state .emo { font-size: 2rem; margin-bottom: 10px; }
+
+        /* ── Legend ── */
+        .legend-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            font-size: 0.65rem;
+            color: #475569;
+            font-family: 'Fira Code', monospace;
+            margin-top: 8px;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .section-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin: 0 0 10px;
+        }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 14px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 6px; font-size: 0.85rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.77rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: #16a6f9; background: rgba(22,166,249,0.1); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 750px) {
+            .results-grid, .faq-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+            .device-hero { flex-wrap: wrap; }
+            .badge { margin-left: 0; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="diagnostics-strings.html" class="back-btn">← Back to Dev Tools</a>
+
+        <h1 class="tool-title" style="text-align:center;">UA Payload Parser</h1>
+        <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Paste any User-Agent string — instantly break down browser, OS, engine, device & bot signals.</p>
+
+        <!-- Input -->
+        <div class="ua-input-card">
+            <div class="section-label">User Agent String</div>
+            <textarea class="ua-textarea" id="uaInput" placeholder="Paste a User-Agent string here, or click 'Use My UA' to auto-detect yours…" oninput="parseUA()"></textarea>
+            <div class="input-actions">
+                <button class="btn btn-primary" onclick="useMyUA()">⬡ Use My UA</button>
+                <button class="btn btn-ghost"   onclick="clearAll()">Clear</button>
+                <button class="btn btn-ghost"   id="copyRawBtn" onclick="copyRaw()">Copy UA</button>
+                <span style="margin-left:auto;font-size:0.65rem;color:#475569;font-family:'Fira Code',monospace;" id="uaLen"></span>
+            </div>
+
+            <!-- Quick test UAs -->
+            <div style="margin-top:14px;">
+                <div class="section-label" style="margin-bottom:7px;">Test with common agents</div>
+                <div class="test-ua-row">
+                    <button class="test-btn" onclick="loadTest('chrome_win')">Chrome / Win</button>
+                    <button class="test-btn" onclick="loadTest('safari_mac')">Safari / Mac</button>
+                    <button class="test-btn" onclick="loadTest('firefox_linux')">Firefox / Linux</button>
+                    <button class="test-btn" onclick="loadTest('iphone')">iPhone Safari</button>
+                    <button class="test-btn" onclick="loadTest('android')">Android Chrome</button>
+                    <button class="test-btn" onclick="loadTest('edge')">Edge / Win</button>
+                    <button class="test-btn" onclick="loadTest('googlebot')">Googlebot</button>
+                    <button class="test-btn" onclick="loadTest('bingbot')">Bingbot</button>
+                    <button class="test-btn" onclick="loadTest('curl')">curl</button>
+                    <button class="test-btn" onclick="loadTest('ipad')">iPad</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output -->
+        <div id="output">
+            <div class="empty-state">
+                <div class="emo">🔍</div>
+                <div>Paste a UA string above or click <strong style="color:#16c8f9;">Use My UA</strong> to detect yours instantly.</div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <article style="text-align:left;margin-top:10px;">
+            <h2>What is a User Agent?</h2>
+            <p style="color:#64748b;font-size:0.82rem;line-height:1.7;">A User Agent (UA) is a string your browser sends with every HTTP request, telling servers what software is making the request. Servers use it for analytics, conditional CSS delivery, bot detection, and feature gating.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Why does my UA say "Mozilla/5.0"?</h3>
+                    <p>Legacy compatibility. Every browser says <code>Mozilla/5.0</code> — it dates back to the browser wars of the 90s when sites served rich content only to Netscape. All browsers kept it to avoid being blocked.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How do sites detect bots?</h3>
+                    <p>Bots usually have strings like <code>Googlebot</code>, <code>Bingbot</code>, or <code>curl</code>. Sophisticated bots spoof real browser UAs but can still be fingerprinted via behavior, headers, and JS execution.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What is the "engine" field?</h3>
+                    <p>The rendering engine is what actually draws the webpage. <code>Blink</code> (Chrome, Edge), <code>WebKit</code> (Safari), and <code>Gecko</code> (Firefox) — each behaves slightly differently, which is why CSS sometimes needs vendor prefixes.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I trust UA strings?</h3>
+                    <p>No — any client can send any UA. Never use it for security decisions. It's useful for analytics and UX optimization, but always validate critical info server-side through other means.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ═══ TEST UA LIBRARY ═══ */
+    const TEST_UAS = {
+        chrome_win:   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        safari_mac:   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
+        firefox_linux:'Mozilla/5.0 (X11; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0',
+        iphone:       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1',
+        android:      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36',
+        edge:         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0',
+        googlebot:    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        bingbot:      'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+        curl:         'curl/8.7.1',
+        ipad:         'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1',
+    };
+
+    /* ═══ PARSER ═══ */
+    function parse(ua) {
+        const r = {
+            raw: ua,
+            browser: { name: 'Unknown', version: '', full: '' },
+            engine:  { name: 'Unknown', version: '' },
+            os:      { name: 'Unknown', version: '', arch: '' },
+            device:  { type: 'Desktop', vendor: '', model: '' },
+            bot:     { is: false, name: '', verified: false },
+            flags:   [],
+        };
+
+        if (!ua || ua.trim() === '') return r;
+
+        const u = ua.trim();
+
+        /* ── Bot detection (check first, most specific) ── */
+        const botPatterns = [
+            [/Googlebot\/([0-9.]+)/i,     'Googlebot',      true],
+            [/bingbot\/([0-9.]+)/i,        'Bingbot',        true],
+            [/Slurp/i,                     'Yahoo Slurp',    true],
+            [/DuckDuckBot\/([0-9.]+)/i,    'DuckDuckBot',    true],
+            [/Baiduspider/i,               'Baiduspider',    true],
+            [/YandexBot\/([0-9.]+)/i,      'YandexBot',      true],
+            [/facebookexternalhit/i,       'Facebook Crawler',false],
+            [/Twitterbot\/([0-9.]+)/i,     'Twitterbot',     false],
+            [/LinkedInBot/i,               'LinkedInBot',    false],
+            [/WhatsApp\/([0-9.]+)/i,       'WhatsApp Previewer',false],
+            [/Discordbot/i,                'Discordbot',     false],
+            [/python-requests\/([0-9.]+)/i,'python-requests',false],
+            [/^curl\//i,                   'curl',           false],
+            [/wget/i,                      'Wget',           false],
+            [/PostmanRuntime/i,            'Postman',        false],
+            [/Scrapy/i,                    'Scrapy',         false],
+            [/HeadlessChrome/i,            'Headless Chrome',false],
+            [/PhantomJS/i,                 'PhantomJS',      false],
+            [/Puppeteer/i,                 'Puppeteer',      false],
+        ];
+        for (const [re, name, verified] of botPatterns) {
+            if (re.test(u)) { r.bot = { is: true, name, verified }; break; }
+        }
+
+        /* ── OS ── */
+        if (/Windows NT 10\.0/.test(u))       { r.os.name = 'Windows'; r.os.version = '10 / 11'; }
+        else if (/Windows NT 6\.3/.test(u))   { r.os.name = 'Windows'; r.os.version = '8.1'; }
+        else if (/Windows NT 6\.1/.test(u))   { r.os.name = 'Windows'; r.os.version = '7'; }
+        else if (/Windows NT/.test(u))         { r.os.name = 'Windows'; r.os.version = ''; }
+        else if (/iPhone/.test(u)) {
+            r.os.name = 'iOS';
+            const m = u.match(/CPU iPhone OS ([0-9_]+)/i);
+            r.os.version = m ? m[1].replace(/_/g,'.') : '';
+            r.device.type = 'Mobile'; r.device.vendor = 'Apple'; r.device.model = 'iPhone';
+        } else if (/iPad/.test(u)) {
+            r.os.name = 'iPadOS';
+            const m = u.match(/CPU OS ([0-9_]+)/i);
+            r.os.version = m ? m[1].replace(/_/g,'.') : '';
+            r.device.type = 'Tablet'; r.device.vendor = 'Apple'; r.device.model = 'iPad';
+        } else if (/Macintosh|Mac OS X/.test(u)) {
+            r.os.name = 'macOS';
+            const m = u.match(/Mac OS X ([0-9_\.]+)/i);
+            r.os.version = m ? m[1].replace(/_/g,'.') : '';
+        } else if (/Android/.test(u)) {
+            r.os.name = 'Android';
+            const m = u.match(/Android ([0-9.]+)/i);
+            r.os.version = m ? m[1] : '';
+            // vendor/model
+            const dm = u.match(/Android [0-9.]+;\s*([^)]+)\)/i);
+            if (dm) {
+                const parts = dm[1].trim().split(';');
+                r.device.vendor = parts[0]?.trim() || '';
+                r.device.model  = parts[1]?.trim() || dm[1].trim();
+            }
+            r.device.type = /Mobile/.test(u) ? 'Mobile' : 'Tablet';
+        } else if (/Linux/.test(u)) {
+            r.os.name = 'Linux';
+            if (/Ubuntu/.test(u)) r.os.version = 'Ubuntu';
+            else if (/Fedora/.test(u)) r.os.version = 'Fedora';
+        } else if (/CrOS/.test(u)) { r.os.name = 'ChromeOS'; }
+        else if (/X11/.test(u))    { r.os.name = 'Unix'; }
+
+        /* ── Arch ── */
+        if (/Win64|x64|x86_64|amd64/i.test(u)) r.os.arch = '64-bit (x86)';
+        else if (/arm64|aarch64/i.test(u))       r.os.arch = '64-bit (ARM)';
+        else if (/armv7/i.test(u))               r.os.arch = '32-bit (ARM)';
+        else if (/i686|Win32|x86/i.test(u))      r.os.arch = '32-bit (x86)';
+
+        /* ── Engine ── */
+        const evM = u.match(/AppleWebKit\/([0-9.]+)/i);
+        const gecM = u.match(/Gecko\/([0-9.]+)/i);
+        if (/Gecko\//.test(u) && /Firefox/.test(u)) {
+            r.engine = { name: 'Gecko', version: gecM ? gecM[1] : '' };
+        } else if (evM) {
+            r.engine = { name: /Chrome|Chromium/.test(u) ? 'Blink' : 'WebKit', version: evM[1] };
+        } else if (!evM && !gecM) {
+            r.engine = { name: 'Unknown', version: '' };
+        }
+
+        /* ── Browser ── */
+        const browsers = [
+            [/Edg\/([0-9.]+)/,           'Microsoft Edge'],
+            [/OPR\/([0-9.]+)/,            'Opera'],
+            [/Opera\/([0-9.]+)/,          'Opera'],
+            [/SamsungBrowser\/([0-9.]+)/, 'Samsung Browser'],
+            [/UCBrowser\/([0-9.]+)/,      'UC Browser'],
+            [/YaBrowser\/([0-9.]+)/,      'Yandex Browser'],
+            [/Vivaldi\/([0-9.]+)/,        'Vivaldi'],
+            [/Brave/,                     'Brave'],
+            [/Firefox\/([0-9.]+)/,        'Firefox'],
+            [/Chromium\/([0-9.]+)/,       'Chromium'],
+            [/Chrome\/([0-9.]+)/,         'Chrome'],
+            [/Version\/([0-9.]+).*Safari/, 'Safari'],
+        ];
+        for (const [re, name] of browsers) {
+            const m = u.match(re);
+            if (m) {
+                r.browser.name = name;
+                r.browser.version = m[1] || '';
+                r.browser.full = name + (m[1] ? ' ' + m[1] : '');
+                break;
+            }
+        }
+        if (r.bot.is) {
+            r.browser.name = r.bot.name;
+            r.browser.full = r.bot.name;
+            r.device.type = 'Bot';
+        }
+
+        /* ── Extra flags ── */
+        if (/HeadlessChrome/.test(u))    r.flags.push('Headless browser');
+        if (/Mobile/.test(u) && r.device.type === 'Desktop') r.device.type = 'Mobile';
+        if (/Tablet/.test(u))            r.device.type = 'Tablet';
+
+        return r;
+    }
+
+    /* ═══ RENDER ═══ */
+    function render(p, ua) {
+        const deviceIcon = { Mobile:'📱', Tablet:'🖥️', Desktop:'💻', Bot:'🤖' }[p.device.type] || '💻';
+        const badgeCls   = { Mobile:'badge-mobile', Tablet:'badge-tablet', Desktop:'badge-desktop', Bot:'badge-bot' }[p.device.type] || 'badge-desktop';
+
+        const heroLine = [p.browser.full, p.os.name + (p.os.version?' '+p.os.version:''), p.os.arch].filter(Boolean).join(' · ');
+
+        // Token breakdown
+        const tokens = tokenize(ua);
+
+        // Plain-English explanation
+        const explain = buildExplain(p);
+
+        document.getElementById('output').innerHTML = `
+
+        <!-- Hero -->
+        <div class="device-hero">
+            <div class="device-icon">${deviceIcon}</div>
+            <div class="device-summary">
+                <h2>${p.bot.is ? p.bot.name : p.browser.full || 'Unknown Browser'}</h2>
+                <p>${heroLine}</p>
+            </div>
+            <span class="badge ${badgeCls}">${p.device.type}</span>
+        </div>
+
+        <!-- Results grid -->
+        <div class="results-grid">
+
+            <!-- Browser & Engine -->
+            <div class="result-card">
+                <div class="result-card-label">Browser & Engine</div>
+                ${row('Browser',  p.browser.name,   p.browser.name !== 'Unknown')}
+                ${row('Version',  p.browser.version, !!p.browser.version)}
+                ${row('Engine',   p.engine.name,    p.engine.name !== 'Unknown')}
+                ${row('Engine Ver', p.engine.version, !!p.engine.version)}
+                ${row('Bot',      p.bot.is ? (p.bot.name + (p.bot.verified?' ✓ verified':'')) : 'No', !p.bot.is, p.bot.is)}
+            </div>
+
+            <!-- OS & Device -->
+            <div class="result-card">
+                <div class="result-card-label">OS & Device</div>
+                ${row('OS',          p.os.name,       p.os.name !== 'Unknown')}
+                ${row('OS Version',  p.os.version,    !!p.os.version)}
+                ${row('Architecture',p.os.arch,       !!p.os.arch)}
+                ${row('Device Type', p.device.type,   true)}
+                ${row('Vendor',      p.device.vendor, !!p.device.vendor)}
+                ${row('Model',       p.device.model,  !!p.device.model)}
+            </div>
+        </div>
+
+        <!-- Plain English -->
+        <div class="explain-card">
+            <div class="result-card-label">Plain-English Breakdown</div>
+            <div class="explain-text">${explain}</div>
+        </div>
+
+        <!-- Token breakdown -->
+        <div class="result-card" style="margin-bottom:20px;">
+            <div class="result-card-label">Token Analysis</div>
+            <div class="token-wrap">${tokens}</div>
+            <div class="legend-row" style="margin-top:12px;">
+                <span><span class="legend-dot" style="background:#16b4f9;"></span>Browser</span>
+                <span><span class="legend-dot" style="background:#16f9a2;"></span>OS</span>
+                <span><span class="legend-dot" style="background:#c084fc;"></span>Engine</span>
+                <span><span class="legend-dot" style="background:#fb923c;"></span>Device</span>
+                <span><span class="legend-dot" style="background:#e74c3c;"></span>Bot</span>
+                <span><span class="legend-dot" style="background:#475569;"></span>Unknown token</span>
+            </div>
+        </div>
+
+        `;
+    }
+
+    function row(key, val, detected, flagged=false) {
+        const v = val || '—';
+        const cls = !val ? 'unknown' : flagged ? 'flagged' : detected ? 'detected' : '';
+        const copyId = 'cp_' + key.replace(/\s/g,'_');
+        return `<div class="field-row">
+            <span class="field-key">${key}</span>
+            <span class="field-val ${cls}" id="${copyId}">${v}</span>
+            ${val ? `<button class="copy-field-btn" onclick="copyField('${copyId}',this)" title="Copy">⧉</button>` : ''}
+        </div>`;
+    }
+
+    function tokenize(ua) {
+        // Split on spaces and parens content
+        const parts = [];
+        const re = /\(([^)]*)\)|([^\s()]+)/g;
+        let m;
+        while ((m = re.exec(ua)) !== null) {
+            if (m[1] !== undefined) {
+                // paren group — split by ;
+                m[1].split(';').forEach(p => p.trim() && parts.push(p.trim()));
+            } else {
+                parts.push(m[2]);
+            }
+        }
+        return parts.map(p => {
+            const cls = classifyToken(p);
+            return `<span class="token ${cls}" title="${p}">${escape(p.length>30?p.slice(0,28)+'…':p)}</span>`;
+        }).join('');
+    }
+
+    function classifyToken(t) {
+        if (/firefox|chrome|safari|opr|edg|version|chromium|samsung|uc|yabrowser|vivaldi|brave/i.test(t)) return 'token-browser';
+        if (/windows|mac os|android|linux|iphone|ipad|x11|cros|unix|ubuntu|fedora/i.test(t)) return 'token-os';
+        if (/webkit|gecko|blink|trident|presto/i.test(t)) return 'token-engine';
+        if (/mobile|tablet|phone|touch/i.test(t)) return 'token-device';
+        if (/bot|crawler|spider|scraper|curl|wget|python|postman/i.test(t)) return 'token-bot';
+        return '';
+    }
+
+    function buildExplain(p) {
+        if (p.bot.is) {
+            const verifiedLine = p.bot.verified
+                ? "It is a <strong>verified crawler</strong> from a major search engine — legitimate traffic."
+                : "It is not a verified search engine crawler — could be a scraper, preview fetcher, or API client.";
+            return `This is a <strong>bot / automated agent</strong> called <span class="pill">${p.bot.name}</span>. 
+            ${verifiedLine}
+            It is <strong>not a real user browser</strong>. Most analytics platforms filter these out automatically.`;
+        }
+
+        const b = p.browser.name !== "Unknown"
+            ? `<span class="pill">${p.browser.full}</span>`
+            : "an <strong>unknown browser</strong>";
+        const o = p.os.name !== "Unknown"
+            ? `<span class="pill">${p.os.name}${p.os.version ? " " + p.os.version : ""}</span>`
+            : "an <strong>unknown OS</strong>";
+        const e = p.engine.name !== "Unknown"
+            ? `uses the <span class="pill">${p.engine.name}</span> rendering engine`
+            : "";
+        const d = p.device.type === "Mobile" ? "a <strong>mobile phone</strong>"
+            : p.device.type === "Tablet"     ? "a <strong>tablet</strong>"
+            : "a <strong>desktop or laptop</strong>";
+        const arch   = p.os.arch        ? ` running on a <strong>${p.os.arch}</strong> processor` : "";
+        const vendor = p.device.vendor  ? ` (${p.device.vendor}${p.device.model ? " \u2013 " + p.device.model : ""})` : "";
+        const eJoin  = e ? ", and it " : " is ";
+
+        const engineNote = p.engine.name === "Blink"
+            ? "Blink is the engine behind Chrome and Edge — widely supported, fastest for modern CSS."
+            : p.engine.name === "WebKit"
+            ? "WebKit powers Safari — some CSS features may behave differently than Blink-based browsers."
+            : p.engine.name === "Gecko"
+            ? "Gecko is Firefox&#39;s engine — excellent standards compliance, sometimes stricter than Blink."
+            : "";
+        const headlessNote = p.flags.includes("Headless browser")
+            ? "<strong>&#9888; Headless browser detected</strong> — this is likely automated scraping or testing (e.g. Puppeteer, Playwright)."
+            : "";
+
+        return `This request came from ${b} running on ${o}${arch}. 
+        It ${e}${eJoin}accessing from ${d}${vendor}. 
+        ${engineNote} ${headlessNote}`;
+    }
+
+    function escape(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    /* ═══ ACTIONS ═══ */
+    function parseUA() {
+        const ua = document.getElementById('uaInput').value.trim();
+        document.getElementById('uaLen').textContent = ua ? `${ua.length} chars` : '';
+        if (!ua) {
+            document.getElementById('output').innerHTML = `<div class="empty-state"><div class="emo">🔍</div><div>Paste a UA string above or click <strong style="color:#16c8f9;">Use My UA</strong>.</div></div>`;
+            return;
+        }
+        const p = parse(ua);
+        render(p, ua);
+    }
+
+    function useMyUA() {
+        const ua = navigator.userAgent;
+        document.getElementById('uaInput').value = ua;
+        document.getElementById('uaLen').textContent = `${ua.length} chars`;
+        parseUA();
+    }
+
+    function clearAll() {
+        document.getElementById('uaInput').value = '';
+        document.getElementById('uaLen').textContent = '';
+        document.getElementById('output').innerHTML = `<div class="empty-state"><div class="emo">🔍</div><div>Paste a UA string above or click <strong style="color:#16c8f9;">Use My UA</strong>.</div></div>`;
+    }
+
+    function loadTest(key) {
+        document.getElementById('uaInput').value = TEST_UAS[key] || '';
+        parseUA();
+    }
+
+    async function copyRaw() {
+        const ua = document.getElementById('uaInput').value.trim();
+        if (!ua) return;
+        await navigator.clipboard.writeText(ua);
+        const btn = document.getElementById('copyRawBtn');
+        btn.textContent = '✓ Copied'; btn.classList.add('success');
+        setTimeout(() => { btn.textContent = 'Copy UA'; btn.classList.remove('success'); }, 1500);
+    }
+
+    async function copyField(id, btn) {
+        const el = document.getElementById(id);
+        if (!el || el.textContent === '—') return;
+        await navigator.clipboard.writeText(el.textContent);
+        btn.textContent = '✓'; btn.classList.add('ok');
+        setTimeout(() => { btn.textContent = '⧉'; btn.classList.remove('ok'); }, 1400);
+    }
+
+    /* ═══ BOOT — auto-detect ═══ */
+    useMyUA();
+    </script>
+</body>
+</html>

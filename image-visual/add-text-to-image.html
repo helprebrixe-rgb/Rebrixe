@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Add Text to Image — Free Online Text Overlay Tool | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add text to any image instantly. Live preview as you type. Choose font, size, colour, shadow, stroke. Drag text to reposition. Multiple layers. Browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary:#FFD600;--accent:#FFB700;--success:#AAFF00;--error:#FF4444;
+            --text:#F0EDD6;--text-sec:#B8B49A;--text-dim:#6B6855;
+            --bg:#0C0B07;--surface:#141310;--card:#1A1812;
+            --border:rgba(255,255,255,0.06);--border-mid:rgba(255,255,255,0.10);
+            --primary-dim:rgba(255,214,0,0.07);--primary-border:rgba(255,214,0,0.25);
+            --radius-sm:10px;--radius-md:14px;--radius-lg:18px;
+        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+        .container{max-width:960px;margin:0 auto;padding:40px 20px 80px;}
+
+        .tool-page-header{text-align:center;margin-bottom:36px;}
+        .tool-page-title{font-size:clamp(1.9rem,5vw,3rem);font-weight:800;letter-spacing:-2px;background:linear-gradient(90deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1;margin-bottom:10px;}
+        .tool-page-sub{font-size:0.9rem;color:var(--text-sec);font-weight:500;}
+        .privacy-badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:0.72rem;font-weight:700;color:var(--success);background:rgba(170,255,0,0.07);border:1px solid rgba(170,255,0,0.18);padding:5px 14px;border-radius:99px;text-transform:uppercase;letter-spacing:0.8px;}
+        .privacy-badge::before{content:'🔒';font-size:0.85rem;}
+
+        /* Drop zone */
+        .drop-zone{position:relative;border-radius:20px;padding:52px 30px 48px;text-align:center;cursor:pointer;margin-bottom:24px;overflow:hidden;background:var(--card);transition:transform .25s,box-shadow .25s;}
+        .drop-zone::before{content:'';position:absolute;inset:0;border-radius:20px;padding:1.5px;background:linear-gradient(135deg,rgba(255,214,0,.55),rgba(255,183,0,.15) 40%,rgba(255,255,255,.05) 60%,rgba(255,214,0,.4));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
+        .drop-zone::after{content:'';position:absolute;inset:8px;border-radius:14px;border:1px dashed rgba(255,214,0,.12);pointer-events:none;transition:border-color .25s;}
+        .drop-zone:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(255,214,0,.1),0 4px 16px rgba(0,0,0,.4);}
+        .drop-zone:hover::after{border-color:rgba(255,214,0,.28);}
+        .drop-zone.drag-over{transform:scale(1.01) translateY(-4px);box-shadow:0 20px 60px rgba(255,214,0,.2),0 0 0 3px rgba(255,214,0,.15);}
+        .drop-icon{font-size:2.8rem;margin-bottom:14px;display:block;filter:drop-shadow(0 4px 12px rgba(255,214,0,.25));transition:transform .3s cubic-bezier(.34,1.56,.64,1);}
+        .drop-zone:hover .drop-icon{transform:translateY(-5px) scale(1.07);}
+        .drop-title{font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:6px;}
+        .drop-sub{font-size:.83rem;color:var(--text-dim);}
+        .drop-sub span{color:var(--primary);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(255,214,0,.35);}
+        #fileInput{display:none;}
+
+        .tool-panel{display:none;}
+        .tool-panel.visible{display:block;}
+
+        .image-info-bar{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:18px;flex-wrap:wrap;}
+        .img-thumb{width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--border-mid);flex-shrink:0;}
+        .img-meta{flex:1;min-width:120px;}
+        .img-name{font-size:.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;}
+        .img-dims{font-size:.72rem;color:var(--text-dim);font-family:'Fira Code',monospace;margin-top:2px;}
+        .change-file-btn{font-size:.72rem;font-weight:700;color:var(--text-dim);background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;transition:all .2s;font-family:'Outfit',sans-serif;margin-left:auto;}
+        .change-file-btn:hover{border-color:var(--primary);color:var(--primary);}
+
+        /* Layout */
+        .editor-layout{display:grid;grid-template-columns:1fr 310px;gap:18px;align-items:start;}
+
+        /* Canvas */
+        .canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+        .canvas-top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+        .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:.65rem;font-weight:700;color:var(--success);background:rgba(170,255,0,.08);border:1px solid rgba(170,255,0,.2);padding:4px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.7px;}
+        .live-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:livepulse 1.4s ease-in-out infinite;}
+        @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+        .canvas-hint-sm{font-size:.64rem;color:var(--text-dim);}
+        .canvas-container{position:relative;overflow:hidden;border-radius:var(--radius-sm);background:repeating-conic-gradient(#1a1600 0% 25%,#0d0c00 0% 50%) 0 0/16px 16px;border:1px solid var(--border-mid);max-width:100%;cursor:crosshair;}
+        #mainCanvas{display:block;max-width:100%;touch-action:none;}
+
+        /* Controls */
+        .controls-panel{display:flex;flex-direction:column;gap:12px;}
+        .ctrl-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;}
+        .ctrl-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;color:var(--text-dim);margin-bottom:10px;display:block;}
+
+        /* Live text input with glow when active */
+        #textInput{width:100%;background:var(--surface);border:1px solid var(--border-mid);color:var(--text);font-family:'Outfit',sans-serif;font-size:.92rem;padding:10px 12px;border-radius:var(--radius-sm);outline:none;transition:border-color .2s,box-shadow .2s;resize:none;min-height:64px;line-height:1.4;}
+        #textInput:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,214,0,.1);}
+        #textInput::placeholder{color:var(--text-dim);}
+        .text-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+        .typing-hint{font-size:.62rem;color:var(--success);font-weight:600;opacity:0;transition:opacity .3s;}
+        .typing-hint.show{opacity:1;}
+
+        /* Font */
+        .font-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
+        .font-btn{padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-sec);cursor:pointer;font-size:.75rem;font-weight:600;transition:all .18s;text-align:center;font-family:'Outfit',sans-serif;}
+        .font-btn:hover{border-color:var(--border-mid);color:var(--text);}
+        .font-btn.active{background:var(--primary-dim);border-color:var(--primary-border);color:var(--primary);}
+
+        /* Sliders */
+        .slider-lbl{font-size:.62rem;color:var(--text-dim);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;}
+        .slider-lbl span:last-child{color:var(--primary);font-family:'Fira Code',monospace;font-size:.72rem;}
+        .ctrl-slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:99px;background:var(--border);outline:none;cursor:pointer;margin-bottom:8px;}
+        .ctrl-slider::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 0 6px rgba(255,214,0,.4);}
+
+        /* Colour */
+        .color-swatch-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+        .color-swatch{width:26px;height:26px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:transform .15s,border-color .15s;}
+        .color-swatch:hover{transform:scale(1.15);}
+        .color-swatch.active{border-color:var(--primary);}
+        input[type="color"]{width:28px;height:26px;border:1px solid var(--border-mid);border-radius:6px;background:none;cursor:pointer;padding:1px;}
+
+        /* Align */
+        .align-row{display:flex;gap:6px;margin-top:8px;}
+        .align-btn{flex:1;padding:7px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;font-weight:700;transition:all .18s;font-family:'Outfit',sans-serif;}
+        .align-btn:hover{border-color:var(--border-mid);color:var(--text);}
+        .align-btn.active{background:var(--primary-dim);border-color:var(--primary-border);color:var(--primary);}
+
+        /* Effects */
+        .tog-row{display:flex;gap:5px;flex-wrap:wrap;}
+        .tog-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .18s;}
+        .tog-btn.active{background:var(--primary-dim);border-color:var(--primary-border);color:var(--primary);}
+        .tog-btn:hover:not(.active){color:var(--text-sec);border-color:var(--border-mid);}
+        #strokeColorRow{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+
+        /* Layers */
+        .layers-list{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;}
+        .layers-list::-webkit-scrollbar{width:3px;} .layers-list::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:99px;}
+        .layer-item{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .18s;}
+        .layer-item:hover{border-color:var(--border-mid);}
+        .layer-item.active-layer{border-color:var(--primary-border);background:var(--primary-dim);}
+        .layer-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+        .layer-preview{font-size:.72rem;font-weight:700;color:var(--text-sec);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .layer-item.active-layer .layer-preview{color:var(--primary);}
+        .layer-dup,.layer-del{background:none;border:none;cursor:pointer;font-size:.8rem;padding:2px 4px;border-radius:4px;transition:color .15s;flex-shrink:0;}
+        .layer-dup{color:var(--text-dim);} .layer-dup:hover{color:var(--primary);}
+        .layer-del{color:var(--text-dim);} .layer-del:hover{color:var(--error);}
+        .empty-layers{font-size:.72rem;color:var(--text-dim);text-align:center;padding:10px;}
+        .btn-add-layer{width:100%;padding:9px;border-radius:10px;border:1px dashed var(--primary-border);background:var(--primary-dim);color:var(--primary);font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .18s;margin-top:8px;}
+        .btn-add-layer:hover{background:rgba(255,214,0,.12);}
+
+        /* Download */
+        .btn-main{width:100%;padding:0;border:none;border-radius:12px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:800;overflow:hidden;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;background:transparent;}
+        .btn-main-inner{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#FFD600 0%,#FFBE00 45%,#FF9500 100%);border-radius:12px;color:#000;font-size:.9rem;}
+        .btn-main:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,180,0,.3);}
+
+        /* Toast */
+        .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-mid);color:var(--text);padding:12px 22px;border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;}
+        .toast.show{transform:translateX(-50%) translateY(0);}
+        .toast.success{border-color:rgba(170,255,0,.3);color:var(--success);}
+        .toast.error{border-color:rgba(255,68,68,.3);color:var(--error);}
+
+        /* FAQ */
+        .faq-section{margin-top:56px;}
+        .faq-heading{font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:-.5px;}
+        .faq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+        .faq-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px 20px;}
+        .faq-item h3{font-size:.85rem;font-weight:700;color:var(--primary);margin-bottom:7px;}
+        .faq-item p{font-size:.8rem;color:var(--text-sec);line-height:1.6;}
+        .faq-item code{font-family:'Fira Code',monospace;font-size:.78rem;background:var(--surface);padding:1px 6px;border-radius:4px;color:var(--accent);}
+
+        @media(max-width:680px){
+            .editor-layout{grid-template-columns:1fr;}
+            .font-grid{grid-template-columns:repeat(3,1fr);}
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+<nav class="nav-container"></nav>
+<main>
+<div class="container">
+    <a href="text-watermark-overlay.html" class="back-btn">← back to tools</a>
+    <div class="tool-page-header">
+        <h1 class="tool-page-title">Add Text to Image</h1>
+        <p class="tool-page-sub">Type and see it live on your image · Drag to reposition · Multiple layers · Shadow, stroke, fonts & colours</p>
+        <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+    </div>
+
+    <!-- DROP ZONE -->
+    <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*">
+        <span class="drop-icon">🖼️</span>
+        <p class="drop-title">Drop your image here</p>
+        <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+    </div>
+
+    <!-- TOOL PANEL -->
+    <div class="tool-panel" id="toolPanel">
+        <div class="image-info-bar">
+            <img class="img-thumb" id="imgThumb" src="" alt="">
+            <div class="img-meta">
+                <div class="img-name" id="imgName">—</div>
+                <div class="img-dims" id="imgDims">—</div>
+            </div>
+            <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+        </div>
+
+        <div class="editor-layout">
+
+            <!-- Canvas side -->
+            <div class="canvas-wrap">
+                <div class="canvas-top-bar">
+                    <span class="live-badge"><span class="live-dot"></span>Live preview</span>
+                    <span class="canvas-hint-sm">Drag text to reposition</span>
+                </div>
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="mainCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Controls side -->
+            <div class="controls-panel">
+
+                <!-- Text input — live -->
+                <div class="ctrl-card">
+                    <div class="text-card-head">
+                        <span class="ctrl-label" style="margin-bottom:0;">✏️ Text — updates live</span>
+                        <span class="typing-hint" id="typingHint">✓ on canvas</span>
+                    </div>
+                    <textarea id="textInput" placeholder="Start typing… appears on image instantly" rows="3"></textarea>
+                </div>
+
+                <!-- Font & Size -->
+                <div class="ctrl-card">
+                    <span class="ctrl-label">Font</span>
+                    <div class="font-grid" id="fontGrid">
+                        <button class="font-btn active" data-font="Impact" style="font-family:Impact">Impact</button>
+                        <button class="font-btn" data-font="Arial" style="font-family:Arial">Arial</button>
+                        <button class="font-btn" data-font="Georgia" style="font-family:Georgia,serif">Georgia</button>
+                        <button class="font-btn" data-font="Courier New" style="font-family:'Courier New',monospace">Courier</button>
+                        <button class="font-btn" data-font="Trebuchet MS" style="font-family:'Trebuchet MS'">Trebuchet</button>
+                        <button class="font-btn" data-font="Palatino Linotype" style="font-family:'Palatino Linotype',serif">Palatino</button>
+                    </div>
+                    <div class="slider-lbl"><span>Size</span><span id="sizeVal">48px</span></div>
+                    <input type="range" class="ctrl-slider" id="sizeSlider" min="10" max="300" value="48">
+                    <div class="slider-lbl"><span>Opacity</span><span id="opacVal">100%</span></div>
+                    <input type="range" class="ctrl-slider" id="opacSlider" min="5" max="100" value="100">
+                </div>
+
+                <!-- Colour & Align -->
+                <div class="ctrl-card">
+                    <span class="ctrl-label">Colour</span>
+                    <div class="color-swatch-row">
+                        <div class="color-swatch active" style="background:#FFFFFF" data-color="#FFFFFF" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#000000;border-color:#444" data-color="#000000" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#FFD600" data-color="#FFD600" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#FF4444" data-color="#FF4444" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#44AAFF" data-color="#44AAFF" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#AAFF00" data-color="#AAFF00" onclick="setColor(this)"></div>
+                        <div class="color-swatch" style="background:#FF44FF" data-color="#FF44FF" onclick="setColor(this)"></div>
+                        <input type="color" id="customColor" value="#ffffff" title="Custom" onchange="setCustomColor(this.value)">
+                    </div>
+                    <span class="ctrl-label" style="margin-top:12px;">Alignment</span>
+                    <div class="align-row">
+                        <button class="align-btn active" data-align="left" onclick="setAlign(this)">⇤ Left</button>
+                        <button class="align-btn" data-align="center" onclick="setAlign(this)">⇔ Center</button>
+                        <button class="align-btn" data-align="right" onclick="setAlign(this)">⇥ Right</button>
+                    </div>
+                </div>
+
+                <!-- Effects -->
+                <div class="ctrl-card">
+                    <span class="ctrl-label">Effects</span>
+                    <div class="tog-row">
+                        <button class="tog-btn active" data-eff="shadow" onclick="toggleEff(this)">Shadow</button>
+                        <button class="tog-btn" data-eff="stroke" onclick="toggleEff(this)">Stroke</button>
+                        <button class="tog-btn" data-eff="bold" onclick="toggleEff(this)">Bold</button>
+                        <button class="tog-btn" data-eff="italic" onclick="toggleEff(this)">Italic</button>
+                        <button class="tog-btn" data-eff="uppercase" onclick="toggleEff(this)">UPPER</button>
+                    </div>
+                    <div id="strokeColorRow">
+                        <span class="ctrl-label">Stroke colour</span>
+                        <div class="color-swatch-row">
+                            <div class="color-swatch active" style="background:#000000;border-color:#444" data-scolor="#000000" onclick="setStrokeColor(this)"></div>
+                            <div class="color-swatch" style="background:#FFFFFF" data-scolor="#FFFFFF" onclick="setStrokeColor(this)"></div>
+                            <div class="color-swatch" style="background:#FFD600" data-scolor="#FFD600" onclick="setStrokeColor(this)"></div>
+                            <input type="color" id="customStroke" value="#000000" onchange="setStrokeCustom(this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layers -->
+                <div class="ctrl-card">
+                    <span class="ctrl-label">Layers</span>
+                    <div class="layers-list" id="layersList"></div>
+                    <button class="btn-add-layer" onclick="addNewLayer()">+ Add another text layer</button>
+                </div>
+
+                <!-- Download -->
+                <button class="btn-main" onclick="doDownload()">
+                    <div class="btn-main-inner">⬇ Download Full-Res Image</div>
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <article class="faq-section">
+        <h2 class="faq-heading">What can you do with this?</h2>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>Live preview as you type</h3>
+                <p>Every keystroke updates the image instantly. No apply button — what you see is exactly what downloads.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Multiple text layers</h3>
+                <p>Add as many layers as needed — title, subtitle, hashtags — each with its own font, colour and position.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Drag to reposition</h3>
+                <p>Grab any text on the canvas and drag it anywhere. Works on touch screens too.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Full-resolution download</h3>
+                <p>Preview is scaled to fit screen. Download exports at your original image's full native resolution — no quality loss.</p>
+            </div>
+        </div>
+    </article>
+</div>
+</main>
+<div class="toast" id="toast"></div>
+<footer></footer>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let origImg = null, origFile = null;
+let canvasW = 0, canvasH = 0, dispScale = 1;
+let layers = [], activeLayerId = null;
+let dragging = false, dragOffX = 0, dragOffY = 0;
+let typingTimer = null;
+
+let cfg = {
+    font:'Impact', size:48, color:'#FFFFFF', align:'left',
+    opacity:1, shadow:true, stroke:false, strokeColor:'#000000',
+    bold:false, italic:false, uppercase:false
+};
+
+const canvas = document.getElementById('mainCanvas');
+const ctx    = canvas.getContext('2d');
+
+// ─── DROP / LOAD ─────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Drop an image file','error'); });
+dz.addEventListener('click', () => fi.click());
+fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+function loadFile(file) {
+    origFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+            origImg = img;
+            const maxW = Math.min(620, img.naturalWidth);
+            dispScale = maxW / img.naturalWidth;
+            canvasW = Math.round(img.naturalWidth  * dispScale);
+            canvasH = Math.round(img.naturalHeight * dispScale);
+            canvas.width  = canvasW; canvas.height = canvasH;
+            canvas.style.width  = canvasW + 'px';
+            canvas.style.height = canvasH + 'px';
+
+            document.getElementById('imgThumb').src = e.target.result;
+            document.getElementById('imgName').textContent = file.name;
+            document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+
+            // ── AUTO-CREATE first layer so text is live immediately ──────────
+            layers = [];
+            const first = makeLayer('Your text here');
+            first.x = Math.round(canvasW * 0.05);
+            first.y = Math.round(canvasH * 0.42);
+            layers.push(first);
+            activeLayerId = first.id;
+            syncControlsFromLayer(first);
+            renderLayersUI();
+            redraw();
+
+            // Focus textarea + select all so user can type straight away
+            const ti = document.getElementById('textInput');
+            ti.value = 'Your text here';
+            ti.focus();
+            ti.select();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetTool() {
+    dz.style.display = '';
+    document.getElementById('toolPanel').classList.remove('visible');
+    fi.value = ''; origFile = null; origImg = null; layers = []; activeLayerId = null;
+}
+
+// ─── LAYER FACTORY ───────────────────────────────────────────────────────────
+function makeLayer(text) {
+    return {
+        id: Date.now() + Math.random(), text,
+        x: Math.round(canvasW * 0.05),
+        y: Math.round(canvasH * 0.10),
+        ...JSON.parse(JSON.stringify(cfg))
+    };
+}
+
+function addNewLayer() {
+    const l = makeLayer('New text');
+    l.x = Math.round(canvasW * 0.05);
+    l.y = Math.round(canvasH * 0.55);
+    layers.push(l);
+    activeLayerId = l.id;
+    const ti = document.getElementById('textInput');
+    ti.value = l.text;
+    syncControlsFromLayer(l);
+    renderLayersUI(); redraw();
+    ti.focus(); ti.select();
+    showToast('New layer — start typing','success');
+}
+
+// ─── DRAW ────────────────────────────────────────────────────────────────────
+function redraw() {
+    if (!origImg) return;
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    ctx.drawImage(origImg, 0, 0, canvasW, canvasH);
+    layers.forEach(l => { if (l.text.trim()) drawLayer(l); });
+    // Selection box
+    if (activeLayerId) {
+        const l = layers.find(x => x.id === activeLayerId);
+        if (l && l.text.trim()) {
+            const m = layerMetrics(l);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,214,0,0.75)';
+            ctx.lineWidth   = 1.5;
+            ctx.setLineDash([4,3]);
+            ctx.strokeRect(m.x - 6, m.y - 4, m.w + 12, m.h + 8);
+            ctx.restore();
+        }
+    }
+}
+
+function buildFont(l) {
+    const s = (l.italic ? 'italic ' : '') + (l.bold ? 'bold ' : '');
+    return `${s}${Math.round(l.size * dispScale)}px "${l.font}", sans-serif`;
+}
+
+function layerMetrics(l) {
+    ctx.save();
+    ctx.font = buildFont(l);
+    const txt   = l.uppercase ? l.text.toUpperCase() : l.text;
+    const lines = txt.split('\n');
+    const fs    = Math.round(l.size * dispScale);
+    const lh    = fs * 1.25;
+    let maxW    = 0;
+    lines.forEach(ln => { const w = ctx.measureText(ln).width; if (w > maxW) maxW = w; });
+    ctx.restore();
+    return { x: l.x, y: l.y, w: maxW, h: lh * lines.length };
+}
+
+function drawLayer(l) {
+    const txt   = l.uppercase ? l.text.toUpperCase() : l.text;
+    const lines = txt.split('\n');
+    const fs    = Math.round(l.size * dispScale);
+    const lh    = fs * 1.25;
+    ctx.save();
+    ctx.globalAlpha  = l.opacity;
+    ctx.font         = buildFont(l);
+    ctx.textBaseline = 'top';
+    ctx.textAlign    = 'left';
+    let blockW = 0;
+    if (l.align !== 'left') lines.forEach(ln => { const w = ctx.measureText(ln).width; if (w > blockW) blockW = w; });
+    lines.forEach((line, i) => {
+        let ax = l.x;
+        if (l.align === 'center') ax = l.x - blockW / 2;
+        if (l.align === 'right')  ax = l.x - blockW;
+        const ty = l.y + i * lh;
+        if (l.shadow) { ctx.shadowColor='rgba(0,0,0,0.75)'; ctx.shadowBlur=fs*.1; ctx.shadowOffsetX=fs*.04; ctx.shadowOffsetY=fs*.04; }
+        if (l.stroke) {
+            ctx.strokeStyle=l.strokeColor; ctx.lineWidth=Math.max(2,fs*.08); ctx.lineJoin='round';
+            ctx.shadowColor='transparent'; ctx.strokeText(line, ax, ty);
+            if (l.shadow) { ctx.shadowColor='rgba(0,0,0,0.75)'; ctx.shadowBlur=fs*.1; ctx.shadowOffsetX=fs*.04; ctx.shadowOffsetY=fs*.04; }
+        }
+        ctx.fillStyle = l.color;
+        ctx.fillText(line, ax, ty);
+    });
+    ctx.restore();
+}
+
+// ─── LAYERS UI ───────────────────────────────────────────────────────────────
+function renderLayersUI() {
+    const list = document.getElementById('layersList');
+    if (!layers.length) { list.innerHTML = '<div class="empty-layers">No layers yet</div>'; return; }
+    list.innerHTML = '';
+    [...layers].reverse().forEach(l => {
+        const div = document.createElement('div');
+        div.className = 'layer-item' + (l.id === activeLayerId ? ' active-layer' : '');
+        div.innerHTML = `<div class="layer-dot" style="background:${l.color};border:1px solid rgba(255,255,255,.15)"></div>
+            <span class="layer-preview" style="font-family:'${l.font}'">${(l.uppercase?l.text.toUpperCase():l.text).replace(/\n/g,' ').slice(0,24)||'(empty)'}</span>
+            <button class="layer-dup" title="Duplicate" onclick="dupLayer(event,'${l.id}')">⧉</button>
+            <button class="layer-del" title="Delete" onclick="delLayer(event,'${l.id}')">✕</button>`;
+        div.addEventListener('click', () => selectLayer(l.id));
+        list.appendChild(div);
+    });
+}
+
+function selectLayer(id) {
+    activeLayerId = id;
+    const l = layers.find(x => x.id === id); if (!l) return;
+    document.getElementById('textInput').value = l.text;
+    syncControlsFromLayer(l);
+    renderLayersUI(); redraw();
+}
+
+function syncControlsFromLayer(l) {
+    cfg = { ...l };
+    document.getElementById('sizeSlider').value   = l.size;
+    document.getElementById('sizeVal').textContent = l.size + 'px';
+    document.getElementById('opacSlider').value   = Math.round(l.opacity * 100);
+    document.getElementById('opacVal').textContent = Math.round(l.opacity * 100) + '%';
+    document.querySelectorAll('.font-btn').forEach(b   => b.classList.toggle('active', b.dataset.font   === l.font));
+    document.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('active', b.dataset.color === l.color));
+    document.getElementById('customColor').value = l.color;
+    document.querySelectorAll('[data-align]').forEach(b => b.classList.toggle('active', b.dataset.align === l.align));
+    document.querySelectorAll('[data-eff]').forEach(b   => b.classList.toggle('active', !!l[b.dataset.eff]));
+    document.getElementById('strokeColorRow').style.display = l.stroke ? 'block' : 'none';
+    document.querySelectorAll('[data-scolor]').forEach(b => b.classList.toggle('active', b.dataset.scolor === l.strokeColor));
+}
+
+function dupLayer(e, id) {
+    e.stopPropagation();
+    const src = layers.find(x => x.id == id); if (!src) return;
+    const clone = { ...JSON.parse(JSON.stringify(src)), id: Date.now()+Math.random(), x:src.x+18, y:src.y+18 };
+    layers.push(clone); activeLayerId = clone.id;
+    document.getElementById('textInput').value = clone.text;
+    syncControlsFromLayer(clone);
+    renderLayersUI(); redraw();
+}
+
+function delLayer(e, id) {
+    e.stopPropagation();
+    layers = layers.filter(x => x.id != id);
+    if (activeLayerId == id) {
+        activeLayerId = layers.length ? layers[layers.length-1].id : null;
+        if (activeLayerId) { const l = layers.find(x=>x.id===activeLayerId); document.getElementById('textInput').value=l.text; syncControlsFromLayer(l); }
+    }
+    renderLayersUI(); redraw();
+}
+
+function getActiveLayer() { return layers.find(x => x.id === activeLayerId) || null; }
+function updateActive(key, val) { const l = getActiveLayer(); if (l) { l[key]=val; renderLayersUI(); redraw(); } }
+
+// ─── LIVE TEXT INPUT ─────────────────────────────────────────────────────────
+document.getElementById('textInput').addEventListener('input', function() {
+    cfg.text = this.value;
+    const l = getActiveLayer();
+    if (l) { l.text = this.value; renderLayersUI(); redraw(); }
+    // Flash "✓ on canvas" hint
+    const hint = document.getElementById('typingHint');
+    hint.classList.add('show');
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => hint.classList.remove('show'), 1200);
+});
+
+// ─── CONTROLS ────────────────────────────────────────────────────────────────
+document.getElementById('sizeSlider').addEventListener('input', function() {
+    cfg.size = +this.value;
+    document.getElementById('sizeVal').textContent = this.value + 'px';
+    updateActive('size', cfg.size);
+});
+document.getElementById('opacSlider').addEventListener('input', function() {
+    cfg.opacity = this.value / 100;
+    document.getElementById('opacVal').textContent = this.value + '%';
+    updateActive('opacity', cfg.opacity);
+});
+document.querySelectorAll('.font-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        document.querySelectorAll('.font-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active'); cfg.font = b.dataset.font; updateActive('font', cfg.font);
+    });
+});
+
+function setColor(el) {
+    document.querySelectorAll('[data-color]').forEach(b => b.classList.remove('active'));
+    el.classList.add('active'); cfg.color = el.dataset.color;
+    document.getElementById('customColor').value = cfg.color;
+    updateActive('color', cfg.color);
+}
+function setCustomColor(v) {
+    cfg.color = v;
+    document.querySelectorAll('[data-color]').forEach(b => b.classList.remove('active'));
+    updateActive('color', v);
+}
+function setAlign(el) {
+    document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+    el.classList.add('active'); cfg.align = el.dataset.align; updateActive('align', cfg.align);
+}
+function toggleEff(el) {
+    const eff = el.dataset.eff; el.classList.toggle('active');
+    cfg[eff] = el.classList.contains('active');
+    if (eff === 'stroke') document.getElementById('strokeColorRow').style.display = cfg.stroke ? 'block' : 'none';
+    updateActive(eff, cfg[eff]);
+}
+function setStrokeColor(el) {
+    document.querySelectorAll('[data-scolor]').forEach(b => b.classList.remove('active'));
+    el.classList.add('active'); cfg.strokeColor = el.dataset.scolor;
+    document.getElementById('customStroke').value = cfg.strokeColor;
+    updateActive('strokeColor', cfg.strokeColor);
+}
+function setStrokeCustom(v) {
+    cfg.strokeColor = v;
+    document.querySelectorAll('[data-scolor]').forEach(b => b.classList.remove('active'));
+    updateActive('strokeColor', v);
+}
+
+// ─── DRAG ────────────────────────────────────────────────────────────────────
+function getPos(e) {
+    const r  = canvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: cx - r.left, y: cy - r.top };
+}
+function hitTest(x, y) {
+    for (let i = layers.length-1; i >= 0; i--) {
+        const l = layers[i]; if (!l.text.trim()) continue;
+        const m = layerMetrics(l);
+        if (x >= m.x-8 && x <= m.x+m.w+8 && y >= m.y-8 && y <= m.y+m.h+8) return l.id;
+    }
+    return null;
+}
+canvas.addEventListener('mousedown',  startDrag);
+canvas.addEventListener('touchstart', startDrag, { passive:false });
+function startDrag(e) {
+    e.preventDefault();
+    const pos = getPos(e);
+    const hit = hitTest(pos.x, pos.y);
+    if (hit) {
+        if (hit !== activeLayerId) selectLayer(hit);
+        const l = layers.find(x => x.id === hit);
+        dragOffX = pos.x - l.x; dragOffY = pos.y - l.y;
+        dragging = true; canvas.style.cursor = 'grabbing';
+    }
+}
+window.addEventListener('mousemove', onDrag);
+window.addEventListener('touchmove', onDrag, { passive:false });
+function onDrag(e) {
+    if (!dragging || !activeLayerId) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    const l   = getActiveLayer(); if (!l) return;
+    l.x = pos.x - dragOffX; l.y = pos.y - dragOffY;
+    redraw();
+}
+window.addEventListener('mouseup',  endDrag);
+window.addEventListener('touchend', endDrag);
+function endDrag() { dragging = false; canvas.style.cursor = 'crosshair'; }
+
+// ─── DOWNLOAD (full native res) ──────────────────────────────────────────────
+function doDownload() {
+    if (!origImg) { showToast('Upload an image first','error'); return; }
+    const fc   = document.createElement('canvas');
+    fc.width   = origImg.naturalWidth;
+    fc.height  = origImg.naturalHeight;
+    const fctx = fc.getContext('2d');
+    fctx.drawImage(origImg, 0, 0);
+    const fs_scale = origImg.naturalWidth / canvasW;
+
+    layers.forEach(l => {
+        if (!l.text.trim()) return;
+        const txt   = l.uppercase ? l.text.toUpperCase() : l.text;
+        const lines = txt.split('\n');
+        const fs    = Math.round(l.size * dispScale * fs_scale);
+        const lh    = fs * 1.25;
+        const style = (l.italic?'italic ':'') + (l.bold?'bold ':'');
+        fctx.save();
+        fctx.globalAlpha  = l.opacity;
+        fctx.font         = `${style}${fs}px "${l.font}", sans-serif`;
+        fctx.textBaseline = 'top';
+        fctx.textAlign    = 'left';
+        let blockW = 0;
+        if (l.align !== 'left') lines.forEach(ln => { const w = fctx.measureText(ln).width; if (w > blockW) blockW = w; });
+        lines.forEach((line, i) => {
+            let ax = l.x * fs_scale;
+            if (l.align === 'center') ax = l.x * fs_scale - blockW/2;
+            if (l.align === 'right')  ax = l.x * fs_scale - blockW;
+            const ty = l.y * fs_scale + i * lh;
+            if (l.shadow) { fctx.shadowColor='rgba(0,0,0,0.75)'; fctx.shadowBlur=fs*.1; fctx.shadowOffsetX=fs*.04; fctx.shadowOffsetY=fs*.04; }
+            if (l.stroke) {
+                fctx.strokeStyle=l.strokeColor; fctx.lineWidth=Math.max(2,fs*.08); fctx.lineJoin='round';
+                fctx.shadowColor='transparent'; fctx.strokeText(line,ax,ty);
+                if (l.shadow) { fctx.shadowColor='rgba(0,0,0,0.75)'; fctx.shadowBlur=fs*.1; fctx.shadowOffsetX=fs*.04; fctx.shadowOffsetY=fs*.04; }
+            }
+            fctx.fillStyle = l.color;
+            fctx.fillText(line, ax, ty);
+        });
+        fctx.restore();
+    });
+
+    const base = origFile ? origFile.name.replace(/\.[^.]+$/,'') : 'image';
+    const a    = document.createElement('a');
+    a.href     = fc.toDataURL('image/png');
+    a.download = `${base}_text.png`;
+    a.click();
+    showToast('Downloaded at full resolution!','success');
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast '+type; t.classList.add('show');
+    clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

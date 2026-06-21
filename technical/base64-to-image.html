@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Base64 to Image Converter | Decode & Download PNG/JPG | Rebrixe</title>
+    <meta name="description" content="Instantly convert Base64 strings to PNG, JPG, WebP, GIF images. Preview, inspect metadata, detect format, download or copy — no upload, no server, 100% private.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .config-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+            min-width: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        textarea, select, input[type="text"] {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            color: white;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        textarea:focus, select:focus, input:focus { border-color: var(--primary); }
+        select { font-family: 'Inter', sans-serif; font-size: 0.88rem; margin-bottom: 16px; }
+
+        textarea#b64Input {
+            min-height: 170px;
+            resize: vertical;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin: 0 0 40px;
+            width: 100%;
+        }
+
+        /* Preview box */
+        .preview-box {
+            background: repeating-conic-gradient(#1a1f2e 0% 25%, #0d1117 0% 50%) 0 0 / 20px 20px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            min-height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .preview-box img {
+            max-width: 100%;
+            max-height: 340px;
+            object-fit: contain;
+            display: block;
+            border-radius: 10px;
+        }
+        .preview-placeholder {
+            color: #334155;
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 24px;
+            line-height: 1.7;
+        }
+        .preview-placeholder span {
+            font-size: 2.2rem;
+            display: block;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
+
+        /* Meta strip */
+        .meta-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .meta-pill {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .meta-pill .meta-val {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            display: block;
+        }
+        .meta-pill .meta-key {
+            font-size: 0.6rem;
+            color: #508986;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* Action buttons */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        /* Validation / status */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 28px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .v-tag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.4px;
+        }
+        .v-ok   { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .v-warn { background: rgba(15, 241, 218, 0.15);  color: #0fe6f1; border: 1px solid rgba(15, 211, 241, 0.3); }
+        .v-err  { background: rgba(231,76,60,0.15);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+
+        /* Format hint */
+        .format-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border-left: 3px solid var(--primary, #00f2ff);
+        }
+
+        /* Tools strip inside input card */
+        .tools-strip {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .tool-chip {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.18s;
+            letter-spacing: 0.3px;
+        }
+        .tool-chip:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Char counter */
+        .char-info {
+            font-size: 0.67rem;
+            color: #475569;
+            text-align: right;
+            margin-top: -10px;
+            margin-bottom: 14px;
+        }
+
+        /* Output filename row */
+        .filename-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 16px;
+        }
+        .filename-row input { margin-bottom: 0; font-family: 'Inter', sans-serif; font-size: 0.84rem; }
+
+        /* FAQ */
+        .seo-content { text-align: left; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 8px; font-size: 0.95rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .brand-title { font-size: 2.2rem; }
+            .meta-strip { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+        <h1 class="brand-title" style="text-align:center;">Base64 → Image</h1>
+        <p style="opacity:0.6; font-weight:500; text-align:center; margin-bottom:32px;">Decode any Base64 string into a real image — preview, inspect, rename & download. Nothing leaves your browser.</p>
+
+        <div class="workspace-grid">
+
+            <!-- LEFT: Input -->
+            <div class="config-card">
+                <label>Paste Base64 String</label>
+                <div class="tools-strip">
+                    <span class="tool-chip" onclick="pasteClipboard()">⎘ Paste</span>
+                    <span class="tool-chip" onclick="loadSample()">🖼 Load Sample</span>
+                    <span class="tool-chip" onclick="clearAll()">✕ Clear</span>
+                    <span class="tool-chip" onclick="stripPrefix()">✂ Strip Prefix</span>
+                </div>
+
+                <textarea id="b64Input" placeholder="Paste your Base64 string here...&#10;&#10;With or without data URI prefix:&#10;data:image/png;base64,iVBORw0KGgo...&#10;&#10;Or raw Base64:&#10;iVBORw0KGgo..." oninput="onInput()"></textarea>
+                <div class="char-info" id="charInfo">0 characters</div>
+
+                <div class="status-bar" id="statusBar">
+                    <span class="v-tag v-warn">Waiting for input</span>
+                </div>
+
+                <div class="format-hint">
+                    <strong style="color:#94a3b8;">Accepts:</strong> Raw Base64 · <code>data:image/...</code> URI · strings with whitespace/newlines (auto-cleaned) · PNG, JPG, WebP, GIF, SVG, BMP
+                </div>
+            </div>
+
+            <!-- RIGHT: Output -->
+            <div class="config-card">
+                <label>Preview</label>
+                <div class="preview-box" id="previewBox">
+                    <div class="preview-placeholder">
+                        <span>🖼</span>
+                        Your image will appear here
+                    </div>
+                </div>
+
+                <div class="meta-strip" id="metaStrip">
+                    <div class="meta-pill">
+                        <span class="meta-val" id="mFormat">—</span>
+                        <span class="meta-key">Format</span>
+                    </div>
+                    <div class="meta-pill">
+                        <span class="meta-val" id="mDims">—</span>
+                        <span class="meta-key">Dimensions</span>
+                    </div>
+                    <div class="meta-pill">
+                        <span class="meta-val" id="mSize">—</span>
+                        <span class="meta-key">File Size</span>
+                    </div>
+                </div>
+
+                <div class="filename-row">
+                    <div>
+                        <label>Download Filename</label>
+                        <input type="text" id="fileName" value="image" placeholder="filename (no extension)">
+                    </div>
+                    <div>
+                        <label>Format</label>
+                        <select id="dlFormat" style="margin-bottom:0;">
+                            <option value="auto">Auto-detect</option>
+                            <option value="png">PNG</option>
+                            <option value="jpg">JPG</option>
+                            <option value="webp">WebP</option>
+                            <option value="gif">GIF</option>
+                            <option value="svg">SVG</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" id="dlBtn" onclick="downloadImage()" disabled>⬇ DOWNLOAD</button>
+                    <button class="btn btn-ghost" id="copyUriBtn" onclick="copyDataUri()" disabled>COPY DATA URI</button>
+                    <button class="btn btn-ghost" id="copyRawBtn" onclick="copyRaw()" disabled>COPY RAW BASE64</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO / FAQ -->
+        <article class="seo-content">
+            <h2>What Is Base64 Image Encoding?</h2>
+            <p>Base64 encodes binary image data as ASCII text so it can be embedded directly in HTML, CSS, JSON, or API responses. This tool reverses the process — paste any Base64 string and get a real downloadable image file instantly, with no server upload required.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Where do Base64 images come from?</h3>
+                    <p>They're embedded in HTML <code>&lt;img src="data:image/png;base64,..."&gt;</code>, CSS backgrounds, JSON API payloads, email templates, database blobs, and <code>canvas.toDataURL()</code> output. You'll encounter them constantly in web dev.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Does it work without the data: prefix?</h3>
+                    <p>Yes. Paste raw Base64 (no <code>data:image/...</code> prefix) and the tool will auto-detect the image format from the encoded bytes (magic bytes detection). Use the <strong>Strip Prefix</strong> button to remove it if needed.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is my data safe / sent to a server?</h3>
+                    <p>100% local. Zero network requests. Everything runs in your browser using the built-in <code>FileReader</code> and <code>Canvas</code> APIs. Your Base64 string never leaves your machine.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What formats are supported?</h3>
+                    <p>PNG, JPG/JPEG, WebP, GIF, SVG, and BMP — anything your browser can render. The tool detects the format automatically and sets the correct file extension on download.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ── State ── */
+    let currentDataUri = '';
+    let detectedFormat = '';
+
+    /* ── Magic bytes → format detection ── */
+    function detectFormatFromBase64(raw) {
+        // Decode first few bytes
+        try {
+            const sample = atob(raw.substring(0, 16));
+            const b = c => sample.charCodeAt(c);
+            if (b(0)===0x89 && b(1)===0x50 && b(2)===0x4E && b(3)===0x47) return 'png';
+            if (b(0)===0xFF && b(1)===0xD8) return 'jpg';
+            if (b(0)===0x47 && b(1)===0x49 && b(2)===0x46) return 'gif';
+            if (b(0)===0x52 && b(1)===0x49 && b(2)===0x46 && b(3)===0x46) return 'webp';
+            if (b(0)===0x42 && b(1)===0x4D) return 'bmp';
+            // SVG: text-based, check for <svg or <?xml
+            const txt = sample.toLowerCase();
+            if (txt.includes('<svg') || txt.includes('<?xml')) return 'svg';
+        } catch(e) {}
+        return 'png'; // fallback
+    }
+
+    function mimeFor(fmt) {
+        const map = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif', bmp:'image/bmp', svg:'image/svg+xml' };
+        return map[fmt] || 'image/png';
+    }
+
+    /* ── Input handling ── */
+    function onInput() {
+        const raw = document.getElementById('b64Input').value;
+        document.getElementById('charInfo').textContent = raw.length.toLocaleString() + ' characters';
+
+        if (!raw.trim()) {
+            resetOutput();
+            setStatus('warn', 'Waiting for input');
+            return;
+        }
+
+        let b64 = raw.trim().replace(/\s+/g, ''); // strip whitespace/newlines
+        let mime = '';
+
+        // Check for data URI prefix
+        const dataMatch = b64.match(/^data:([^;]+);base64,(.+)$/i);
+        if (dataMatch) {
+            mime = dataMatch[1];
+            b64 = dataMatch[2];
+            detectedFormat = mime.split('/')[1].replace('jpeg','jpg');
+        } else {
+            // Raw base64 — detect format
+            detectedFormat = detectFormatFromBase64(b64);
+            mime = mimeFor(detectedFormat);
+        }
+
+        // Validate base64 chars
+        if (!/^[A-Za-z0-9+/=]+$/.test(b64)) {
+            setStatus('err', 'Invalid Base64 — unexpected characters found');
+            resetOutput();
+            return;
+        }
+
+        // Padding fix
+        const pad = b64.length % 4;
+        if (pad === 2) b64 += '==';
+        else if (pad === 3) b64 += '=';
+
+        currentDataUri = `data:${mime};base64,${b64}`;
+
+        // Render image
+        const img = new Image();
+        img.onload = () => {
+            // Show preview
+            const box = document.getElementById('previewBox');
+            box.innerHTML = '';
+            const el = document.createElement('img');
+            el.src = currentDataUri;
+            el.alt = 'Decoded image preview';
+            box.appendChild(el);
+
+            // Meta
+            document.getElementById('mFormat').textContent = detectedFormat.toUpperCase();
+            document.getElementById('mDims').textContent = img.naturalWidth + '×' + img.naturalHeight;
+
+            // Approx file size from base64 length
+            const bytes = Math.round(b64.length * 0.75);
+            document.getElementById('mSize').textContent = formatBytes(bytes);
+
+            setStatus('ok', `Valid ${detectedFormat.toUpperCase()} image decoded`);
+
+            // Enable buttons
+            ['dlBtn','copyUriBtn','copyRawBtn'].forEach(id => {
+                document.getElementById(id).disabled = false;
+            });
+        };
+        img.onerror = () => {
+            setStatus('err', 'Could not render — invalid or corrupted Base64 data');
+            resetOutput();
+        };
+        img.src = currentDataUri;
+    }
+
+    function resetOutput() {
+        document.getElementById('previewBox').innerHTML = '<div class="preview-placeholder"><span>🖼</span>Your image will appear here</div>';
+        document.getElementById('mFormat').textContent = '—';
+        document.getElementById('mDims').textContent = '—';
+        document.getElementById('mSize').textContent = '—';
+        ['dlBtn','copyUriBtn','copyRawBtn'].forEach(id => {
+            document.getElementById(id).disabled = true;
+        });
+        currentDataUri = '';
+    }
+
+    function setStatus(type, msg) {
+        const cls = { ok:'v-ok', warn:'v-warn', err:'v-err' }[type];
+        document.getElementById('statusBar').innerHTML = `<span class="v-tag ${cls}">${msg}</span>`;
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+        return (bytes/1048576).toFixed(2) + ' MB';
+    }
+
+    /* ── Actions ── */
+    function downloadImage() {
+        if (!currentDataUri) return;
+        const name = document.getElementById('fileName').value.trim() || 'image';
+        const dlFmt = document.getElementById('dlFormat').value;
+        const ext = dlFmt === 'auto' ? detectedFormat : dlFmt;
+        const a = document.createElement('a');
+        a.href = currentDataUri;
+        a.download = `${name}.${ext}`;
+        a.click();
+    }
+
+    async function copyDataUri() {
+        if (!currentDataUri) return;
+        await navigator.clipboard.writeText(currentDataUri);
+        flashBtn('copyUriBtn', '✓ COPIED!', 'COPY DATA URI');
+    }
+
+    async function copyRaw() {
+        if (!currentDataUri) return;
+        const raw = currentDataUri.split(',')[1];
+        await navigator.clipboard.writeText(raw);
+        flashBtn('copyRawBtn', '✓ COPIED!', 'COPY RAW BASE64');
+    }
+
+    function flashBtn(id, on, off) {
+        const btn = document.getElementById(id);
+        const orig = btn.textContent;
+        btn.textContent = on;
+        btn.classList.add('success');
+        setTimeout(() => { btn.textContent = off || orig; btn.classList.remove('success'); }, 1500);
+    }
+
+    async function pasteClipboard() {
+        try {
+            const txt = await navigator.clipboard.readText();
+            document.getElementById('b64Input').value = txt;
+            onInput();
+        } catch(e) {
+            setStatus('warn', 'Clipboard access denied — paste manually');
+        }
+    }
+
+    function stripPrefix() {
+        const ta = document.getElementById('b64Input');
+        const v = ta.value.trim().replace(/\s+/g,'');
+        const m = v.match(/^data:[^;]+;base64,(.+)$/i);
+        if (m) { ta.value = m[1]; onInput(); }
+        else { setStatus('warn', 'No data: prefix found'); }
+    }
+
+    function clearAll() {
+        document.getElementById('b64Input').value = '';
+        document.getElementById('charInfo').textContent = '0 characters';
+        resetOutput();
+        setStatus('warn', 'Waiting for input');
+    }
+
+    /* ── Sample: tiny valid 1×1 red PNG ── */
+    function loadSample() {
+        const sample = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==';
+        document.getElementById('b64Input').value = sample;
+        onInput();
+    }
+    </script>
+</body>
+</html>

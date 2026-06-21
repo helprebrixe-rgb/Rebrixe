@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Thumbnail "Red Bar" Simulator | Rebrixe Engine</title>
+    <meta name="description" content="Simulate the YouTube thumbnail red progress bar to see how it affects your thumbnail design. Perfect for content creators and marketers looking to optimize their video thumbnails for maximum click-through rates. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --pitch-black: #05070a;
+            --soft-gray: #1e293b;
+            --yt-red: #FF0000;
+            --border: #334155;
+            --text-main: #f1f1f1;
+            --card-bg: #0e1521;
+            --control-bg: #111827;
+        }
+
+        body { background: var(--pitch-black); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 20px; }
+
+        /* ── HEADER ── */
+        header { text-align: center; margin-bottom: 28px; }
+        header h1 { font-family: 'Outfit'; font-size: 2.2rem; }
+        header p { color: #64748b; margin-top: 6px; font-size: 0.95rem; }
+
+        /* ── LAYOUT ── */
+        .layout-grid { display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+
+        /* ── LEFT PANEL ── */
+        .preview-panel { display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── VIEW MODE TABS ── */
+        .view-tabs { display: flex; gap: 8px; }
+        .view-tab { background: var(--control-bg); border: 1px solid var(--border); color: #64748b; padding: 7px 18px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; text-transform: uppercase; }
+        .view-tab.active { background: var(--yt-red); border-color: var(--yt-red); color: white; }
+
+        /* ── SINGLE CARD VIEW ── */
+        .yt-card-stage {
+            background: #0f0f0f;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .yt-card-stage.light-bg { background: #ffffff; border-color: #d1d5db; }
+
+        #mainThumbnail { width: 100%; height: 100%; object-fit: cover; display: none; }
+
+        /* Timestamp */
+        .yt-timestamp {
+            position: absolute; bottom: 8px; right: 8px;
+            background: rgba(0,0,0,0.85); color: white;
+            padding: 3px 6px; border-radius: 4px; font-size: 12px; font-weight: 600;
+            z-index: 10; font-family: Roboto, Arial, sans-serif; letter-spacing: 0.3px;
+            pointer-events: none;
+        }
+        .yt-card-stage.light-bg .yt-timestamp { background: rgba(0,0,0,0.75); }
+
+        /* Progress Bar */
+        .yt-progress-container {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: rgba(255,255,255,0.25); z-index: 15;
+            pointer-events: none;
+        }
+        .yt-progress-fill { height: 100%; background: var(--yt-red); transition: width 0.1s; }
+
+        /* Hover overlay ring */
+        .yt-card-stage:hover::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 11px;
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+            pointer-events: none;
+        }
+
+        /* ── GRID VIEW ── */
+        .grid-view { display: none; gap: 14px; }
+        .grid-view.active { display: grid; grid-template-columns: repeat(3, 1fr); }
+        .grid-item { background: #0f0f0f; border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 16/9; border: 1px solid var(--border); }
+        .grid-item img { width: 100%; height: 100%; object-fit: cover; }
+        .grid-item .gi-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255,255,255,0.25); }
+        .grid-item .gi-bar-fill { height: 100%; background: var(--yt-red); }
+        .grid-item .gi-label { position: absolute; top: 4px; left: 6px; font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+        .grid-item .gi-timestamp { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.85); color: white; padding: 2px 4px; border-radius: 3px; font-size: 9px; font-weight: 600; font-family: Roboto, Arial, sans-serif; }
+        .grid-empty { display: flex; align-items: center; justify-content: center; color: #1e293b; font-size: 1.8rem; }
+
+        /* ── SIDE BY SIDE VIEW ── */
+        .compare-view { display: none; gap: 14px; }
+        .compare-view.active { display: grid; grid-template-columns: 1fr 1fr; }
+        .compare-card { background: #0f0f0f; border-radius: 10px; overflow: hidden; position: relative; aspect-ratio: 16/9; border: 1px solid var(--border); }
+        .compare-card img { width: 100%; height: 100%; object-fit: cover; }
+        .compare-card .cc-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255,255,255,0.25); }
+        .compare-card .cc-bar-fill { height: 100%; background: var(--yt-red); }
+        .compare-card .cc-label { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        .compare-card .cc-timestamp { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.85); color: white; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: Roboto, Arial, sans-serif; }
+
+        /* Drop zone */
+        #dropZone {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; z-index: 20; transition: background 0.2s;
+        }
+        #dropZone.drag-over { background: rgba(255, 0, 0, 0.12); }
+        #dropZone .dz-icon { font-size: 2.4rem; opacity: 0.25; line-height: 1; }
+        #dropZone .dz-hint { color: #475569; font-size: 0.78rem; margin-top: -4px; }
+        .btn-main { background: var(--yt-red); color: white; border: none; padding: 11px 22px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: background 0.2s; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 7px; }
+        .btn-main:hover { background: #cc0000; }
+
+        /* Replace button (shown after upload) */
+        #replaceBtn {
+            position: absolute; top: 10px; left: 10px; z-index: 20;
+            background: rgba(0,0,0,0.7); color: #94a3b8; border: 1px solid rgba(255,255,255,0.15);
+            padding: 5px 12px; border-radius: 7px; font-size: 0.72rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; display: none; backdrop-filter: blur(4px);
+        }
+        #replaceBtn:hover { background: rgba(0,0,0,0.9); color: white; }
+
+        /* ── SIDEBAR ── */
+        .sidebar { display: flex; flex-direction: column; gap: 14px; }
+        .control-card { background: var(--control-bg); border: 1px solid var(--border); padding: 18px; border-radius: 14px; }
+        .control-card h3 { font-family: 'Outfit'; font-size: 0.68rem; color: #475569; text-transform: uppercase; margin-bottom: 14px; letter-spacing: 1.2px; }
+
+        /* Toggle Switches */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1a2030; }
+        .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .toggle-label { font-size: 0.82rem; color: #94a3b8; }
+        .toggle-switch { position: relative; width: 38px; height: 20px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-track { position: absolute; inset: 0; background: #1e293b; border-radius: 20px; cursor: pointer; transition: background 0.2s; border: 1px solid var(--border); }
+        .toggle-track::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #475569; top: 2px; left: 2px; transition: all 0.2s; }
+        .toggle-switch input:checked + .toggle-track { background: var(--yt-red); border-color: var(--yt-red); }
+        .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); background: white; }
+
+        /* Slider rows */
+        .slider-row { margin-bottom: 14px; }
+        .slider-row:last-child { margin-bottom: 0; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .slider-label { font-size: 0.78rem; color: #94a3b8; }
+        .slider-value { font-size: 0.78rem; color: white; font-weight: 700; background: #1a2030; padding: 2px 8px; border-radius: 5px; min-width: 40px; text-align: center; }
+        input[type="range"] { width: 100%; accent-color: var(--yt-red); height: 4px; }
+
+        /* Text input */
+        .text-input { width: 100%; background: #0a0f1a; border: 1px solid var(--border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.85rem; font-family: 'Inter'; transition: border-color 0.2s; }
+        .text-input:focus { outline: none; border-color: var(--yt-red); }
+        .text-input::placeholder { color: #334155; }
+
+        /* YT mode buttons */
+        .yt-mode-row { display: flex; gap: 8px; margin-top: 4px; }
+        .yt-mode-btn { flex: 1; background: #0a0f1a; border: 1px solid var(--border); color: #64748b; padding: 8px 6px; border-radius: 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; letter-spacing: 0.3px; }
+        .yt-mode-btn.active { border-color: #475569; color: #cbd5e1; background: #1a2030; }
+
+        /* Score card */
+        .score-card { background: #0a0f1a; border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+        .score-label { font-size: 0.68rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .score-value { font-size: 1.6rem; font-weight: 900; font-family: 'Outfit'; }
+        .score-value.good { color: #22c55e; }
+        .score-value.ok { color: #f59e0b; }
+        .score-value.bad { color: #ef4444; }
+        .score-desc { font-size: 0.72rem; color: #64748b; margin-top: 4px; line-height: 1.4; }
+
+        /* Quick insights */
+        .insight { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid #1a2030; }
+        .insight:last-child { border-bottom: none; }
+        .insight-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+        .insight-dot.green { background: #22c55e; }
+        .insight-dot.yellow { background: #f59e0b; }
+        .insight-dot.red { background: #ef4444; }
+        .insight-text { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+
+        /* Footer */
+        footer { margin-top: 80px; padding: 60px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b; }
+        footer h3 { color: white; font-family: 'Outfit'; }
+        footer p { font-size: 0.8rem; }
+        footer .div-line { height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 16px 0 20px; }
+        footer .copy { font-size: 0.7rem; }
+
+        @media (max-width: 860px) {
+            .layout-grid { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.8rem; }
+            .grid-view.active { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 500px) {
+            .grid-view.active { grid-template-columns: 1fr 1fr; }
+            .compare-view.active { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">← Back to tools</a>
+
+        <header>
+            <h1>Thumbnail Red Bar Simulator</h1>
+            <p>See exactly how YouTube's "watched" progress bar overlaps your thumbnail — before it goes live.</p>
+        </header>
+
+        <div class="layout-grid">
+            <!-- LEFT: PREVIEW PANEL -->
+            <div class="preview-panel">
+
+                <!-- View Mode Tabs -->
+                <div class="view-tabs">
+                    <button class="view-tab active" onclick="setView('single')" id="tab-single">Single</button>
+                    <button class="view-tab" onclick="setView('compare')" id="tab-compare">Before / After</button>
+                    <button class="view-tab" onclick="setView('grid')" id="tab-grid">Grid View</button>
+                </div>
+
+                <!-- SINGLE VIEW -->
+                <div id="view-single">
+                    <div class="yt-card-stage" id="stage" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave()">
+                        <img id="mainThumbnail" src="" alt="Your thumbnail">
+                        <div class="yt-timestamp" id="timestamp">12:34</div>
+                        <div class="yt-progress-container" id="progressContainer" style="display:none;">
+                            <div class="yt-progress-fill" id="progressFill"></div>
+                        </div>
+                        <button id="replaceBtn" onclick="triggerFileInput()">↩ Replace</button>
+                        <div id="dropZone">
+                            <div class="dz-icon">🖼</div>
+                            <button class="btn-main" onclick="triggerFileInput()">
+                                ↑ Upload Thumbnail
+                            </button>
+                            <div class="dz-hint">or drag & drop an image here</div>
+                        </div>
+                        <input type="file" id="fileIn" hidden accept="image/*" onchange="processThumbnail(this)">
+                    </div>
+                </div>
+
+                <!-- COMPARE VIEW (Before / After) -->
+                <div class="compare-view" id="view-compare">
+                    <div class="compare-card" id="cc-before">
+                        <img id="cc-img-before" src="" alt="Without bar" style="display:none;">
+                        <div class="cc-label" id="cc-label-before" style="bottom:10px;">Without bar</div>
+                        <div class="cc-timestamp" id="cc-ts-before">12:34</div>
+                        <div class="compare-empty" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#1e293b;font-size:1.2rem;" id="cc-empty-before">Upload a thumbnail first</div>
+                    </div>
+                    <div class="compare-card" id="cc-after">
+                        <img id="cc-img-after" src="" alt="With bar" style="display:none;">
+                        <div class="cc-bar-container" id="cc-bar-container" style="display:none;">
+                            <div class="cc-bar-fill" id="cc-bar-fill"></div>
+                        </div>
+                        <div class="cc-label" id="cc-label-after" style="bottom:10px;">With bar</div>
+                        <div class="cc-timestamp" id="cc-ts-after">12:34</div>
+                        <div class="compare-empty" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#1e293b;font-size:1.2rem;" id="cc-empty-after">Upload a thumbnail first</div>
+                    </div>
+                </div>
+
+                <!-- GRID VIEW -->
+                <div class="grid-view" id="view-grid">
+                    <!-- 6 grid cells rendered by JS -->
+                    <div class="grid-item grid-empty" id="gi-0"><span>Upload first</span></div>
+                    <div class="grid-item grid-empty" id="gi-1"></div>
+                    <div class="grid-item grid-empty" id="gi-2"></div>
+                    <div class="grid-item grid-empty" id="gi-3"></div>
+                    <div class="grid-item grid-empty" id="gi-4"></div>
+                    <div class="grid-item grid-empty" id="gi-5"></div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT: SIDEBAR CONTROLS -->
+            <div class="sidebar">
+
+                <!-- UI Toggles -->
+                <div class="control-card">
+                    <h3>Overlay Toggles</h3>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Timestamp badge</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggleTimestamp" checked onchange="syncOverlays()">
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Red progress bar</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggleBar" onchange="syncOverlays()">
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Light mode preview</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggleLightMode" onchange="syncLightMode()">
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Simulation Settings -->
+                <div class="control-card">
+                    <h3>Simulation Settings</h3>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">Watched %</span>
+                            <span class="slider-value" id="pctLabel">75%</span>
+                        </div>
+                        <input type="range" id="progressRange" min="0" max="100" value="75" step="1" oninput="updateProgress()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">Bar thickness</span>
+                            <span class="slider-value" id="thickLabel">4px</span>
+                        </div>
+                        <input type="range" id="thickRange" min="2" max="8" value="4" step="1" oninput="updateThickness()">
+                    </div>
+
+                    <div class="slider-row" style="margin-bottom:0;">
+                        <div class="slider-header">
+                            <span class="slider-label">Video length</span>
+                        </div>
+                        <input type="text" class="text-input" id="timeIn" placeholder="e.g. 12:34 or 1:02:45" oninput="updateTimestamp(this.value)" maxlength="8">
+                    </div>
+                </div>
+
+                <!-- YouTube Context -->
+                <div class="control-card">
+                    <h3>Preview Context</h3>
+                    <p style="font-size:0.75rem;color:#475569;margin-bottom:10px;">Simulate where the thumbnail appears on YouTube</p>
+                    <div class="yt-mode-row">
+                        <button class="yt-mode-btn active" onclick="setContext(this,'home')">Home</button>
+                        <button class="yt-mode-btn" onclick="setContext(this,'search')">Search</button>
+                        <button class="yt-mode-btn" onclick="setContext(this,'sidebar')">Sidebar</button>
+                    </div>
+                </div>
+
+                <!-- Impact Score (shown after upload) -->
+                <div class="control-card" id="impactCard" style="display:none;">
+                    <h3>Bar Impact Score</h3>
+                    <div class="score-card">
+                        <div class="score-label">Visibility Impact</div>
+                        <div class="score-value" id="impactScore">—</div>
+                        <div class="score-desc" id="impactDesc">Upload a thumbnail to get your score</div>
+                    </div>
+                    <div style="margin-top:14px;" id="insightsList"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3>Rebrixe Engine</h3>
+            <p>YouTube CTR Tools v2.0</p>
+            <div class="div-line"></div>
+            <p class="copy">© 2026. All processing happens locally in your browser. No images are uploaded to any server.</p>
+        </div>
+    </footer>
+
+    <script>
+        /* ─── STATE ─── */
+        let thumbnailSrc = null;
+        let currentView = 'single';
+        let barVisible = false;
+        let timestampVisible = true;
+        let barPct = 75;
+        let barThick = 4;
+        let currentTimestamp = '12:34';
+
+        /* ─── ELEMENTS ─── */
+        const mainThumbnail = document.getElementById('mainThumbnail');
+        const timestamp = document.getElementById('timestamp');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const dropZone = document.getElementById('dropZone');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const stage = document.getElementById('stage');
+
+        /* ─── FILE INPUT ─── */
+        function triggerFileInput() {
+            document.getElementById('fileIn').click();
+        }
+
+        function processThumbnail(input) {
+            const file = input.files[0];
+            if (!file) return;
+            loadImageFile(file);
+            input.value = '';
+        }
+
+        function loadImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                thumbnailSrc = e.target.result;
+                onThumbnailLoaded();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function onThumbnailLoaded() {
+            // Single view
+            mainThumbnail.src = thumbnailSrc;
+            mainThumbnail.style.display = 'block';
+            dropZone.style.display = 'none';
+            replaceBtn.style.display = 'block';
+
+            // Compare view
+            document.getElementById('cc-img-before').src = thumbnailSrc;
+            document.getElementById('cc-img-before').style.display = 'block';
+            document.getElementById('cc-empty-before').style.display = 'none';
+            document.getElementById('cc-img-after').src = thumbnailSrc;
+            document.getElementById('cc-img-after').style.display = 'block';
+            document.getElementById('cc-empty-after').style.display = 'none';
+            document.getElementById('cc-bar-container').style.display = 'block';
+            document.getElementById('cc-bar-fill').style.height = barThick + 'px';
+            document.getElementById('cc-bar-fill').style.width = barPct + '%';
+
+            // Grid view
+            renderGridView();
+
+            // Sync all
+            syncOverlays();
+            showImpactCard();
+        }
+
+        /* ─── DRAG & DROP ─── */
+        stage.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        stage.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
+        stage.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) loadImageFile(file);
+        });
+
+        /* ─── VIEW SWITCHING ─── */
+        function setView(v) {
+            currentView = v;
+            document.getElementById('view-single').style.display = v === 'single' ? 'block' : 'none';
+            document.getElementById('view-compare').className = 'compare-view' + (v === 'compare' ? ' active' : '');
+            document.getElementById('view-grid').className = 'grid-view' + (v === 'grid' ? ' active' : '');
+            document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + v).classList.add('active');
+        }
+
+        /* ─── OVERLAYS SYNC ─── */
+        function syncOverlays() {
+            timestampVisible = document.getElementById('toggleTimestamp').checked;
+            barVisible = document.getElementById('toggleBar').checked;
+
+            // Single view
+            timestamp.style.display = timestampVisible ? 'block' : 'none';
+            progressContainer.style.display = barVisible ? 'block' : 'none';
+            updateProgress();
+
+            // Compare view — "before" never has bar, "after" always has bar
+            document.getElementById('cc-ts-before').style.display = timestampVisible ? 'block' : 'none';
+            document.getElementById('cc-ts-after').style.display = timestampVisible ? 'block' : 'none';
+
+            // Grid — re-render with new state
+            if (thumbnailSrc) renderGridView();
+            updateImpact();
+        }
+
+        function syncLightMode() {
+            const light = document.getElementById('toggleLightMode').checked;
+            stage.classList.toggle('light-bg', light);
+        }
+
+        /* ─── PROGRESS ─── */
+        function updateProgress() {
+            barPct = parseInt(document.getElementById('progressRange').value);
+            document.getElementById('pctLabel').textContent = barPct + '%';
+            progressFill.style.width = barPct + '%';
+            progressFill.style.height = barThick + 'px';
+            progressContainer.style.height = barThick + 'px';
+
+            // Sync compare after card
+            document.getElementById('cc-bar-fill').style.width = barPct + '%';
+            document.getElementById('cc-bar-fill').style.height = barThick + 'px';
+            document.getElementById('cc-bar-container').style.height = barThick + 'px';
+
+            if (thumbnailSrc) renderGridView();
+            updateImpact();
+        }
+
+        /* ─── THICKNESS ─── */
+        function updateThickness() {
+            barThick = parseInt(document.getElementById('thickRange').value);
+            document.getElementById('thickLabel').textContent = barThick + 'px';
+            updateProgress();
+        }
+
+        /* ─── TIMESTAMP ─── */
+        function updateTimestamp(val) {
+            val = val.trim();
+            if (!val) { currentTimestamp = '12:34'; }
+            else { currentTimestamp = val; }
+            timestamp.innerText = currentTimestamp;
+            document.getElementById('cc-ts-before').innerText = currentTimestamp;
+            document.getElementById('cc-ts-after').innerText = currentTimestamp;
+            document.querySelectorAll('.gi-timestamp').forEach(el => el.innerText = currentTimestamp);
+        }
+
+        /* ─── GRID RENDERING ─── */
+        const gridConfigs = [
+            { label: 'Home feed', pct: 0, showBar: false },
+            { label: '25% watched', pct: 25, showBar: true },
+            { label: '50% watched', pct: 50, showBar: true },
+            { label: '75% watched', pct: 75, showBar: true },
+            { label: '90% watched', pct: 90, showBar: true },
+            { label: 'Fully watched', pct: 100, showBar: true },
+        ];
+
+        function renderGridView() {
+            gridConfigs.forEach((cfg, i) => {
+                const cell = document.getElementById('gi-' + i);
+                cell.innerHTML = '';
+                cell.className = 'grid-item';
+                if (!thumbnailSrc) { cell.classList.add('grid-empty'); cell.innerHTML = i === 0 ? '<span style="color:#1e293b;font-size:0.7rem;">Upload first</span>' : ''; return; }
+
+                const img = document.createElement('img');
+                img.src = thumbnailSrc;
+                cell.appendChild(img);
+
+                if (timestampVisible) {
+                    const ts = document.createElement('div');
+                    ts.className = 'gi-timestamp';
+                    ts.innerText = currentTimestamp;
+                    cell.appendChild(ts);
+                }
+
+                const lbl = document.createElement('div');
+                lbl.className = 'gi-label';
+                lbl.innerText = cfg.label;
+                cell.appendChild(lbl);
+
+                if (cfg.showBar) {
+                    const barCont = document.createElement('div');
+                    barCont.className = 'gi-bar-container';
+                    barCont.style.height = Math.max(2, barThick - 1) + 'px';
+                    const barFill = document.createElement('div');
+                    barFill.className = 'gi-bar-fill';
+                    barFill.style.width = cfg.pct + '%';
+                    barFill.style.height = '100%';
+                    barCont.appendChild(barFill);
+                    cell.appendChild(barCont);
+                }
+            });
+        }
+
+        /* ─── IMPACT SCORE ─── */
+        function showImpactCard() {
+            document.getElementById('impactCard').style.display = 'block';
+            updateImpact();
+        }
+
+        function updateImpact() {
+            if (!thumbnailSrc) return;
+
+            // Heuristic scoring based on watched % and bar thickness
+            // High watched % + thick bar = more impact on lower third of thumbnail
+            const coverageRatio = (barPct / 100) > 0 ? 1 : 0;
+            const barImpact = (barThick / 8) * 100; // 0–100
+            const pctImpact = barPct > 80 ? 'high' : barPct > 40 ? 'medium' : 'low';
+
+            let score, scoreClass, desc, insights;
+
+            if (!barVisible) {
+                score = '—'; scoreClass = ''; desc = 'Turn on the Red Bar toggle to see impact.';
+                insights = [{ dot: 'green', text: 'Bar is currently hidden. Enable it above to simulate.' }];
+            } else if (barPct === 0) {
+                score = '0%'; scoreClass = 'good'; desc = 'No bar shown. Fresh, unwatched state.';
+                insights = [
+                    { dot: 'green', text: 'Thumbnail fully visible — zero bar overlap.' },
+                    { dot: 'green', text: 'Unwatched thumbnails typically receive highest CTR.' },
+                ];
+            } else if (barPct >= 90) {
+                score = 'HIGH'; scoreClass = 'bad'; desc = 'Bar covers bottom edge significantly. Text/logos near the bottom may be obscured.';
+                insights = [
+                    { dot: 'red', text: 'Bottom ' + barThick + 'px of thumbnail is fully covered by the bar.' },
+                    { dot: 'yellow', text: 'Avoid placing key text or faces near the very bottom edge.' },
+                    { dot: 'green', text: 'Highly-watched videos often get recommended more — CTR may stay strong.' },
+                ];
+            } else if (barPct >= 50) {
+                score = 'MED'; scoreClass = 'ok'; desc = 'Moderate overlap. Check that no key design elements sit at the very bottom.';
+                insights = [
+                    { dot: 'yellow', text: 'A ' + barThick + 'px red stripe is visible across the thumbnail bottom.' },
+                    { dot: 'green', text: 'Most thumbnail text & faces are unaffected at this level.' },
+                    { dot: 'yellow', text: 'Consider keeping 8px+ clearance from the bottom in your design.' },
+                ];
+            } else {
+                score = 'LOW'; scoreClass = 'good'; desc = 'Minimal visual impact. Your thumbnail design is largely unaffected.';
+                insights = [
+                    { dot: 'green', text: 'Short red line at ' + barPct + '% — thumbnail reads clearly.' },
+                    { dot: 'green', text: 'Design elements near the bottom are safe.' },
+                    { dot: 'yellow', text: 'As watch % grows, the bar will extend further right.' },
+                ];
+            }
+
+            document.getElementById('impactScore').textContent = score;
+            document.getElementById('impactScore').className = 'score-value ' + scoreClass;
+            document.getElementById('impactDesc').textContent = desc;
+
+            const insightsList = document.getElementById('insightsList');
+            insightsList.innerHTML = insights.map(i =>
+                `<div class="insight"><div class="insight-dot ${i.dot}"></div><div class="insight-text">${i.text}</div></div>`
+            ).join('');
+        }
+
+        /* ─── CONTEXT MODE ─── */
+        function setContext(btn, mode) {
+            document.querySelectorAll('.yt-mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Context mode is visual-only label for now; grid always shows variety
+        }
+
+        /* ─── INIT ─── */
+        updateProgress();
+        setView('single');
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

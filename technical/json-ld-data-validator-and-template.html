@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JSON-LD Structured Data Validator & Template Generator | Rich Results | Rebrixe</title>
+    <meta name="description" content="Generate and validate JSON-LD structured data templates for Google Rich Results. Supports Article, FAQ, Product, BreadcrumbList, LocalBusiness, Recipe, HowTo, Event, Review, and more. SEO-safe, schema.org compliant.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            margin-bottom: 40px;
+            align-items: start;
+        }
+
+        .panel {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+        }
+
+        /* ── Schema Picker ── */
+        .schema-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .schema-btn {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 9px 8px;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+            letter-spacing: 0.3px;
+            line-height: 1.3;
+        }
+        .schema-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .schema-btn.active {
+            background: rgba(0,242,255,0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .schema-btn .schema-icon { display: block; font-size: 1.1rem; margin-bottom: 3px; }
+
+        /* ── Labels & Inputs ── */
+        .field-label {
+            display: block;
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .field-label .req { color: #e74c3c; margin-left: 2px; }
+        .field-label .opt { color: #475569; font-weight: 500; font-size: 0.58rem; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+
+        input[type="text"], input[type="url"], input[type="number"], input[type="date"], select, textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px 13px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.83rem;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        input.err { border-color: #e74c3c !important; }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* ── Output ── */
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .output-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-row { display: flex; gap: 7px; flex-wrap: wrap; }
+
+        .badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 5px;
+            letter-spacing: 0.3px;
+        }
+        .badge-ok   { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .badge-warn { background: rgba(241,196,15,0.15);  color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+        .badge-err  { background: rgba(231,76,60,0.15);   color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .badge-info { background: rgba(99,179,237,0.12);  color: #63b3ed; border: 1px solid rgba(99,179,237,0.25); }
+
+        .code-box {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            min-height: 200px;
+            position: relative;
+        }
+        #jsonOutput {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.75;
+            margin: 0;
+            display: block;
+        }
+
+        /* Syntax highlighting */
+        .j-key   { color: #7dd3fc; }
+        .j-str   { color: #86efac; }
+        .j-num   { color: #fbbf24; }
+        .j-bool  { color: #f472b6; }
+        .j-null  { color: #94a3b8; }
+        .j-punc  { color: #64748b; }
+
+        /* ── Validation panel ── */
+        .val-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 14px;
+        }
+        .val-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .val-list li .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        .dot-ok   { background: #2ecc71; }
+        .dot-warn { background: #f1c40f; }
+        .dot-err  { background: #e74c3c; }
+
+        /* ── Buttons ── */
+        .btn-row { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.ok      { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+
+        /* ── Rich result eligibility banner ── */
+        .eligibility {
+            border-radius: 12px;
+            padding: 13px 16px;
+            margin-bottom: 18px;
+            font-size: 0.78rem;
+            line-height: 1.6;
+            border: 1px solid;
+        }
+        .elig-eligible   { background: rgba(46,204,113,0.08);  border-color: rgba(46,204,113,0.3); color: #2ecc71; }
+        .elig-partial    { background: rgba(241,196,15,0.08);  border-color: rgba(241,196,15,0.3);  color: #f1c40f; }
+        .elig-ineligible { background: rgba(231,76,60,0.08);   border-color: rgba(231,76,60,0.3);   color: #e74c3c; }
+
+        /* ── Section divider ── */
+        .section-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin: 18px 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* ── SEO / FAQ ── */
+        .seo-content { text-align: left; }
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 6px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 0.75rem; }
+
+        @media (max-width: 860px) {
+            .tool-grid { grid-template-columns: 1fr; }
+            .faq-grid  { grid-template-columns: 1fr; }
+            .two-col   { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="server-wizards.html" class="back-btn">← Back to Tools</a>
+    <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(90deg,#00f2ff,#2ecc71);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin:0 0 8px;">JSON-LD Structured Data</h1>
+    <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Generate Google-safe rich result templates. Validate required fields. Copy & deploy instantly.</p>
+
+    <div class="tool-grid">
+
+        <!-- ═══ LEFT: Schema Picker + Fields ═══ -->
+        <div>
+            <div class="panel" style="margin-bottom:20px;">
+                <div class="section-title">Schema Type</div>
+                <div class="schema-grid" id="schemaPicker"></div>
+            </div>
+
+            <div class="panel" id="fieldsPanel">
+                <div class="section-title" id="fieldsTitle">Fields</div>
+                <div id="dynamicFields"></div>
+            </div>
+        </div>
+
+        <!-- ═══ RIGHT: Output + Validation ═══ -->
+        <div class="panel">
+            <div class="output-header">
+                <span class="output-label">Generated JSON-LD</span>
+                <div class="badge-row" id="badgeRow"></div>
+            </div>
+
+            <div id="eligBanner" class="eligibility elig-partial" style="display:none;"></div>
+
+            <div class="code-box">
+                <code id="jsonOutput"></code>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" id="copyBtn" onclick="copyCode()">COPY CODE</button>
+                <button class="btn btn-ghost" onclick="copyScriptTag()">COPY &lt;SCRIPT&gt; TAG</button>
+                <button class="btn btn-ghost" onclick="openGSC()">TEST IN GOOGLE ↗</button>
+            </div>
+
+            <ul class="val-list" id="valList"></ul>
+        </div>
+    </div>
+
+    <!-- ═══ SEO ═══ -->
+    <article class="seo-content">
+        <h2>Why JSON-LD Structured Data Matters</h2>
+        <p>JSON-LD is Google's preferred format for structured data. Correct implementation unlocks rich results — star ratings, FAQs, breadcrumbs, sitelinks — that dramatically increase click-through rates. One missing required field silently disqualifies your page.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>What are required vs recommended fields?</h3>
+                <p>Google marks some fields as <code>required</code> — missing them makes you ineligible for rich results. <code>recommended</code> fields improve appearance but won't disqualify you. This tool shows both, clearly labelled.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Where do I paste this code?</h3>
+                <p>Paste inside <code>&lt;script type="application/ld+json"&gt;</code> tags in your page's <code>&lt;head&gt;</code> or anywhere in <code>&lt;body&gt;</code>. Google reads it regardless of placement.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Can I have multiple schemas on one page?</h3>
+                <p>Yes. Use separate <code>&lt;script&gt;</code> blocks for each schema type. Don't nest unrelated schemas — keep one type per block. FAQ + BreadcrumbList on the same page is a common valid combo.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Why use JSON-LD over Microdata?</h3>
+                <p>JSON-LD lives in <code>&lt;script&gt;</code> tags — it doesn't mix with your HTML markup. Easier to maintain, easier to template, and Google explicitly recommends it over Microdata or RDFa.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   SCHEMA DEFINITIONS
+   required: true = Google required field
+   recommended: true = boosts appearance
+   Each field: id, label, type, placeholder, required, recommended
+═══════════════════════════════════════════════ */
+const SCHEMAS = {
+    Article: {
+        icon: '📰', label: 'Article',
+        richResult: true,
+        eligNote: 'Eligible for Top Stories, Article rich results.',
+        fields: [
+            { id:'headline',      label:'Headline',           type:'text',   ph:'Your article title (max 110 chars)', required:true  },
+            { id:'datePublished', label:'Date Published',     type:'date',                                            required:true  },
+            { id:'dateModified',  label:'Date Modified',      type:'date',                                            recommended:true },
+            { id:'authorName',    label:'Author Name',        type:'text',   ph:'Jane Doe',                           required:true  },
+            { id:'authorUrl',     label:'Author Profile URL', type:'url',    ph:'https://site.com/about/jane',        recommended:true },
+            { id:'publisherName', label:'Publisher Name',     type:'text',   ph:'Your Site Name',                    required:true  },
+            { id:'publisherLogo', label:'Publisher Logo URL', type:'url',    ph:'https://site.com/logo.png',          required:true  },
+            { id:'image',         label:'Main Image URL',     type:'url',    ph:'https://site.com/article-img.jpg',   required:true  },
+            { id:'url',           label:'Canonical URL',      type:'url',    ph:'https://site.com/your-article',      recommended:true },
+            { id:'description',   label:'Description',        type:'text',   ph:'Brief summary of the article',       recommended:true },
+        ]
+    },
+    FAQPage: {
+        icon: '❓', label: 'FAQ',
+        richResult: true,
+        eligNote: 'Eligible for FAQ rich results — shows accordion in SERPs.',
+        fields: [
+            { id:'faq',  label:'FAQ Items (one Q|A per line)', type:'faqblock', ph:'What is X? | X is a great tool.\nHow does Y work? | Y works by...', required:true },
+        ]
+    },
+    Product: {
+        icon: '🛍️', label: 'Product',
+        richResult: true,
+        eligNote: 'Eligible for Product rich results with price, availability, and reviews.',
+        fields: [
+            { id:'name',          label:'Product Name',          type:'text', ph:'Wireless Headphones Pro X',     required:true  },
+            { id:'image',         label:'Product Image URL',     type:'url',  ph:'https://site.com/product.jpg',  required:true  },
+            { id:'description',   label:'Description',           type:'text', ph:'Short product description',     recommended:true },
+            { id:'sku',           label:'SKU',                   type:'text', ph:'SKU-001',                        recommended:true },
+            { id:'brand',         label:'Brand Name',            type:'text', ph:'BrandName',                     required:true  },
+            { id:'price',         label:'Price',                 type:'text', ph:'49.99',                          required:true  },
+            { id:'currency',      label:'Currency (ISO)',        type:'text', ph:'USD',                            required:true  },
+            { id:'availability',  label:'Availability',          type:'select', options:['InStock','OutOfStock','PreOrder','Discontinued'], required:true },
+            { id:'ratingValue',   label:'Rating (0–5)',          type:'text', ph:'4.5',                            recommended:true },
+            { id:'reviewCount',   label:'Review Count',          type:'text', ph:'128',                            recommended:true },
+            { id:'url',           label:'Product Page URL',      type:'url',  ph:'https://site.com/product',       recommended:true },
+        ]
+    },
+    BreadcrumbList: {
+        icon: '🔗', label: 'Breadcrumb',
+        richResult: true,
+        eligNote: 'Eligible for breadcrumb rich results — shows URL path in SERPs.',
+        fields: [
+            { id:'crumbs', label:'Breadcrumbs (Name | URL, one per line)', type:'crumbblock', ph:'Home | https://site.com\nBlog | https://site.com/blog\nArticle Title | https://site.com/blog/article', required:true },
+        ]
+    },
+    LocalBusiness: {
+        icon: '🏪', label: 'Local Biz',
+        richResult: true,
+        eligNote: 'Eligible for knowledge panel and local rich results.',
+        fields: [
+            { id:'name',       label:'Business Name',     type:'text', ph:'Joe\'s Coffee House',                     required:true  },
+            { id:'image',      label:'Business Image URL',type:'url',  ph:'https://site.com/storefront.jpg',          recommended:true },
+            { id:'address',    label:'Street Address',    type:'text', ph:'123 Main St',                              required:true  },
+            { id:'city',       label:'City',              type:'text', ph:'San Francisco',                            required:true  },
+            { id:'state',      label:'State / Region',    type:'text', ph:'CA',                                       required:true  },
+            { id:'postalCode', label:'Postal Code',       type:'text', ph:'94102',                                    required:true  },
+            { id:'country',    label:'Country (ISO)',     type:'text', ph:'US',                                       required:true  },
+            { id:'phone',      label:'Phone',             type:'text', ph:'+1-555-000-0000',                          recommended:true },
+            { id:'url',        label:'Website URL',       type:'url',  ph:'https://yoursite.com',                     recommended:true },
+            { id:'priceRange', label:'Price Range',       type:'text', ph:'$$',                                       recommended:true },
+            { id:'hours',      label:'Opening Hours (e.g. Mo-Fr 09:00-18:00)', type:'text', ph:'Mo-Fr 09:00-18:00',  recommended:true },
+        ]
+    },
+    Recipe: {
+        icon: '🍳', label: 'Recipe',
+        richResult: true,
+        eligNote: 'Eligible for Recipe rich results with cooking time, ratings, and nutrition.',
+        fields: [
+            { id:'name',          label:'Recipe Name',         type:'text', ph:'Chocolate Chip Cookies',            required:true  },
+            { id:'image',         label:'Recipe Image URL',    type:'url',  ph:'https://site.com/cookies.jpg',      required:true  },
+            { id:'author',        label:'Author Name',         type:'text', ph:'Chef Jane',                         required:true  },
+            { id:'datePublished', label:'Date Published',      type:'date',                                          recommended:true },
+            { id:'description',   label:'Description',         type:'text', ph:'Crispy on outside, chewy inside.',  recommended:true },
+            { id:'prepTime',      label:'Prep Time (mins)',    type:'text', ph:'15',                                 required:true  },
+            { id:'cookTime',      label:'Cook Time (mins)',    type:'text', ph:'12',                                 required:true  },
+            { id:'servings',      label:'Servings',            type:'text', ph:'24',                                 required:true  },
+            { id:'ingredients',   label:'Ingredients (one per line)', type:'textarea', ph:'2 cups flour\n1 cup sugar\n2 eggs', required:true },
+            { id:'calories',      label:'Calories per serving',type:'text', ph:'180',                               recommended:true },
+            { id:'ratingValue',   label:'Rating (0–5)',        type:'text', ph:'4.8',                               recommended:true },
+            { id:'reviewCount',   label:'Review Count',        type:'text', ph:'220',                               recommended:true },
+        ]
+    },
+    HowTo: {
+        icon: '🔧', label: 'HowTo',
+        richResult: true,
+        eligNote: 'Eligible for HowTo rich results with step-by-step display.',
+        fields: [
+            { id:'name',        label:'Title (How to…)',     type:'text', ph:'How to Change a Flat Tire',          required:true  },
+            { id:'description', label:'Description',         type:'text', ph:'A step-by-step guide to...',         recommended:true },
+            { id:'image',       label:'Main Image URL',      type:'url',  ph:'https://site.com/howto.jpg',         recommended:true },
+            { id:'totalTime',   label:'Total Time (mins)',   type:'text', ph:'30',                                  recommended:true },
+            { id:'steps',       label:'Steps (one per line)',type:'textarea', ph:'Loosen the lug nuts\nJack up the car\nRemove the flat tire', required:true },
+            { id:'tools',       label:'Tools (one per line, optional)', type:'textarea', ph:'Lug wrench\nJack', recommended:true },
+        ]
+    },
+    Event: {
+        icon: '🎟️', label: 'Event',
+        richResult: true,
+        eligNote: 'Eligible for Event rich results in SERPs and Google Search.',
+        fields: [
+            { id:'name',         label:'Event Name',          type:'text', ph:'Annual Dev Conference 2025',        required:true  },
+            { id:'startDate',    label:'Start Date & Time',   type:'text', ph:'2025-09-15T09:00',                   required:true  },
+            { id:'endDate',      label:'End Date & Time',     type:'text', ph:'2025-09-15T18:00',                   recommended:true },
+            { id:'locationName', label:'Venue Name',          type:'text', ph:'Convention Center',                  required:true  },
+            { id:'address',      label:'Street Address',      type:'text', ph:'456 Event Blvd',                     required:true  },
+            { id:'city',         label:'City',                type:'text', ph:'Austin',                             required:true  },
+            { id:'country',      label:'Country (ISO)',       type:'text', ph:'US',                                  required:true  },
+            { id:'url',          label:'Event Page URL',      type:'url',  ph:'https://site.com/event',             required:true  },
+            { id:'image',        label:'Event Image URL',     type:'url',  ph:'https://site.com/event.jpg',         recommended:true },
+            { id:'organizer',    label:'Organizer Name',      type:'text', ph:'DevConf Org',                        recommended:true },
+            { id:'price',        label:'Ticket Price',        type:'text', ph:'49.00',                              recommended:true },
+            { id:'currency',     label:'Currency (ISO)',      type:'text', ph:'USD',                                 recommended:true },
+        ]
+    },
+    VideoObject: {
+        icon: '▶️', label: 'Video',
+        richResult: true,
+        eligNote: 'Eligible for Video rich results and Google Discover video carousels.',
+        fields: [
+            { id:'name',          label:'Video Title',         type:'text', ph:'How to Use Our Product',          required:true  },
+            { id:'description',   label:'Description',         type:'text', ph:'A complete walkthrough of...',    required:true  },
+            { id:'thumbnailUrl',  label:'Thumbnail URL',       type:'url',  ph:'https://site.com/thumb.jpg',      required:true  },
+            { id:'uploadDate',    label:'Upload Date',         type:'date',                                        required:true  },
+            { id:'duration',      label:'Duration (ISO 8601)', type:'text', ph:'PT5M30S  (5 min 30 sec)',          recommended:true },
+            { id:'contentUrl',    label:'Direct Video URL',    type:'url',  ph:'https://site.com/video.mp4',      recommended:true },
+            { id:'embedUrl',      label:'Embed URL',           type:'url',  ph:'https://youtube.com/embed/xxx',   recommended:true },
+            { id:'publisher',     label:'Publisher Name',      type:'text', ph:'Your Channel',                    recommended:true },
+        ]
+    },
+    SoftwareApplication: {
+        icon: '💻', label: 'Software App',
+        richResult: true,
+        eligNote: 'Eligible for Software App rich results with ratings and OS info.',
+        fields: [
+            { id:'name',          label:'App Name',              type:'text', ph:'My Awesome App',                 required:true  },
+            { id:'operatingSystem', label:'Operating System',    type:'text', ph:'Windows, macOS, Android, iOS',   required:true  },
+            { id:'applicationCategory', label:'Category',        type:'text', ph:'UtilitiesApplication',           required:true  },
+            { id:'price',         label:'Price (0 if free)',     type:'text', ph:'0',                               required:true  },
+            { id:'currency',      label:'Currency (ISO)',        type:'text', ph:'USD',                             required:true  },
+            { id:'ratingValue',   label:'Rating (0–5)',          type:'text', ph:'4.6',                             recommended:true },
+            { id:'reviewCount',   label:'Review Count',          type:'text', ph:'3400',                            recommended:true },
+            { id:'url',           label:'App / Landing Page URL',type:'url',  ph:'https://site.com/app',           recommended:true },
+        ]
+    },
+};
+
+/* ═══════════════════════════════════
+   STATE
+═══════════════════════════════════ */
+let currentSchema = 'Article';
+
+/* ═══════════════════════════════════
+   INIT: render picker
+═══════════════════════════════════ */
+function initPicker() {
+    const picker = document.getElementById('schemaPicker');
+    picker.innerHTML = Object.entries(SCHEMAS).map(([key, s]) =>
+        `<button class="schema-btn${key===currentSchema?' active':''}" onclick="selectSchema('${key}')">
+            <span class="schema-icon">${s.icon}</span>${s.label}
+        </button>`
+    ).join('');
+}
+
+function selectSchema(key) {
+    currentSchema = key;
+    document.querySelectorAll('.schema-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.schema-btn').forEach(b => {
+        if (b.innerText.trim().includes(SCHEMAS[key].label)) b.classList.add('active');
+    });
+    // Re-render correctly
+    initPicker();
+    renderFields();
+    generate();
+}
+
+/* ═══════════════════════════════════
+   RENDER DYNAMIC FIELDS
+═══════════════════════════════════ */
+function renderFields() {
+    const schema = SCHEMAS[currentSchema];
+    document.getElementById('fieldsTitle').innerText = `${schema.icon} ${schema.label} Fields`;
+    const container = document.getElementById('dynamicFields');
+
+    container.innerHTML = schema.fields.map(f => {
+        const reqMark = f.required ? '<span class="req">*</span>' : '';
+        const optMark = f.recommended ? '<span class="opt">recommended</span>' : (!f.required ? '<span class="opt">optional</span>' : '');
+
+        if (f.type === 'faqblock') {
+            return `<label class="field-label">${f.label}${reqMark}${optMark}</label>
+                    <textarea id="f_${f.id}" placeholder="${f.ph}" oninput="generate()" rows="6" style="font-size:0.78rem;line-height:1.6;"></textarea>`;
+        }
+        if (f.type === 'crumbblock') {
+            return `<label class="field-label">${f.label}${reqMark}${optMark}</label>
+                    <textarea id="f_${f.id}" placeholder="${f.ph}" oninput="generate()" rows="4" style="font-size:0.78rem;line-height:1.6;"></textarea>`;
+        }
+        if (f.type === 'textarea') {
+            return `<label class="field-label">${f.label}${reqMark}${optMark}</label>
+                    <textarea id="f_${f.id}" placeholder="${f.ph}" oninput="generate()" rows="4" style="font-size:0.78rem;line-height:1.6;"></textarea>`;
+        }
+        if (f.type === 'select') {
+            const opts = f.options.map(o => `<option value="${o}">${o}</option>`).join('');
+            return `<label class="field-label">${f.label}${reqMark}${optMark}</label>
+                    <select id="f_${f.id}" onchange="generate()">${opts}</select>`;
+        }
+        return `<label class="field-label">${f.label}${reqMark}${optMark}</label>
+                <input type="${f.type}" id="f_${f.id}" placeholder="${f.ph||''}" oninput="generate()">`;
+    }).join('');
+}
+
+/* ═══════════════════════════════════
+   READ FIELD VALUE
+═══════════════════════════════════ */
+function fv(id) {
+    const el = document.getElementById('f_' + id);
+    return el ? el.value.trim() : '';
+}
+
+/* ═══════════════════════════════════
+   GENERATORS PER SCHEMA
+═══════════════════════════════════ */
+function buildJSON() {
+    const k = currentSchema;
+    let obj = {};
+
+    if (k === 'Article') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": fv('headline') || "Your Article Headline",
+            "datePublished": fv('datePublished') || "2024-01-01",
+            "dateModified": fv('dateModified') || undefined,
+            "author": { "@type": "Person", "name": fv('authorName') || "Author Name", ...(fv('authorUrl') && { "url": fv('authorUrl') }) },
+            "publisher": {
+                "@type": "Organization",
+                "name": fv('publisherName') || "Publisher Name",
+                "logo": { "@type": "ImageObject", "url": fv('publisherLogo') || "https://yoursite.com/logo.png" }
+            },
+            "image": fv('image') || "https://yoursite.com/image.jpg",
+            ...(fv('url') && { "url": fv('url') }),
+            ...(fv('description') && { "description": fv('description') }),
+        };
+    }
+
+    else if (k === 'FAQPage') {
+        const lines = fv('faq').split('\n').filter(l => l.includes('|'));
+        const entities = lines.length ? lines.map(l => {
+            const [q, a] = l.split('|').map(s => s.trim());
+            return { "@type": "Question", "name": q || "Question?", "acceptedAnswer": { "@type": "Answer", "text": a || "Answer." } };
+        }) : [
+            { "@type": "Question", "name": "What is this about?", "acceptedAnswer": { "@type": "Answer", "text": "This is an example answer." } }
+        ];
+        obj = { "@context": "https://schema.org", "@type": "FAQPage", "mainEntity": entities };
+    }
+
+    else if (k === 'Product') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": fv('name') || "Product Name",
+            "image": fv('image') || "https://yoursite.com/product.jpg",
+            ...(fv('description') && { "description": fv('description') }),
+            ...(fv('sku') && { "sku": fv('sku') }),
+            "brand": { "@type": "Brand", "name": fv('brand') || "Brand Name" },
+            "offers": {
+                "@type": "Offer",
+                "price": fv('price') || "0.00",
+                "priceCurrency": fv('currency') || "USD",
+                "availability": `https://schema.org/${fv('availability') || 'InStock'}`,
+                ...(fv('url') && { "url": fv('url') }),
+            },
+            ...(fv('ratingValue') && { "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": fv('ratingValue'),
+                "reviewCount": fv('reviewCount') || "1"
+            }}),
+        };
+    }
+
+    else if (k === 'BreadcrumbList') {
+        const lines = fv('crumbs').split('\n').filter(l => l.includes('|'));
+        const items = lines.length ? lines.map((l, i) => {
+            const [name, url] = l.split('|').map(s => s.trim());
+            return { "@type": "ListItem", "position": i + 1, "name": name || `Level ${i+1}`, "item": url || 'https://yoursite.com' };
+        }) : [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yoursite.com" },
+            { "@type": "ListItem", "position": 2, "name": "Page", "item": "https://yoursite.com/page" }
+        ];
+        obj = { "@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": items };
+    }
+
+    else if (k === 'LocalBusiness') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": fv('name') || "Business Name",
+            ...(fv('image') && { "image": fv('image') }),
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": fv('address') || "123 Main St",
+                "addressLocality": fv('city') || "City",
+                "addressRegion": fv('state') || "State",
+                "postalCode": fv('postalCode') || "00000",
+                "addressCountry": fv('country') || "US"
+            },
+            ...(fv('phone') && { "telephone": fv('phone') }),
+            ...(fv('url') && { "url": fv('url') }),
+            ...(fv('priceRange') && { "priceRange": fv('priceRange') }),
+            ...(fv('hours') && { "openingHours": fv('hours') }),
+        };
+    }
+
+    else if (k === 'Recipe') {
+        const ingList = fv('ingredients').split('\n').filter(Boolean);
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "Recipe",
+            "name": fv('name') || "Recipe Name",
+            "image": fv('image') || "https://yoursite.com/recipe.jpg",
+            "author": { "@type": "Person", "name": fv('author') || "Chef Name" },
+            ...(fv('datePublished') && { "datePublished": fv('datePublished') }),
+            ...(fv('description') && { "description": fv('description') }),
+            "prepTime": `PT${fv('prepTime') || '10'}M`,
+            "cookTime": `PT${fv('cookTime') || '20'}M`,
+            "recipeYield": fv('servings') || "4 servings",
+            "recipeIngredient": ingList.length ? ingList : ["Ingredient 1", "Ingredient 2"],
+            ...(fv('calories') && { "nutrition": { "@type": "NutritionInformation", "calories": `${fv('calories')} calories` } }),
+            ...(fv('ratingValue') && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": fv('ratingValue'), "reviewCount": fv('reviewCount') || "1" } }),
+        };
+    }
+
+    else if (k === 'HowTo') {
+        const stepLines = fv('steps').split('\n').filter(Boolean);
+        const toolLines = fv('tools').split('\n').filter(Boolean);
+        const steps = stepLines.length ? stepLines.map((s, i) => ({ "@type": "HowToStep", "name": `Step ${i+1}`, "text": s })) : [{ "@type": "HowToStep", "name": "Step 1", "text": "Describe the step." }];
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": fv('name') || "How To Do Something",
+            ...(fv('description') && { "description": fv('description') }),
+            ...(fv('image') && { "image": fv('image') }),
+            ...(fv('totalTime') && { "totalTime": `PT${fv('totalTime')}M` }),
+            ...(toolLines.length && { "tool": toolLines.map(t => ({ "@type": "HowToTool", "name": t })) }),
+            "step": steps,
+        };
+    }
+
+    else if (k === 'Event') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "Event",
+            "name": fv('name') || "Event Name",
+            "startDate": fv('startDate') || "2025-01-01T09:00",
+            ...(fv('endDate') && { "endDate": fv('endDate') }),
+            "location": {
+                "@type": "Place",
+                "name": fv('locationName') || "Venue Name",
+                "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": fv('address') || "123 Event St",
+                    "addressLocality": fv('city') || "City",
+                    "addressCountry": fv('country') || "US"
+                }
+            },
+            "url": fv('url') || "https://yoursite.com/event",
+            ...(fv('image') && { "image": fv('image') }),
+            ...(fv('organizer') && { "organizer": { "@type": "Organization", "name": fv('organizer') } }),
+            ...(fv('price') && { "offers": { "@type": "Offer", "price": fv('price'), "priceCurrency": fv('currency') || "USD", "url": fv('url') || '' } }),
+        };
+    }
+
+    else if (k === 'VideoObject') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "VideoObject",
+            "name": fv('name') || "Video Title",
+            "description": fv('description') || "Video description.",
+            "thumbnailUrl": fv('thumbnailUrl') || "https://yoursite.com/thumb.jpg",
+            "uploadDate": fv('uploadDate') || "2024-01-01",
+            ...(fv('duration') && { "duration": fv('duration').split(' ')[0] }),
+            ...(fv('contentUrl') && { "contentUrl": fv('contentUrl') }),
+            ...(fv('embedUrl') && { "embedUrl": fv('embedUrl') }),
+            ...(fv('publisher') && { "publisher": { "@type": "Organization", "name": fv('publisher') } }),
+        };
+    }
+
+    else if (k === 'SoftwareApplication') {
+        obj = {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": fv('name') || "App Name",
+            "operatingSystem": fv('operatingSystem') || "Windows",
+            "applicationCategory": fv('applicationCategory') || "UtilitiesApplication",
+            "offers": {
+                "@type": "Offer",
+                "price": fv('price') || "0",
+                "priceCurrency": fv('currency') || "USD"
+            },
+            ...(fv('ratingValue') && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": fv('ratingValue'), "reviewCount": fv('reviewCount') || "1" } }),
+            ...(fv('url') && { "url": fv('url') }),
+        };
+    }
+
+    // Remove undefined keys recursively
+    return JSON.parse(JSON.stringify(obj, (k, v) => v === undefined ? undefined : v));
+}
+
+/* ═══════════════════════════════════
+   VALIDATION
+═══════════════════════════════════ */
+function validate(obj) {
+    const issues = [];
+    const schema = SCHEMAS[currentSchema];
+
+    // Required field check
+    schema.fields.filter(f => f.required).forEach(f => {
+        const el = document.getElementById('f_' + f.id);
+        if (el && !el.value.trim()) {
+            issues.push({ type: 'err', msg: `Required: "${f.label}" is empty — rich result ineligible without this.` });
+        } else if (el && el.value.trim()) {
+            // URL validation
+            if (f.type === 'url' && !el.value.trim().startsWith('http')) {
+                issues.push({ type: 'err', msg: `"${f.label}" must be a full URL starting with https://` });
+            }
+        }
+    });
+
+    // Recommended
+    schema.fields.filter(f => f.recommended).forEach(f => {
+        const el = document.getElementById('f_' + f.id);
+        if (el && !el.value.trim()) {
+            issues.push({ type: 'warn', msg: `Recommended: "${f.label}" — filling this improves rich result appearance.` });
+        }
+    });
+
+    // Schema-specific checks
+    if (currentSchema === 'Article') {
+        const headline = fv('headline');
+        if (headline && headline.length > 110) issues.push({ type: 'err', msg: `Headline is ${headline.length} chars — Google requires ≤ 110 characters.` });
+    }
+    if (currentSchema === 'FAQPage') {
+        const lines = fv('faq').split('\n').filter(l => l.includes('|'));
+        if (lines.length === 0 && fv('faq')) issues.push({ type: 'err', msg: 'FAQ format incorrect. Use: Question | Answer (pipe separator).' });
+        if (lines.length > 0) issues.push({ type: 'ok', msg: `${lines.length} FAQ item${lines.length > 1 ? 's' : ''} detected.` });
+    }
+    if (currentSchema === 'Product') {
+        const price = fv('price');
+        if (price && isNaN(parseFloat(price))) issues.push({ type: 'err', msg: 'Price must be a number (e.g. 29.99).' });
+    }
+    if (currentSchema === 'Recipe') {
+        const prep = fv('prepTime'), cook = fv('cookTime');
+        if (prep && isNaN(parseInt(prep))) issues.push({ type: 'err', msg: 'Prep time must be a number (minutes).' });
+        if (cook && isNaN(parseInt(cook))) issues.push({ type: 'err', msg: 'Cook time must be a number (minutes).' });
+    }
+
+    const errs  = issues.filter(i => i.type === 'err').length;
+    const warns = issues.filter(i => i.type === 'warn').length;
+    if (errs === 0 && warns === 0) issues.unshift({ type: 'ok', msg: 'All required fields filled. Rich result eligible! ✓' });
+
+    return issues;
+}
+
+/* ═══════════════════════════════════
+   SYNTAX HIGHLIGHT
+═══════════════════════════════════ */
+function highlight(json) {
+    return json
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) return `<span class="j-key">${match}</span>`;
+                return `<span class="j-str">${match}</span>`;
+            }
+            if (/true|false/.test(match)) return `<span class="j-bool">${match}</span>`;
+            if (/null/.test(match)) return `<span class="j-null">${match}</span>`;
+            return `<span class="j-num">${match}</span>`;
+        });
+}
+
+/* ═══════════════════════════════════
+   MAIN GENERATE
+═══════════════════════════════════ */
+function generate() {
+    const obj      = buildJSON();
+    const pretty   = JSON.stringify(obj, null, 2);
+    const issues   = validate(obj);
+
+    // Highlighted output
+    document.getElementById('jsonOutput').innerHTML = highlight(pretty);
+
+    // Validation list
+    const valEl = document.getElementById('valList');
+    valEl.innerHTML = issues.map(i =>
+        `<li><span class="dot dot-${i.type}"></span>${i.msg}</li>`
+    ).join('');
+
+    // Badges
+    const errs  = issues.filter(i => i.type === 'err').length;
+    const warns = issues.filter(i => i.type === 'warn').length;
+    const ok    = issues.filter(i => i.type === 'ok').length;
+    let badges = '';
+    if (errs)  badges += `<span class="badge badge-err">${errs} Error${errs>1?'s':''}</span>`;
+    if (warns) badges += `<span class="badge badge-warn">${warns} Warning${warns>1?'s':''}</span>`;
+    if (!errs) badges += `<span class="badge badge-ok">Rich Result Ready</span>`;
+    badges += `<span class="badge badge-info">${currentSchema}</span>`;
+    document.getElementById('badgeRow').innerHTML = badges;
+
+    // Eligibility banner
+    const schema = SCHEMAS[currentSchema];
+    const banner = document.getElementById('eligBanner');
+    if (schema.richResult) {
+        banner.style.display = 'block';
+        if (errs > 0) {
+            banner.className = 'eligibility elig-ineligible';
+            banner.innerHTML = `⛔ <strong>Not eligible for rich results</strong> — fix ${errs} error${errs>1?'s':''} above.`;
+        } else if (warns > 0) {
+            banner.className = 'eligibility elig-partial';
+            banner.innerHTML = `⚡ <strong>Partially optimised</strong> — ${schema.eligNote} Fill recommended fields to maximise appearance.`;
+        } else {
+            banner.className = 'eligibility elig-eligible';
+            banner.innerHTML = `✅ <strong>Fully eligible for rich results.</strong> ${schema.eligNote}`;
+        }
+    } else {
+        banner.style.display = 'none';
+    }
+}
+
+/* ═══════════════════════════════════
+   COPY ACTIONS
+═══════════════════════════════════ */
+function getJSON() {
+    return JSON.stringify(buildJSON(), null, 2);
+}
+
+async function copyCode() {
+    const btn = document.getElementById('copyBtn');
+    await navigator.clipboard.writeText(getJSON());
+    btn.innerText = '✓ COPIED'; btn.classList.add('ok');
+    setTimeout(() => { btn.innerText = 'COPY CODE'; btn.classList.remove('ok'); }, 1600);
+}
+
+async function copyScriptTag() {
+    const tag = `<script type="application/ld+json">\n${getJSON()}\n<\/script>`;
+    await navigator.clipboard.writeText(tag);
+    const btns = document.querySelectorAll('.btn-ghost');
+    btns[0].innerText = '✓ COPIED TAG'; btns[0].classList.add('ok');
+    setTimeout(() => { btns[0].innerText = 'COPY <SCRIPT> TAG'; btns[0].classList.remove('ok'); }, 1600);
+}
+
+function openGSC() {
+    window.open('https://search.google.com/test/rich-results', '_blank');
+}
+
+/* ═══════════════════════════════════
+   INIT
+═══════════════════════════════════ */
+initPicker();
+renderFields();
+generate();
+</script>
+
+</body>
+</html>

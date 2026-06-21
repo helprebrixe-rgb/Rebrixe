@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSS Grid Template Area Builder | Visual Layout Tool | Rebrixe</title>
+    <meta name="description" content="Visually draw CSS grid layouts and instantly get grid-template-areas code. Set rows, columns, name areas by painting cells — export clean CSS for any project.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool-specific only ── */
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* ── Controls bar ── */
+        .controls-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: flex-end;
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px 24px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 22px;
+        }
+        .ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+        .ctrl-group label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .ctrl-group input[type="number"],
+        .ctrl-group input[type="text"],
+        .ctrl-group select {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 9px 12px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            width: 80px;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .ctrl-group input[type="text"] { width: 140px; }
+        .ctrl-group select { width: 130px; }
+        .ctrl-group input:focus, .ctrl-group select:focus { border-color: var(--primary, #00f2ff); }
+
+        /* ── Action Buttons ── */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-danger  { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+        .btn-group   { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+
+        /* ── Palette ── */
+        .palette-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 14px 24px;
+            margin-bottom: 22px;
+            backdrop-filter: blur(12px);
+        }
+        .palette-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-right: 4px;
+            white-space: nowrap;
+        }
+        .area-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px 5px 6px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            transition: 0.15s;
+            user-select: none;
+        }
+        .area-chip.active { border-color: #fff; transform: scale(1.08); }
+        .area-chip .dot   { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+        .area-chip .del   { font-size: 0.6rem; opacity: 0.6; margin-left: 2px; cursor: pointer; }
+        .area-chip .del:hover { opacity: 1; color: #e74c3c; }
+        .add-area-btn {
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+            background: transparent;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .add-area-btn:hover { color: var(--primary, #00f2ff); border-color: var(--primary, #00f2ff); }
+
+        /* ── Canvas + Output grid ── */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin-bottom: 40px;
+        }
+
+        /* ── Grid Canvas ── */
+        .canvas-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+        }
+        .canvas-card-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+        #gridCanvas {
+            display: grid;
+            gap: 4px;
+            width: 100%;
+            user-select: none;
+            touch-action: none;
+        }
+        .grid-cell {
+            border-radius: 8px;
+            min-height: 52px;
+            border: 1.5px solid rgba(255,255,255,0.07);
+            cursor: crosshair;
+            transition: filter 0.1s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            color: rgba(255,255,255,0.85);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        .grid-cell.empty {
+            background: rgba(255,255,255,0.04);
+            color: transparent;
+        }
+        .grid-cell:hover { filter: brightness(1.25); }
+        .grid-cell.painting { transform: scale(0.96); }
+        /* row/col numbers */
+        .row-num, .col-num {
+            font-size: 0.6rem;
+            color: #334155;
+            font-weight: 700;
+            font-family: 'Fira Code', monospace;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        /* ── Output Card ── */
+        .output-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .output-section-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .code-block {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.8;
+            min-height: 80px;
+            position: relative;
+        }
+        .code-block .kw  { color: #a78bfa; }
+        .code-block .val { color: #2ecc71; }
+        .code-block .str { color: #f59e0b; }
+
+        /* copy buttons row */
+        .copy-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+
+        /* ── Preview card ── */
+        .preview-card {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 40px;
+        }
+        #livePreview {
+            width: 100%;
+            min-height: 180px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        /* ── Size inputs for track sizing ── */
+        .track-inputs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .track-input-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+        }
+        .track-input-item label {
+            font-size: 0.58rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .track-input-item input {
+            width: 68px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            text-align: center;
+            outline: none;
+            box-sizing: border-box;
+        }
+        .track-input-item input:focus { border-color: var(--primary, #00f2ff); }
+
+        /* ── Gap input ── */
+        .gap-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+        /* ── Validation tag ── */
+        .vtag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 6px;
+        }
+        .vtag-ok   { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .vtag-warn { background: rgba(241,196,15,0.15);  color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+
+        /* ── SEO / FAQ ── */
+        .seo-content { text-align: left; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 6px; font-size: 0.92rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; }
+
+        @media (max-width: 800px) {
+            .workspace, .faq-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+            .controls-bar { padding: 14px 16px; }
+            .btn-group { margin-left: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="frontend-math.html" class="back-btn">← Back to Tools</a>
+    <h1 class="tool-title">CSS Grid Area Builder</h1>
+    <p style="opacity:0.55; font-weight:500; text-align:center; margin-bottom:28px;">Paint cells → name areas → copy production-ready CSS. No guesswork, no trial & error.</p>
+
+    <!-- Controls -->
+    <div class="controls-bar">
+        <div class="ctrl-group">
+            <label>Columns</label>
+            <input type="number" id="cols" value="4" min="1" max="12" oninput="rebuildGrid()">
+        </div>
+        <div class="ctrl-group">
+            <label>Rows</label>
+            <input type="number" id="rows" value="4" min="1" max="12" oninput="rebuildGrid()">
+        </div>
+        <div class="ctrl-group">
+            <label>Gap</label>
+            <input type="text" id="gapVal" value="16px" style="width:80px;" oninput="generateCSS()">
+        </div>
+        <div class="ctrl-group">
+            <label>Unit</label>
+            <select id="defaultUnit" onchange="rebuildTracks()">
+                <option value="1fr">1fr (flexible)</option>
+                <option value="auto">auto</option>
+                <option value="200px">200px (fixed)</option>
+                <option value="minmax">minmax(0,1fr)</option>
+            </select>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-ghost" onclick="undo()">↩ Undo</button>
+            <button class="btn btn-danger" onclick="clearGrid()">✕ Clear</button>
+            <button class="btn btn-primary" id="mainCopyBtn" onclick="copyFull()">COPY CSS</button>
+        </div>
+    </div>
+
+    <!-- Palette -->
+    <div class="palette-row">
+        <span class="palette-label">Areas</span>
+        <div id="palette"></div>
+        <button class="add-area-btn" onclick="addArea()">+ Add Area</button>
+        <span id="validationTag" class="vtag" style="margin-left:auto;"></span>
+    </div>
+
+    <!-- Workspace -->
+    <div class="workspace">
+
+        <!-- Grid Canvas -->
+        <div class="canvas-card">
+            <div class="canvas-card-title">🎨 Paint Your Layout</div>
+            <div id="gridWrap">
+                <div id="gridCanvas"></div>
+            </div>
+        </div>
+
+        <!-- Output -->
+        <div class="output-card">
+            <div>
+                <div class="output-section-title">grid-template-areas</div>
+                <div class="code-block" id="outAreas">Paint cells to generate…</div>
+                <div class="copy-row">
+                    <button class="btn btn-ghost" onclick="copyBlock('outAreas','btn-areas')" id="btn-areas">COPY</button>
+                </div>
+            </div>
+            <div>
+                <div class="output-section-title">Column Track Sizes</div>
+                <div class="track-inputs" id="colTrackInputs"></div>
+            </div>
+            <div>
+                <div class="output-section-title">Row Track Sizes</div>
+                <div class="track-inputs" id="rowTrackInputs"></div>
+            </div>
+            <div>
+                <div class="output-section-title">Full CSS Output</div>
+                <div class="code-block" id="outFull" style="max-height:220px; overflow-y:auto;">—</div>
+                <div class="copy-row">
+                    <button class="btn btn-primary" onclick="copyBlock('outFull','btn-full')" id="btn-full">COPY FULL CSS</button>
+                    <button class="btn btn-ghost" onclick="downloadCSS()">DOWNLOAD .CSS</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Preview -->
+    <div class="preview-card">
+        <div class="canvas-card-title">👁 Live Preview</div>
+        <div id="livePreview"></div>
+    </div>
+
+    <!-- SEO -->
+    <article class="seo-content">
+        <h2>How to Use CSS Grid Template Areas</h2>
+        <p>CSS Grid's <code>grid-template-areas</code> property lets you name zones of your layout and assign elements to them — making complex layouts readable and maintainable.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>What is grid-template-areas?</h3>
+                <p>It lets you define a visual map of your layout using named strings. Each quoted string is a row; each word is a column cell. Use <code>.</code> for empty cells.</p>
+            </div>
+            <div class="faq-item">
+                <h3>How do I assign an element to an area?</h3>
+                <p>In your element's CSS, write <code>grid-area: header;</code> — it'll snap to the named zone automatically. No row/column numbers needed.</p>
+            </div>
+            <div class="faq-item">
+                <h3>What are the fr units?</h3>
+                <p><code>1fr</code> means "one fraction of available space." <code>2fr 1fr</code> makes the first column twice as wide as the second. Combine with <code>px</code> and <code>auto</code>.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Can I use this with Tailwind / Bootstrap?</h3>
+                <p>Yes — copy the CSS output into a custom class or use Tailwind's arbitrary values like <code>grid-areas-['header_header_sidebar']</code> with the plugin.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Why named areas over line numbers?</h3>
+                <p>Named areas survive layout changes — move a sidebar from left to right by editing one string, not 6 numeric values. Way less error-prone.</p>
+            </div>
+            <div class="faq-item">
+                <h3>What does a valid area map look like?</h3>
+                <p>Each named area must form a rectangle — no L-shapes. Every row must have the same column count. Empty cells use <code>.</code> (generated automatically).</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ─── PALETTE DATA ─── */
+const PALETTE_COLORS = [
+    '#00f2ff','#a78bfa','#2ecc71','#f59e0b','#e74c3c',
+    '#3b82f6','#ec4899','#14b8a6','#f97316','#8b5cf6'
+];
+
+let areas = [
+    { name:'header',  color:'#00f2ff' },
+    { name:'sidebar', color:'#a78bfa' },
+    { name:'main',    color:'#2ecc71' },
+    { name:'footer',  color:'#f59e0b' },
+];
+let activeArea = 0;
+
+/* ─── GRID STATE ─── */
+let rows = 4, cols = 4;
+let grid = []; // 2D array of area names or '.'
+let history = []; // for undo
+let isPainting = false;
+let paintMode = null; // 'set' or 'clear'
+
+/* ─── TRACK SIZES ─── */
+let colTracks = [];
+let rowTracks = [];
+
+/* ─── INIT ─── */
+function init() {
+    rows = parseInt(document.getElementById('rows').value);
+    cols = parseInt(document.getElementById('cols').value);
+    grid = Array.from({length:rows}, () => Array(cols).fill('.'));
+    colTracks = Array(cols).fill('1fr');
+    rowTracks = Array(rows).fill('1fr');
+    renderPalette();
+    renderGrid();
+    rebuildTrackInputs();
+    generateCSS();
+}
+
+/* ─── PALETTE ─── */
+function renderPalette() {
+    const pal = document.getElementById('palette');
+    pal.innerHTML = '';
+    areas.forEach((a, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'area-chip' + (i === activeArea ? ' active' : '');
+        chip.style.background = hexToRgba(a.color, 0.18);
+        chip.style.color = a.color;
+        chip.innerHTML = `<span class="dot" style="background:${a.color}"></span>${a.name}<span class="del" onclick="removeArea(event,${i})">✕</span>`;
+        chip.onclick = () => { activeArea = i; renderPalette(); };
+        pal.appendChild(chip);
+    });
+}
+
+function addArea() {
+    const name = prompt('Area name (e.g. "nav", "aside"):', `area${areas.length+1}`);
+    if (!name || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) return alert('Use letters, numbers, hyphens only. Start with a letter.');
+    if (areas.find(a => a.name === name)) return alert('Name already exists.');
+    const color = PALETTE_COLORS[areas.length % PALETTE_COLORS.length];
+    areas.push({ name, color });
+    activeArea = areas.length - 1;
+    renderPalette();
+}
+
+function removeArea(e, i) {
+    e.stopPropagation();
+    const name = areas[i].name;
+    // Clear cells with this area
+    grid = grid.map(row => row.map(c => c === name ? '.' : c));
+    areas.splice(i, 1);
+    if (activeArea >= areas.length) activeArea = Math.max(0, areas.length-1);
+    renderPalette();
+    renderGrid();
+    generateCSS();
+}
+
+/* ─── GRID RENDERING ─── */
+function rebuildGrid() {
+    const newRows = Math.max(1, Math.min(12, parseInt(document.getElementById('rows').value)||4));
+    const newCols = Math.max(1, Math.min(12, parseInt(document.getElementById('cols').value)||4));
+
+    // resize keeping existing data
+    const newGrid = Array.from({length:newRows}, (_, r) =>
+        Array.from({length:newCols}, (_, c) => (grid[r] && grid[r][c]) ? grid[r][c] : '.')
+    );
+    rows = newRows; cols = newCols; grid = newGrid;
+
+    // resize tracks
+    colTracks = Array.from({length:cols}, (_, i) => colTracks[i] || '1fr');
+    rowTracks = Array.from({length:rows}, (_, i) => rowTracks[i] || '1fr');
+
+    renderGrid();
+    rebuildTrackInputs();
+    generateCSS();
+}
+
+function rebuildTracks() { generateCSS(); }
+
+function renderGrid() {
+    const canvas = document.getElementById('gridCanvas');
+    canvas.style.gridTemplateColumns = `20px repeat(${cols}, 1fr)`;
+    canvas.style.gridTemplateRows    = `20px repeat(${rows}, 1fr)`;
+    canvas.innerHTML = '';
+
+    // top-left empty corner
+    const corner = document.createElement('div');
+    canvas.appendChild(corner);
+
+    // col numbers
+    for (let c=0; c<cols; c++) {
+        const n = document.createElement('div');
+        n.className = 'col-num';
+        n.textContent = c+1;
+        canvas.appendChild(n);
+    }
+
+    for (let r=0; r<rows; r++) {
+        // row number
+        const rn = document.createElement('div');
+        rn.className = 'row-num';
+        rn.textContent = r+1;
+        canvas.appendChild(rn);
+
+        for (let c=0; c<cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell' + (grid[r][c]==='.' ? ' empty' : '');
+            const area = areas.find(a => a.name === grid[r][c]);
+            if (area) {
+                cell.style.background = hexToRgba(area.color, 0.28);
+                cell.style.borderColor = hexToRgba(area.color, 0.5);
+                cell.textContent = area.name;
+                cell.style.color = area.color;
+            } else {
+                cell.style.background = '';
+                cell.style.borderColor = '';
+                cell.textContent = '';
+            }
+
+            // paint events
+            cell.addEventListener('mousedown', e => { e.preventDefault(); startPaint(r,c); });
+            cell.addEventListener('mouseenter', () => { if (isPainting) paint(r,c); });
+            cell.addEventListener('touchstart', e => { e.preventDefault(); startPaint(r,c); }, {passive:false});
+            cell.addEventListener('touchmove', e => {
+                e.preventDefault();
+                const t = e.touches[0];
+                const el = document.elementFromPoint(t.clientX, t.clientY);
+                if (el && el.dataset.r !== undefined) paint(parseInt(el.dataset.r), parseInt(el.dataset.c));
+            }, {passive:false});
+            cell.dataset.r = r; cell.dataset.c = c;
+            canvas.appendChild(cell);
+        }
+    }
+
+    document.addEventListener('mouseup', stopPaint, {once:true});
+    document.addEventListener('touchend', stopPaint, {once:true});
+}
+
+function startPaint(r,c) {
+    isPainting = true;
+    const currentArea = areas[activeArea]?.name;
+    // toggle: if cell already has this area, clear it
+    paintMode = grid[r][c] === currentArea ? 'clear' : 'set';
+    saveHistory();
+    paint(r,c);
+}
+
+function paint(r,c) {
+    if (!isPainting) return;
+    const areaName = paintMode === 'set' ? (areas[activeArea]?.name || '.') : '.';
+    if (grid[r][c] === areaName) return;
+    grid[r][c] = areaName;
+    // update just that cell visually for performance
+    const canvas = document.getElementById('gridCanvas');
+    const cellIdx = (r+1)*(cols+1) + (c+1) + 1; // offset for header row & col
+    const cell = canvas.children[cellIdx];
+    if (!cell) return renderGrid();
+    const area = areas.find(a => a.name === areaName);
+    if (area) {
+        cell.className = 'grid-cell painting';
+        cell.style.background = hexToRgba(area.color, 0.28);
+        cell.style.borderColor = hexToRgba(area.color, 0.5);
+        cell.textContent = area.name;
+        cell.style.color = area.color;
+        setTimeout(() => cell.classList.remove('painting'), 120);
+    } else {
+        cell.className = 'grid-cell empty';
+        cell.style.background = '';
+        cell.style.borderColor = '';
+        cell.textContent = '';
+        cell.style.color = '';
+    }
+    generateCSS();
+}
+
+function stopPaint() { isPainting = false; }
+
+/* ─── HISTORY ─── */
+function saveHistory() {
+    history.push(grid.map(r => [...r]));
+    if (history.length > 40) history.shift();
+}
+
+function undo() {
+    if (!history.length) return;
+    grid = history.pop();
+    renderGrid();
+    generateCSS();
+}
+
+function clearGrid() {
+    saveHistory();
+    grid = Array.from({length:rows}, () => Array(cols).fill('.'));
+    renderGrid();
+    generateCSS();
+}
+
+/* ─── TRACK INPUTS ─── */
+function rebuildTrackInputs() {
+    buildTrackInputs('colTrackInputs', cols, colTracks, 'C', 'colTracks');
+    buildTrackInputs('rowTrackInputs', rows, rowTracks, 'R', 'rowTracks');
+}
+
+function buildTrackInputs(containerId, count, trackArr, prefix, varName) {
+    const wrap = document.getElementById(containerId);
+    wrap.innerHTML = '';
+    for (let i=0; i<count; i++) {
+        const item = document.createElement('div');
+        item.className = 'track-input-item';
+        item.innerHTML = `<label>${prefix}${i+1}</label>
+            <input value="${trackArr[i]||'1fr'}" 
+                   oninput="updateTrack('${varName}',${i},this.value)"
+                   placeholder="1fr">`;
+        wrap.appendChild(item);
+    }
+}
+
+function updateTrack(varName, idx, val) {
+    if (varName === 'colTracks') colTracks[idx] = val || '1fr';
+    else rowTracks[idx] = val || '1fr';
+    generateCSS();
+}
+
+/* ─── CSS GENERATION ─── */
+function generateCSS() {
+    const gap = document.getElementById('gapVal').value || '16px';
+
+    // Build areas string
+    const areaRows = grid.map(row => `"${row.join(' ')}"`);
+    const areasStr = areaRows.join('\n    ');
+
+    // Validate
+    const usedAreas = new Set(grid.flat().filter(c => c !== '.'));
+    const warnings = [];
+
+    // Check rectangularity
+    usedAreas.forEach(name => {
+        const cells = [];
+        grid.forEach((row,r) => row.forEach((cell,c) => { if(cell===name) cells.push([r,c]); }));
+        if (!isRectangle(cells)) warnings.push(`"${name}" is not a rectangle`);
+    });
+
+    const vTag = document.getElementById('validationTag');
+    if (warnings.length) {
+        vTag.className = 'vtag vtag-warn';
+        vTag.textContent = '⚠ ' + warnings[0];
+    } else if (usedAreas.size > 0) {
+        vTag.className = 'vtag vtag-ok';
+        vTag.textContent = `✓ ${usedAreas.size} area${usedAreas.size!==1?'s':''} valid`;
+    } else {
+        vTag.className = '';
+        vTag.textContent = '';
+    }
+
+    // Areas output (highlighted)
+    const areasHighlight = areaRows.map(row =>
+        row.replace(/("[^"]*")/g, s => `<span class="str">${s}</span>`)
+    ).join('\n    ');
+
+    document.getElementById('outAreas').innerHTML =
+        `<span class="kw">grid-template-areas</span>:\n    ${areasHighlight};`;
+
+    // Full CSS
+    const colStr = colTracks.join(' ');
+    const rowStr = rowTracks.join(' ');
+
+    const fullCSS =
+`.container {\n  display: grid;\n  grid-template-areas:\n    ${areaRows.join('\n    ')};\n  grid-template-columns: ${colStr};\n  grid-template-rows: ${rowStr};\n  gap: ${gap};\n}` +
+(usedAreas.size ? '\n\n/* Area assignments */\n' + [...usedAreas].map(a => `.${a} { grid-area: ${a}; }`).join('\n') : '');
+
+    document.getElementById('outFull').innerHTML = escapeHtml(fullCSS)
+        .replace(/(display|grid-template-areas|grid-template-columns|grid-template-rows|gap|grid-area)/g, '<span class="kw">$1</span>')
+        .replace(/:\s*([^;\n{]+)/g, (m,v) => `: <span class="val">${v}</span>`);
+
+    renderPreview(usedAreas, gap, colStr, rowStr, areaRows);
+}
+
+function isRectangle(cells) {
+    if (!cells.length) return true;
+    const rs = cells.map(c=>c[0]), cs = cells.map(c=>c[1]);
+    const minR=Math.min(...rs), maxR=Math.max(...rs), minC=Math.min(...cs), maxC=Math.max(...cs);
+    const expected = (maxR-minR+1)*(maxC-minC+1);
+    return cells.length === expected;
+}
+
+/* ─── LIVE PREVIEW ─── */
+function renderPreview(usedAreas, gap, colStr, rowStr, areaRows) {
+    const prev = document.getElementById('livePreview');
+    if (!usedAreas.size) { prev.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:120px;color:#334155;font-size:0.8rem;">Paint cells to see live preview</div>'; return; }
+
+    const areaCSS = [...usedAreas].map(name => {
+        const area = areas.find(a => a.name === name);
+        const color = area ? area.color : '#64748b';
+        return `.prev-${name}{grid-area:${name};background:${hexToRgba(color,0.2)};border:1.5px solid ${hexToRgba(color,0.5)};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:${color};font-family:'Inter',sans-serif;min-height:40px;padding:8px;}`;
+    }).join('');
+
+    prev.innerHTML = `
+<style>
+#prevGrid{display:grid;grid-template-areas:${areaRows.join(' ')};grid-template-columns:${colStr};grid-template-rows:${rowStr};gap:${gap};padding:16px;min-height:160px;box-sizing:border-box;}
+${areaCSS}
+</style>
+<div id="prevGrid">
+${[...usedAreas].map(n=>`<div class="prev-${n}">${n}</div>`).join('')}
+</div>`;
+}
+
+/* ─── COPY / DOWNLOAD ─── */
+function getPlainText(id) {
+    return document.getElementById(id).innerText;
+}
+
+async function copyBlock(id, btnId) {
+    const text = getPlainText(id);
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById(btnId);
+    const orig = btn.innerText;
+    btn.innerText = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.innerText = orig; btn.classList.remove('success'); }, 1500);
+}
+
+async function copyFull() {
+    await copyBlock('outFull', 'btn-full');
+    const btn = document.getElementById('mainCopyBtn');
+    btn.innerText = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.innerText = 'COPY CSS'; btn.classList.remove('success'); }, 1500);
+}
+
+function downloadCSS() {
+    const text = getPlainText('outFull');
+    const blob = new Blob([text], {type:'text/css'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'grid-layout.css'; a.click();
+}
+
+/* ─── UTILS ─── */
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ─── START ─── */
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Formatter & Validator | Clean & Debug JSON | Rebrixe</title>
+    <meta name="description" content="Beautify, minify, and validate your JSON instantly with our JSON Formatter. Perfect for debugging API responses, cleaning data dumps, and ensuring your JSON is error-free. Free & instant.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ───────────────────────────────────────── */
+        .tool-wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px 16px 60px;
+        }
+
+        .tool-header {
+            text-align: center;
+            padding: 40px 0 30px;
+        }
+
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            letter-spacing: -3px;
+            background: linear-gradient(90deg, var(--primary, #7c3aed), #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px;
+        }
+
+        .tool-subtitle {
+            opacity: 0.55;
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin: 0 0 6px;
+        }
+
+        .shortcut-hint {
+            display: inline-block;
+            font-size: 0.75rem;
+            opacity: 0.35;
+            font-family: 'Fira Code', monospace;
+            margin-top: 4px;
+        }
+
+        /* ── Stats Bar ────────────────────────────────────── */
+        .stats-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 18px 0 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+
+        .stat-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border, #2a2a3a);
+            color: #94a3b8;
+            transition: 0.25s;
+        }
+
+        .stat-pill span {
+            color: #c4b5fd;
+            font-weight: 500;
+        }
+
+        /* ── Status Console ───────────────────────────────── */
+        .status-console {
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #2a2a3a);
+            color: #94a3b8;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            transition: 0.3s ease;
+            min-height: 38px;
+            line-height: 1.5;
+            margin: 10px 0;
+        }
+
+        .status-console.success { border-color: #00ff88; color: #00ff88; background: rgba(0,255,136,0.03); }
+        .status-console.error   { border-color: #ff4d4d; color: #ff4d4d; background: rgba(255,77,77,0.04); }
+        .status-console.idle    { border-color: var(--border, #2a2a3a); color: #94a3b8; }
+        .status-console.warn    { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.04); }
+
+        .status-dot {
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 6px currentColor;
+        }
+
+        /* ── Compression Badge ────────────────────────────── */
+        .compression-badge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0 0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .compression-badge.show { display: flex; }
+
+        .compression-bar-track {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 4px;
+            overflow: hidden;
+            max-width: 140px;
+        }
+
+        .compression-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #a78bfa);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .compression-pct {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        /* ── Editor ───────────────────────────────────────── */
+        .editor-wrap {
+            position: relative;
+            margin-top: 6px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 380px;
+            background: #000;
+            border: 1px solid var(--border, #2a2a3a);
+            border-radius: 20px;
+            padding: 22px 24px;
+            color: var(--primary, #a78bfa);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            line-height: 1.7;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+            tab-size: 4;
+        }
+
+        textarea:focus { border-color: var(--primary, #7c3aed); }
+        textarea.valid   { border-color: #00cc6a; }
+        textarea.invalid { border-color: #ff4d4d; }
+
+        /* ── Buttons ──────────────────────────────────────── */
+        .btn-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .btn {
+            padding: 13px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border, #2a2a3a);
+            background: rgba(255,255,255,0.04);
+            color: #e2e8f0;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            white-space: nowrap;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(124,58,237,0.15);
+            border-color: #7c3aed;
+            color: #c4b5fd;
+            transform: translateY(-1px);
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .btn.primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.danger:hover:not(:disabled) {
+            background: rgba(255,77,77,0.12);
+            border-color: #ff4d4d;
+            color: #ff8080;
+        }
+
+        /* ── Tree View ────────────────────────────────────── */
+        .tree-section {
+            margin-top: 28px;
+            display: none;
+        }
+
+        .tree-section.show { display: block; }
+
+        .tree-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .tree-label {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.45;
+        }
+
+        .tree-toggle-btn {
+            font-size: 0.75rem;
+            font-family: 'Fira Code', monospace;
+            color: #7c3aed;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .tree-toggle-btn:hover { opacity: 1; }
+
+        .tree-view {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border, #2a2a3a);
+            border-radius: 16px;
+            padding: 20px 22px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.8;
+            max-height: 340px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .tree-view::-webkit-scrollbar { width: 6px; height: 6px; }
+        .tree-view::-webkit-scrollbar-track { background: transparent; }
+        .tree-view::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+
+        .tree-node { user-select: none; }
+
+        .tree-key   { color: #a78bfa; }
+        .tree-str   { color: #4ade80; }
+        .tree-num   { color: #fb923c; }
+        .tree-bool  { color: #60a5fa; }
+        .tree-null  { color: #f87171; }
+        .tree-brace { color: #64748b; }
+        .tree-count { opacity: 0.3; font-size: 0.7em; }
+
+        .tree-caret {
+            display: inline-block;
+            width: 14px;
+            cursor: pointer;
+            color: #4b5563;
+            font-style: normal;
+            transition: transform 0.15s;
+        }
+
+        .tree-caret.open { transform: rotate(90deg); }
+
+        .tree-children {
+            margin-left: 20px;
+            border-left: 1px dashed rgba(124,58,237,0.2);
+            padding-left: 12px;
+        }
+
+        .tree-children.collapsed { display: none; }
+
+        .tree-note {
+            margin-top: 10px;
+            font-size: 0.73rem;
+            font-family: 'Fira Code', monospace;
+            color: #fbbf24;
+            opacity: 0.8;
+            display: none;
+        }
+
+        .tree-note.show { display: block; }
+
+        /* ── Sample / FAQ ─────────────────────────────────── */
+        .sample-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .sample-label {
+            font-size: 0.73rem;
+            opacity: 0.35;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .sample-chip {
+            font-size: 0.73rem;
+            padding: 4px 11px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border, #2a2a3a);
+            color: #94a3b8;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: 0.2s;
+        }
+
+        .sample-chip:hover {
+            border-color: #7c3aed;
+            color: #c4b5fd;
+        }
+
+        /* ── SEO / FAQ ────────────────────────────────────── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-top: 32px;
+        }
+
+        .faq-item code {
+            font-family: 'Fira Code', monospace;
+            background: rgba(255,255,255,0.06);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        /* ── Responsive ───────────────────────────────────── */
+        @media (max-width: 600px) {
+            .btn-panel { grid-template-columns: 1fr 1fr; }
+            .stats-bar { gap: 7px; }
+            textarea { height: 280px; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <nav class="nav-container"></nav>
+
+    <main class="container">
+        <a href="server-wizards.html" class="back-btn">← Back to Tools</a>
+
+        <div class="tool-wrapper">
+
+            <div class="tool-header">
+                <h1 class="brand-title">JSON Architect</h1>
+                <p class="tool-subtitle">Beautify · Minify · Validate · Explore — 100% in your browser</p>
+                <span class="shortcut-hint">Ctrl+Enter to format &nbsp;|&nbsp; Ctrl+M to minify &nbsp;|&nbsp; Ctrl+Shift+C to copy</span>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-pill">Lines: <span id="statLines">—</span></div>
+                <div class="stat-pill">Keys: <span id="statKeys">—</span></div>
+                <div class="stat-pill">Size: <span id="statSize">—</span></div>
+                <div class="stat-pill">Depth: <span id="statDepth">—</span></div>
+                <div class="stat-pill">Type: <span id="statType">—</span></div>
+            </div>
+
+            <!-- Status Console -->
+            <div id="console" class="status-console idle">
+                <div class="status-dot"></div>
+                <div>
+                    <span id="statusMsg">Awaiting input — paste JSON or load a sample below</span>
+                    <div class="compression-badge" id="compressionBadge">
+                        <span id="compressionText"></span>
+                        <div class="compression-bar-track">
+                            <div class="compression-bar-fill" id="compressionBar" style="width:0%"></div>
+                        </div>
+                        <span class="compression-pct" id="compressionPct"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor -->
+            <div class="editor-wrap">
+                <textarea id="jsonInput" placeholder="Paste your JSON here, or click a sample below..." spellcheck="false"></textarea>
+            </div>
+
+            <!-- Sample Chips -->
+            <div class="sample-bar">
+                <span class="sample-label">try a sample →</span>
+                <span class="sample-chip" data-sample="user">User Object</span>
+                <span class="sample-chip" data-sample="api">API Response</span>
+                <span class="sample-chip" data-sample="nested">Nested Config</span>
+                <span class="sample-chip" data-sample="broken">Broken JSON ⚡</span>
+            </div>
+
+            <!-- Button Panel -->
+            <div class="btn-panel">
+                <button class="btn primary" id="formatBtn" title="Ctrl+Enter">✦ Beautify</button>
+                <button class="btn" id="minifyBtn" title="Ctrl+M">⟨/⟩ Minify</button>
+                <button class="btn" id="copyBtn" disabled title="Ctrl+Shift+C">⎘ Copy</button>
+                <button class="btn" id="downloadBtn" disabled>↓ Download</button>
+                <button class="btn danger" id="clearBtn">✕ Clear</button>
+            </div>
+
+            <!-- Tree View -->
+            <div class="tree-section" id="treeSection">
+                <div class="tree-header">
+                    <span class="tree-label">Structure Explorer</span>
+                    <button class="tree-toggle-btn" id="toggleAllBtn">collapse all</button>
+                </div>
+                <div class="tree-view" id="treeView"></div>
+                <div class="tree-note" id="treeNote"></div>
+            </div>
+
+            <!-- SEO Content -->
+            <article class="seo-content" style="margin-top: 60px;">
+                <h2>Why JSON Validation Matters</h2>
+                <p>JSON is the universal language of the web. A single missing comma or misplaced quote can crash an entire API in production. JSON Architect validates your data as you type, points to the exact line and column of any error, and gives you a live visual map of your data structure — so you catch issues before they cost you.</p>
+
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What does Beautify do?</h3>
+                        <p>Converts minified (one-line) JSON into human-readable code with 4-space indentation and logical line breaks — making complex structures easy to scan and debug.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What does Minify do?</h3>
+                        <p>Strips all whitespace and formatting, reducing file size as much as possible. Ideal before sending data over a network or storing it in a database. We show you exactly how much space you saved.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Common JSON errors</h3>
+                        <p>Trailing commas, single quotes instead of double quotes, missing colons, and unclosed brackets account for most JSON errors. The validator points to the exact line and character where parsing failed.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Is my data safe?</h3>
+                        <p>Yes. Everything runs in your browser. Your JSON — which often contains API keys, tokens, or private user data — never touches a server. Zero uploads, zero logging.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What is the Structure Explorer?</h3>
+                        <p>A collapsible tree view of your parsed JSON. Lets you navigate deeply nested objects visually, expand and collapse branches, and understand data hierarchy at a glance.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Keyboard shortcuts</h3>
+                        <p><strong>Ctrl+Enter</strong> to Beautify, <strong>Ctrl+M</strong> to Minify, <strong>Ctrl+Shift+C</strong> to Copy. Built for developers who don't want to leave the keyboard.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Tool limitations (please read)</h3>
+                        <p>Inputs larger than <strong>2 MB</strong> are not parsed or rendered as a tree — the editor still holds the text, but validation, stats, and the Structure Explorer are disabled for performance. The Structure Explorer also caps at <strong>1,000 visible nodes</strong>; larger structures show a truncation notice. Downloaded files are always named <code>data.json</code>. None of this can be changed by the user — it's a fixed safety limit to keep the tool from freezing your browser.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer></footer>
+
+    <script src="/nav.js"></script>
+    <script>
+    (() => {
+        'use strict';
+
+        // HARD LIMITS (by design — not user-configurable, see FAQ above):
+        // - inputs over 2 MB skip parsing/stats/tree entirely
+        // - tree view stops rendering after 1000 nodes
+        // - downloaded file is always named "data.json"
+        const MAX_INPUT_BYTES = 2 * 1024 * 1024; // 2 MB
+        const MAX_TREE_NODES  = 1000;
+
+        // ── Elements ────────────────────────────────────────
+        const input        = document.getElementById('jsonInput');
+        const consoleEl     = document.getElementById('console');
+        const statusMsg     = document.getElementById('statusMsg');
+        const copyBtn       = document.getElementById('copyBtn');
+        const downloadBtn   = document.getElementById('downloadBtn');
+        const treeSection   = document.getElementById('treeSection');
+        const treeView      = document.getElementById('treeView');
+        const treeNote      = document.getElementById('treeNote');
+        const comprBadge    = document.getElementById('compressionBadge');
+        const comprText     = document.getElementById('compressionText');
+        const comprBar      = document.getElementById('compressionBar');
+        const comprPct      = document.getElementById('compressionPct');
+        const toggleAllBtn  = document.getElementById('toggleAllBtn');
+        const formatBtn     = document.getElementById('formatBtn');
+        const minifyBtn     = document.getElementById('minifyBtn');
+        const clearBtn      = document.getElementById('clearBtn');
+
+        let lastValidJSON   = null;
+        let validationTimer = null;
+        let allExpanded     = true; // reset on every fresh render
+
+        // ── Samples ─────────────────────────────────────────
+        const SAMPLES = {
+            user: `{\n  "id": 1042,\n  "name": "Alex Morgan",\n  "email": "alex@example.com",\n  "role": "admin",\n  "active": true,\n  "joined": "2023-08-15",\n  "preferences": {\n    "theme": "dark",\n    "notifications": true,\n    "language": "en"\n  },\n  "tags": ["beta", "power-user"]\n}`,
+            api: `{\n  "status": "success",\n  "code": 200,\n  "data": {\n    "users": [\n      { "id": 1, "name": "Sam", "active": true },\n      { "id": 2, "name": "Jordan", "active": false }\n    ],\n    "total": 2,\n    "page": 1,\n    "per_page": 10\n  },\n  "meta": {\n    "request_id": "req_abc123",\n    "timestamp": "2025-01-01T00:00:00Z"\n  }\n}`,
+            nested: `{\n  "app": "Rebrixe",\n  "version": "2.1.0",\n  "env": "production",\n  "database": {\n    "host": "db.Rebrixe.io",\n    "port": 5432,\n    "ssl": true,\n    "pool": { "min": 2, "max": 10 }\n  },\n  "cache": {\n    "driver": "redis",\n    "ttl": 3600\n  },\n  "features": {\n    "darkMode": true,\n    "beta": false,\n    "experiments": ["new-nav", "ai-suggest"]\n  }\n}`,
+            broken: `{\n  "name": "Broken Example",\n  "status": 'active',\n  "count": 42,\n  "tags": ["one", "two",],\n}`
+        };
+
+        function loadSample(key) {
+            const sample = SAMPLES[key];
+            if (!sample) return;
+            input.value = sample;
+            validateLive();
+        }
+
+        // ── Live validation (debounced) ──────────────────────
+        input.addEventListener('input', () => {
+            clearTimeout(validationTimer);
+            validationTimer = setTimeout(validateLive, 350);
+            updateBasicStats(); // cheap, always safe to run immediately
+        });
+
+        function validateLive() {
+            const raw = input.value.trim();
+
+            if (!raw) {
+                resetUI();
+                return;
+            }
+
+            const byteLength = new TextEncoder().encode(raw).length;
+            if (byteLength > MAX_INPUT_BYTES) {
+                lastValidJSON = null;
+                input.classList.remove('valid', 'invalid');
+                updateConsole('warn', `Input is ${formatBytes(byteLength)} — exceeds the ${formatBytes(MAX_INPUT_BYTES)} limit for live validation, stats, and the tree view. The text is still here; format/minify are disabled until you shorten it.`);
+                copyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                treeSection.classList.remove('show');
+                hideCompression();
+                updateBasicStats();
+                disableProcessingButtons(true);
+                return;
+            }
+            disableProcessingButtons(false);
+
+            try {
+                lastValidJSON = JSON.parse(raw);
+                input.classList.remove('invalid');
+                input.classList.add('valid');
+                updateConsole('success', 'Valid JSON ✓');
+                copyBtn.disabled = false;
+                downloadBtn.disabled = false;
+                renderTree(lastValidJSON);
+                updateFullStats(lastValidJSON);
+                hideCompression();
+            } catch (e) {
+                lastValidJSON = null;
+                input.classList.remove('valid');
+                input.classList.add('invalid');
+                updateConsole('error', getErrorLocation(raw, e));
+                copyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                treeSection.classList.remove('show');
+                hideCompression();
+                updateBasicStats();
+            }
+        }
+
+        function disableProcessingButtons(disabled) {
+            formatBtn.disabled = disabled;
+            minifyBtn.disabled = disabled;
+        }
+
+        // ── Cross-browser error location parser ──────────────
+        // V8 (Chrome/Edge/Node):   "Unexpected token } in JSON at position 42"
+        // SpiderMonkey (Firefox):  "JSON.parse: unexpected character at line 3 column 5 of the JSON data"
+        // JavaScriptCore (Safari): "JSON Parse error: Unexpected identifier ..."
+        function getErrorLocation(raw, err) {
+            const msg = err && err.message ? err.message : String(err);
+
+            // Firefox-style: already gives line/column directly
+            const lineColMatch = msg.match(/line (\d+) column (\d+)/i);
+            if (lineColMatch) {
+                return `Error on line ${lineColMatch[1]}, col ${lineColMatch[2]}: ${cleanMessage(msg)}`;
+            }
+
+            // V8-style: gives a character position into the whole string
+            const posMatch = msg.match(/position (\d+)/i);
+            if (posMatch) {
+                const pos = parseInt(posMatch[1], 10);
+                const { line, col } = positionToLineCol(raw, pos);
+                return `Error on line ${line}, col ${col}: ${cleanMessage(msg)}`;
+            }
+
+            // Safari and anything else: no position info available.
+            // Give the cleaned message plus a hint instead of nothing.
+            return `Invalid JSON — ${cleanMessage(msg)}. Check for trailing commas, single quotes, or unclosed brackets/braces.`;
+        }
+
+        function positionToLineCol(raw, pos) {
+            const safePos = Math.max(0, Math.min(pos, raw.length));
+            const lines = raw.substring(0, safePos).split('\n');
+            return { line: lines.length, col: lines[lines.length - 1].length + 1 };
+        }
+
+        function cleanMessage(msg) {
+            return msg.split(/ at position | at line /i)[0].trim();
+        }
+
+        // ── Cheap stats (line count, byte size) — always safe ──
+        function updateBasicStats() {
+            const raw = input.value;
+            document.getElementById('statLines').textContent = raw ? raw.split('\n').length : '—';
+            const bytes = new TextEncoder().encode(raw).length;
+            document.getElementById('statSize').textContent = formatBytes(bytes);
+        }
+
+        // ── Full stats (keys, depth, type) — only after successful parse ──
+        function updateFullStats(parsed) {
+            updateBasicStats();
+            const { keyCount, maxDepth } = traverseForStats(parsed);
+            document.getElementById('statKeys').textContent = keyCount;
+            document.getElementById('statDepth').textContent = maxDepth;
+            document.getElementById('statType').textContent =
+                Array.isArray(parsed) ? 'Array' :
+                (parsed === null ? 'null' :
+                (typeof parsed === 'object' ? 'Object' : typeof parsed));
+        }
+
+        // Iterative (non-recursive) traversal — cannot stack-overflow
+        // regardless of how deep or wide the JSON is.
+        function traverseForStats(root) {
+            let keyCount = 0;
+            let maxDepth = 0;
+            const stack = [{ value: root, depth: 0 }];
+
+            while (stack.length) {
+                const { value, depth } = stack.pop();
+                if (depth > maxDepth) maxDepth = depth;
+                if (value !== null && typeof value === 'object') {
+                    const entries = Array.isArray(value)
+                        ? value.map((v, i) => [i, v])
+                        : Object.entries(value);
+                    keyCount += entries.length;
+                    for (const [, v] of entries) {
+                        stack.push({ value: v, depth: depth + 1 });
+                    }
+                }
+            }
+            return { keyCount, maxDepth };
+        }
+
+        // ── Format / Minify ──────────────────────────────────
+        function processJSON(mode) {
+            const raw = input.value.trim();
+            if (!raw) {
+                updateConsole('error', 'Nothing to process — paste JSON first.');
+                return;
+            }
+
+            const byteLength = new TextEncoder().encode(raw).length;
+            if (byteLength > MAX_INPUT_BYTES) {
+                updateConsole('warn', `Input exceeds ${formatBytes(MAX_INPUT_BYTES)} — format/minify are disabled for this size. See the limitations note below the tool.`);
+                return;
+            }
+
+            let obj;
+            try {
+                obj = JSON.parse(raw);
+            } catch (e) {
+                input.classList.remove('valid');
+                input.classList.add('invalid');
+                updateConsole('error', getErrorLocation(raw, e));
+                return;
+            }
+
+            const original = byteLength;
+
+            if (mode === 'format') {
+                input.value = JSON.stringify(obj, null, 4);
+                lastValidJSON = obj;
+                input.classList.remove('invalid');
+                input.classList.add('valid');
+                updateConsole('success', 'JSON beautified ✓ — easy to read now');
+                hideCompression();
+            } else {
+                const minified = JSON.stringify(obj);
+                const newSize  = new TextEncoder().encode(minified).length;
+                const saved    = original - newSize;
+                const pct      = original > 0 ? Math.round((saved / original) * 100) : 0;
+                input.value = minified;
+                lastValidJSON = obj;
+                input.classList.remove('invalid');
+                input.classList.add('valid');
+                updateConsole('success', 'JSON minified ✓');
+                if (saved > 0) {
+                    showCompression(original, newSize, pct);
+                } else {
+                    hideCompression();
+                }
+            }
+
+            copyBtn.disabled = false;
+            downloadBtn.disabled = false;
+            updateFullStats(obj);
+            renderTree(obj);
+        }
+
+        // ── Compression display ──────────────────────────────
+        function showCompression(before, after, pct) {
+            comprText.textContent = `${formatBytes(before)} → ${formatBytes(after)}`;
+            comprBar.style.width  = Math.max(0, Math.min(100, pct)) + '%';
+            comprPct.textContent  = pct + '% smaller';
+            comprBadge.classList.add('show');
+        }
+
+        function hideCompression() {
+            comprBadge.classList.remove('show');
+        }
+
+        function formatBytes(b) {
+            if (b > 1024 * 1024) return (b / (1024 * 1024)).toFixed(2) + ' MB';
+            if (b > 1024) return (b / 1024).toFixed(1) + ' KB';
+            return b + ' B';
+        }
+
+        // ── Copy ─────────────────────────────────────────────
+        function copyResult() {
+            if (!input.value || copyBtn.disabled) return;
+            navigator.clipboard.writeText(input.value).then(() => {
+                const orig = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✓ Copied!';
+                setTimeout(() => { copyBtn.innerHTML = orig; }, 1400);
+            }).catch(() => {
+                updateConsole('error', 'Copy failed — your browser blocked clipboard access. Select the text manually and copy with Ctrl+C.');
+            });
+        }
+
+        // ── Download ─────────────────────────────────────────
+        // Always saves as "data.json" — fixed by design (see limitations note).
+        function downloadJSON() {
+            if (!input.value || downloadBtn.disabled) return;
+            const blob = new Blob([input.value], { type: 'application/json' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = 'data.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        // ── Clear ─────────────────────────────────────────────
+        function clearAll() {
+            input.value = '';
+            input.classList.remove('valid', 'invalid');
+            lastValidJSON = null;
+            copyBtn.disabled = true;
+            downloadBtn.disabled = true;
+            treeSection.classList.remove('show');
+            treeView.innerHTML = '';
+            treeNote.classList.remove('show');
+            hideCompression();
+            disableProcessingButtons(false);
+            resetUI();
+        }
+
+        function resetUI() {
+            updateConsole('idle', 'Awaiting input — paste JSON or load a sample below');
+            document.getElementById('statLines').textContent = '—';
+            document.getElementById('statKeys').textContent  = '—';
+            document.getElementById('statSize').textContent  = '—';
+            document.getElementById('statDepth').textContent = '—';
+            document.getElementById('statType').textContent  = '—';
+        }
+
+        // ── Console ───────────────────────────────────────────
+        function updateConsole(type, message) {
+            consoleEl.className = 'status-console ' + type;
+            statusMsg.textContent = message;
+        }
+
+        // ── Tree Renderer (iterative, capped) ─────────────────
+        function renderTree(data) {
+            treeView.innerHTML = '';
+            allExpanded = true;
+            toggleAllBtn.textContent = 'collapse all';
+
+            let nodeCount = 0;
+            let truncated = false;
+
+            function build(value, key) {
+                if (nodeCount >= MAX_TREE_NODES) {
+                    truncated = true;
+                    return null;
+                }
+                nodeCount++;
+
+                const wrap = document.createElement('div');
+                wrap.className = 'tree-node';
+
+                if (value === null) {
+                    wrap.innerHTML = keySpan(key) + '<span class="tree-null">null</span>';
+                    return wrap;
+                }
+                if (typeof value === 'string') {
+                    wrap.innerHTML = keySpan(key) + `<span class="tree-str">"${escHtml(value)}"</span>`;
+                    return wrap;
+                }
+                if (typeof value === 'number') {
+                    wrap.innerHTML = keySpan(key) + `<span class="tree-num">${value}</span>`;
+                    return wrap;
+                }
+                if (typeof value === 'boolean') {
+                    wrap.innerHTML = keySpan(key) + `<span class="tree-bool">${value}</span>`;
+                    return wrap;
+                }
+
+                // object or array
+                const isArr   = Array.isArray(value);
+                const entries = isArr ? value.map((v, i) => [i, v]) : Object.entries(value);
+                const open    = isArr ? '[' : '{';
+                const close   = isArr ? ']' : '}';
+                const count   = entries.length;
+
+                if (count === 0) {
+                    wrap.innerHTML = keySpan(key) + `<span class="tree-brace">${open}${close}</span>`;
+                    return wrap;
+                }
+
+                const header = document.createElement('div');
+                const caret = document.createElement('i');
+                caret.className = 'tree-caret open';
+                caret.textContent = '▶';
+
+                const headerText = document.createElement('span');
+                headerText.innerHTML = keySpan(key) +
+                    `<span class="tree-brace">${open}</span> <span class="tree-count">${count} ${isArr ? 'item' : 'key'}${count !== 1 ? 's' : ''}</span>`;
+
+                header.appendChild(caret);
+                header.appendChild(headerText);
+
+                const children = document.createElement('div');
+                children.className = 'tree-children';
+
+                for (const [k, v] of entries) {
+                    if (nodeCount >= MAX_TREE_NODES) {
+                        truncated = true;
+                        const more = document.createElement('div');
+                        more.className = 'tree-node';
+                        more.innerHTML = '<span class="tree-brace" style="opacity:0.5">… truncated …</span>';
+                        children.appendChild(more);
+                        break;
+                    }
+                    const childNode = build(v, isArr ? null : k);
+                    if (childNode) children.appendChild(childNode);
+                }
+
+                const closeEl = document.createElement('div');
+                closeEl.innerHTML = `<span class="tree-brace">${close}</span>`;
+
+                caret.addEventListener('click', () => {
+                    const collapsed = children.classList.toggle('collapsed');
+                    caret.classList.toggle('open', !collapsed);
+                });
+
+                wrap.appendChild(header);
+                wrap.appendChild(children);
+                wrap.appendChild(closeEl);
+                return wrap;
+            }
+
+            const rootNode = build(data, null);
+            if (rootNode) treeView.appendChild(rootNode);
+
+            treeSection.classList.add('show');
+
+            if (truncated) {
+                treeNote.textContent = `Display truncated at ${MAX_TREE_NODES} nodes for performance. Your JSON data is unaffected — only the tree preview is limited.`;
+                treeNote.classList.add('show');
+            } else {
+                treeNote.classList.remove('show');
+            }
+        }
+
+        function toggleAllNodes() {
+            allExpanded = !allExpanded;
+            treeView.querySelectorAll('.tree-children').forEach(el => {
+                el.classList.toggle('collapsed', !allExpanded);
+            });
+            treeView.querySelectorAll('.tree-caret').forEach(el => {
+                el.classList.toggle('open', allExpanded);
+            });
+            toggleAllBtn.textContent = allExpanded ? 'collapse all' : 'expand all';
+        }
+
+        function keySpan(key) {
+            return key !== null
+                ? `<span class="tree-key">"${escHtml(String(key))}"</span><span class="tree-brace">: </span>`
+                : '';
+        }
+
+        function escHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // ── Keyboard Shortcuts ────────────────────────────────
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'Enter') { e.preventDefault(); processJSON('format'); }
+                if (e.key === 'm')     { e.preventDefault(); processJSON('minify'); }
+                if (e.key === 'C' && e.shiftKey) { e.preventDefault(); copyResult(); }
+            }
+        });
+
+        // ── Wire up controls ──────────────────────────────────
+        formatBtn.addEventListener('click', () => processJSON('format'));
+        minifyBtn.addEventListener('click', () => processJSON('minify'));
+        copyBtn.addEventListener('click', copyResult);
+        downloadBtn.addEventListener('click', downloadJSON);
+        clearBtn.addEventListener('click', clearAll);
+        toggleAllBtn.addEventListener('click', toggleAllNodes);
+
+        document.querySelectorAll('.sample-chip').forEach(chip => {
+            chip.addEventListener('click', () => loadSample(chip.dataset.sample));
+        });
+    })();
+    </script>
+</body>
+</html>

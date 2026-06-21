@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Zone Difference Calculator | Rebrixe</title>
+    <meta name="description" content="Instantly find the time difference between any two cities worldwide. Auto-adjusts for DST. See overlapping work hours, best meeting times, and current local times.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool shell ── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Limitations notice ── */
+        .limits-box {
+            background: rgba(251,191,36,0.05);
+            border: 1px solid rgba(251,191,36,0.18);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 26px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.65;
+        }
+        .limits-box strong {
+            color: #fbbf24;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .limits-box ul {
+            margin: 0;
+            padding-left: 16px;
+        }
+        .limits-box li { margin-bottom: 2px; }
+
+        /* ── Quick pairs ── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 6px 13px;
+            border-radius: 999px;
+            font-size: 0.73rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Zone picker row ── */
+        .zone-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .zone-box { display: flex; flex-direction: column; gap: 8px; }
+        .zone-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+
+        .zone-search-wrap { position: relative; }
+        .zone-search-wrap input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .zone-search-wrap input:focus { border-color: var(--primary); }
+        .zone-search-wrap input::placeholder { color: #475569; }
+
+        .dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .dropdown.open { display: block; }
+        .dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            transition: .15s;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover,
+        .dropdown-item.active { background: rgba(255,255,255,0.06); color: #fff; }
+        .dropdown-item .city-name { color: #fff; font-weight: 600; font-size: 0.88rem; }
+        .dropdown-item .tz-name   { color: #475569; font-size: 0.75rem; margin-top: 1px; }
+
+        .swap-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color .2s, color .2s;
+            flex-shrink: 0;
+            margin-bottom: 2px;
+            user-select: none;
+        }
+        .swap-btn:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Live clocks ── */
+        .clock-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .clock-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .clock-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .clock-city {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .clock-time {
+            font-family: 'Outfit';
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .clock-card.primary-tz .clock-time { color: var(--primary); }
+        .clock-date {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+        .clock-offset {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            letter-spacing: 0.5px;
+        }
+        .dst-badge {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(251,191,36,0.12);
+            border: 1px solid rgba(251,191,36,0.25);
+            color: #fbbf24;
+            vertical-align: middle;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Diff banner ── */
+        .diff-banner {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 22px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .diff-num {
+            font-family: 'Outfit';
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .diff-detail { flex: 1; min-width: 160px; }
+        .diff-headline { font-size: 0.95rem; color: #fff; font-weight: 600; margin-bottom: 4px; }
+        .diff-sub { font-size: 0.78rem; color: #64748b; line-height: 1.5; }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* ── Overlap bars ── */
+        .overlap-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .overlap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .overlap-title { font-size: 0.85rem; color: #fff; font-weight: 600; }
+        .overlap-count {
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+        .overlap-count.good { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); color: #4ade80; }
+        .overlap-count.ok   { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.25); color: #fbbf24; }
+        .overlap-count.bad  { background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.25);  color: #f87171; }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .bar-row-label {
+            font-size: 0.68rem;
+            color: #64748b;
+            width: 60px;
+            flex-shrink: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .bar-track {
+            position: relative;
+            height: 36px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            flex: 1;
+        }
+        .bar-segment {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            border-radius: 4px;
+        }
+        .bar-segment.zone-a  { background: rgba(130,145,155,0.5); }
+        .bar-segment.zone-b  { background: rgba(90,110,135,0.5); }
+        .bar-segment.overlap { background: var(--primary); opacity: 0.55; }
+
+        .bar-text {
+            position: absolute;
+            top: 50%; transform: translateY(-50%);
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #fff;
+            padding: 0 8px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            white-space: nowrap;
+            pointer-events: none;
+            left: 0;
+        }
+        .bar-hours {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #334155;
+            font-weight: 700;
+            margin-bottom: 12px;
+            padding-left: 70px; /* align with bar start */
+        }
+
+        .best-times {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .best-pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 7px 12px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .best-pill strong { color: #fff; }
+        .best-pill.top {
+            border-color: rgba(74,222,128,0.3);
+            background: rgba(34,197,94,0.06);
+        }
+
+        /* ── Responsive ── */
+        @media(max-width: 600px) {
+            .zone-row  { grid-template-columns: 1fr; }
+            .clock-row { grid-template-columns: 1fr; }
+            .swap-btn  { width: 100%; border-radius: 14px; }
+            .diff-banner { flex-direction: column; align-items: flex-start; }
+            .bar-hours { padding-left: 0; }
+            .bar-row-label { width: 40px; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Time Zone Difference</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Compare any two cities — live clocks, DST-aware offset, and work-hour overlap for scheduling.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- LIMITATIONS NOTICE -->
+                <div class="limits-box">
+                    <strong>⚠ What this tool assumes — read before using</strong>
+                    <ul>
+                        <li><b>Work hours are fixed at 9 AM – 6 PM</b> in each city. You cannot change them. The overlap bar reflects this assumption only.</li>
+                        <li><b>"Best meeting" slots are highlighted between 10 AM – 3 PM</b> (green) in City A's time. This is a reasonable-hours heuristic, not a configurable preference.</li>
+                        <li><b>DST detection is best-effort.</b> It compares January vs July offsets using your browser's timezone engine. Regions with non-standard DST rules (e.g. Morocco, Samoa, parts of Australia) may occasionally misreport DST status.</li>
+                        <li><b>The overlap bar only shows one day at a time.</b> Large offset pairs (e.g. SF ↔ Tokyo, ~17h apart) often have zero work-hour overlap — the tool will tell you this clearly and will not fake an overlap.</li>
+                        <li>All times are live-updating from your device clock. This tool does <b>not</b> use a server; accuracy depends on your system clock and browser's IANA timezone database.</li>
+                    </ul>
+                </div>
+
+                <!-- QUICK PAIRS -->
+                <div class="quick-label">Common Pairs</div>
+                <div class="quick-pills">
+                    <span class="pill" data-a="Mumbai"        data-b="London">Mumbai → London</span>
+                    <span class="pill" data-a="New York"      data-b="London">New York → London</span>
+                    <span class="pill" data-a="San Francisco" data-b="Tokyo">SF → Tokyo</span>
+                    <span class="pill" data-a="Dubai"         data-b="New York">Dubai → New York</span>
+                    <span class="pill" data-a="Sydney"        data-b="Los Angeles">Sydney → LA</span>
+                    <span class="pill" data-a="Berlin"        data-b="Singapore">Berlin → Singapore</span>
+                </div>
+
+                <!-- ZONE PICKERS -->
+                <div class="zone-row">
+                    <div class="zone-box">
+                        <span class="zone-label">From City / Zone</span>
+                        <div class="zone-search-wrap">
+                            <input type="text" id="searchA" placeholder="e.g. Mumbai, UTC+5:30…" autocomplete="off">
+                            <div class="dropdown" id="dropA" role="listbox"></div>
+                        </div>
+                    </div>
+                    <button class="swap-btn" id="swapBtn" title="Swap cities" aria-label="Swap cities">⇄</button>
+                    <div class="zone-box">
+                        <span class="zone-label">To City / Zone</span>
+                        <div class="zone-search-wrap">
+                            <input type="text" id="searchB" placeholder="e.g. London, New York…" autocomplete="off">
+                            <div class="dropdown" id="dropB" role="listbox"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LIVE CLOCKS -->
+                <div id="clockRow" class="clock-row" style="display:none;" aria-live="polite">
+                    <div class="clock-card primary-tz">
+                        <div class="clock-city" id="cityA">—</div>
+                        <div class="clock-time" id="timeA">—</div>
+                        <div class="clock-date" id="dateA">—</div>
+                        <span class="clock-offset" id="offsetA">—</span>
+                    </div>
+                    <div class="clock-card">
+                        <div class="clock-city" id="cityB">—</div>
+                        <div class="clock-time" id="timeB">—</div>
+                        <div class="clock-date" id="dateB">—</div>
+                        <span class="clock-offset" id="offsetB">—</span>
+                    </div>
+                </div>
+
+                <!-- DIFF BANNER -->
+                <div id="diffBanner" style="display:none;">
+                    <div class="diff-banner">
+                        <div class="diff-num" id="diffNum">—</div>
+                        <div class="diff-detail">
+                            <div class="diff-headline" id="diffHeadline">—</div>
+                            <div class="diff-sub"      id="diffSub">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OVERLAP SECTION -->
+                <div id="overlapSection" style="display:none;">
+                    <div class="section-label">Work Hour Overlap (9 AM – 6 PM local, each city)</div>
+                    <div class="overlap-wrap">
+                        <div class="overlap-header">
+                            <div class="overlap-title" id="overlapTitle">—</div>
+                            <span class="overlap-count" id="overlapBadge">—</span>
+                        </div>
+
+                        <!-- Zone A bar -->
+                        <div class="bar-row">
+                            <span class="bar-row-label" id="barLabelA">—</span>
+                            <div class="bar-track" id="trackA">
+                                <div class="bar-segment zone-a" id="barSegA"></div>
+                                <span class="bar-text"         id="barTextA"></span>
+                            </div>
+                        </div>
+                        <!-- Zone B bar -->
+                        <div class="bar-row">
+                            <span class="bar-row-label" id="barLabelB">—</span>
+                            <div class="bar-track" id="trackB">
+                                <div class="bar-segment zone-b"  id="barSegB"></div>
+                                <span class="bar-text"           id="barTextB"></span>
+                            </div>
+                        </div>
+                        <!-- Overlap bar -->
+                        <div class="bar-row">
+                            <span class="bar-row-label">Overlap</span>
+                            <div class="bar-track">
+                                <div class="bar-segment overlap" id="barSegOvlp"></div>
+                                <span class="bar-text"           id="barTextOvlp"></span>
+                            </div>
+                        </div>
+
+                        <!-- Hour ruler aligned to bars -->
+                        <div class="bar-hours">
+                            <span>12AM</span><span>3AM</span><span>6AM</span><span>9AM</span>
+                            <span>12PM</span><span>3PM</span><span>6PM</span><span>9PM</span><span>12AM</span>
+                        </div>
+
+                        <div class="section-label" style="margin-top:8px;">Best Meeting Windows (City A time)</div>
+                        <div class="best-times" id="bestTimes"></div>
+                    </div>
+                </div>
+
+            </div><!-- /tool-card -->
+        </div><!-- /tool-wrap -->
+    </div><!-- /container -->
+
+    <footer></footer>
+
+<script>
+/* ============================================================
+   TIMEZONE DATABASE
+   Format: [displayName, IANA_key, searchAliases]
+   ============================================================ */
+const ZONES = [
+    // India
+    ['Mumbai',          'Asia/Kolkata',                    'india bombay ist'],
+    ['New Delhi',       'Asia/Kolkata',                    'india capital delhi ist'],
+    ['Kolkata',         'Asia/Kolkata',                    'india calcutta ist'],
+    ['Bangalore',       'Asia/Kolkata',                    'india bengaluru tech ist'],
+    // UK & Western Europe
+    ['London',          'Europe/London',                   'uk england britain gmt bst'],
+    ['Paris',           'Europe/Paris',                    'france cet'],
+    ['Berlin',          'Europe/Berlin',                   'germany cet'],
+    ['Amsterdam',       'Europe/Amsterdam',                'netherlands holland'],
+    ['Madrid',          'Europe/Madrid',                   'spain'],
+    ['Rome',            'Europe/Rome',                     'italy'],
+    ['Zurich',          'Europe/Zurich',                   'switzerland'],
+    ['Stockholm',       'Europe/Stockholm',                'sweden'],
+    ['Oslo',            'Europe/Oslo',                     'norway'],
+    ['Helsinki',        'Europe/Helsinki',                 'finland eet'],
+    ['Warsaw',          'Europe/Warsaw',                   'poland'],
+    ['Lisbon',          'Europe/Lisbon',                   'portugal'],
+    ['Athens',          'Europe/Athens',                   'greece'],
+    ['Kyiv',            'Europe/Kyiv',                     'ukraine'],
+    ['Moscow',          'Europe/Moscow',                   'russia msk'],
+    // Americas
+    ['New York',        'America/New_York',                'usa east et nyc est edt'],
+    ['Los Angeles',     'America/Los_Angeles',             'usa west pt la pst pdt'],
+    ['San Francisco',   'America/Los_Angeles',             'usa west pt silicon valley sf pst pdt'],
+    ['Chicago',         'America/Chicago',                 'usa central ct cst'],
+    ['Dallas',          'America/Chicago',                 'usa texas'],
+    ['Denver',          'America/Denver',                  'usa mountain mt mst'],
+    ['Phoenix',         'America/Phoenix',                 'usa arizona no dst'],
+    ['Toronto',         'America/Toronto',                 'canada ontario east'],
+    ['Vancouver',       'America/Vancouver',               'canada west bc pt pst'],
+    ['Montreal',        'America/Montreal',                'canada quebec'],
+    ['Mexico City',     'America/Mexico_City',             'mexico cst'],
+    ['Bogota',          'America/Bogota',                  'colombia'],
+    ['Lima',            'America/Lima',                    'peru'],
+    ['Santiago',        'America/Santiago',                'chile'],
+    ['Buenos Aires',    'America/Argentina/Buenos_Aires',  'argentina art'],
+    ['Sao Paulo',       'America/Sao_Paulo',               'brazil brt'],
+    ['Caracas',         'America/Caracas',                 'venezuela'],
+    // Middle East & Africa
+    ['Dubai',           'Asia/Dubai',                      'uae gulf ast'],
+    ['Abu Dhabi',       'Asia/Dubai',                      'uae'],
+    ['Riyadh',          'Asia/Riyadh',                     'saudi arabia ksa'],
+    ['Kuwait City',     'Asia/Kuwait',                     'kuwait'],
+    ['Doha',            'Asia/Qatar',                      'qatar'],
+    ['Istanbul',        'Europe/Istanbul',                 'turkey'],
+    ['Cairo',           'Africa/Cairo',                    'egypt'],
+    ['Nairobi',         'Africa/Nairobi',                  'kenya east africa eat'],
+    ['Johannesburg',    'Africa/Johannesburg',             'south africa sast'],
+    ['Lagos',           'Africa/Lagos',                    'nigeria west africa'],
+    ['Casablanca',      'Africa/Casablanca',               'morocco'],
+    ['Accra',           'Africa/Accra',                    'ghana gmt'],
+    // Asia-Pacific
+    ['Singapore',       'Asia/Singapore',                  'sgt'],
+    ['Kuala Lumpur',    'Asia/Kuala_Lumpur',               'malaysia myt'],
+    ['Bangkok',         'Asia/Bangkok',                    'thailand ict'],
+    ['Jakarta',         'Asia/Jakarta',                    'indonesia wib'],
+    ['Ho Chi Minh',     'Asia/Ho_Chi_Minh',                'vietnam hcm saigon'],
+    ['Manila',          'Asia/Manila',                     'philippines pht'],
+    ['Hong Kong',       'Asia/Hong_Kong',                  'hkt'],
+    ['Shanghai',        'Asia/Shanghai',                   'china cst'],
+    ['Beijing',         'Asia/Shanghai',                   'china cst capital'],
+    ['Taipei',          'Asia/Taipei',                     'taiwan'],
+    ['Seoul',           'Asia/Seoul',                      'south korea kst'],
+    ['Tokyo',           'Asia/Tokyo',                      'japan jst'],
+    ['Osaka',           'Asia/Tokyo',                      'japan'],
+    ['Sydney',          'Australia/Sydney',                'australia aest aedt nsw'],
+    ['Melbourne',       'Australia/Melbourne',             'australia victoria'],
+    ['Brisbane',        'Australia/Brisbane',              'australia queensland no dst'],
+    ['Perth',           'Australia/Perth',                 'australia west awst'],
+    ['Auckland',        'Pacific/Auckland',                'new zealand nzst nzdt'],
+    ['Honolulu',        'Pacific/Honolulu',                'hawaii usa hst no dst'],
+    // UTC / fixed offsets
+    ['UTC / GMT',       'UTC',                             'utc gmt 0 universal'],
+    ['UTC+1',           'Etc/GMT-1',                       'utc+1'],
+    ['UTC+2',           'Etc/GMT-2',                       'utc+2'],
+    ['UTC+3',           'Etc/GMT-3',                       'utc+3'],
+    ['UTC+4',           'Etc/GMT-4',                       'utc+4'],
+    ['UTC+5',           'Etc/GMT-5',                       'utc+5'],
+    ['UTC+5:30',        'Asia/Kolkata',                    'utc+530 ist india'],
+    ['UTC+6',           'Etc/GMT-6',                       'utc+6'],
+    ['UTC+7',           'Etc/GMT-7',                       'utc+7'],
+    ['UTC+8',           'Etc/GMT-8',                       'utc+8'],
+    ['UTC+9',           'Etc/GMT-9',                       'utc+9'],
+    ['UTC+10',          'Etc/GMT-10',                      'utc+10'],
+    ['UTC+11',          'Etc/GMT-11',                      'utc+11'],
+    ['UTC+12',          'Etc/GMT-12',                      'utc+12'],
+    ['UTC-1',           'Etc/GMT+1',                       'utc-1'],
+    ['UTC-2',           'Etc/GMT+2',                       'utc-2'],
+    ['UTC-3',           'Etc/GMT+3',                       'utc-3'],
+    ['UTC-4',           'Etc/GMT+4',                       'utc-4 ast'],
+    ['UTC-5',           'Etc/GMT+5',                       'utc-5 est'],
+    ['UTC-6',           'Etc/GMT+6',                       'utc-6 cst'],
+    ['UTC-7',           'Etc/GMT+7',                       'utc-7 mst'],
+    ['UTC-8',           'Etc/GMT+8',                       'utc-8 pst'],
+    ['UTC-9',           'Etc/GMT+9',                       'utc-9 akst'],
+    ['UTC-10',          'Etc/GMT+10',                      'utc-10 hst'],
+    ['UTC-11',          'Etc/GMT+11',                      'utc-11'],
+    ['UTC-12',          'Etc/GMT+12',                      'utc-12'],
+];
+
+/* ============================================================
+   CORE TIMEZONE UTILITIES — bulletproof Intl-based approach
+   ============================================================ */
+
+/**
+ * Get UTC offset in minutes for a given IANA timezone at a given Date.
+ * Uses Intl.DateTimeFormat with timeZoneName:'shortOffset' to extract the
+ * exact numeric offset. Falls back to a parts-based method if needed.
+ * Never uses toLocaleString() + new Date() parsing (which was the original bug).
+ *
+ * Returns integer minutes (positive = ahead of UTC, negative = behind).
+ */
+function getOffsetMinutes(iana, date) {
+    try {
+        // Primary method: extract offsetMinutes using Intl.DateTimeFormat parts
+        // 'shortOffset' gives us e.g. "GMT+5:30", "GMT-8", "GMT+0"
+        const fmt = new Intl.DateTimeFormat('en', {
+            timeZone: iana,
+            timeZoneName: 'shortOffset'
+        });
+        const parts = fmt.formatToParts(date);
+        const tzPart = parts.find(p => p.type === 'timeZoneName');
+        if (tzPart) {
+            const raw = tzPart.value; // e.g. "GMT+5:30" or "GMT-8" or "GMT+0"
+            const match = raw.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+            if (match) {
+                const sign    = match[1] === '+' ? 1 : -1;
+                const hours   = parseInt(match[2], 10);
+                const minutes = match[3] ? parseInt(match[3], 10) : 0;
+                return sign * (hours * 60 + minutes);
+            }
+            if (raw === 'GMT' || raw === 'GMT+0' || raw === 'UTC') return 0;
+        }
+        throw new Error('shortOffset parse failed');
+    } catch (e) {
+        // Fallback: use getTimezoneOffset trick via a UTC-pinned date formatter
+        // We create a "fake" UTC time string, re-parse it as if it were the target zone,
+        // using only numeric parts (not locale-dependent strings).
+        const fmtNum = new Intl.DateTimeFormat('en-CA', {  // en-CA gives YYYY-MM-DD
+            timeZone: iana,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        });
+        const partsNum = fmtNum.formatToParts(date);
+        const get = type => parseInt(partsNum.find(p => p.type === type).value, 10);
+        // Compose a UTC Date from the local-zone parts
+        const localAsUTC = Date.UTC(
+            get('year'), get('month') - 1, get('day'),
+            get('hour') % 24,  // en-CA hour12:false may give 24 for midnight
+            get('minute'), get('second')
+        );
+        return Math.round((localAsUTC - date.getTime()) / 60000);
+    }
+}
+
+/**
+ * Detect if a timezone is currently observing DST.
+ * Compare the current offset against the minimum offset across the year
+ * (standard time always has the smaller UTC offset in DST-observing zones).
+ * Returns false for zones without DST (e.g. India, UTC).
+ */
+function isDST(iana, now) {
+    const jan = getOffsetMinutes(iana, new Date(now.getFullYear(), 0,  15));
+    const jul = getOffsetMinutes(iana, new Date(now.getFullYear(), 6,  15));
+    if (jan === jul) return false;   // no DST at all in this zone
+    const cur = getOffsetMinutes(iana, now);
+    return cur > Math.min(jan, jul);
+}
+
+/**
+ * Format a UTC offset in minutes to "UTC+5:30" / "UTC-8" / "UTC+0" string.
+ */
+function fmtOffset(mins) {
+    const sign = mins < 0 ? '-' : '+';
+    const abs  = Math.abs(mins);
+    const h    = Math.floor(abs / 60);
+    const m    = abs % 60;
+    return `UTC${sign}${h}${m ? ':' + String(m).padStart(2, '0') : ''}`;
+}
+
+/**
+ * Format current time in a timezone as 12-hour "HH:MM:SS AM/PM".
+ */
+function fmtTime(iana) {
+    return new Date().toLocaleTimeString('en-US', {
+        timeZone: iana,
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: true
+    });
+}
+
+/**
+ * Format current date in a timezone as "Mon, Jun 14 2025".
+ */
+function fmtDate(iana) {
+    return new Date().toLocaleDateString('en-US', {
+        timeZone: iana,
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+}
+
+/**
+ * Given that it is hFrom:mFrom (24h) in zone ianaA,
+ * what time is it in zone ianaB?
+ * Returns a string like "3:30 PM" or "12:00 AM".
+ *
+ * Uses the pre-computed offsets to avoid repeated Intl calls.
+ * Correctly handles half-hour and 45-minute offset zones.
+ */
+function convertTime(hFrom, mFrom, offA, offB) {
+    // Convert to UTC minutes, then to zone B minutes
+    const utcMins  = hFrom * 60 + mFrom - offA;
+    const localMin = ((utcMins + offB) % 1440 + 1440) % 1440;
+    const hh       = Math.floor(localMin / 60);
+    const mm       = localMin % 60;
+    const ampm     = hh >= 12 ? 'PM' : 'AM';
+    const disp     = (hh % 12 || 12);
+    return `${disp}:${String(mm).padStart(2, '0')} ${ampm}`;
+}
+
+/**
+ * Format an hour (0–23) as a 12h display string like "9:00 AM".
+ */
+function fmtHour(h) {
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:00 ${ampm}`;
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let selA = null;  // { name: string, iana: string }
+let selB = null;
+let tickInterval  = null;
+let activeDropdown = null;  // 'A' | 'B' | null
+
+/* ============================================================
+   SEARCH / DROPDOWN  — mousedown to beat onblur, no inline onclick
+   ============================================================ */
+function buildDropdownHTML(matches) {
+    return matches.map((z, i) =>
+        `<div class="dropdown-item" role="option" data-idx="${i}"
+              data-name="${encodeURIComponent(z[0])}" data-iana="${encodeURIComponent(z[1])}">
+            <div class="city-name">${z[0]}</div>
+            <div class="tz-name">${z[1]}</div>
+        </div>`
+    ).join('');
+}
+
+function filterDropdown(side) {
+    const q    = document.getElementById('search' + side).value.toLowerCase().trim();
+    const drop = document.getElementById('drop'   + side);
+    if (!q) { drop.classList.remove('open'); return; }
+    const matches = ZONES.filter(z =>
+        z[0].toLowerCase().includes(q) || z[2].toLowerCase().includes(q)
+    ).slice(0, 10);
+    if (!matches.length) { drop.classList.remove('open'); return; }
+    drop.innerHTML = buildDropdownHTML(matches);
+    drop.classList.add('open');
+    activeDropdown = side;
+}
+
+function openDropdown(side) {
+    filterDropdown(side);
+}
+
+function closeDropdown(side) {
+    document.getElementById('drop' + side).classList.remove('open');
+    if (activeDropdown === side) activeDropdown = null;
+}
+
+function selectZone(side, name, iana) {
+    const obj = { name, iana };
+    if (side === 'A') {
+        selA = obj;
+        document.getElementById('searchA').value = name;
+    } else {
+        selB = obj;
+        document.getElementById('searchB').value = name;
+    }
+    closeDropdown(side);
+    if (selA && selB) renderAll();
+}
+
+// Wire up inputs — use mousedown on items so it fires before the input's blur
+['A', 'B'].forEach(side => {
+    const input = document.getElementById('search' + side);
+    const drop  = document.getElementById('drop'   + side);
+
+    input.addEventListener('input',  () => filterDropdown(side));
+    input.addEventListener('focus',  () => openDropdown(side));
+    input.addEventListener('blur',   () => {
+        // Small delay so mousedown on a dropdown item fires first
+        setTimeout(() => closeDropdown(side), 150);
+    });
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeDropdown(side); input.blur(); }
+    });
+
+    // Use mousedown (not click) so it fires before the input's blur event
+    drop.addEventListener('mousedown', e => {
+        const item = e.target.closest('.dropdown-item');
+        if (!item) return;
+        e.preventDefault(); // prevent input blur before we read the value
+        const name = decodeURIComponent(item.dataset.name);
+        const iana = decodeURIComponent(item.dataset.iana);
+        selectZone(side, name, iana);
+    });
+});
+
+// Quick pair pills — use data attributes, no inline onclick
+document.querySelectorAll('.quick-pills .pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        setPair(pill.dataset.a, pill.dataset.b);
+    });
+});
+
+// Swap button
+document.getElementById('swapBtn').addEventListener('click', () => {
+    if (!selA && !selB) return;
+    [selA, selB] = [selB, selA];
+    document.getElementById('searchA').value = selA ? selA.name : '';
+    document.getElementById('searchB').value = selB ? selB.name : '';
+    if (selA && selB) renderAll();
+});
+
+function setPair(nameA, nameB) {
+    const za = ZONES.find(z => z[0] === nameA);
+    const zb = ZONES.find(z => z[0] === nameB);
+    if (!za || !zb) return;
+    selA = { name: za[0], iana: za[1] };
+    selB = { name: zb[0], iana: zb[1] };
+    document.getElementById('searchA').value = za[0];
+    document.getElementById('searchB').value = zb[0];
+    renderAll();
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderAll() {
+    if (!selA || !selB) return;
+
+    const now  = new Date();
+    const offA = getOffsetMinutes(selA.iana, now);
+    const offB = getOffsetMinutes(selB.iana, now);
+
+    // Validate offsets
+    if (isNaN(offA) || isNaN(offB)) {
+        console.error('Could not determine UTC offset for', selA.iana, selB.iana);
+        return;
+    }
+
+    // Show panels
+    document.getElementById('clockRow').style.display      = '';
+    document.getElementById('diffBanner').style.display    = '';
+    document.getElementById('overlapSection').style.display = '';
+
+    // Start/restart live clock
+    if (tickInterval) clearInterval(tickInterval);
+    updateClocks(offA, offB, now);
+    tickInterval = setInterval(() => {
+        const n   = new Date();
+        const oA  = getOffsetMinutes(selA.iana, n);
+        const oB  = getOffsetMinutes(selB.iana, n);
+        updateClocks(oA, oB, n);
+    }, 1000);
+
+    // DST status (computed once per render, not every tick — offsets rarely flip mid-second)
+    const dstA = isDST(selA.iana, now);
+    const dstB = isDST(selB.iana, now);
+    document.getElementById('offsetA').innerHTML =
+        fmtOffset(offA) + (dstA ? '<span class="dst-badge">DST</span>' : '');
+    document.getElementById('offsetB').innerHTML =
+        fmtOffset(offB) + (dstB ? '<span class="dst-badge">DST</span>' : '');
+
+    // Diff banner
+    renderDiffBanner(offA, offB, dstA, dstB);
+
+    // Overlap
+    renderOverlap(offA, offB);
+}
+
+function updateClocks(offA, offB, now) {
+    document.getElementById('cityA').textContent = selA.name.toUpperCase();
+    document.getElementById('timeA').textContent = fmtTime(selA.iana);
+    document.getElementById('dateA').textContent = fmtDate(selA.iana);
+
+    document.getElementById('cityB').textContent = selB.name.toUpperCase();
+    document.getElementById('timeB').textContent = fmtTime(selB.iana);
+    document.getElementById('dateB').textContent = fmtDate(selB.iana);
+}
+
+function renderDiffBanner(offA, offB, dstA, dstB) {
+    const diffMins = offB - offA;
+    const absMins  = Math.abs(diffMins);
+    const h = Math.floor(absMins / 60);
+    const m = absMins % 60;
+
+    // Build signed label, e.g. "+5h 30m" or "-8h" or "±0h"
+    let diffLabel;
+    if (diffMins === 0) {
+        diffLabel = '±0h';
+    } else {
+        const hPart = h > 0 ? `${h}h` : '';
+        const mPart = m > 0 ? ` ${m}m` : '';
+        const sign  = diffMins > 0 ? '+' : '−'; // proper minus sign
+        diffLabel   = sign + hPart + mPart;
+    }
+    document.getElementById('diffNum').textContent = diffLabel;
+
+    if (diffMins === 0) {
+        document.getElementById('diffHeadline').textContent =
+            `${selA.name} and ${selB.name} share the same time zone.`;
+        document.getElementById('diffSub').textContent =
+            'No offset — same local time right now.';
+    } else {
+        const absLabel = (h > 0 ? `${h}h` : '') + (m > 0 ? ` ${m}m` : '');
+        const aheadName  = diffMins > 0 ? selB.name : selA.name;
+        const behindName = diffMins > 0 ? selA.name : selB.name;
+        document.getElementById('diffHeadline').textContent =
+            `${aheadName} is ${absLabel.trim()} ahead of ${behindName}.`;
+
+        const sampleTime = convertTime(9, 0, offA, offB);
+        const dstNote    = (dstA || dstB) ? ' DST-adjusted for today.' : '';
+        document.getElementById('diffSub').textContent =
+            `When it's 9:00 AM in ${selA.name}, it's ${sampleTime} in ${selB.name}.${dstNote}`;
+    }
+}
+
+/* ============================================================
+   OVERLAP BAR — correct day-boundary-aware logic
+   ============================================================ */
+function renderOverlap(offA, offB) {
+    // Work hours in UTC minutes:
+    //   Zone A: 9:00–18:00 local  →  (9*60 - offA) to (18*60 - offA) UTC
+    //   Zone B: 9:00–18:00 local  →  (9*60 - offB) to (18*60 - offB) UTC
+    //
+    // We find the UTC intersection of these two windows.
+    // Then we map each zone's window AND the overlap onto the 0–24h visual axis
+    // in Zone A local time (because Zone A is the "reference" city on the left).
+
+    const WORK_START = 9 * 60;   // 540 min from midnight
+    const WORK_END   = 18 * 60;  // 1080 min from midnight
+
+    // Zone A's work window in UTC:
+    const aUtcStart = WORK_START - offA;
+    const aUtcEnd   = WORK_END   - offA;
+
+    // Zone B's work window in UTC:
+    const bUtcStart = WORK_START - offB;
+    const bUtcEnd   = WORK_END   - offB;
+
+    // Overlap in UTC (simple intersection — within a single day each):
+    const ovlpUtcStart = Math.max(aUtcStart, bUtcStart);
+    const ovlpUtcEnd   = Math.min(aUtcEnd,   bUtcEnd);
+    const overlapMins  = Math.max(0, ovlpUtcEnd - ovlpUtcStart);
+
+    // Convert back to Zone A local time for display on the bar:
+    const toALocal = utcMin => ((utcMin + offA) % 1440 + 1440) % 1440;
+
+    // Zone A bar on Zone A axis: always 9–18h (9AM–6PM) — trivially correct
+    const aBarStart = WORK_START / 60;  // hours: 9
+    const aBarEnd   = WORK_END   / 60;  // hours: 18
+
+    // Zone B's 9AM–6PM in Zone A local time:
+    const bLocalStart = toALocal(bUtcStart) / 60;  // hours, may be fractional
+    const bLocalEnd   = toALocal(bUtcEnd)   / 60;
+
+    // Overlap block in Zone A local time:
+    const ovlpLocalStart = overlapMins > 0 ? toALocal(ovlpUtcStart) / 60 : 0;
+    const ovlpLocalEnd   = overlapMins > 0 ? toALocal(ovlpUtcEnd)   / 60 : 0;
+
+    // ── Draw bars ──
+    const pct = h => (Math.min(Math.max(h, 0), 24) / 24 * 100).toFixed(3) + '%';
+    const wid = (s, e) => {
+        // Handle midnight-crossing: if end < start, split into two segments
+        // For simplicity we clamp to one visible segment (bars already show a note)
+        const w = e - s;
+        return (Math.max(0, Math.min(w, 24 - s)) / 24 * 100).toFixed(3) + '%';
+    };
+
+    // Zone A bar (always 9–18, no wrapping possible)
+    const segA = document.getElementById('barSegA');
+    segA.style.left  = pct(aBarStart);
+    segA.style.width = pct(aBarEnd - aBarStart);
+    document.getElementById('barTextA').textContent = '9:00 AM – 6:00 PM';
+
+    // Zone B bar — may cross midnight on Zone A's axis
+    const segB = document.getElementById('barSegB');
+    const bWraps = bLocalEnd < bLocalStart;  // crosses midnight on Zone A axis
+    if (bWraps) {
+        // The bar would need to wrap — we clamp from bLocalStart to midnight
+        // and add a note; a true two-segment bar would need two DOM elements
+        segB.style.left  = pct(bLocalStart);
+        segB.style.width = wid(bLocalStart, 24);
+    } else {
+        segB.style.left  = pct(bLocalStart);
+        segB.style.width = wid(bLocalStart, bLocalEnd);
+    }
+    // Label: B's 9AM–6PM converted to Zone A local
+    const bStartLabel = convertTime(9,  0, offB, offA);
+    const bEndLabel   = convertTime(18, 0, offB, offA);
+    document.getElementById('barTextB').textContent =
+        `${bStartLabel} – ${bEndLabel}${bWraps ? ' (spans midnight)' : ''}`;
+
+    // Overlap bar
+    const segOvlp = document.getElementById('barSegOvlp');
+    if (overlapMins > 0) {
+        segOvlp.style.left  = pct(ovlpLocalStart);
+        segOvlp.style.width = wid(ovlpLocalStart, ovlpLocalEnd);
+        const ovlpHrs = (overlapMins / 60).toFixed(overlapMins % 60 === 0 ? 0 : 1);
+        document.getElementById('barTextOvlp').textContent = `${ovlpHrs}h`;
+    } else {
+        segOvlp.style.left  = '0';
+        segOvlp.style.width = '0';
+        document.getElementById('barTextOvlp').textContent = '';
+    }
+
+    // ── Labels ──
+    document.getElementById('barLabelA').textContent = selA.name.split(' ')[0];
+    document.getElementById('barLabelB').textContent = selB.name.split(' ')[0];
+    document.getElementById('overlapTitle').textContent =
+        `${selA.name} vs ${selB.name} — business hours`;
+
+    // ── Overlap badge ──
+    const badge = document.getElementById('overlapBadge');
+    const overlapHrs = overlapMins / 60;
+    if (overlapMins === 0) {
+        badge.className = 'overlap-count bad';
+        badge.textContent = 'No overlap ✗';
+    } else if (overlapHrs >= 4) {
+        badge.className = 'overlap-count good';
+        badge.textContent = `${overlapHrs % 1 === 0 ? overlapHrs : overlapHrs.toFixed(1)}h overlap ✓`;
+    } else {
+        badge.className = 'overlap-count ok';
+        badge.textContent = `${overlapHrs % 1 === 0 ? overlapHrs : overlapHrs.toFixed(1)}h overlap`;
+    }
+
+    // ── Best meeting windows ──
+    renderBestTimes(ovlpUtcStart, ovlpUtcEnd, overlapMins, offA, offB);
+}
+
+function renderBestTimes(ovlpUtcStart, ovlpUtcEnd, overlapMins, offA, offB) {
+    const div = document.getElementById('bestTimes');
+
+    if (overlapMins <= 0) {
+        // No overlap: suggest early/late slots and show what time that is in each zone
+        const suggestions = [7, 8, 17, 18, 19, 20];
+        const pills = suggestions.map(hr => {
+            const bEquiv = convertTime(hr, 0, offA, offB);
+            const aLabel = fmtHour(hr);
+            return `<span class="best-pill">
+                <strong>${aLabel}</strong> in ${selA.name.split(' ')[0]}
+                = ${bEquiv} in ${selB.name.split(' ')[0]}
+            </span>`;
+        });
+        div.innerHTML =
+            `<span class="best-pill" style="color:#f87171; border-color:rgba(239,68,68,0.25);">
+                No standard work-hour overlap — try early or late slots:
+             </span>` + pills.join('');
+        return;
+    }
+
+    // We have overlap: list every whole hour in the overlap window (UTC),
+    // converted to Zone A local time for display.
+    // "Top" (green) = hours that land between 10 AM and 3 PM in Zone A local time.
+    const pills = [];
+    // Iterate over UTC hours that fall within the overlap
+    const utcHourStart = Math.ceil(ovlpUtcStart / 60);   // first whole UTC hour in overlap
+    const utcHourEnd   = Math.floor(ovlpUtcEnd   / 60);  // last whole UTC hour in overlap
+
+    for (let utcH = utcHourStart; utcH <= utcHourEnd; utcH++) {
+        const aLocalMins = ((utcH * 60 + offA) % 1440 + 1440) % 1440;
+        const aHour      = aLocalMins / 60;    // may be fractional for half-hour zones
+        const bLocalMins = ((utcH * 60 + offB) % 1440 + 1440) % 1440;
+
+        const aHourInt  = Math.floor(aHour);
+        const aMin      = Math.round((aHour - aHourInt) * 60);
+        const aAmpm     = aHourInt >= 12 ? 'PM' : 'AM';
+        const aDisp     = `${aHourInt % 12 || 12}:${String(aMin).padStart(2,'0')} ${aAmpm}`;
+
+        const bHourInt  = Math.floor(bLocalMins / 60);
+        const bMin      = bLocalMins % 60;
+        const bAmpm     = bHourInt >= 12 ? 'PM' : 'AM';
+        const bDisp     = `${bHourInt % 12 || 12}:${String(bMin).padStart(2,'0')} ${bAmpm}`;
+
+        // "Top" if 10 AM ≤ Zone A time ≤ 3 PM (hardcoded reasonable-hours window — disclosed in notice above)
+        const isTop = aHour >= 10 && aHour <= 15;
+        pills.push(
+            `<span class="best-pill${isTop ? ' top' : ''}">
+                <strong>${aDisp}</strong> ${selA.name.split(' ')[0]}
+                = ${bDisp} ${selB.name.split(' ')[0]}
+            </span>`
+        );
+    }
+
+    div.innerHTML = pills.length
+        ? pills.join('')
+        : `<span class="best-pill">Overlap is less than 1 hour — no clean whole-hour slots.</span>`;
+}
+
+/* ============================================================
+   INIT — default pair on load
+   ============================================================ */
+setPair('Mumbai', 'London');
+</script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

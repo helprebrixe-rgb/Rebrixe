@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minutes to Hours Converter | Rebrixe</title>
+    <meta name="description" content="Convert minutes to hours and minutes instantly. Supports bulk input — paste a list and convert all at once. Free, fast, no fluff.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────────── */
+        .tool-wrap {
+            max-width: 820px;
+            margin: 40px auto;
+        }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Mode tabs ──────────────────────────────────────────── */
+        .mode-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 28px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+        }
+
+        .tab-btn.active {
+            background: rgba(255,255,255,0.07);
+            color: #fff;
+            border: 1px solid var(--border);
+        }
+
+        /* ── Sections — unified display control ─────────────────── */
+        /*
+         * All three sections are hidden by default via this class.
+         * JS adds/removes .section-visible — no inline styles, no class conflicts.
+         */
+        .tool-section {
+            display: none;
+        }
+        .tool-section.section-visible {
+            display: block;
+        }
+
+        /* ── Labels ─────────────────────────────────────────────── */
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Single input row ───────────────────────────────────── */
+        .single-input-row {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            margin-bottom: 20px;
+        }
+
+        .single-input-row input {
+            flex: 1;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 20px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            min-width: 0;
+            /* Remove browser spinners */
+            -moz-appearance: textfield;
+        }
+        .single-input-row input::-webkit-outer-spin-button,
+        .single-input-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .single-input-row input:focus { border-color: var(--primary); }
+        .single-input-row input::placeholder { color: #334155; }
+
+        .input-unit-badge {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0 20px;
+            color: #64748b;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* ── Single result display ──────────────────────────────── */
+        .single-result {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .single-result.result-visible { display: block; }
+
+        .result-headline {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 6vw, 3.2rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .result-headline em {
+            font-style: normal;
+            color: var(--primary);
+        }
+
+        .result-sub {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+
+        /* ── Visual time bar ────────────────────────────────────── */
+        .time-bar-track {
+            height: 10px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin-bottom: 6px;
+        }
+        .time-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #c0cbcc);
+            border-radius: 999px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 0%;
+        }
+        .bar-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: #475569;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ── Stat pills ─────────────────────────────────────────── */
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 20px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 10px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 1.05rem;
+            color: #cbd5e1;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Quick pills ────────────────────────────────────────── */
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Bulk mode ──────────────────────────────────────────── */
+        textarea {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 120px;
+            transition: border-color 0.2s;
+            line-height: 1.6;
+        }
+        textarea:focus { border-color: var(--primary); }
+        textarea::placeholder { color: #334155; }
+
+        .bulk-hint {
+            font-size: 0.75rem;
+            color: #475569;
+            margin-top: 8px;
+            margin-bottom: 16px;
+        }
+
+        .bulk-results {
+            display: none;
+            margin-top: 4px;
+        }
+        .bulk-results.result-visible { display: block; }
+
+        .bulk-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        .bulk-table th {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .bulk-table td {
+            padding: 11px 14px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .bulk-table tr:last-child td { border-bottom: none; }
+        .bulk-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .td-min     { color: #64748b; font-family: 'Inter', sans-serif; }
+        .td-result  { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; }
+        .td-decimal { color: #94a3b8; font-size: 0.82rem; }
+        .td-bar     { width: 80px; }
+        .td-error   { color: #ef4444; font-size: 0.8rem; }
+
+        .mini-bar-track {
+            height: 6px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .mini-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #c0cbcc);
+            border-radius: 999px;
+        }
+
+        /* ── Reverse mode ───────────────────────────────────────── */
+        .hm-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .hm-input-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .hm-input-wrap input {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 20px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            outline: none;
+            box-sizing: border-box;
+            width: 100%;
+            transition: border-color 0.2s;
+            -moz-appearance: textfield;
+        }
+        .hm-input-wrap input::-webkit-outer-spin-button,
+        .hm-input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .hm-input-wrap input:focus { border-color: var(--primary); }
+        .hm-input-wrap input::placeholder { color: #334155; }
+
+        .hm-sep {
+            font-size: 2rem;
+            color: #334155;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            padding-top: 16px;
+            line-height: 1;
+        }
+
+        .reverse-result {
+            display: none;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+        .reverse-result.result-visible { display: block; }
+
+        .reverse-headline {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .reverse-headline em {
+            font-style: normal;
+            color: var(--primary);
+        }
+
+        .reverse-sub { font-size: 0.8rem; color: #64748b; }
+
+        /* ── Action buttons ─────────────────────────────────────── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, letter-spacing 0.2s;
+        }
+        .btn-action:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-action.primary:hover {
+            transform: translateY(-2px);
+            letter-spacing: 1.5px;
+        }
+        .btn-action:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Inline error message ───────────────────────────────── */
+        .inline-error {
+            font-size: 0.75rem;
+            color: #ef4444;
+            margin-top: 6px;
+            min-height: 1rem;
+        }
+
+        /* ── Toast notification ─────────────────────────────────── */
+        #toast {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #fff;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.2s, transform 0.2s;
+            z-index: 999;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── Responsive ─────────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 20px; }
+            .stat-row  { grid-template-columns: repeat(2, 1fr); }
+            .hm-row    { flex-wrap: wrap; }
+            .hm-sep    { padding-top: 0; }
+            .action-row { flex-direction: column; }
+            .mode-tabs { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-format-conversion.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Minutes → Hours Converter
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                200 minutes = 3 hrs 20 min. Single, bulk, or reverse — all covered.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- MODE TABS -->
+                <div class="mode-tabs" role="tablist" aria-label="Converter modes">
+                    <button class="tab-btn active"
+                            role="tab" aria-selected="true"  aria-controls="singleSection"
+                            onclick="switchMode('single')">Single</button>
+                    <button class="tab-btn"
+                            role="tab" aria-selected="false" aria-controls="bulkSection"
+                            onclick="switchMode('bulk')">Bulk / List</button>
+                    <button class="tab-btn"
+                            role="tab" aria-selected="false" aria-controls="reverseSection"
+                            onclick="switchMode('reverse')">Hrs → Min</button>
+                </div>
+
+                <!-- ══ SINGLE MODE ══ -->
+                <div id="singleSection" class="tool-section section-visible" role="tabpanel">
+
+                    <span class="input-label" for="minInput">Enter Minutes</span>
+                    <div class="single-input-row">
+                        <input type="number"
+                               id="minInput"
+                               placeholder="e.g. 200"
+                               min="0"
+                               max="9999999"
+                               step="any"
+                               autocomplete="off"
+                               oninput="calcSingle()"
+                               autofocus>
+                        <div class="input-unit-badge" aria-hidden="true">min</div>
+                    </div>
+                    <div class="inline-error" id="singleError" aria-live="polite"></div>
+
+                    <!-- Result card -->
+                    <div id="singleResult" class="single-result" role="region" aria-label="Conversion result">
+                        <div class="result-headline" id="resultHeadline"></div>
+                        <div class="result-sub"      id="resultSub"></div>
+
+                        <div class="time-bar-track" title="Minutes remainder within the last hour">
+                            <div class="time-bar-fill" id="timeBarFill"></div>
+                        </div>
+                        <div class="bar-labels">
+                            <span id="barLabelLeft">0 hrs</span>
+                            <span id="barLabelRight">0 min remainder</span>
+                        </div>
+
+                        <div class="stat-row">
+                            <div class="stat-cell">
+                                <div class="stat-num" id="statDecimal">—</div>
+                                <div class="stat-lbl">Decimal Hrs</div>
+                            </div>
+                            <div class="stat-cell">
+                                <div class="stat-num" id="statSecs">—</div>
+                                <div class="stat-lbl">Total Secs</div>
+                            </div>
+                            <div class="stat-cell">
+                                <div class="stat-num" id="statDays">—</div>
+                                <div class="stat-lbl">Decimal Days</div>
+                            </div>
+                            <div class="stat-cell">
+                                <div class="stat-num" id="statWork">—</div>
+                                <div class="stat-lbl">Work Shifts (8 h)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Presets -->
+                    <div class="section-label">Quick Presets</div>
+                    <div class="quick-pills">
+                        <span class="pill" onclick="setMin(30)"   tabindex="0">30 min</span>
+                        <span class="pill" onclick="setMin(45)"   tabindex="0">45 min</span>
+                        <span class="pill" onclick="setMin(90)"   tabindex="0">90 min</span>
+                        <span class="pill" onclick="setMin(120)"  tabindex="0">2 hrs</span>
+                        <span class="pill" onclick="setMin(150)"  tabindex="0">150 min</span>
+                        <span class="pill" onclick="setMin(200)"  tabindex="0">200 min</span>
+                        <span class="pill" onclick="setMin(480)"  tabindex="0">Work day (8 h)</span>
+                        <span class="pill" onclick="setMin(525)"  tabindex="0">525 min</span>
+                        <span class="pill" onclick="setMin(1440)" tabindex="0">Full day</span>
+                        <span class="pill" onclick="setMin(10080)"tabindex="0">1 week</span>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-action primary"
+                                id="copySingleBtn"
+                                onclick="copySingle()"
+                                disabled>Copy Result</button>
+                        <button class="btn-action" onclick="clearSingle()">✕ Clear</button>
+                    </div>
+                </div>
+
+                <!-- ══ BULK MODE ══ -->
+                <div id="bulkSection" class="tool-section" role="tabpanel">
+                    <span class="input-label">Paste Minutes — one per line or comma-separated</span>
+                    <textarea id="bulkInput"
+                              placeholder="90&#10;120&#10;200&#10;450&#10;1440"
+                              oninput="calcBulk()"
+                              aria-label="Minutes list for bulk conversion"></textarea>
+                    <div class="bulk-hint">Each number is converted individually. Whole or decimal minutes accepted.</div>
+
+                    <div id="bulkResults" class="bulk-results" role="region" aria-label="Bulk conversion results">
+                        <div class="section-label" id="bulkCount"></div>
+                        <table class="bulk-table" aria-label="Conversion table">
+                            <thead>
+                                <tr>
+                                    <th>Minutes</th>
+                                    <th>Result</th>
+                                    <th>Decimal Hours</th>
+                                    <th class="td-bar">Scale</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkBody"></tbody>
+                        </table>
+                        <div class="action-row">
+                            <button class="btn-action primary" id="copyBulkBtn" onclick="copyBulk()">Copy All Results</button>
+                            <button class="btn-action" onclick="clearBulk()">✕ Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ REVERSE MODE ══ -->
+                <div id="reverseSection" class="tool-section" role="tabpanel">
+                    <span class="input-label">Enter Hours &amp; Minutes</span>
+                    <div class="hm-row">
+                        <div class="hm-input-wrap">
+                            <input type="number"
+                                   id="hrInput"
+                                   placeholder="3"
+                                   min="0"
+                                   max="99999"
+                                   step="1"
+                                   autocomplete="off"
+                                   oninput="calcReverse()"
+                                   aria-label="Hours">
+                            <span class="input-label" style="margin-bottom:0;">Hours</span>
+                        </div>
+                        <div class="hm-sep" aria-hidden="true">:</div>
+                        <div class="hm-input-wrap">
+                            <input type="number"
+                                   id="minPartInput"
+                                   placeholder="20"
+                                   min="0"
+                                   max="59"
+                                   step="1"
+                                   autocomplete="off"
+                                   oninput="calcReverse()"
+                                   aria-label="Minutes (0–59)">
+                            <span class="input-label" style="margin-bottom:0;">Minutes (0–59)</span>
+                        </div>
+                    </div>
+                    <div class="inline-error" id="reverseError" aria-live="polite"></div>
+
+                    <div id="reverseResult" class="reverse-result" role="region" aria-label="Reverse conversion result">
+                        <div class="reverse-headline" id="revHeadline"></div>
+                        <div class="reverse-sub"      id="revSub"></div>
+                    </div>
+
+                    <div class="section-label" style="margin-top:16px;">Quick Presets</div>
+                    <div class="quick-pills">
+                        <span class="pill" onclick="setHM(1,0)"  tabindex="0">1:00</span>
+                        <span class="pill" onclick="setHM(1,30)" tabindex="0">1:30</span>
+                        <span class="pill" onclick="setHM(2,0)"  tabindex="0">2:00</span>
+                        <span class="pill" onclick="setHM(3,20)" tabindex="0">3:20</span>
+                        <span class="pill" onclick="setHM(8,0)"  tabindex="0">8:00</span>
+                        <span class="pill" onclick="setHM(24,0)" tabindex="0">24:00</span>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-action primary"
+                                id="copyRevBtn"
+                                onclick="copyReverse()"
+                                disabled>Copy Result</button>
+                        <button class="btn-action" onclick="clearReverse()">✕ Clear</button>
+                    </div>
+                </div>
+
+            </div><!-- /.tool-card -->
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <!-- Toast -->
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <footer></footer>
+
+    <script>
+    /* ══════════════════════════════════════════════════════════════
+       UTILITY FUNCTIONS
+    ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Convert minutes (number) → { hrs, mins, decimal, secs, days, work }
+     * All arithmetic is done with whole-second precision to avoid
+     * float drift (e.g. 90.5 → 5430 seconds → exact).
+     */
+    function convertMinutes(rawMin) {
+        const totalSecs = Math.round(rawMin * 60);   // integer seconds
+        const hrs       = Math.floor(totalSecs / 3600);
+        const remSecs   = totalSecs % 3600;
+        const mins      = Math.floor(remSecs / 60);
+        const decimal   = rawMin / 60;
+        const days      = rawMin / 1440;
+        const work      = rawMin / 480;
+        return { hrs, mins, totalSecs, decimal, days, work };
+    }
+
+    /**
+     * Format hrs / mins into a readable string like "3 hrs 20 min"
+     */
+    function fmtHM(hrs, mins) {
+        if (hrs > 0 && mins > 0) return `${hrs} hr${hrs !== 1 ? 's' : ''} ${mins} min`;
+        if (hrs > 0)             return `${hrs} hr${hrs !== 1 ? 's' : ''}`;
+        return `${mins} min`;
+    }
+
+    /**
+     * Format hrs / mins as HTML with <em> highlights
+     */
+    function fmtHM_html(hrs, mins) {
+        if (hrs > 0 && mins > 0)
+            return `<em>${hrs.toLocaleString()}</em> hr${hrs!==1?'s':''} <em>${mins}</em> min`;
+        if (hrs > 0)
+            return `<em>${hrs.toLocaleString()}</em> hr${hrs!==1?'s':''}`;
+        return `<em>${mins}</em> min`;
+    }
+
+    /**
+     * Safe clipboard write. Shows toast on success or failure.
+     */
+    function writeClipboard(text, btnEl) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            showToast('Clipboard not available in this browser.');
+            return;
+        }
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                showToast('Copied to clipboard ✓');
+                if (btnEl) {
+                    const orig = btnEl.textContent;
+                    btnEl.textContent = '✓ Copied!';
+                    btnEl.disabled = true;
+                    setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 2000);
+                }
+            })
+            .catch(() => showToast('Copy failed — please copy manually.'));
+    }
+
+    /**
+     * Toast notification — brief, non-blocking.
+     */
+    let _toastTimer = null;
+    function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MODE SWITCHING
+       Single source of truth: CSS class .section-visible.
+       No inline styles are set here — avoids specificity battles.
+    ══════════════════════════════════════════════════════════════ */
+
+    const MODES = ['single', 'bulk', 'reverse'];
+
+    function switchMode(mode) {
+        MODES.forEach(m => {
+            const section = document.getElementById(m + 'Section');
+            const tab     = document.querySelector(`[aria-controls="${m}Section"]`);
+            const active  = (m === mode);
+            section.classList.toggle('section-visible', active);
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', String(active));
+        });
+
+        // Auto-focus the primary input of the activated section
+        const focusMap = { single: 'minInput', bulk: 'bulkInput', reverse: 'hrInput' };
+        const el = document.getElementById(focusMap[mode]);
+        if (el) requestAnimationFrame(() => el.focus());
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SINGLE MODE
+    ══════════════════════════════════════════════════════════════ */
+
+    function calcSingle() {
+        const input   = document.getElementById('minInput');
+        const errEl   = document.getElementById('singleError');
+        const resultEl = document.getElementById('singleResult');
+        const copyBtn  = document.getElementById('copySingleBtn');
+
+        const raw = parseFloat(input.value);
+
+        // — Validation
+        if (input.value.trim() === '') {
+            errEl.textContent = '';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        if (isNaN(raw)) {
+            errEl.textContent = 'Please enter a valid number.';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        if (raw < 0) {
+            errEl.textContent = 'Minutes cannot be negative.';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        if (raw > 9999999) {
+            errEl.textContent = 'Value too large (max 9,999,999 minutes).';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        errEl.textContent = '';
+
+        // — Compute
+        const { hrs, mins, totalSecs, decimal, days, work } = convertMinutes(raw);
+
+        // — Headline
+        document.getElementById('resultHeadline').innerHTML = fmtHM_html(hrs, mins);
+        document.getElementById('resultSub').textContent =
+            `${raw.toLocaleString()} minutes = ${decimal.toFixed(4)} decimal hours`;
+
+        // — Bar: shows what fraction of the last (partial) hour has elapsed.
+        //   If result is exact hours (mins === 0), bar shows 100% so it's not empty.
+        const barPct = (hrs === 0)
+            ? (raw / 60) * 100           // less than 1 hour: show raw fraction
+            : (mins === 0 ? 100 : (mins / 60) * 100); // full hours: full; else remainder
+
+        document.getElementById('timeBarFill').style.width = Math.min(barPct, 100).toFixed(1) + '%';
+        document.getElementById('barLabelLeft').textContent =
+            hrs > 0 ? `${hrs.toLocaleString()} hr${hrs!==1?'s':''}` : '< 1 hr';
+        document.getElementById('barLabelRight').textContent =
+            `${mins} min remainder`;
+
+        // — Stats (consistent locale en-US for reproducibility)
+        const fmt = n => n.toLocaleString('en-US');
+        document.getElementById('statDecimal').textContent = decimal.toFixed(4);
+        document.getElementById('statSecs').textContent    = fmt(totalSecs);
+        document.getElementById('statDays').textContent    = days.toFixed(4);
+        document.getElementById('statWork').textContent    = work.toFixed(2);
+
+        resultEl.classList.add('result-visible');
+        copyBtn.disabled = false;
+    }
+
+    function setMin(v) {
+        const input = document.getElementById('minInput');
+        input.value = v;
+        calcSingle();
+        input.focus();
+    }
+
+    function clearSingle() {
+        document.getElementById('minInput').value = '';
+        document.getElementById('singleError').textContent = '';
+        document.getElementById('singleResult').classList.remove('result-visible');
+        document.getElementById('copySingleBtn').disabled = true;
+        document.getElementById('minInput').focus();
+    }
+
+    function copySingle() {
+        const raw = parseFloat(document.getElementById('minInput').value);
+        if (isNaN(raw) || raw < 0) return;
+        const { hrs, mins, decimal } = convertMinutes(raw);
+        const text = `${raw.toLocaleString()} minutes = ${fmtHM(hrs, mins)} (${decimal.toFixed(4)} decimal hours)`;
+        writeClipboard(text, document.getElementById('copySingleBtn'));
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       BULK MODE
+    ══════════════════════════════════════════════════════════════ */
+
+    function calcBulk() {
+        const raw       = document.getElementById('bulkInput').value;
+        const resultsEl = document.getElementById('bulkResults');
+
+        if (!raw.trim()) {
+            resultsEl.classList.remove('result-visible');
+            return;
+        }
+
+        // Parse: split by newlines OR commas, drop empties
+        const tokens = raw.split(/[\n,]+/).map(t => t.trim()).filter(t => t !== '');
+        if (!tokens.length) {
+            resultsEl.classList.remove('result-visible');
+            return;
+        }
+
+        // Pre-parse to find max valid value for bar scaling
+        const parsed = tokens.map(t => parseFloat(t));
+        const validNums = parsed.filter(n => !isNaN(n) && n >= 0 && n <= 9999999);
+        const maxVal = validNums.length > 0 ? Math.max(...validNums) : 0;
+
+        const tbody = document.getElementById('bulkBody');
+        tbody.innerHTML = '';
+
+        let validCount = 0;
+
+        tokens.forEach((t, i) => {
+            const val = parsed[i];
+            const tr  = document.createElement('tr');
+
+            if (isNaN(val)) {
+                tr.innerHTML = `
+                    <td class="td-min">${escHtml(t)}</td>
+                    <td class="td-error" colspan="3">Not a number</td>`;
+            } else if (val < 0) {
+                tr.innerHTML = `
+                    <td class="td-min">${escHtml(t)}</td>
+                    <td class="td-error" colspan="3">Negative value</td>`;
+            } else if (val > 9999999) {
+                tr.innerHTML = `
+                    <td class="td-min">${escHtml(t)}</td>
+                    <td class="td-error" colspan="3">Value too large</td>`;
+            } else {
+                const { hrs, mins, decimal } = convertMinutes(val);
+                const pct = (maxVal > 0) ? ((val / maxVal) * 100).toFixed(1) : '0';
+                const resultStr = fmtHM(hrs, mins);
+                validCount++;
+                tr.innerHTML = `
+                    <td class="td-min">${val.toLocaleString('en-US')} min</td>
+                    <td class="td-result">${resultStr}</td>
+                    <td class="td-decimal">${decimal.toFixed(3)}</td>
+                    <td class="td-bar">
+                        <div class="mini-bar-track">
+                            <div class="mini-bar-fill" style="width:${pct}%"></div>
+                        </div>
+                    </td>`;
+            }
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('bulkCount').textContent =
+            `${validCount} valid conversion${validCount !== 1 ? 's' : ''}` +
+            (tokens.length > validCount ? ` (${tokens.length - validCount} error${tokens.length - validCount !== 1 ? 's' : ''})` : '');
+
+        resultsEl.classList.add('result-visible');
+    }
+
+    function clearBulk() {
+        document.getElementById('bulkInput').value = '';
+        document.getElementById('bulkResults').classList.remove('result-visible');
+        document.getElementById('bulkInput').focus();
+    }
+
+    function copyBulk() {
+        const rows = document.querySelectorAll('#bulkBody tr');
+        if (!rows.length) return;
+
+        const lines = [];
+        rows.forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            // Valid rows have 4 cells; error rows have 2 (colspan doesn't create extra cells)
+            if (cells.length >= 3) {
+                // cells[0]=minutes, cells[1]=result, cells[2]=decimal
+                lines.push(
+                    `${cells[0].textContent.trim()}  →  ${cells[1].textContent.trim()}  (${cells[2].textContent.trim()} decimal hrs)`
+                );
+            }
+            // Skip error rows silently
+        });
+
+        if (!lines.length) { showToast('No valid results to copy.'); return; }
+        writeClipboard(lines.join('\n'), document.getElementById('copyBulkBtn'));
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       REVERSE MODE  (hours + minutes → total minutes)
+    ══════════════════════════════════════════════════════════════ */
+
+    function calcReverse() {
+        const hrInput  = document.getElementById('hrInput');
+        const minInput = document.getElementById('minPartInput');
+        const errEl    = document.getElementById('reverseError');
+        const resultEl = document.getElementById('reverseResult');
+        const copyBtn  = document.getElementById('copyRevBtn');
+
+        const hRaw = hrInput.value.trim();
+        const mRaw = minInput.value.trim();
+
+        // If both fields empty → reset cleanly
+        if (hRaw === '' && mRaw === '') {
+            errEl.textContent = '';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+
+        // Parse — treat empty field as 0
+        const h = hRaw === '' ? 0 : parseFloat(hRaw);
+        const m = mRaw === '' ? 0 : parseFloat(mRaw);
+
+        // Validate hours
+        if (isNaN(h) || h < 0 || !Number.isFinite(h)) {
+            errEl.textContent = 'Hours must be a non-negative number.';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        if (h > 99999) {
+            errEl.textContent = 'Hours value too large (max 99,999).';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+
+        // Validate minutes part (0–59 only)
+        if (isNaN(m) || m < 0 || !Number.isFinite(m)) {
+            errEl.textContent = 'Minutes must be a non-negative number.';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+        if (m > 59) {
+            errEl.textContent = 'Minutes field must be 0–59. Use the Hours field for larger values.';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+
+        // Both zero → no meaningful output
+        if (h === 0 && m === 0) {
+            errEl.textContent = '';
+            resultEl.classList.remove('result-visible');
+            copyBtn.disabled = true;
+            return;
+        }
+
+        errEl.textContent = '';
+
+        // Compute
+        const hWhole = Math.floor(h);
+        const mWhole = Math.floor(m);
+        const totalMin = hWhole * 60 + mWhole;
+        const totalSecs = totalMin * 60;
+        const decimal   = (totalMin / 60).toFixed(4);
+
+        document.getElementById('revHeadline').innerHTML =
+            `<em>${totalMin.toLocaleString('en-US')}</em> minutes`;
+        document.getElementById('revSub').textContent =
+            `${hWhole}h ${mWhole}m = ${totalMin.toLocaleString('en-US')} total minutes · ` +
+            `${decimal} decimal hours · ${totalSecs.toLocaleString('en-US')} seconds`;
+
+        resultEl.classList.add('result-visible');
+        copyBtn.disabled = false;
+    }
+
+    function setHM(h, m) {
+        document.getElementById('hrInput').value      = h;
+        document.getElementById('minPartInput').value = m;
+        calcReverse();
+    }
+
+    function clearReverse() {
+        document.getElementById('hrInput').value      = '';
+        document.getElementById('minPartInput').value = '';
+        document.getElementById('reverseError').textContent = '';
+        document.getElementById('reverseResult').classList.remove('result-visible');
+        document.getElementById('copyRevBtn').disabled = true;
+        document.getElementById('hrInput').focus();
+    }
+
+    function copyReverse() {
+        const h = Math.floor(parseFloat(document.getElementById('hrInput').value) || 0);
+        const m = Math.floor(parseFloat(document.getElementById('minPartInput').value) || 0);
+        const totalMin = h * 60 + m;
+        const text = `${h}h ${m}m = ${totalMin.toLocaleString('en-US')} minutes`;
+        writeClipboard(text, document.getElementById('copyRevBtn'));
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       HELPERS
+    ══════════════════════════════════════════════════════════════ */
+
+    /** Escape user-supplied text before inserting into innerHTML */
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /** Keyboard: allow pills to activate on Enter/Space */
+    document.querySelectorAll('.pill').forEach(pill => {
+        pill.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                pill.click();
+            }
+        });
+    });
+
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

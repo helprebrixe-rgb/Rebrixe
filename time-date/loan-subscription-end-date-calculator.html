@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan & Subscription End Date Calculator | Rebrixe</title>
+    <meta name="description" content="Find the exact end date of any loan, EMI, or subscription. Enter start date and duration in months. Handles month-end edge cases correctly.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────────── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+            margin-bottom: 16px;
+        }
+
+        /* ── Fields ─────────────────────────────────────────────── */
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .field-box { display: flex; flex-direction: column; gap: 8px; }
+
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+
+        input[type="date"],
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+        select option { background: #0f0f0f; }
+
+        /* ── Quick presets ───────────────────────────────────────── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Mode tabs ───────────────────────────────────────────── */
+        .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: #64748b;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+        }
+        .tab-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(255,255,255,0.06);
+        }
+
+        /* ── Result panel ────────────────────────────────────────── */
+        .result-panel { display: none; margin-top: 8px; }
+        .result-panel.visible { display: block; }
+
+        .result-hero {
+            text-align: center;
+            padding: 28px 20px 22px;
+            background: linear-gradient(135deg, rgba(120,129,132,0.08) 0%, rgba(0,0,0,0) 60%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            margin-bottom: 14px;
+        }
+        .result-date {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+        .result-sub { font-size: 0.85rem; color: #64748b; margin-top: 12px; }
+        .result-sub strong { color: #fff; font-weight: 600; }
+
+        /* ── Status badge ────────────────────────────────────────── */
+        .status-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            margin-top: 10px;
+        }
+        .status-active  { background: rgba(34,197,94,0.1);  color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+        .status-ending  { background: rgba(234,179,8,0.1);  color: #eab308; border: 1px solid rgba(234,179,8,0.2); }
+        .status-expired { background: rgba(239,68,68,0.1);  color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+
+        /* ── Stats grid ──────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .sc-num   { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1; }
+        .sc-label { font-size: 0.6rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; font-weight: 600; }
+
+        /* ── Progress bar ────────────────────────────────────────── */
+        .progress-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .progress-title { font-size: 0.78rem; color: #64748b; }
+        .progress-pct   { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--primary); font-size: 0.9rem; }
+        .progress-track {
+            height: 8px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #616768, var(--primary));
+            border-radius: 999px;
+            transition: width 0.6s ease;
+        }
+        .progress-dates {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 7px;
+            font-size: 0.7rem;
+            color: #334155;
+        }
+
+        /* ── Action row ──────────────────────────────────────────── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        /* ── Notice ──────────────────────────────────────────────── */
+        .notice {
+            background: rgba(234,179,8,0.06);
+            border: 1px solid rgba(234,179,8,0.2);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 0.78rem;
+            color: #eab308;
+            margin-bottom: 14px;
+            display: none;
+        }
+        .notice.visible { display: block; }
+
+        .empty-hint { text-align: center; padding: 30px; color: #334155; font-size: 0.9rem; }
+
+        /* ── Bulk mode ───────────────────────────────────────────── */
+        .bulk-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+        .bulk-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+        .bulk-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 80px 90px auto;
+            gap: 8px;
+            align-items: center;
+        }
+        input.bulk-input {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 10px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+            width: 100%;
+        }
+        input.bulk-input:focus { border-color: var(--primary); }
+
+        select.bulk-select {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 10px 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            width: 100%;
+            cursor: pointer;
+        }
+        select.bulk-select:focus { border-color: var(--primary); }
+        select.bulk-select option { background: #0f0f0f; }
+
+        .del-btn {
+            background: none;
+            border: 1px solid #1e293b;
+            color: #475569;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: border-color 0.2s, color 0.2s;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .del-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+        .bulk-results-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 10px;
+            padding: 6px 14px;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #334155;
+            font-weight: 700;
+        }
+        .bulk-result-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 10px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.82rem;
+            align-items: center;
+        }
+        .bulk-result-row .col-name      { color: #fff; font-weight: 600; }
+        .bulk-result-row .col-enddate   { color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 800; }
+        .bulk-result-row .col-remaining { color: #94a3b8; }
+
+        /* ── Responsive ──────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .field-row         { grid-template-columns: 1fr; }
+            .stats-grid        { grid-template-columns: repeat(2, 1fr); }
+            .action-row        { flex-direction: column; }
+            .bulk-row          { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .bulk-row > *:first-child { grid-column: 1 / -1; }
+            .bulk-row > *:last-child  { justify-self: end; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="date-calculators.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Loan &amp; Subscription End Date
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Start date + duration = exact end date. Handles month-end edge cases, tracks progress, bulk mode for multiple loans.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- MODE TABS -->
+            <div class="mode-tabs">
+                <button class="tab-btn active" id="tabSingle" onclick="switchMode('single')">Single Calculator</button>
+                <button class="tab-btn"         id="tabBulk"   onclick="switchMode('bulk')">Bulk / Multi-Loan</button>
+            </div>
+
+            <!-- ═══════════════ SINGLE MODE ═══════════════ -->
+            <div id="singleMode">
+                <div class="tool-card">
+                    <div class="field-row">
+                        <div class="field-box">
+                            <label class="field-label" for="startDate">Start Date</label>
+                            <input type="date" id="startDate" oninput="calculate()">
+                        </div>
+                        <div class="field-box">
+                            <label class="field-label" for="duration">Duration</label>
+                            <input type="number" id="duration" min="1" max="9999" placeholder="e.g. 24" oninput="calculate()">
+                        </div>
+                        <div class="field-box">
+                            <label class="field-label" for="unit">Unit</label>
+                            <select id="unit" onchange="calculate()">
+                                <option value="months">Months</option>
+                                <option value="years">Years</option>
+                                <option value="weeks">Weeks</option>
+                                <option value="days">Days</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="quick-label">Common Durations</div>
+                    <div class="quick-pills">
+                        <span class="pill" onclick="setPreset(3,'months')">3 Months</span>
+                        <span class="pill" onclick="setPreset(6,'months')">6 Months</span>
+                        <span class="pill" onclick="setPreset(12,'months')">1 Year</span>
+                        <span class="pill" onclick="setPreset(24,'months')">2 Years</span>
+                        <span class="pill" onclick="setPreset(36,'months')">3 Years</span>
+                        <span class="pill" onclick="setPreset(60,'months')">5 Years</span>
+                        <span class="pill" onclick="setPreset(84,'months')">7 Years</span>
+                        <span class="pill" onclick="setPreset(240,'months')">20 Years</span>
+                        <span class="pill" onclick="setPreset(360,'months')">30 Yrs (Home Loan)</span>
+                    </div>
+
+                    <div id="edgeNotice" class="notice">
+                        ⚠️ Month-end adjusted: the start day exceeds the last day of the target month, so the end date is set to that month's last day.
+                    </div>
+
+                    <div id="resultPanel" class="result-panel"></div>
+                    <div id="emptyHint" class="empty-hint">Enter a start date and duration above ↑</div>
+                </div>
+            </div>
+
+            <!-- ═══════════════ BULK MODE ═══════════════ -->
+            <div id="bulkMode" style="display:none;">
+                <div class="bulk-card">
+                    <div class="quick-label" style="margin-bottom:14px;">Add your loans / subscriptions</div>
+
+                    <div class="bulk-list" id="bulkList"></div>
+
+                    <div style="display:flex; gap:10px; margin-bottom:24px;">
+                        <button class="btn-action" onclick="addBulkRow()">+ Add Row</button>
+                        <button class="btn-action primary" onclick="calculateBulk()">Calculate All</button>
+                    </div>
+
+                    <div id="bulkResults" style="display:none;">
+                        <div class="quick-label" style="margin-bottom:10px;">Results — sorted by end date (active first)</div>
+                        <div class="bulk-results-header">
+                            <div>Name</div><div>End Date</div><div>Days Left</div><div>Status</div>
+                        </div>
+                        <div id="bulkResultList" style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
+                        <div style="margin-top:14px; display:flex; gap:10px;">
+                            <button class="btn-action primary" id="copyBulkBtn" onclick="copyBulk()">Copy All Results</button>
+                            <button class="btn-action"                           onclick="clearBulk()">Clear All</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- .tool-wrap -->
+    </div><!-- .container -->
+
+    <footer></footer>
+
+    <script>
+    /* ================================================================
+       BULLETPROOF DATE UTILITIES
+       All date parsing done via local-time construction (year/month/day)
+       to avoid the UTC-midnight-vs-local-midnight offset bug that
+       affects every non-UTC timezone (India, US, etc.).
+    ================================================================ */
+
+    /**
+     * Parse a YYYY-MM-DD string into a LOCAL midnight Date object.
+     * This is the only correct way to parse an <input type="date"> value.
+     */
+    function parseLocalDate(str) {
+        if (!str || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+        const [y, m, d] = str.split('-').map(Number);
+        return new Date(y, m - 1, d); // local midnight — no UTC offset
+    }
+
+    /**
+     * Format a Date to YYYY-MM-DD using local time (not UTC).
+     */
+    function toYMD(d) {
+        const y  = d.getFullYear();
+        const m  = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    }
+
+    /**
+     * Format a Date for display: "15 Jun 2027"
+     */
+    function fmtDisplay(d) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    /**
+     * Return weekday name: "Monday"
+     */
+    function weekdayName(d) {
+        return d.toLocaleDateString('en-GB', { weekday: 'long' });
+    }
+
+    /**
+     * Return today as a local-midnight Date.
+     */
+    function localToday() {
+        const n = new Date();
+        return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    }
+
+    /**
+     * Core end-date engine.
+     * @param {string} startStr  YYYY-MM-DD
+     * @param {number} duration  positive integer
+     * @param {string} unit      'months'|'years'|'weeks'|'days'
+     * @returns {{ end: Date, clamped: boolean } | null}
+     */
+    function computeEndDate(startStr, duration, unit) {
+        const start = parseLocalDate(startStr);
+        if (!start) return null;
+
+        const dur = parseInt(duration, 10);
+        if (!Number.isFinite(dur) || dur < 1) return null;
+
+        let end;
+        let clamped = false;
+        const origDay = start.getDate();
+
+        if (unit === 'months' || unit === 'years') {
+            const addMonths = unit === 'years' ? dur * 12 : dur;
+            // Build the target year/month directly to avoid JS Date month-rollover
+            const targetTotalMonths = (start.getFullYear() * 12 + start.getMonth()) + addMonths;
+            const targetYear  = Math.floor(targetTotalMonths / 12);
+            const targetMonth = targetTotalMonths % 12; // 0-indexed
+
+            // Last valid day in that target month
+            const lastDayOfTarget = new Date(targetYear, targetMonth + 1, 0).getDate();
+
+            if (origDay > lastDayOfTarget) {
+                end     = new Date(targetYear, targetMonth, lastDayOfTarget);
+                clamped = true;
+            } else {
+                end = new Date(targetYear, targetMonth, origDay);
+            }
+
+        } else if (unit === 'weeks') {
+            end = new Date(start.getTime() + dur * 7 * 86400000);
+
+        } else if (unit === 'days') {
+            end = new Date(start.getTime() + dur * 86400000);
+
+        } else {
+            return null;
+        }
+
+        return { end, clamped };
+    }
+
+    /**
+     * Difference in whole days between end (local Date) and today (local midnight).
+     * Positive = future, negative = past.
+     */
+    function daysFromToday(endDate) {
+        const today = localToday();
+        return Math.round((endDate.getTime() - today.getTime()) / 86400000);
+    }
+
+    /**
+     * Return { label, cls } status object.
+     */
+    function getStatus(dl) {
+        if (dl < 0)        return { label: 'Expired',      cls: 'status-expired' };
+        if (dl <= 30)      return { label: 'Ending Soon',  cls: 'status-ending'  };
+        return               { label: 'Active',            cls: 'status-active'  };
+    }
+
+
+    /* ================================================================
+       SINGLE CALCULATOR
+    ================================================================ */
+
+    // Initialise today's date and a sensible default duration
+    (function init() {
+        document.getElementById('startDate').value = toYMD(new Date());
+        document.getElementById('duration').value  = 12;
+        calculate();
+    })();
+
+    function setPreset(dur, unit) {
+        document.getElementById('duration').value = dur;
+        document.getElementById('unit').value     = unit;
+        calculate();
+    }
+
+    function calculate() {
+        const startStr = document.getElementById('startDate').value;
+        const durRaw   = document.getElementById('duration').value;
+        const unit     = document.getElementById('unit').value;
+
+        const panel  = document.getElementById('resultPanel');
+        const hint   = document.getElementById('emptyHint');
+        const notice = document.getElementById('edgeNotice');
+
+        // Guard: need both fields to be non-empty and valid
+        const dur = parseInt(durRaw, 10);
+        if (!startStr || !durRaw || !Number.isFinite(dur) || dur < 1) {
+            panel.classList.remove('visible');
+            hint.style.display  = '';
+            notice.classList.remove('visible');
+            return;
+        }
+
+        const result = computeEndDate(startStr, dur, unit);
+        if (!result) {
+            panel.classList.remove('visible');
+            hint.style.display = '';
+            notice.classList.remove('visible');
+            return;
+        }
+
+        const { end, clamped } = result;
+        notice.classList.toggle('visible', clamped);
+
+        const start     = parseLocalDate(startStr);
+        const today     = localToday();
+        const dl        = daysFromToday(end);
+        const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000);
+
+        // Progress: how many days have elapsed from start toward end (clamped 0–totalDays)
+        const elapsedDays = Math.round((today.getTime() - start.getTime()) / 86400000);
+        const elapsed     = Math.max(0, Math.min(totalDays, elapsedDays));
+        const pct         = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 100;
+
+        // Stats
+        const totalWeeks  = Math.floor(totalDays / 7);
+        const remDays     = totalDays % 7;
+        const weeksLabel  = remDays > 0 ? `${totalWeeks}w ${remDays}d` : `${totalWeeks}`;
+
+        // Months only meaningful for month/year inputs
+        const totalMonthsVal = (unit === 'months') ? dur
+                             : (unit === 'years')  ? dur * 12
+                             : null;
+        const monthsLabel = totalMonthsVal !== null ? totalMonthsVal : '—';
+
+        const yearsExact = (totalDays / 365.25).toFixed(2);
+
+        const { label: statusLabel, cls: statusCls } = getStatus(dl);
+
+        const dlText = dl < 0
+            ? `Ended <strong>${Math.abs(dl)} days</strong> ago`
+            : `<strong>${dl} day${dl !== 1 ? 's' : ''}</strong> remaining`;
+
+        const endYMD = toYMD(end); // safe local-time string for calendar
+
+        panel.innerHTML = `
+            <div class="result-hero">
+                <div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin-bottom:8px;">End Date</div>
+                <div class="result-date">${fmtDisplay(end)}</div>
+                <div style="font-size:0.8rem;color:#64748b;margin-top:4px;">${weekdayName(end)}</div>
+                <div class="result-sub">${dlText}</div>
+                <div><span class="status-badge ${statusCls}">${statusLabel}</span></div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-cell">
+                    <div class="sc-num">${totalDays.toLocaleString()}</div>
+                    <div class="sc-label">Total Days</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="sc-num">${weeksLabel}</div>
+                    <div class="sc-label">Weeks</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="sc-num">${monthsLabel}</div>
+                    <div class="sc-label">Months</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="sc-num">${yearsExact}</div>
+                    <div class="sc-label">Years</div>
+                </div>
+            </div>
+
+            <div class="progress-wrap">
+                <div class="progress-header">
+                    <span class="progress-title">Time elapsed</span>
+                    <span class="progress-pct">${pct}% complete</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width:${pct}%"></div>
+                </div>
+                <div class="progress-dates">
+                    <span>${fmtDisplay(start)}</span>
+                    <span>${fmtDisplay(end)}</span>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn-action primary" id="copyBtn" onclick="copyResult()">Copy Result</button>
+                <button class="btn-action" onclick="addToCalendar('${endYMD}')">📅 Add to Calendar</button>
+                <button class="btn-action" onclick="resetForm()">✕ Reset</button>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    function copyResult() {
+        const startStr = document.getElementById('startDate').value;
+        const durRaw   = document.getElementById('duration').value;
+        const unit     = document.getElementById('unit').value;
+
+        const result = computeEndDate(startStr, durRaw, unit);
+        if (!result) return;
+
+        const { end }  = result;
+        const dl       = daysFromToday(end);
+        const dlNote   = dl >= 0 ? `${dl} days remaining` : `Expired ${Math.abs(dl)} days ago`;
+
+        const text = [
+            'Loan / Subscription End Date',
+            `Start    : ${startStr}`,
+            `Duration : ${durRaw} ${unit}`,
+            `End Date : ${fmtDisplay(end)}`,
+            `Status   : ${dlNote}`,
+        ].join('\n');
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyBtn');
+            if (!btn) return;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Result'; }, 2000);
+        }).catch(() => {
+            // Fallback for browsers without clipboard API
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity  = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        });
+    }
+
+    /**
+     * Open Google Calendar with the end date pre-filled.
+     * Uses local-time parsed date to build the YYYYMMDD string — no UTC offset.
+     */
+    function addToCalendar(ymd) {
+        const d   = parseLocalDate(ymd);
+        if (!d) return;
+        const dtStr = toYMD(d).replace(/-/g, ''); // YYYYMMDD
+        const url   = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+                    + `&text=Loan+%2F+Subscription+Ends`
+                    + `&dates=${dtStr}/${dtStr}`
+                    + `&details=End+date+calculated+on+Rebrixe.com`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function resetForm() {
+        document.getElementById('startDate').value = toYMD(new Date());
+        document.getElementById('duration').value  = '';
+        document.getElementById('unit').value      = 'months';
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('emptyHint').style.display = '';
+        document.getElementById('edgeNotice').classList.remove('visible');
+    }
+
+
+    /* ================================================================
+       BULK MODE
+       Each row stores: { name, start (YYYY-MM-DD), duration, unit }
+       Unit selector is rendered per row so the user can pick it.
+    ================================================================ */
+
+    let bulkRows = [];
+
+    function initBulk() {
+        bulkRows = [
+            { name: 'Home Loan', start: toYMD(new Date()), duration: 240, unit: 'months' },
+            { name: 'Netflix',   start: toYMD(new Date()), duration: 1,   unit: 'months' },
+            { name: 'Car Loan',  start: toYMD(new Date()), duration: 60,  unit: 'months' },
+        ];
+        renderBulkRows();
+    }
+
+    function renderBulkRows() {
+        const list = document.getElementById('bulkList');
+
+        if (bulkRows.length === 0) {
+            list.innerHTML = '<div class="empty-hint">No rows yet. Click "+ Add Row" to start.</div>';
+            return;
+        }
+
+        list.innerHTML = bulkRows.map((r, i) => `
+            <div class="bulk-row">
+                <input  class="bulk-input"
+                        type="text"
+                        placeholder="Name (e.g. Home Loan)"
+                        value="${escAttr(r.name)}"
+                        data-i="${i}" data-field="name"
+                        oninput="updateBulkField(this)">
+                <input  class="bulk-input"
+                        type="date"
+                        value="${escAttr(r.start)}"
+                        data-i="${i}" data-field="start"
+                        oninput="updateBulkField(this)"
+                        style="color-scheme:dark;">
+                <input  class="bulk-input"
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 12"
+                        value="${escAttr(String(r.duration))}"
+                        data-i="${i}" data-field="duration"
+                        oninput="updateBulkField(this)">
+                <select class="bulk-select"
+                        data-i="${i}" data-field="unit"
+                        onchange="updateBulkField(this)">
+                    <option value="months" ${r.unit==='months'?'selected':''}>Months</option>
+                    <option value="years"  ${r.unit==='years' ?'selected':''}>Years</option>
+                    <option value="weeks"  ${r.unit==='weeks' ?'selected':''}>Weeks</option>
+                    <option value="days"   ${r.unit==='days'  ?'selected':''}>Days</option>
+                </select>
+                <button class="del-btn" onclick="deleteBulkRow(${i})" title="Remove row">✕</button>
+            </div>
+        `).join('');
+    }
+
+    /** Generic field updater — avoids per-field inline handlers */
+    function updateBulkField(el) {
+        const i     = parseInt(el.dataset.i, 10);
+        const field = el.dataset.field;
+        if (!bulkRows[i]) return;
+        bulkRows[i][field] = el.value;
+    }
+
+    function addBulkRow() {
+        bulkRows.push({ name: '', start: toYMD(new Date()), duration: 12, unit: 'months' });
+        renderBulkRows();
+        // Hide stale results when rows change
+        document.getElementById('bulkResults').style.display = 'none';
+    }
+
+    function deleteBulkRow(i) {
+        bulkRows.splice(i, 1);
+        renderBulkRows();
+        document.getElementById('bulkResults').style.display = 'none';
+    }
+
+    function calculateBulk() {
+        // Sync DOM → bulkRows (in case user typed without triggering oninput)
+        document.querySelectorAll('#bulkList [data-i]').forEach(el => updateBulkField(el));
+
+        const results = bulkRows.map(r => {
+            if (!r.start || !r.duration) return null;
+            const res = computeEndDate(r.start, r.duration, r.unit);
+            if (!res) return null;
+            const dl = daysFromToday(res.end);
+            return { name: r.name.trim() || 'Untitled', end: res.end, dl };
+        }).filter(Boolean);
+
+        if (results.length === 0) return;
+
+        // Sort: active (soonest-ending first), then expired (most-recent first)
+        results.sort((a, b) => {
+            const aExpired = a.dl < 0;
+            const bExpired = b.dl < 0;
+            if (aExpired !== bExpired) return aExpired ? 1 : -1; // expired goes last
+            return a.end - b.end; // within each group, sort by date
+        });
+
+        const resDiv  = document.getElementById('bulkResults');
+        const resList = document.getElementById('bulkResultList');
+        resDiv.style.display = 'block';
+
+        resList.innerHTML = results.map(r => {
+            const { label: statusLabel, cls: statusCls } = getStatus(r.dl);
+            const dlTxt = r.dl < 0 ? 'Expired' : `${r.dl} day${r.dl !== 1 ? 's' : ''}`;
+            return `
+                <div class="bulk-result-row">
+                    <div class="col-name">${escHtml(r.name)}</div>
+                    <div class="col-enddate">${fmtDisplay(r.end)}</div>
+                    <div class="col-remaining">${dlTxt}</div>
+                    <div><span class="status-badge ${statusCls}">${statusLabel}</span></div>
+                </div>`;
+        }).join('');
+    }
+
+    function copyBulk() {
+        const rows = document.querySelectorAll('#bulkResultList .bulk-result-row');
+        if (!rows.length) return;
+
+        let text = 'Loan / Subscription End Dates\n' + '─'.repeat(50) + '\n';
+        rows.forEach(r => {
+            const name  = r.querySelector('.col-name').textContent.trim();
+            const end   = r.querySelector('.col-enddate').textContent.trim();
+            const left  = r.querySelector('.col-remaining').textContent.trim();
+            text += `${name.padEnd(22)} | ${end.padEnd(14)} | ${left}\n`;
+        });
+
+        const btn = document.getElementById('copyBulkBtn');
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy All Results'; }, 2000);
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy All Results'; }, 2000);
+        });
+    }
+
+    function clearBulk() {
+        bulkRows = [];
+        renderBulkRows();
+        document.getElementById('bulkResults').style.display = 'none';
+    }
+
+
+    /* ================================================================
+       MODE SWITCH
+    ================================================================ */
+    function switchMode(mode) {
+        document.getElementById('tabSingle').classList.toggle('active', mode === 'single');
+        document.getElementById('tabBulk').classList.toggle('active',   mode === 'bulk');
+        document.getElementById('singleMode').style.display = mode === 'single' ? '' : 'none';
+        document.getElementById('bulkMode').style.display   = mode === 'bulk'   ? '' : 'none';
+    }
+
+
+    /* ================================================================
+       SECURITY HELPERS — prevent XSS from user-typed names
+    ================================================================ */
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function escAttr(str) {
+        return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+
+    /* ── Bootstrap ──────────────────────────────────────────────── */
+    initBulk();
+
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

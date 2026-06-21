@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thumbnail Resizer — Resize to 150x150, 200x200, 300x300 & More | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Instantly resize any image to perfect thumbnail sizes — 150x150, 200x200, 300x300, 400x400, 500x500 or custom. Batch export all sizes. Free, browser-only, no upload.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600; --accent: #FFB700; --success: #AAFF00;
+            --error: #FF4444; --text: #F0EDD6; --text-sec: #B8B49A;
+            --text-dim: #6B6855; --bg: #0C0B07; --surface: #141310;
+            --card: #1A1812; --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07); --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px; --radius-md: 14px; --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Section card */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Size presets */
+        .sizes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 16px; }
+        .size-card {
+            padding: 12px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; text-align: center; position: relative;
+        }
+        .size-card:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .size-card.selected { border-color: var(--primary); background: var(--primary-dim); }
+        .size-card input[type="checkbox"] { display: none; }
+        .size-card.selected::after { content: '✓'; position: absolute; top: 6px; right: 8px; font-size: 0.65rem; color: var(--primary); font-weight: 800; }
+        .size-px { font-size: 0.85rem; font-weight: 800; color: var(--text-sec); font-family: 'Fira Code', monospace; transition: color 0.18s; }
+        .size-card:hover .size-px, .size-card.selected .size-px { color: var(--primary); }
+        .size-label { font-size: 0.62rem; color: var(--text-dim); margin-top: 3px; }
+        .size-visual { display: flex; align-items: center; justify-content: center; margin-bottom: 7px; }
+        .size-box { background: rgba(255,214,0,0.15); border: 1px solid rgba(255,214,0,0.2); border-radius: 3px; transition: all 0.18s; }
+        .size-card.selected .size-box { background: rgba(255,214,0,0.25); border-color: rgba(255,214,0,0.4); }
+
+        .select-all-row { display: flex; gap: 8px; margin-bottom: 14px; }
+        .tiny-btn { font-size: 0.68rem; font-weight: 700; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 11px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s; }
+        .tiny-btn:hover { color: var(--primary); border-color: var(--primary-border); }
+
+        /* Custom size */
+        .custom-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--border); margin-top: 4px; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.95rem; font-weight: 500; padding: 9px 12px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .px-input:focus { border-color: var(--primary); }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 80px; }
+        .input-label { font-size: 0.65rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.7px; }
+        .x-sep { font-size: 1.1rem; color: var(--text-dim); padding-bottom: 8px; font-weight: 300; }
+
+        /* Options row */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .quality-slider-wrap { display: flex; align-items: center; gap: 10px; }
+        .quality-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .quality-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .quality-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Results */
+        .results-section { display: none; }
+        .results-section.visible { display: block; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+        .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; transition: border-color 0.2s; }
+        .result-card:hover { border-color: var(--primary-border); }
+        .result-preview { background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 12px 12px; display: flex; align-items: center; justify-content: center; height: 120px; overflow: hidden; }
+        .result-preview img { max-width: 100%; max-height: 120px; object-fit: contain; display: block; }
+        .result-info { padding: 10px 12px; }
+        .result-size { font-size: 0.8rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .result-meta { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; }
+        .result-dl { width: 100%; margin-top: 8px; padding: 7px 0; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: 7px; color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.18s; }
+        .result-dl:hover { background: rgba(255,214,0,0.14); }
+
+        /* Progress bar */
+        .progress-wrap { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 22px; margin-bottom: 18px; }
+        .progress-wrap.visible { display: block; }
+        .progress-label { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .progress-bar-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; transition: width 0.3s ease; width: 0%; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        .hint { font-size: 0.73rem; color: var(--text-dim); margin-top: 10px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
+        .hint::before { content: '💡'; flex-shrink: 0; }
+
+        @media (max-width: 600px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .sizes-grid { grid-template-columns: repeat(3, 1fr); }
+            .action-row { flex-direction: column; }
+            .btn-main, .btn-secondary { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Thumbnail Resizer</h1>
+                <p class="tool-page-sub">Resize to 150×150, 200×200, 300×300 and more — one click, all sizes, instant download.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🖼️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Size Presets -->
+                <div class="section-card">
+                    <div class="section-label">Select Thumbnail Sizes</div>
+                    <div class="select-all-row">
+                        <button class="tiny-btn" onclick="selectAll()">Select All</button>
+                        <button class="tiny-btn" onclick="clearAll()">Clear All</button>
+                    </div>
+                    <div class="sizes-grid" id="sizesGrid"></div>
+
+                    <!-- Custom -->
+                    <div class="custom-row">
+                        <div class="input-group">
+                            <label class="input-label" for="customW">Width (px)</label>
+                            <input class="px-input" type="number" id="customW" placeholder="128" min="1" max="2000">
+                        </div>
+                        <span class="x-sep">×</span>
+                        <div class="input-group">
+                            <label class="input-label" for="customH">Height (px)</label>
+                            <input class="px-input" type="number" id="customH" placeholder="128" min="1" max="2000">
+                        </div>
+                        <button class="tog-btn" style="padding:9px 14px; flex-shrink:0;" onclick="addCustom()">+ Add</button>
+                    </div>
+                    <div class="hint">Add a custom size above and it'll appear in the grid alongside the presets.</div>
+                </div>
+
+                <!-- Options -->
+                <div class="section-card">
+                    <div class="options-grid">
+                        <div class="opt-group">
+                            <label>Crop Mode</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-crop="cover" onclick="setCrop(this)">Smart Crop</button>
+                                <button class="tog-btn" data-crop="contain" onclick="setCrop(this)">Fit</button>
+                                <button class="tog-btn" data-crop="stretch" onclick="setCrop(this)">Stretch</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Output Format</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                        <div class="opt-group" style="grid-column: 1 / -1;">
+                            <label>Quality — <span id="qualLabel">90%</span></label>
+                            <div class="quality-slider-wrap">
+                                <input type="range" class="quality-slider" id="qualSlider" min="10" max="100" value="90" oninput="setQuality(this.value)">
+                                <span class="quality-val" id="qualVal">90</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="progress-wrap" id="progressWrap">
+                    <div class="progress-label"><span id="progressText">Processing…</span><span id="progressCount"></span></div>
+                    <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnResize" onclick="doResize()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✂️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Generate Thumbnails</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnBatch" onclick="doBatchDownload()">⬇ Download All (ZIP)</button>
+                </div>
+
+                <!-- Results -->
+                <div class="results-section" id="resultsSection">
+                    <div class="section-label" style="margin-bottom:0;">Results — click any card to download individually</div>
+                    <div class="results-grid" id="resultsGrid"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>All sizes at once</h3>
+                        <p>Select multiple presets and hit Generate — get every thumbnail size in one shot. Download individually or grab all as a ZIP. Perfect for WordPress, Shopify, app icons.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Smart Crop vs Fit</h3>
+                        <p><code>Smart Crop</code> fills the square perfectly, trimming edges. <code>Fit</code> shows the full image with padding. <code>Stretch</code> forces exact dimensions — avoid for faces.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs in your browser using the <code>Canvas API</code>. Your image never touches any server. Works offline once the page loads.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>WebP saves bandwidth</h3>
+                        <p>Thumbnails appear everywhere on a site — switching to WebP cuts file size by <code>25–35%</code> vs JPG with no visible quality loss. Faster pages, better Core Web Vitals.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── PRESETS ───────────────────────────────────────────────────────────────
+    const BASE_SIZES = [
+        { w:150,  h:150,  label:'Small'    },
+        { w:200,  h:200,  label:'Standard' },
+        { w:250,  h:250,  label:'Medium'   },
+        { w:300,  h:300,  label:'Large'    },
+        { w:400,  h:400,  label:'XL'       },
+        { w:500,  h:500,  label:'XXL'      },
+    ];
+    let sizes = BASE_SIZES.map(s => ({ ...s, selected: true, custom: false }));
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let cropMode = 'cover', outputFmt = 'jpeg', quality = 0.90;
+    let results = []; // { dataURL, w, h, bytes, filename }
+
+    // ─── RENDER SIZES ──────────────────────────────────────────────────────────
+    function renderSizes() {
+        const grid = document.getElementById('sizesGrid');
+        grid.innerHTML = '';
+        sizes.forEach((s, i) => {
+            const maxDim = 36, scale = maxDim / Math.max(s.w, s.h);
+            const bw = Math.round(s.w * scale), bh = Math.round(s.h * scale);
+            const c = document.createElement('div');
+            c.className = 'size-card' + (s.selected ? ' selected' : '');
+            c.innerHTML = `
+                <div class="size-visual"><div class="size-box" style="width:${bw}px;height:${bh}px;"></div></div>
+                <div class="size-px">${s.w}×${s.h}</div>
+                <div class="size-label">${s.label}</div>`;
+            c.onclick = () => { sizes[i].selected = !sizes[i].selected; renderSizes(); };
+            grid.appendChild(c);
+        });
+    }
+
+    function selectAll() { sizes.forEach(s => s.selected = true); renderSizes(); }
+    function clearAll()  { sizes.forEach(s => s.selected = false); renderSizes(); }
+
+    function addCustom() {
+        const w = parseInt(document.getElementById('customW').value);
+        const h = parseInt(document.getElementById('customH').value);
+        if (!w || !h || w < 1 || h < 1 || w > 2000 || h > 2000) { showToast('Enter valid dimensions (1–2000px)', 'error'); return; }
+        if (sizes.find(s => s.w === w && s.h === h)) { showToast('Size already in list', 'error'); return; }
+        sizes.push({ w, h, label: 'Custom', selected: true, custom: true });
+        document.getElementById('customW').value = '';
+        document.getElementById('customH').value = '';
+        renderSizes();
+        showToast(`Added ${w}×${h}`, 'success');
+    }
+
+    renderSizes();
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                resetResults();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null;
+        resetResults();
+    }
+
+    function resetResults() {
+        results = [];
+        document.getElementById('resultsSection').classList.remove('visible');
+        document.getElementById('btnBatch').classList.remove('visible');
+        document.getElementById('resultsGrid').innerHTML = '';
+        document.getElementById('progressWrap').classList.remove('visible');
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function setCrop(btn) { document.querySelectorAll('[data-crop]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); cropMode = btn.dataset.crop; }
+    function setFmt(btn)  { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));  btn.classList.add('active');  outputFmt = btn.dataset.fmt; }
+    function setQuality(v) { quality = v / 100; document.getElementById('qualVal').textContent = v; document.getElementById('qualLabel').textContent = v + '%'; }
+
+    // ─── RESIZE ONE ────────────────────────────────────────────────────────────
+    function resizeOne(img, tw, th) {
+        const canvas = document.createElement('canvas');
+        canvas.width = tw; canvas.height = th;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        const sw = img.naturalWidth, sh = img.naturalHeight;
+        if (cropMode === 'cover') {
+            const scale = Math.max(tw / sw, th / sh);
+            const nw = sw * scale, nh = sh * scale;
+            ctx.drawImage(img, (tw - nw) / 2, (th - nh) / 2, nw, nh);
+        } else if (cropMode === 'contain') {
+            const scale = Math.min(tw / sw, th / sh);
+            const nw = sw * scale, nh = sh * scale;
+            if (outputFmt === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, tw, th); }
+            ctx.drawImage(img, (tw - nw) / 2, (th - nh) / 2, nw, nh);
+        } else {
+            ctx.drawImage(img, 0, 0, tw, th);
+        }
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : quality;
+        return canvas.toDataURL(mime, q);
+    }
+
+    // ─── GENERATE ALL ──────────────────────────────────────────────────────────
+    function doResize() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const selected = sizes.filter(s => s.selected);
+        if (!selected.length) { showToast('Select at least one size', 'error'); return; }
+
+        resetResults();
+        const pw = document.getElementById('progressWrap');
+        const pf = document.getElementById('progressFill');
+        const pt = document.getElementById('progressText');
+        const pc = document.getElementById('progressCount');
+        pw.classList.add('visible');
+
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+
+        let i = 0;
+        function processNext() {
+            if (i >= selected.length) {
+                pw.classList.remove('visible');
+                renderResults();
+                showToast(`${results.length} thumbnail${results.length > 1 ? 's' : ''} ready ✓`, 'success');
+                return;
+            }
+            const s = selected[i];
+            pt.textContent = `Generating ${s.w}×${s.h}…`;
+            pc.textContent = `${i + 1} / ${selected.length}`;
+            pf.style.width = ((i / selected.length) * 100) + '%';
+
+            // Use setTimeout to allow UI to update between frames
+            setTimeout(() => {
+                const dataURL = resizeOne(origImg, s.w, s.h);
+                const bytes = Math.round(dataURL.split(',')[1].length * 0.75);
+                results.push({
+                    dataURL, w: s.w, h: s.h, bytes,
+                    filename: `${baseName}_${s.w}x${s.h}.${ext}`
+                });
+                i++;
+                processNext();
+            }, 10);
+        }
+        processNext();
+    }
+
+    function renderResults() {
+        const grid = document.getElementById('resultsGrid');
+        grid.innerHTML = '';
+        results.forEach((r, idx) => {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.innerHTML = `
+                <div class="result-preview"><img src="${r.dataURL}" alt="${r.w}×${r.h}"></div>
+                <div class="result-info">
+                    <div class="result-size">${r.w} × ${r.h}</div>
+                    <div class="result-meta">${fmtBytes(r.bytes)} · ${outputFmt.toUpperCase()}</div>
+                    <button class="result-dl" onclick="dlOne(${idx})">⬇ Download</button>
+                </div>`;
+            grid.appendChild(card);
+        });
+        document.getElementById('resultsSection').classList.add('visible');
+        if (results.length > 1) document.getElementById('btnBatch').classList.add('visible');
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function dlOne(idx) {
+        const r = results[idx];
+        const a = document.createElement('a');
+        a.href = r.dataURL; a.download = r.filename; a.click();
+    }
+
+    // ─── BATCH ZIP ─────────────────────────────────────────────────────────────
+    async function doBatchDownload() {
+        if (!results.length) return;
+        // Pure JS ZIP builder — no library needed for simple cases
+        // We'll create individual downloads if JSZip isn't available,
+        // or use the lightweight inline ZIP approach.
+        showToast('Preparing ZIP…');
+
+        try {
+            // Dynamic load of JSZip from CDN
+            if (!window.JSZip) {
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            }
+            const zip = new JSZip();
+            results.forEach(r => {
+                const b64 = r.dataURL.split(',')[1];
+                zip.file(r.filename, b64, { base64: true });
+            });
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'thumbnails';
+            a.href = url; a.download = `${baseName}_thumbnails.zip`; a.click();
+            URL.revokeObjectURL(url);
+            showToast('ZIP downloaded!', 'success');
+        } catch (e) {
+            // Fallback: download one by one
+            showToast('Downloading individually…');
+            results.forEach((r, i) => setTimeout(() => dlOne(i), i * 300));
+        }
+    }
+
+    function loadScript(src) {
+        return new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = src; s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+        });
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunch Break Deduction Tool | Rebrixe</title>
+    <meta name="description" content="Auto-deduct lunch breaks from shift hours. Calculate exact paid time after 30, 45, or 60 min break deductions. Built for shift workers and HR teams.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────────── */
+        .tool-wrap  { max-width: 820px; margin: 40px auto; }
+        .tool-card  {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Time row ───────────────────────────────────────────── */
+        .time-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .input-box { display: flex; flex-direction: column; gap: 8px; }
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary, #8b9498);
+        }
+        input[type="time"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border, #1e293b);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        input[type="time"]:focus { border-color: var(--primary, #8b9498); }
+        .arrow-sep {
+            font-size: 1.5rem;
+            color: var(--border, #1e293b);
+            text-align: center;
+            padding-bottom: 14px;
+            user-select: none;
+        }
+
+        /* ── Overnight toggle ───────────────────────────────────── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+        }
+        .toggle-label { font-size: 0.85rem; color: #94a3b8; flex: 1; line-height: 1.4; }
+        .toggle-label strong { color: #fff; }
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .3s;
+            border: 1px solid var(--border, #1e293b);
+        }
+        .slider::before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b;
+            border-radius: 50%;
+            transition: .3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.15); border-color: var(--primary, #8b9498); }
+        .switch input:checked + .slider::before { transform: translateX(20px); background: var(--primary, #8b9498); }
+
+        /* ── Break pills ────────────────────────────────────────── */
+        .section-eyebrow {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .break-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .break-pill {
+            background: rgba(255,255,255,0.04);
+            border: 2px solid var(--border, #1e293b);
+            color: #94a3b8;
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .break-pill:hover { border-color: var(--primary, #8b9498); color: #fff; }
+        .break-pill.active {
+            border-color: var(--primary, #8b9498);
+            background: rgba(139,148,152,0.12);
+            color: #fff;
+        }
+        .break-pill.is-none { font-style: italic; }
+
+        /* ── Custom break ───────────────────────────────────────── */
+        .custom-break-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+        }
+        .custom-break-wrap label { font-size: 0.85rem; color: #94a3b8; flex: 1; }
+        .custom-break-wrap label strong { color: #fff; }
+        .custom-mins {
+            width: 80px;
+            background: #000;
+            border: 2px solid var(--border, #1e293b);
+            border-radius: 10px;
+            color: #fff;
+            padding: 8px 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            outline: none;
+            text-align: center;
+            transition: border-color .2s;
+        }
+        .custom-mins:focus { border-color: var(--primary, #8b9498); }
+        .muted-unit { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+
+        /* ── Validation warning ─────────────────────────────────── */
+        .warn-banner {
+            display: none;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.35);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.82rem;
+            color: #fca5a5;
+            margin-bottom: 16px;
+        }
+        .warn-banner.visible { display: block; }
+
+        /* ── Result panel ───────────────────────────────────────── */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        .paid-hero {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-bottom: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+        .paid-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .paid-hero.highlight { border-color: var(--primary, #8b9498); background: rgba(120,129,132,0.07); }
+        .paid-hero-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        .paid-time {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.8rem, 8vw, 4.5rem);
+            font-weight: 900;
+            color: var(--primary, #8b9498);
+            letter-spacing: -3px;
+            line-height: 1;
+        }
+        .paid-sub { font-size: 0.82rem; color: #64748b; margin-top: 8px; }
+        .paid-sub strong { color: #fff; }
+        .tag-overnight {
+            color: var(--primary, #8b9498);
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* ── Stats grid ─────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        .stat-unit {
+            font-size: 0.6rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Wage calculator ────────────────────────────────────── */
+        .wage-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+            flex-wrap: wrap;
+        }
+        .wage-row label { font-size: 0.85rem; color: #94a3b8; flex: 1; min-width: 140px; }
+        .wage-row label strong { color: #fff; }
+        .wage-input-wrap { display: flex; align-items: center; gap: 6px; }
+        .currency-sym { font-family: 'Outfit', sans-serif; font-weight: 800; color: #64748b; font-size: 1rem; }
+        .wage-input {
+            width: 90px;
+            background: #000;
+            border: 2px solid var(--border, #1e293b);
+            border-radius: 10px;
+            color: #fff;
+            padding: 8px 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            outline: none;
+            text-align: center;
+            transition: border-color .2s;
+        }
+        .wage-input:focus { border-color: var(--primary, #8b9498); }
+
+        .wage-result {
+            display: none;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .wage-result.visible { display: block; }
+        .wage-result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .w-item { display: flex; flex-direction: column; gap: 4px; }
+        .w-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        .w-val { font-family: 'Outfit', sans-serif; font-weight: 900; color: #fff; font-size: 1.1rem; }
+        .w-val.accent { color: var(--primary, #8b9498); }
+
+        /* ── Multi-shift batch ──────────────────────────────────── */
+        .add-shift-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto auto;
+            gap: 8px;
+            margin-bottom: 14px;
+            align-items: end;
+        }
+        .add-shift-row input[type="time"] { padding: 10px 14px; font-size: 0.85rem; }
+        .add-shift-row select {
+            background: #000;
+            border: 2px solid var(--border, #1e293b);
+            border-radius: 14px;
+            color: #fff;
+            padding: 10px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color .2s;
+            cursor: pointer;
+        }
+        .add-shift-row select:focus { border-color: var(--primary, #8b9498); }
+        .overnight-check-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding-bottom: 2px;
+        }
+        .overnight-check-wrap span {
+            font-size: 0.55rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .overnight-check-wrap input[type="checkbox"] {
+            width: 18px; height: 18px;
+            accent-color: var(--primary, #8b9498);
+            cursor: pointer;
+        }
+        .btn-add {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border, #1e293b);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .btn-add:hover { border-color: var(--primary, #8b9498); background: rgba(139,148,152,0.1); }
+
+        .batch-table-wrap {
+            overflow-x: auto;
+            margin-bottom: 14px;
+            border: 1px solid var(--border, #1e293b);
+            border-radius: 14px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        thead { background: rgba(255,255,255,0.04); }
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 800;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border, #1e293b);
+            color: #cbd5e1;
+            white-space: nowrap;
+        }
+        td.paid-td { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--primary, #8b9498); }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+            transition: color .2s;
+            line-height: 1;
+        }
+        .btn-remove:hover { color: #ef4444; }
+
+        .batch-hidden { display: none; }
+        .empty-hint { text-align: center; padding: 20px; color: #334155; font-size: 0.88rem; }
+
+        /* ── Action buttons ─────────────────────────────────────── */
+        .action-row { display: flex; gap: 10px; margin-top: 4px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border, #1e293b);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .15s, letter-spacing .15s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        /* ── Responsive ─────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 24px 16px; }
+            .time-row { grid-template-columns: 1fr; }
+            .arrow-sep { padding-bottom: 0; transform: rotate(90deg); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-direction: column; }
+            .add-shift-row { grid-template-columns: 1fr 1fr; }
+            .wage-result-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .add-shift-row { grid-template-columns: 1fr 1fr; }
+            .add-shift-row .overnight-check-wrap { display: none; } /* hide for tiny screens */
+        }
+    </style>
+</head>
+
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Lunch Break Deduction Tool
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">Auto-deduct breaks from any shift — get exact paid hours instantly.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- SHIFT TIME INPUTS -->
+                <div class="time-row">
+                    <div class="input-box">
+                        <span class="input-label">Shift Start</span>
+                        <input type="time" id="shiftStart" value="09:00">
+                    </div>
+                    <div class="arrow-sep">→</div>
+                    <div class="input-box">
+                        <span class="input-label">Shift End</span>
+                        <input type="time" id="shiftEnd" value="17:00">
+                    </div>
+                </div>
+
+                <!-- OVERNIGHT TOGGLE -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Overnight Shift</strong> — end time is the next day (e.g. 10 PM → 6 AM)
+                    </div>
+                    <label class="switch" aria-label="Overnight shift toggle">
+                        <input type="checkbox" id="overnightToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- BREAK DURATION PILLS -->
+                <div class="section-eyebrow">Break Duration</div>
+                <div class="break-pills" id="pillGroup" role="group" aria-label="Break duration">
+                    <span class="break-pill is-none" data-mins="0" tabindex="0" role="button" aria-pressed="false">No Break</span>
+                    <span class="break-pill"          data-mins="15" tabindex="0" role="button" aria-pressed="false">15 min</span>
+                    <span class="break-pill active"   data-mins="30" tabindex="0" role="button" aria-pressed="true">30 min</span>
+                    <span class="break-pill"          data-mins="45" tabindex="0" role="button" aria-pressed="false">45 min</span>
+                    <span class="break-pill"          data-mins="60" tabindex="0" role="button" aria-pressed="false">60 min</span>
+                    <span class="break-pill"          data-mins="90" tabindex="0" role="button" aria-pressed="false">90 min</span>
+                </div>
+
+                <!-- CUSTOM BREAK -->
+                <div class="custom-break-wrap">
+                    <label for="customBreak"><strong>Custom break</strong> — enter any duration</label>
+                    <input type="number" class="custom-mins" id="customBreak"
+                           min="0" max="1440" step="1" placeholder="0">
+                    <span class="muted-unit">minutes</span>
+                </div>
+
+                <!-- VALIDATION WARNING -->
+                <div class="warn-banner" id="warnBanner" role="alert" aria-live="polite"></div>
+
+                <!-- RESULT PANEL (DOM elements — no innerHTML injection) -->
+                <div class="result-panel" id="resultPanel">
+                    <div class="paid-hero highlight">
+                        <div class="paid-hero-label">Paid / Billable Time</div>
+                        <div class="paid-time" id="rPaidTime">—</div>
+                        <div class="paid-sub" id="rPaidSub"></div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-cell"><div class="stat-num" id="rGrossHM">—</div><div class="stat-unit">Gross Shift</div></div>
+                        <div class="stat-cell"><div class="stat-num" id="rBreakMins">—</div><div class="stat-unit">Break Deducted</div></div>
+                        <div class="stat-cell"><div class="stat-num" id="rBreakPct">—</div><div class="stat-unit">Break of Shift</div></div>
+                        <div class="stat-cell"><div class="stat-num" id="rGrossDec">—</div><div class="stat-unit">Gross Decimal Hrs</div></div>
+                        <div class="stat-cell"><div class="stat-num" id="rPaidDec">—</div><div class="stat-unit">Paid Decimal Hrs</div></div>
+                        <div class="stat-cell"><div class="stat-num" id="rPaidMins">—</div><div class="stat-unit">Paid Minutes</div></div>
+                    </div>
+                </div>
+
+                <!-- WAGE CALCULATOR -->
+                <div class="wage-row">
+                    <label for="wageInput"><strong>Wage calculator</strong> — optional, enter hourly rate</label>
+                    <div class="wage-input-wrap">
+                        <span class="currency-sym">$</span>
+                        <input type="number" class="wage-input" id="wageInput"
+                               min="0" max="10000" step="0.01" placeholder="0.00">
+                        <span class="muted-unit">/ hr</span>
+                    </div>
+                </div>
+                <div class="wage-result" id="wageResult">
+                    <div class="section-eyebrow">Shift Earnings</div>
+                    <div class="wage-result-grid">
+                        <div class="w-item">
+                            <div class="w-label">Paid Earnings</div>
+                            <div class="w-val accent" id="wPaidEarnings">—</div>
+                        </div>
+                        <div class="w-item">
+                            <div class="w-label">Unpaid Break Cost</div>
+                            <div class="w-val" id="wBreakCost">—</div>
+                        </div>
+                        <div class="w-item">
+                            <div class="w-label">Hourly Rate</div>
+                            <div class="w-val" id="wHourlyRate">—</div>
+                        </div>
+                        <div class="w-item">
+                            <div class="w-label">Per-Minute Rate</div>
+                            <div class="w-val" id="wPerMin">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MULTI-SHIFT BATCH -->
+                <div style="margin-top: 8px;">
+                    <div class="section-eyebrow">Multi-Shift — track a whole week</div>
+                    <div class="add-shift-row">
+                        <input type="time" id="bStart" value="09:00" aria-label="Batch shift start">
+                        <input type="time" id="bEnd"   value="17:00" aria-label="Batch shift end">
+                        <select id="bBreak" aria-label="Batch break duration">
+                            <option value="0">No Break</option>
+                            <option value="15">15 min</option>
+                            <option value="30" selected>30 min</option>
+                            <option value="45">45 min</option>
+                            <option value="60">60 min</option>
+                            <option value="90">90 min</option>
+                        </select>
+                        <div class="overnight-check-wrap">
+                            <span>Overnight</span>
+                            <input type="checkbox" id="bOvernight" aria-label="Overnight batch shift">
+                        </div>
+                        <button class="btn-add" id="btnAddShift">+ Add</button>
+                    </div>
+
+                    <div id="batchWrap" class="batch-hidden">
+                        <div class="batch-table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Start</th>
+                                        <th>End</th>
+                                        <th>Break</th>
+                                        <th>Overnight</th>
+                                        <th>Gross</th>
+                                        <th>Paid</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="batchBody"></tbody>
+                                <tfoot>
+                                    <tr style="background:rgba(255,255,255,0.03);">
+                                        <td colspan="5" style="font-weight:700; color:#94a3b8; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Week Total</td>
+                                        <td id="totalGross" style="font-family:'Outfit',sans-serif; font-weight:800; color:#94a3b8;">—</td>
+                                        <td id="totalPaid" class="paid-td">—</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="action-row" style="margin-bottom:14px;">
+                            <button class="btn-action" id="btnClearBatch">✕ Clear All</button>
+                            <button class="btn-action primary" id="btnCopyBatch">Copy Summary</button>
+                        </div>
+                    </div>
+                    <div id="batchHint" class="empty-hint">Add shifts above to build your week ↑</div>
+                </div>
+
+                <!-- MAIN ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action primary" id="btnCopyResult">Copy Result</button>
+                    <button class="btn-action" id="btnReset">✕ Reset</button>
+                </div>
+
+            </div><!-- /.tool-card -->
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+    <script src="../nav.js"></script>
+
+    <script>
+    'use strict';
+
+    /* ================================================================
+       CONSTANTS
+    ================================================================ */
+    const MINS_PER_DAY = 1440;
+
+    /* ================================================================
+       STATE — single source of truth
+    ================================================================ */
+    const state = {
+        breakMins: 30,   // currently selected break duration
+        shifts: [],      // batch shift rows
+    };
+
+    /* ================================================================
+       UTILITY FUNCTIONS
+    ================================================================ */
+
+    /** Parse "HH:MM" → total minutes since midnight. Returns NaN if invalid. */
+    function parseTime(val) {
+        if (typeof val !== 'string' || !/^\d{2}:\d{2}$/.test(val)) return NaN;
+        const h = parseInt(val.slice(0, 2), 10);
+        const m = parseInt(val.slice(3, 5), 10);
+        if (h > 23 || m > 59) return NaN;
+        return h * 60 + m;
+    }
+
+    /**
+     * Compute gross shift minutes.
+     * Returns null if inputs are invalid.
+     * Returns 0 with a warning string if start === end and overnight is false.
+     */
+    function computeGrossMinutes(startVal, endVal, overnight) {
+        const s = parseTime(startVal);
+        const e = parseTime(endVal);
+        if (isNaN(s) || isNaN(e)) return { mins: null, warn: 'Enter both start and end times.' };
+
+        let diff = e - s;
+
+        if (overnight) {
+            // Force next-day interpretation
+            if (diff >= 0) diff -= MINS_PER_DAY; // e.g. 06:00 - 22:00 = -960
+            diff += MINS_PER_DAY;                 // → 480
+        } else {
+            if (diff < 0) diff += MINS_PER_DAY;  // auto-correct without overnight flag
+            if (diff === 0) {
+                return { mins: 0, warn: 'Start and end times are the same — shift duration is 0 minutes.' };
+            }
+        }
+
+        return { mins: diff, warn: null };
+    }
+
+    /** Format minutes → "Xh YYm". Always shows minutes with leading zero. */
+    function fmtHM(mins) {
+        const safeMins = Math.max(0, Math.floor(mins));
+        const h = Math.floor(safeMins / 60);
+        const m = safeMins % 60;
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+    }
+
+    /** Format minutes → "Xh Ym" (compact, no leading zero, omits "0m" if clean hour). */
+    function fmtHMShort(mins) {
+        const safeMins = Math.max(0, Math.floor(mins));
+        const h = Math.floor(safeMins / 60);
+        const m = safeMins % 60;
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+
+    /** Format "HH:MM" → "12:30 PM" */
+    function fmtTime12(val) {
+        const s = parseTime(val);
+        if (isNaN(s)) return val;
+        const h = Math.floor(s / 60);
+        const m = s % 60;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12  = h % 12 || 12;
+        return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+    }
+
+    /** Safely format a number to fixed decimal places (returns number, not string). */
+    function toFixed(num, dp) {
+        return Math.round(num * Math.pow(10, dp)) / Math.pow(10, dp);
+    }
+
+    /** Format currency. */
+    function fmtCurrency(num) {
+        return '$' + toFixed(num, 2).toFixed(2);
+    }
+
+    /** Show a brief "Copied!" feedback on a button then restore its label. */
+    function flashBtn(btn, originalText, successText = '✓ Copied!', ms = 2000) {
+        btn.textContent = successText;
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }, ms);
+    }
+
+    /* ================================================================
+       BREAK PILL SELECTION
+    ================================================================ */
+    const pillGroup = document.getElementById('pillGroup');
+
+    function setActivePill(mins) {
+        pillGroup.querySelectorAll('.break-pill').forEach(p => {
+            const isActive = parseInt(p.dataset.mins, 10) === mins;
+            p.classList.toggle('active', isActive);
+            p.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
+    pillGroup.addEventListener('click', (e) => {
+        const pill = e.target.closest('.break-pill');
+        if (!pill) return;
+        const mins = parseInt(pill.dataset.mins, 10);
+        state.breakMins = mins;
+        setActivePill(mins);
+        document.getElementById('customBreak').value = '';
+        calculate();
+    });
+
+    // Keyboard support for pills
+    pillGroup.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.target.click();
+        }
+    });
+
+    // Custom break input
+    document.getElementById('customBreak').addEventListener('input', (e) => {
+        let raw = parseInt(e.target.value, 10);
+        if (isNaN(raw) || raw < 0) raw = 0;
+        if (raw > 1440) raw = 1440;
+        e.target.value = raw || '';
+        state.breakMins = raw;
+        // Deselect all preset pills
+        pillGroup.querySelectorAll('.break-pill').forEach(p => {
+            p.classList.remove('active');
+            p.setAttribute('aria-pressed', 'false');
+        });
+        calculate();
+    });
+
+    /* ================================================================
+       MAIN CALCULATION
+    ================================================================ */
+    const elWarnBanner  = document.getElementById('warnBanner');
+    const elResultPanel = document.getElementById('resultPanel');
+
+    function showWarn(msg) {
+        elWarnBanner.textContent = msg;
+        elWarnBanner.classList.add('visible');
+    }
+    function hideWarn() {
+        elWarnBanner.classList.remove('visible');
+        elWarnBanner.textContent = '';
+    }
+
+    function calculate() {
+        const startVal  = document.getElementById('shiftStart').value;
+        const endVal    = document.getElementById('shiftEnd').value;
+        const overnight = document.getElementById('overnightToggle').checked;
+
+        const { mins: grossMins, warn } = computeGrossMinutes(startVal, endVal, overnight);
+
+        if (grossMins === null) {
+            hideWarn();
+            elResultPanel.classList.remove('visible');
+            hideWageResult();
+            return;
+        }
+
+        if (warn) {
+            showWarn(warn);
+        } else {
+            hideWarn();
+        }
+
+        const breakMins = state.breakMins;
+        const paidMins  = Math.max(0, grossMins - breakMins);
+
+        // Clamp break percentage to avoid >100%
+        const breakPct = grossMins > 0
+            ? Math.min(100, toFixed((breakMins / grossMins) * 100, 1))
+            : 0;
+
+        // Populate result DOM elements (no innerHTML injection)
+        document.getElementById('rPaidTime').textContent  = fmtHM(paidMins);
+        document.getElementById('rGrossHM').textContent   = fmtHM(grossMins);
+        document.getElementById('rBreakMins').textContent = `${breakMins}m`;
+        document.getElementById('rBreakPct').textContent  = `${breakPct}%`;
+        document.getElementById('rGrossDec').textContent  = toFixed(grossMins / 60, 2).toFixed(2);
+        document.getElementById('rPaidDec').textContent   = toFixed(paidMins  / 60, 2).toFixed(2);
+        document.getElementById('rPaidMins').textContent  = String(paidMins);
+
+        // Paid sub-line
+        const overnightTag = overnight
+            ? ' <span class="tag-overnight">overnight</span>'
+            : '';
+        document.getElementById('rPaidSub').innerHTML =
+            `${fmtTime12(startVal)} → ${fmtTime12(endVal)}${overnightTag} &nbsp;·&nbsp; ` +
+            `<strong>${breakMins} min</strong> break deducted`;
+
+        elResultPanel.classList.add('visible');
+
+        calcWage(paidMins, grossMins);
+    }
+
+    /* ================================================================
+       WAGE CALCULATION
+       Takes already-computed paidMins / grossMins to avoid recalculating.
+    ================================================================ */
+    const elWageResult = document.getElementById('wageResult');
+
+    function hideWageResult() { elWageResult.classList.remove('visible'); }
+
+    function calcWage(paidMins, grossMins) {
+        const raw = parseFloat(document.getElementById('wageInput').value);
+
+        if (!Number.isFinite(raw) || raw <= 0 || typeof paidMins !== 'number') {
+            hideWageResult();
+            return;
+        }
+
+        const hourlyRate    = raw;
+        const paidEarnings  = hourlyRate * (paidMins  / 60);   // pay for worked time
+        const grossEarnings = hourlyRate * (grossMins / 60);   // what you'd earn with no break
+        const breakCost     = grossEarnings - paidEarnings;    // cost of unpaid break
+        const perMinRate    = hourlyRate / 60;
+
+        document.getElementById('wPaidEarnings').textContent = fmtCurrency(paidEarnings);
+        document.getElementById('wBreakCost').textContent    = fmtCurrency(breakCost);
+        document.getElementById('wHourlyRate').textContent   = `${fmtCurrency(hourlyRate)}/hr`;
+        document.getElementById('wPerMin').textContent       = `$${toFixed(perMinRate, 4).toFixed(4)}/min`;
+
+        elWageResult.classList.add('visible');
+    }
+
+    /* ================================================================
+       EVENT WIRING — main inputs
+    ================================================================ */
+    ['shiftStart', 'shiftEnd'].forEach(id => {
+        document.getElementById(id).addEventListener('change', calculate);
+    });
+    document.getElementById('overnightToggle').addEventListener('change', calculate);
+    document.getElementById('wageInput').addEventListener('input', () => {
+        // Re-run full calculate so wage picks up latest paidMins
+        calculate();
+    });
+
+    /* ================================================================
+       MULTI-SHIFT BATCH
+    ================================================================ */
+    const elBatchWrap = document.getElementById('batchWrap');
+    const elBatchHint = document.getElementById('batchHint');
+    const elBatchBody = document.getElementById('batchBody');
+
+    function renderBatch() {
+        const hasRows = state.shifts.length > 0;
+        elBatchWrap.classList.toggle('batch-hidden', !hasRows);
+        elBatchHint.style.display = hasRows ? 'none' : 'block';
+
+        if (!hasRows) return;
+
+        let totalGross = 0;
+        let totalPaid  = 0;
+
+        // Build rows using DOM — no innerHTML with user data
+        elBatchBody.innerHTML = '';
+
+        state.shifts.forEach((row, i) => {
+            const { mins: gm } = computeGrossMinutes(row.s, row.e, row.overnight);
+            const safeMins = (typeof gm === 'number' && gm !== null) ? gm : 0;
+            const pm = Math.max(0, safeMins - row.b);
+            totalGross += safeMins;
+            totalPaid  += pm;
+
+            const tr = document.createElement('tr');
+
+            const cells = [
+                { text: String(i + 1), style: 'color:#475569' },
+                { text: fmtTime12(row.s) },
+                { text: fmtTime12(row.e) },
+                { text: row.b > 0 ? `${row.b}m` : '—' },
+                { text: row.overnight ? '✓' : '—' },
+                { text: fmtHMShort(safeMins) },
+                { text: fmtHMShort(pm), cls: 'paid-td' },
+            ];
+
+            cells.forEach(({ text, style, cls }) => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                if (style) td.style.cssText = style;
+                if (cls)   td.className = cls;
+                tr.appendChild(td);
+            });
+
+            // Remove button in its own td
+            const tdBtn = document.createElement('td');
+            const btn   = document.createElement('button');
+            btn.className   = 'btn-remove';
+            btn.textContent = '✕';
+            btn.title       = 'Remove shift';
+            btn.setAttribute('aria-label', `Remove shift ${i + 1}`);
+            btn.addEventListener('click', () => {
+                state.shifts.splice(i, 1);
+                renderBatch();
+            });
+            tdBtn.appendChild(btn);
+            tr.appendChild(tdBtn);
+
+            elBatchBody.appendChild(tr);
+        });
+
+        document.getElementById('totalGross').textContent = fmtHMShort(totalGross);
+        document.getElementById('totalPaid').textContent  = fmtHMShort(totalPaid);
+    }
+
+    document.getElementById('btnAddShift').addEventListener('click', () => {
+        const s        = document.getElementById('bStart').value;
+        const e        = document.getElementById('bEnd').value;
+        const b        = parseInt(document.getElementById('bBreak').value, 10);
+        const overnight = document.getElementById('bOvernight').checked;
+
+        if (!s || !e) {
+            // Brief shake on the inputs
+            ['bStart', 'bEnd'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el.value) { el.style.borderColor = '#ef4444'; setTimeout(() => { el.style.borderColor = ''; }, 1500); }
+            });
+            return;
+        }
+
+        const { mins, warn } = computeGrossMinutes(s, e, overnight);
+        if (mins === null) return;
+
+        state.shifts.push({ s, e, b: isNaN(b) ? 0 : b, overnight });
+        renderBatch();
+    });
+
+    document.getElementById('btnClearBatch').addEventListener('click', () => {
+        state.shifts = [];
+        renderBatch();
+    });
+
+    document.getElementById('btnCopyBatch').addEventListener('click', () => {
+        if (!state.shifts.length) return;
+
+        let totalGross = 0;
+        let totalPaid  = 0;
+        let lines = ['Multi-Shift Summary', '─'.repeat(44)];
+
+        state.shifts.forEach((row, i) => {
+            const { mins: gm } = computeGrossMinutes(row.s, row.e, row.overnight);
+            const safeMins = (typeof gm === 'number' && gm !== null) ? gm : 0;
+            const pm = Math.max(0, safeMins - row.b);
+            totalGross += safeMins;
+            totalPaid  += pm;
+            const overnight = row.overnight ? ' [overnight]' : '';
+            lines.push(
+                `Shift ${i + 1}: ${fmtTime12(row.s)} – ${fmtTime12(row.e)}${overnight}` +
+                `  Break: ${row.b}m  Paid: ${fmtHMShort(pm)}`
+            );
+        });
+
+        lines.push('─'.repeat(44));
+        lines.push(`Total Gross: ${fmtHMShort(totalGross)}   Total Paid: ${fmtHMShort(totalPaid)}`);
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            flashBtn(document.getElementById('btnCopyBatch'), 'Copy Summary');
+        }).catch(() => {
+            // Fallback for browsers without clipboard API
+            alert(lines.join('\n'));
+        });
+    });
+
+    /* ================================================================
+       COPY SINGLE RESULT
+    ================================================================ */
+    document.getElementById('btnCopyResult').addEventListener('click', () => {
+        const startVal  = document.getElementById('shiftStart').value;
+        const endVal    = document.getElementById('shiftEnd').value;
+        const overnight = document.getElementById('overnightToggle').checked;
+
+        const { mins: grossMins } = computeGrossMinutes(startVal, endVal, overnight);
+        if (grossMins === null || grossMins === 0) return;
+
+        const paidMins = Math.max(0, grossMins - state.breakMins);
+        const lines = [
+            `Shift: ${fmtTime12(startVal)} → ${fmtTime12(endVal)}${overnight ? ' (overnight)' : ''}`,
+            `Break deducted: ${state.breakMins} min`,
+            `Gross shift: ${fmtHMShort(grossMins)}`,
+            `Paid time: ${fmtHMShort(paidMins)} (${toFixed(paidMins / 60, 2).toFixed(2)} hrs)`,
+        ];
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            flashBtn(document.getElementById('btnCopyResult'), 'Copy Result');
+        }).catch(() => {
+            alert(lines.join('\n'));
+        });
+    });
+
+    /* ================================================================
+       RESET
+    ================================================================ */
+    document.getElementById('btnReset').addEventListener('click', () => {
+        document.getElementById('shiftStart').value = '09:00';
+        document.getElementById('shiftEnd').value   = '17:00';
+        document.getElementById('overnightToggle').checked = false;
+        document.getElementById('customBreak').value = '';
+        document.getElementById('wageInput').value   = '';
+
+        state.breakMins = 30;
+        setActivePill(30);
+
+        hideWarn();
+        hideWageResult();
+        elResultPanel.classList.remove('visible');
+
+        calculate();
+    });
+
+    /* ================================================================
+       INIT
+    ================================================================ */
+    calculate();
+
+    </script>
+</body>
+</html>

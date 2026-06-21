@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JSON Validator & Precise Linter | Rebrixe</title>
+    <meta name="description" content="JSON validator that pinpoints exact errors — missing commas, unclosed braces, wrong types. Line-by-line linting with fix suggestions. Paste and know instantly.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .panel {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+        }
+
+        /* ── Editor ── */
+        #jsonInput {
+            width: 100%;
+            flex: 1;
+            min-height: 340px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.75;
+            resize: vertical;
+            box-sizing: border-box;
+            outline: none;
+            tab-size: 2;
+            transition: border-color 0.25s;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+        #jsonInput:focus { border-color: var(--primary); }
+
+        /* ── Status badge ── */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 14px;
+            letter-spacing: 0.5px;
+            transition: 0.2s;
+        }
+        .status-badge.idle    { background: rgba(100,116,139,0.15); color: #64748b; border: 1px solid rgba(100,116,139,0.2); }
+        .status-badge.valid   { background: rgba(46,204,113,0.12); color: #2ecc71; border: 1px solid rgba(46,204,113,0.25); }
+        .status-badge.invalid { background: rgba(231,76,60,0.12);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.25); }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+        /* ── Error list ── */
+        #errorList {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        .err-card {
+            background: rgba(231,76,60,0.07);
+            border: 1px solid rgba(231,76,60,0.2);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .err-card:hover { border-color: #e74c3c; background: rgba(231,76,60,0.12); }
+        .err-card.warn {
+            background: rgba(241,196,15,0.07);
+            border-color: rgba(241,196,15,0.2);
+        }
+        .err-card.warn:hover { border-color: #f1c40f; background: rgba(241,196,15,0.12); }
+
+        .err-location {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #e74c3c;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+        .err-card.warn .err-location { color: #f1c40f; }
+        .err-msg {
+            font-size: 0.82rem;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        .err-pointer {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 10px;
+            border-radius: 7px;
+            white-space: pre;
+            overflow-x: auto;
+            margin-bottom: 6px;
+        }
+        .err-fix {
+            font-size: 0.72rem;
+            color: #2ecc71;
+            margin-top: 4px;
+        }
+        .err-fix::before { content: '💡 '; }
+
+        /* ── Valid output ── */
+        #formattedOutput {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre;
+            overflow: auto;
+            max-height: 280px;
+            line-height: 1.7;
+            display: none;
+        }
+        .json-key    { color: #a78bfa; }
+        .json-str    { color: #34d399; }
+        .json-num    { color: #fb923c; }
+        .json-bool   { color: #f472b6; }
+        .json-null   { color: #94a3b8; }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin: 14px 0 10px;
+        }
+        .stat {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.4px;
+        }
+        .stat span { color: #e2e8f0; }
+
+        /* ── Action row ── */
+        .action-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: 0.2s;
+        }
+        .btn:hover { opacity: 0.82; }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-danger  { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .btn.ok { background: #2ecc71; color: #000; }
+
+        /* ── Line highlight overlay ── */
+        .line-highlight-info {
+            font-size: 0.68rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #334155;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .empty-state svg { margin-bottom: 14px; opacity: 0.4; }
+        .empty-state p { font-size: 0.82rem; line-height: 1.6; }
+
+        /* ── Linting warnings ── */
+        .lint-section { margin-top: 14px; }
+        .lint-title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #f1c40f;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* ── FAQ ── */
+        .seo-content { text-align: left; margin-top: 20px; }
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .faq-item { background: rgba(15,23,42,0.5); padding: 18px; border-radius: 14px; border: 1px solid var(--border); }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media(max-width:800px) {
+            .tool-grid, .faq-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+        <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(90deg,#00f2ff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 6px;text-align:center;">JSON Validator & Linter</h1>
+        <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Pinpoints the exact broken character — not just "invalid JSON". Line, column, fix suggestion.</p>
+
+        <div class="tool-grid">
+            <!-- LEFT: Input -->
+            <div class="panel">
+                <div class="panel-label">Paste Your JSON</div>
+                <textarea id="jsonInput" placeholder='{\n  "name": "Rebrixe",\n  "version": 1,\n  "active": true\n}' spellcheck="false" oninput="validate()"></textarea>
+                <div class="action-row" style="margin-top:10px;">
+                    <button class="btn btn-primary" onclick="formatJSON()">FORMAT ↹</button>
+                    <button class="btn btn-ghost" onclick="minifyJSON()">MINIFY ⬡</button>
+                    <button class="btn btn-ghost" onclick="loadSample()">LOAD SAMPLE</button>
+                    <button class="btn btn-danger" onclick="clearAll()">CLEAR</button>
+                </div>
+                <div class="line-highlight-info" id="cursorInfo">Line 1, Col 1</div>
+            </div>
+
+            <!-- RIGHT: Results -->
+            <div class="panel">
+                <div class="panel-label">Validation Result</div>
+                <div class="status-badge idle" id="statusBadge">
+                    <div class="status-dot"></div>
+                    <span id="statusText">Waiting for input…</span>
+                </div>
+
+                <div class="stats-bar" id="statsBar" style="display:none;">
+                    <div class="stat">Keys: <span id="statKeys">—</span></div>
+                    <div class="stat">Depth: <span id="statDepth">—</span></div>
+                    <div class="stat">Size: <span id="statSize">—</span></div>
+                    <div class="stat">Type: <span id="statType">—</span></div>
+                </div>
+
+                <!-- Error cards -->
+                <div id="errorList"></div>
+
+                <!-- Formatted / pretty output -->
+                <pre id="formattedOutput"></pre>
+
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <p>Paste any JSON above.<br>Errors will appear here with exact location and fix hints.</p>
+                </div>
+
+                <!-- Lint warnings (separate from parse errors) -->
+                <div class="lint-section" id="lintSection" style="display:none;">
+                    <div class="lint-title">⚠ Lint Warnings</div>
+                    <div id="lintList"></div>
+                </div>
+
+                <div class="action-row" id="copyRow" style="display:none;">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyFormatted()">COPY FORMATTED</button>
+                    <button class="btn btn-ghost" onclick="copyMinified()">COPY MINIFIED</button>
+                    <button class="btn btn-ghost" onclick="downloadJSON()">DOWNLOAD .json</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO / educational content -->
+        <article class="seo-content">
+            <h2>Why Precise JSON Linting Matters</h2>
+            <p>A single missing comma or trailing brace can break an API, crash an app, or corrupt a config file. Most validators just say "invalid" — this tool tells you <em>exactly</em> which character failed and why.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Trailing Commas</h3>
+                    <p>JSON (unlike JS) forbids trailing commas: <code>{"a":1,}</code> is invalid. This linter flags them with the exact position and shows the comma to remove.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Unclosed Braces & Brackets</h3>
+                    <p>Every <code>{</code> needs a <code>}</code> and every <code>[</code> needs a <code>]</code>. The linter tracks nesting depth and tells you what's missing at which line.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Duplicate Keys</h3>
+                    <p>Duplicate object keys are technically parsed by browsers but silently overwrite values. The linter warns you so data isn't lost invisibly.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Wrong Quote Style</h3>
+                    <p>JSON requires double quotes. Single-quoted strings like <code>{'key':'val'}</code> are valid JavaScript but <strong>invalid JSON</strong>. Caught and flagged instantly.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Comments in JSON</h3>
+                    <p><code>// comments</code> and <code>/* block comments */</code> are not valid JSON. If you need comments, use JSONC or strip them before parsing.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Deep Nesting</h3>
+                    <p>Objects nested beyond 10 levels are a linting warning — not an error — but signal a schema design worth reviewing for maintainability.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+    <script>
+    /* ═══════════════════════════════════════════════════
+       PRECISE JSON LINTER — Core Engine
+    ═══════════════════════════════════════════════════ */
+
+    let _parsed = null;
+    let _formatted = '';
+
+    const textarea = document.getElementById('jsonInput');
+
+    // Track cursor position for "Line X, Col Y"
+    textarea.addEventListener('keyup', updateCursorInfo);
+    textarea.addEventListener('click', updateCursorInfo);
+
+    function updateCursorInfo() {
+        const val = textarea.value;
+        const pos = textarea.selectionStart;
+        const lines = val.substring(0, pos).split('\n');
+        const line = lines.length;
+        const col  = lines[lines.length - 1].length + 1;
+        document.getElementById('cursorInfo').textContent = `Line ${line}, Col ${col}`;
+    }
+
+    /* ── Main validate function ── */
+    function validate() {
+        const raw = textarea.value.trim();
+        _parsed = null;
+        _formatted = '';
+
+        if (!raw) { setIdle(); return; }
+
+        const result = preciseValidate(raw);
+
+        if (result.valid) {
+            _parsed = result.parsed;
+            _formatted = syntaxHighlight(JSON.stringify(_parsed, null, 2));
+            setValid(raw, result);
+        } else {
+            setInvalid(result.errors);
+        }
+
+        // Always run linting warnings if we have content
+        const lints = lintWarnings(raw, _parsed);
+        showLints(lints);
+    }
+
+    /* ── Precise error extraction ── */
+    function preciseValidate(raw) {
+        // First try native parse
+        try {
+            const parsed = JSON.parse(raw);
+            return { valid: true, parsed };
+        } catch (e) {
+            const errors = extractErrors(raw, e);
+            return { valid: false, errors };
+        }
+    }
+
+    function extractErrors(raw, nativeErr) {
+        const errors = [];
+        const lines  = raw.split('\n');
+
+        // 1. Extract position from native error message
+        const primary = parsePrimaryError(raw, nativeErr, lines);
+        errors.push(primary);
+
+        // 2. Try to find additional structural problems
+        const extras = findStructuralIssues(raw, lines);
+        for (const ex of extras) {
+            if (!errors.find(e => e.line === ex.line && e.col === ex.col)) {
+                errors.push(ex);
+            }
+        }
+
+        return errors;
+    }
+
+    function parsePrimaryError(raw, err, lines) {
+        const msg = err.message || '';
+
+        // Chrome: "Unexpected token , in JSON at position 42"
+        // Firefox: "JSON.parse: unexpected character at line 3 column 5"
+        // Node:    "Unexpected token '}' at JSON position 88"
+        let lineNum = 1, col = 1, charIndex = -1;
+
+        // Try to get position index from message (Chrome/Node)
+        const posMatch = msg.match(/position (\d+)/i);
+        if (posMatch) {
+            charIndex = parseInt(posMatch[1]);
+            const before = raw.substring(0, charIndex);
+            const bLines = before.split('\n');
+            lineNum = bLines.length;
+            col = bLines[bLines.length - 1].length + 1;
+        }
+
+        // Firefox/Safari give line+col directly
+        const lineMatch = msg.match(/line (\d+) column (\d+)/i);
+        if (lineMatch) {
+            lineNum = parseInt(lineMatch[1]);
+            col = parseInt(lineMatch[2]);
+            charIndex = getCharIndex(raw, lineNum, col);
+        }
+
+        const errorLine = lines[lineNum - 1] || '';
+        const pointer   = buildPointer(errorLine, col - 1);
+        const diagnosis = diagnoseError(raw, msg, charIndex, lineNum, col, lines);
+
+        return {
+            line: lineNum,
+            col,
+            msg: diagnosis.message,
+            pointer,
+            fix: diagnosis.fix,
+            type: 'error'
+        };
+    }
+
+    function getCharIndex(raw, line, col) {
+        const lines = raw.split('\n');
+        let idx = 0;
+        for (let i = 0; i < line - 1; i++) idx += lines[i].length + 1;
+        return idx + col - 1;
+    }
+
+    function buildPointer(line, col) {
+        const trimmed = line.length > 60 ? line.substring(Math.max(0, col - 20), col + 40) : line;
+        const offset  = line.length > 60 ? Math.min(col, 20) : col;
+        return trimmed + '\n' + ' '.repeat(Math.max(0, offset)) + '^';
+    }
+
+    function diagnoseError(raw, msg, charIndex, line, col, lines) {
+        const errLine = (lines[line - 1] || '').trim();
+        const ch      = charIndex >= 0 ? raw[charIndex] : '';
+        const prev    = charIndex > 0  ? raw[charIndex - 1] : '';
+        const msgL    = msg.toLowerCase();
+
+        // Trailing comma
+        if (ch === '}' || ch === ']') {
+            if (prev === ',') return {
+                message: `Trailing comma before '${ch}' on line ${line}, col ${col}.`,
+                fix: `Remove the comma just before '${ch}' — JSON does not allow trailing commas.`
+            };
+        }
+
+        // Unexpected token
+        if (msgL.includes('unexpected token')) {
+            const tok = msg.match(/token\s+'?([^'"\s]+)/i)?.[1] || ch;
+
+            if (tok === "'") return {
+                message: `Single quotes are not valid JSON (line ${line}, col ${col}).`,
+                fix: `Replace all single quotes with double quotes: ' → "`
+            };
+            if (tok === '/' || errLine.startsWith('//') || errLine.startsWith('/*')) return {
+                message: `Comments are not allowed in JSON (line ${line}).`,
+                fix: `Remove the comment. Use JSONC or strip comments before parsing.`
+            };
+            if (tok === 'undefined') return {
+                message: `"undefined" is not a valid JSON value (line ${line}, col ${col}).`,
+                fix: `Use null instead of undefined.`
+            };
+            if (/^[a-z]/i.test(tok) && tok !== 'true' && tok !== 'false' && tok !== 'null') return {
+                message: `Unquoted string or unknown keyword "${tok}" at line ${line}, col ${col}.`,
+                fix: `Wrap the value in double quotes, e.g. "${tok}" — or check for a typo (only true, false, null are valid bare keywords).`
+            };
+            return {
+                message: `Unexpected character '${tok}' at line ${line}, col ${col}.`,
+                fix: `Check for a missing comma, colon, or mismatched bracket near this position.`
+            };
+        }
+
+        // Unexpected end
+        if (msgL.includes('end of') || msgL.includes('eof') || msgL.includes('unterminated')) {
+            // Count braces
+            const opens  = (raw.match(/\{/g) || []).length;
+            const closes = (raw.match(/\}/g) || []).length;
+            const aoens  = (raw.match(/\[/g) || []).length;
+            const acloses= (raw.match(/\]/g) || []).length;
+            if (opens > closes)  return { message: `Unexpected end — ${opens - closes} unclosed '{' brace(s).`, fix: `Add ${opens - closes} closing '}' brace(s) at the end.` };
+            if (aoens > acloses) return { message: `Unexpected end — ${aoens - acloses} unclosed '[' bracket(s).`, fix: `Add ${aoens - acloses} closing ']' bracket(s) at the end.` };
+            if (msgL.includes('string') || msgL.includes('unterminated')) return {
+                message: `Unterminated string starting around line ${line}, col ${col}.`,
+                fix: `Find the opening " that has no closing " — they must be on the same logical line.`
+            };
+            return { message: `JSON ended unexpectedly. A closing bracket or brace is missing.`, fix: `Scroll to the end and ensure all { } and [ ] are balanced.` };
+        }
+
+        // Missing colon
+        if (msgL.includes('colon') || msgL.includes('expected')) return {
+            message: `Expected ':' after key on line ${line}, col ${col}.`,
+            fix: `Every key in an object must be followed by a colon and a value: "key": value`
+        };
+
+        return {
+            message: `Parse error at line ${line}, col ${col}: ${msg}`,
+            fix: `Check for missing commas between items, mismatched quotes, or invalid values.`
+        };
+    }
+
+    function findStructuralIssues(raw, lines) {
+        const issues = [];
+
+        // Check for single-quote strings
+        if (/'[^']*'/.test(raw) && !raw.includes('"')) {
+            issues.push({ line: 1, col: 1, msg: 'Entire file uses single quotes — not valid JSON.', fix: 'Replace all single quotes with double quotes.', type: 'error', pointer: '' });
+        }
+
+        // Detect comments
+        lines.forEach((l, i) => {
+            if (/^\s*(\/\/|\/\*)/.test(l)) {
+                issues.push({ line: i+1, col: 1, msg: `Comment found on line ${i+1} — JSON does not support comments.`, fix: 'Remove comments or switch to JSONC format.', type: 'error', pointer: buildPointer(l, 0) });
+            }
+        });
+
+        // Missing comma between items — heuristic: two lines both ending with value chars
+        lines.forEach((l, i) => {
+            const trimmed = l.trim();
+            const next    = (lines[i+1] || '').trim();
+            if (trimmed && next) {
+                const endsValue  = /[\"\d\]}\btrue\bfalse\bnull]/.test(trimmed.slice(-1));
+                const startsKey  = /^"/.test(next);
+                const noComma    = !trimmed.endsWith(',') && !trimmed.endsWith('{') && !trimmed.endsWith('[') && !next.startsWith('}') && !next.startsWith(']');
+                if (endsValue && startsKey && noComma) {
+                    issues.push({ line: i+1, col: trimmed.length, msg: `Possibly missing comma after line ${i+1}.`, fix: `Add a comma at the end of line ${i+1}: ...${trimmed.slice(-10)},`, type: 'error', pointer: buildPointer(l, trimmed.length - 1) });
+                }
+            }
+        });
+
+        return issues;
+    }
+
+    /* ── Lint warnings (valid JSON but questionable) ── */
+    function lintWarnings(raw, parsed) {
+        const warnings = [];
+        if (!parsed) return warnings;
+
+        // Duplicate keys check (regex-based since JS parse silently drops dupes)
+        const dupKeys = findDuplicateKeys(raw);
+        dupKeys.forEach(k => warnings.push({ msg: `Duplicate key "${k.key}" found at lines ${k.lines.join(', ')}.`, fix: 'Rename or remove duplicate keys — later values silently overwrite earlier ones.' }));
+
+        // Deep nesting
+        const depth = maxDepth(parsed, 0);
+        if (depth > 10) warnings.push({ msg: `Object nesting depth is ${depth}. Deeply nested JSON is hard to maintain.`, fix: 'Consider flattening the structure or splitting into separate JSON files.' });
+
+        // Very large arrays
+        checkLargeArrays(parsed, warnings);
+
+        // Numeric strings that look like numbers
+        checkNumericStrings(parsed, warnings);
+
+        return warnings;
+    }
+
+    function findDuplicateKeys(raw) {
+        const found = [];
+        const keyPattern = /"([^"\\]*)"\s*:/g;
+        const allKeys = {};
+        let match;
+        while ((match = keyPattern.exec(raw)) !== null) {
+            const key = match[1];
+            const line = raw.substring(0, match.index).split('\n').length;
+            if (!allKeys[key]) allKeys[key] = [];
+            allKeys[key].push(line);
+        }
+        for (const [key, lines] of Object.entries(allKeys)) {
+            if (lines.length > 1) found.push({ key, lines });
+        }
+        return found;
+    }
+
+    function maxDepth(obj, current) {
+        if (typeof obj !== 'object' || obj === null) return current;
+        const vals = Array.isArray(obj) ? obj : Object.values(obj);
+        if (!vals.length) return current;
+        return Math.max(...vals.map(v => maxDepth(v, current + 1)));
+    }
+
+    function checkLargeArrays(obj, warnings, path = 'root') {
+        if (Array.isArray(obj) && obj.length > 500) {
+            warnings.push({ msg: `Array at "${path}" has ${obj.length} items.`, fix: 'Consider paginating or streaming large arrays instead of embedding them.' });
+        }
+        if (typeof obj === 'object' && obj !== null) {
+            for (const [k, v] of Object.entries(obj)) checkLargeArrays(v, warnings, path + '.' + k);
+        }
+    }
+
+    function checkNumericStrings(obj, warnings) {
+        if (typeof obj === 'object' && obj !== null) {
+            for (const [k, v] of Object.entries(Array.isArray(obj) ? obj.map((x,i)=>({[i]:x})).reduce((a,b)=>Object.assign(a,b),{}) : obj)) {
+                if (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v)) {
+                    warnings.push({ msg: `Key "${k}" has value "${v}" — looks like a number stored as a string.`, fix: `If it should be a number, change "${v}" to ${v} (no quotes).` });
+                    break; // only warn once
+                }
+                if (typeof v === 'object') checkNumericStrings(v, warnings);
+            }
+        }
+    }
+
+    /* ── Syntax highlighting ── */
+    function syntaxHighlight(json) {
+        return json
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+                let cls = 'json-num';
+                if (/^"/.test(match)) cls = /:$/.test(match) ? 'json-key' : 'json-str';
+                else if (/true|false/.test(match)) cls = 'json-bool';
+                else if (/null/.test(match)) cls = 'json-null';
+                return `<span class="${cls}">${match}</span>`;
+            });
+    }
+
+    /* ── UI state setters ── */
+    function setIdle() {
+        badge('idle', '● Waiting for input…');
+        document.getElementById('errorList').innerHTML = '';
+        document.getElementById('formattedOutput').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+        document.getElementById('statsBar').style.display = 'none';
+        document.getElementById('copyRow').style.display = 'none';
+        document.getElementById('lintSection').style.display = 'none';
+    }
+
+    function setValid(raw, result) {
+        badge('valid', '✓ Valid JSON');
+        document.getElementById('errorList').innerHTML = '';
+        document.getElementById('emptyState').style.display = 'none';
+
+        // Stats
+        const keys  = countKeys(result.parsed);
+        const depth = maxDepth(result.parsed, 0);
+        const size  = new Blob([raw]).size;
+        const type  = Array.isArray(result.parsed) ? 'Array' : (typeof result.parsed === 'object' && result.parsed ? 'Object' : typeof result.parsed);
+        document.getElementById('statKeys').textContent  = keys;
+        document.getElementById('statDepth').textContent = depth;
+        document.getElementById('statSize').textContent  = size < 1024 ? size + ' B' : (size/1024).toFixed(1) + ' KB';
+        document.getElementById('statType').textContent  = type;
+        document.getElementById('statsBar').style.display = 'flex';
+
+        const out = document.getElementById('formattedOutput');
+        out.innerHTML = _formatted;
+        out.style.display = 'block';
+        document.getElementById('copyRow').style.display = 'flex';
+    }
+
+    function setInvalid(errors) {
+        badge('invalid', `✗ ${errors.length} Error${errors.length !== 1 ? 's' : ''} Found`);
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('formattedOutput').style.display = 'none';
+        document.getElementById('statsBar').style.display = 'none';
+        document.getElementById('copyRow').style.display = 'none';
+
+        const list = document.getElementById('errorList');
+        list.innerHTML = errors.map(e => `
+            <div class="err-card" onclick="jumpToLine(${e.line})">
+                <div class="err-location">Line ${e.line}, Col ${e.col}</div>
+                <div class="err-msg">${e.msg}</div>
+                ${e.pointer ? `<div class="err-pointer">${e.pointer}</div>` : ''}
+                ${e.fix ? `<div class="err-fix">${e.fix}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    function showLints(lints) {
+        const sec  = document.getElementById('lintSection');
+        const list = document.getElementById('lintList');
+        if (!lints.length) { sec.style.display = 'none'; return; }
+        sec.style.display = 'block';
+        list.innerHTML = lints.map(l => `
+            <div class="err-card warn">
+                <div class="err-msg">${l.msg}</div>
+                ${l.fix ? `<div class="err-fix">${l.fix}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    function badge(cls, text) {
+        const b = document.getElementById('statusBadge');
+        b.className = `status-badge ${cls}`;
+        document.getElementById('statusText').textContent = text;
+    }
+
+    function countKeys(obj, count = 0) {
+        if (typeof obj !== 'object' || obj === null) return count;
+        const vals = Array.isArray(obj) ? obj : Object.values(obj);
+        count += Array.isArray(obj) ? 0 : Object.keys(obj).length;
+        return vals.reduce((a, v) => a + countKeys(v, 0), count);
+    }
+
+    /* ── Jump to line ── */
+    function jumpToLine(lineNum) {
+        const lines = textarea.value.split('\n');
+        let charPos = 0;
+        for (let i = 0; i < lineNum - 1 && i < lines.length; i++) charPos += lines[i].length + 1;
+        textarea.focus();
+        textarea.setSelectionRange(charPos, charPos + (lines[lineNum - 1] || '').length);
+        // Scroll textarea to line
+        const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight);
+        textarea.scrollTop = (lineNum - 3) * lineHeight;
+    }
+
+    /* ── Format / Minify ── */
+    function formatJSON() {
+        const raw = textarea.value.trim();
+        try {
+            textarea.value = JSON.stringify(JSON.parse(raw), null, 2);
+            validate();
+        } catch (e) { validate(); }
+    }
+
+    function minifyJSON() {
+        const raw = textarea.value.trim();
+        try {
+            textarea.value = JSON.stringify(JSON.parse(raw));
+            validate();
+        } catch (e) { validate(); }
+    }
+
+    /* ── Copy / Download ── */
+    async function copyFormatted() {
+        if (!_parsed) return;
+        await navigator.clipboard.writeText(JSON.stringify(_parsed, null, 2));
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = '✓ COPIED'; btn.classList.add('ok');
+        setTimeout(() => { btn.textContent = 'COPY FORMATTED'; btn.classList.remove('ok'); }, 1500);
+    }
+
+    async function copyMinified() {
+        if (!_parsed) return;
+        await navigator.clipboard.writeText(JSON.stringify(_parsed));
+    }
+
+    function downloadJSON() {
+        if (!_parsed) return;
+        const blob = new Blob([JSON.stringify(_parsed, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'validated.json';
+        a.click();
+    }
+
+    function clearAll() {
+        textarea.value = '';
+        validate();
+    }
+
+    function loadSample() {
+        textarea.value = `{
+  "project": "Rebrixe",
+  "version": "2.0.1",
+  "active": true,
+  "config": {
+    "maxTools": 500,
+    "categories": ["ai", "dev", "growth", "utility", "finance"],
+    "seo": {
+      "longTail": true,
+      "setAndForget": true
+    }
+  },
+  "tags": ["fast", "lightweight", null, 42],
+  "deprecated": false
+}`;
+        validate();
+    }
+
+    /* ── Init ── */
+    setIdle();
+    </script>
+</body>
+</html>

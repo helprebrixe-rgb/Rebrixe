@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Circle Image Cropper — Crop Any Image to Perfect Circle PNG | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Crop any image into a perfect circle with transparent background. Download as PNG instantly. Perfect for profile pictures, logos, avatars. Free, browser-only — image never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Crop editor */
+        .crop-editor { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Canvas wrapper with circle overlay */
+        .canvas-wrap {
+            position: relative; display: flex; justify-content: center; align-items: center;
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); overflow: hidden; margin-bottom: 20px;
+            border: 1px solid var(--border-mid); min-height: 220px; touch-action: none; cursor: grab;
+        }
+        .canvas-wrap.grabbing { cursor: grabbing; }
+        #sourceCanvas { display: block; max-width: 100%; user-select: none; pointer-events: none; }
+
+        /* Circle overlay */
+        .circle-overlay {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        .circle-overlay svg { width: 100%; height: 100%; }
+
+        /* Controls */
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
+        .ctrl-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .tool-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .tool-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-val { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 40px; text-align: right; }
+
+        /* Size presets */
+        .size-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .size-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .size-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .size-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Toggle row */
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Options card */
+        .options-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+
+        /* Border option */
+        .border-config { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .border-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.85rem; padding: 7px 10px; border-radius: var(--radius-sm); outline: none; width: 56px; transition: border-color 0.2s; }
+        .border-input:focus { border-color: var(--primary); }
+        .color-swatch { width: 32px; height: 32px; border-radius: 6px; border: 1.5px solid var(--border-mid); cursor: pointer; overflow: hidden; padding: 0; background: none; }
+        .color-swatch input[type="color"] { width: 200%; height: 200%; margin: -25%; border: none; cursor: pointer; background: none; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+        .btn-copy { padding: 14px 18px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: none; white-space: nowrap; }
+        .btn-copy.visible { display: block; }
+        .btn-copy:hover { border-color: var(--border-mid); color: var(--text); }
+
+        /* Preview result */
+        .result-panel { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-top: 20px; }
+        .result-panel.visible { display: block; }
+        .result-inner { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+        .result-circle-wrap { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .result-bg-checker { background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 12px 12px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .result-bg-checker img { display: block; }
+        .result-meta { flex: 1; min-width: 160px; }
+        .result-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .result-stat:last-child { border-bottom: none; }
+        .rs-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .rs-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .rs-val.green { color: var(--success); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .options-card { grid-template-columns: 1fr; gap: 16px; }
+            .controls-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .result-inner { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Circle Image Cropper</h1>
+                <p class="tool-page-sub">Crop any image into a perfect circle. Transparent PNG output. Drag to reposition, zoom to fit — done in seconds.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">⭕</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Crop Editor -->
+                <div class="crop-editor">
+                    <div class="section-label">Drag to reposition · Scroll or pinch to zoom</div>
+                    <div class="canvas-wrap" id="canvasWrap">
+                        <canvas id="sourceCanvas"></canvas>
+                        <div class="circle-overlay" id="circleOverlay">
+                            <svg id="overlaySVG" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <defs>
+                                    <mask id="circleMask">
+                                        <rect width="100" height="100" fill="white"/>
+                                        <circle id="maskCircle" cx="50" cy="50" r="48" fill="black"/>
+                                    </mask>
+                                </defs>
+                                <rect width="100" height="100" fill="rgba(0,0,0,0.55)" mask="url(#circleMask)"/>
+                                <circle id="guideCircle" cx="50" cy="50" r="48" fill="none" stroke="rgba(255,214,0,0.7)" stroke-width="0.8" stroke-dasharray="3,2"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Zoom -->
+                    <div class="controls-grid">
+                        <div class="ctrl-group">
+                            <span class="ctrl-label">Zoom</span>
+                            <div class="slider-row">
+                                <input type="range" class="tool-slider" id="zoomSlider" min="50" max="300" value="100" oninput="setZoom(this.value)">
+                                <span class="slider-val" id="zoomVal">100%</span>
+                            </div>
+                        </div>
+                        <div class="ctrl-group">
+                            <span class="ctrl-label">Output Size</span>
+                            <div class="size-row">
+                                <button class="size-btn" data-size="200" onclick="setSize(this)">200</button>
+                                <button class="size-btn active" data-size="400" onclick="setSize(this)">400</button>
+                                <button class="size-btn" data-size="800" onclick="setSize(this)">800</button>
+                                <button class="size-btn" data-size="1080" onclick="setSize(this)">1080</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="tog-btn" onclick="resetPosition()" style="font-size:0.72rem; margin-top: 4px;">↺ Reset Position</button>
+                </div>
+
+                <!-- Options -->
+                <div class="options-card">
+                    <div class="opt-group">
+                        <label>Background</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-bg="transparent" onclick="setBg(this)">Transparent</button>
+                            <button class="tog-btn" data-bg="white" onclick="setBg(this)">White</button>
+                            <button class="tog-btn" data-bg="black" onclick="setBg(this)">Black</button>
+                            <button class="tog-btn" data-bg="custom" onclick="setBg(this)">Custom</button>
+                        </div>
+                        <div id="customBgWrap" style="margin-top:8px; display:none;">
+                            <input type="color" id="customBgColor" value="#ffffff" oninput="updatePreview()" style="width:48px; height:32px; border-radius:6px; border:1px solid var(--border-mid); cursor:pointer; background:none; padding:2px;">
+                        </div>
+                    </div>
+                    <div class="opt-group">
+                        <label>Circle Border</label>
+                        <div class="border-config">
+                            <div class="tog-btn active" id="borderToggle" onclick="toggleBorder()" style="cursor:pointer; user-select:none;">Off</div>
+                            <input type="number" class="border-input" id="borderWidth" value="6" min="1" max="60" oninput="updatePreview()" placeholder="px">
+                            <div class="color-swatch">
+                                <input type="color" id="borderColor" value="#FFD600" oninput="updatePreview()">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="opt-group">
+                        <label>Shadow</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-shadow="none" onclick="setShadow(this)">None</button>
+                            <button class="tog-btn" data-shadow="soft" onclick="setShadow(this)">Soft</button>
+                            <button class="tog-btn" data-shadow="hard" onclick="setShadow(this)">Hard</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnCrop" onclick="doCrop()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⭕</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Crop to Circle</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download PNG</button>
+                    <button class="btn-copy" id="btnCopy" onclick="doCopy()" title="Copy to clipboard">📋 Copy</button>
+                </div>
+
+                <!-- Result preview -->
+                <div class="result-panel" id="resultPanel">
+                    <div class="section-label" style="margin-bottom:16px;">Result Preview</div>
+                    <div class="result-inner">
+                        <div class="result-circle-wrap">
+                            <div class="result-bg-checker" id="resultChecker">
+                                <img id="resultImg" src="" alt="Circle crop result">
+                            </div>
+                            <span style="font-size:0.7rem; color:var(--text-dim);">checker = transparent</span>
+                        </div>
+                        <div class="result-meta" id="resultMeta"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Transparent PNG output</h3>
+                        <p>The circular crop is exported as a proper <code>PNG</code> with a transparent background — works everywhere: Canva, Figma, Google Slides, Word, or any website.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Drag & zoom to reposition</h3>
+                        <p>Don't guess which part of the image gets cropped. Drag to center the subject perfectly, then zoom in or out until it looks exactly right before exporting.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Border & shadow options</h3>
+                        <p>Add a colored border ring and a soft or hard drop shadow — baked directly into the PNG. No need for Photoshop or CSS tricks after download.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>All processing runs in your browser with the <code>Canvas API</code>. Your image never leaves your device. Works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ──────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let zoom = 1, panX = 0, panY = 0;
+    let outputSize = 400;
+    let bgMode = 'transparent', shadowMode = 'none';
+    let borderOn = false, borderW = 6, borderCol = '#FFD600';
+    let resultDataURL = null, resultFilename = '';
+    let isDragging = false, lastX = 0, lastY = 0;
+
+    // ─── CANVAS SETUP ──────────────────────────────────────────────────────────
+    const PREVIEW_SIZE = 320;
+    const canvas = document.getElementById('sourceCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = PREVIEW_SIZE;
+    canvas.height = PREVIEW_SIZE;
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultPanel').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                document.getElementById('btnCopy').classList.remove('visible');
+                resultDataURL = null;
+                resetPosition();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+        zoom = 1; panX = 0; panY = 0;
+    }
+
+    function resetPosition() {
+        if (!origImg) return;
+        // Fit image to fill the circle by default (cover)
+        const scale = Math.max(PREVIEW_SIZE / origImg.naturalWidth, PREVIEW_SIZE / origImg.naturalHeight);
+        zoom = scale;
+        panX = (PREVIEW_SIZE - origImg.naturalWidth * zoom) / 2;
+        panY = (PREVIEW_SIZE - origImg.naturalHeight * zoom) / 2;
+        document.getElementById('zoomSlider').value = Math.round(zoom * 100);
+        document.getElementById('zoomVal').textContent = Math.round(zoom * 100) + '%';
+        drawPreview();
+    }
+
+    // ─── DRAW PREVIEW ──────────────────────────────────────────────────────────
+    function drawPreview() {
+        ctx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
+        if (!origImg) return;
+        ctx.drawImage(origImg, panX, panY, origImg.naturalWidth * zoom, origImg.naturalHeight * zoom);
+    }
+
+    // ─── PAN (MOUSE) ───────────────────────────────────────────────────────────
+    const wrap = document.getElementById('canvasWrap');
+    wrap.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; wrap.classList.add('grabbing'); });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        panX += e.clientX - lastX; panY += e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        drawPreview();
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; wrap.classList.remove('grabbing'); });
+
+    // ─── PAN (TOUCH) ───────────────────────────────────────────────────────────
+    let lastTouches = null;
+    wrap.addEventListener('touchstart', e => { e.preventDefault(); lastTouches = e.touches; }, { passive: false });
+    wrap.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if (e.touches.length === 1 && lastTouches.length === 1) {
+            panX += e.touches[0].clientX - lastTouches[0].clientX;
+            panY += e.touches[0].clientY - lastTouches[0].clientY;
+            drawPreview();
+        } else if (e.touches.length === 2 && lastTouches.length === 2) {
+            const prevDist = Math.hypot(lastTouches[0].clientX - lastTouches[1].clientX, lastTouches[0].clientY - lastTouches[1].clientY);
+            const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            const factor = newDist / prevDist;
+            applyZoom(zoom * factor * 100);
+        }
+        lastTouches = e.touches;
+    }, { passive: false });
+
+    // ─── SCROLL ZOOM ───────────────────────────────────────────────────────────
+    wrap.addEventListener('wheel', e => { e.preventDefault(); applyZoom(zoom * 100 - e.deltaY * 0.3); }, { passive: false });
+
+    function setZoom(v) { applyZoom(parseFloat(v)); }
+    function applyZoom(v) {
+        v = Math.max(50, Math.min(300, v));
+        zoom = v / 100;
+        document.getElementById('zoomSlider').value = Math.round(v);
+        document.getElementById('zoomVal').textContent = Math.round(v) + '%';
+        drawPreview();
+    }
+
+    // ─── OPTIONS ───────────────────────────────────────────────────────────────
+    function setSize(btn) { document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputSize = parseInt(btn.dataset.size); }
+    function setBg(btn) {
+        document.querySelectorAll('[data-bg]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); bgMode = btn.dataset.bg;
+        document.getElementById('customBgWrap').style.display = bgMode === 'custom' ? 'block' : 'none';
+    }
+    function setShadow(btn) { document.querySelectorAll('[data-shadow]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); shadowMode = btn.dataset.shadow; }
+    function toggleBorder() {
+        borderOn = !borderOn;
+        const el = document.getElementById('borderToggle');
+        el.textContent = borderOn ? 'On' : 'Off';
+        el.classList.toggle('active', borderOn);
+    }
+    function updatePreview() {
+        borderW = parseInt(document.getElementById('borderWidth').value) || 6;
+        borderCol = document.getElementById('borderColor').value;
+    }
+
+    // ─── CROP ENGINE ───────────────────────────────────────────────────────────
+    function doCrop() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+        // Scale factor from preview canvas to output canvas
+        const scale = outputSize / PREVIEW_SIZE;
+
+        const out = document.createElement('canvas');
+        const pad = shadowMode !== 'none' ? Math.round(outputSize * 0.06) : 0;
+        const total = outputSize + pad * 2;
+        out.width = total; out.height = total;
+        const oc = out.getContext('2d');
+
+        const cx = total / 2, cy = total / 2, r = outputSize / 2;
+
+        // Background
+        if (bgMode !== 'transparent') {
+            oc.fillStyle = bgMode === 'custom' ? document.getElementById('customBgColor').value : (bgMode === 'white' ? '#ffffff' : '#000000');
+            oc.fillRect(0, 0, total, total);
+        }
+
+        // Shadow
+        if (shadowMode === 'soft') { oc.shadowColor = 'rgba(0,0,0,0.45)'; oc.shadowBlur = outputSize * 0.08; oc.shadowOffsetX = 0; oc.shadowOffsetY = outputSize * 0.03; }
+        else if (shadowMode === 'hard') { oc.shadowColor = 'rgba(0,0,0,0.8)'; oc.shadowBlur = 0; oc.shadowOffsetX = outputSize * 0.025; oc.shadowOffsetY = outputSize * 0.025; }
+
+        // Clip to circle and draw image
+        oc.save();
+        oc.beginPath();
+        oc.arc(cx, cy, r, 0, Math.PI * 2);
+        oc.clip();
+        oc.shadowColor = 'transparent'; oc.shadowBlur = 0; oc.shadowOffsetX = 0; oc.shadowOffsetY = 0;
+        oc.drawImage(origImg, panX * scale + pad, panY * scale + pad, origImg.naturalWidth * zoom * scale, origImg.naturalHeight * zoom * scale);
+        oc.restore();
+
+        // Border
+        if (borderOn) {
+            oc.save();
+            oc.shadowColor = 'transparent'; oc.shadowBlur = 0; oc.shadowOffsetX = 0; oc.shadowOffsetY = 0;
+            oc.strokeStyle = borderCol;
+            oc.lineWidth = borderW;
+            oc.beginPath();
+            oc.arc(cx, cy, r - borderW / 2, 0, Math.PI * 2);
+            oc.stroke();
+            oc.restore();
+        }
+
+        resultDataURL = out.toDataURL('image/png');
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+        const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${baseName}_circle_${outputSize}px.png`;
+
+        // Show result
+        const rimg = document.getElementById('resultImg');
+        const previewPx = Math.min(180, outputSize);
+        rimg.style.width = previewPx + 'px';
+        rimg.style.height = previewPx + 'px';
+        document.getElementById('resultChecker').style.width = previewPx + 'px';
+        document.getElementById('resultChecker').style.height = previewPx + 'px';
+        rimg.src = resultDataURL;
+
+        document.getElementById('resultMeta').innerHTML = `
+            <div class="result-stat"><span class="rs-label">Output Size</span><span class="rs-val green">${total} × ${total} px</span></div>
+            <div class="result-stat"><span class="rs-label">Circle Dia.</span><span class="rs-val">${outputSize}px</span></div>
+            <div class="result-stat"><span class="rs-label">Format</span><span class="rs-val">PNG (transparent)</span></div>
+            <div class="result-stat"><span class="rs-label">File Size</span><span class="rs-val">~${fmtBytes(resultBytes)}</span></div>
+            <div class="result-stat"><span class="rs-label">Background</span><span class="rs-val">${bgMode}</span></div>
+            ${borderOn ? `<div class="result-stat"><span class="rs-label">Border</span><span class="rs-val">${borderW}px</span></div>` : ''}
+        `;
+
+        document.getElementById('resultPanel').classList.add('visible');
+        document.getElementById('btnDownload').classList.add('visible');
+        document.getElementById('btnCopy').classList.add('visible');
+        document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Cropped! ✓', 'success');
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    async function doCopy() {
+        if (!resultDataURL) return;
+        try {
+            const res = await fetch(resultDataURL);
+            const blob = await res.blob();
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            showToast('Copied to clipboard!', 'success');
+        } catch {
+            showToast('Copy failed — use Download instead', 'error');
+        }
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

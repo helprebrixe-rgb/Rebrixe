@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelance Project Profitability Calculator | Rebrixe</title>
+    <meta name="description" content="Find out if your freelance project was actually profitable. Compare quoted vs actual hours, calculate effective rate, and see where your time went.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .input-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            color: var(--primary);
+        }
+        .field-sub { font-size: 0.68rem; color: #475569; margin-top: -4px; }
+
+        .input-wrap { position: relative; }
+        .input-prefix, .input-suffix {
+            position: absolute;
+            top: 50%; transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: #64748b;
+            pointer-events: none;
+        }
+        .input-prefix { left: 14px; }
+        .input-suffix { right: 14px; }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        input[type="number"]:focus, input[type="text"]:focus { border-color: var(--primary); }
+        .has-prefix input { padding-left: 30px; }
+        .has-suffix input { padding-right: 38px; }
+
+        /* Expense rows */
+        .expense-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .expense-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 8px;
+            align-items: center;
+        }
+        .expense-row input[type="text"]   { border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; }
+        .expense-row input[type="number"] { border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; }
+        .btn-del {
+            background: rgba(255,50,50,0.08);
+            border: 1px solid rgba(255,50,50,0.2);
+            color: #ef4444;
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: .2s; flex-shrink: 0;
+        }
+        .btn-del:hover { background: rgba(255,50,50,0.18); }
+
+        .btn-add-expense {
+            background: rgba(255,255,255,0.03);
+            border: 1px dashed var(--border);
+            color: #64748b;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            width: 100%;
+        }
+        .btn-add-expense:hover { border-color: var(--primary); color: #fff; }
+
+        .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+        /* Result panel */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        /* Verdict banner */
+        .verdict {
+            display: flex; align-items: center; gap: 16px;
+            padding: 20px 24px; border-radius: 20px;
+            margin-bottom: 16px; border: 1px solid;
+        }
+        .verdict.profit  { background: rgba(34,197,94,0.06);  border-color: rgba(34,197,94,0.3); }
+        .verdict.loss    { background: rgba(239,68,68,0.06);   border-color: rgba(239,68,68,0.3); }
+        .verdict.break   { background: rgba(251,191,36,0.06);  border-color: rgba(251,191,36,0.3); }
+        .verdict-icon    { font-size: 2rem; flex-shrink: 0; }
+        .verdict-title {
+            font-family: 'Outfit'; font-size: 1.3rem; font-weight: 900;
+            letter-spacing: -0.5px; line-height: 1; margin-bottom: 4px;
+        }
+        .verdict.profit .verdict-title { color: #4ade80; }
+        .verdict.loss   .verdict-title { color: #f87171; }
+        .verdict.break  .verdict-title { color: #fbbf24; }
+        .verdict-sub { font-size: 0.82rem; color: #64748b; }
+
+        /* KPI cards */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px; margin-bottom: 14px;
+        }
+        .kpi {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px; padding: 16px 12px; text-align: center;
+        }
+        .kpi.bad  { border-color: rgba(239,68,68,0.35);  background: rgba(239,68,68,0.04); }
+        .kpi.good { border-color: rgba(34,197,94,0.35);   background: rgba(34,197,94,0.04); }
+        .kpi.warn { border-color: rgba(251,191,36,0.35);  background: rgba(251,191,36,0.04); }
+        .kpi-val {
+            font-family: 'Outfit';
+            font-size: clamp(1.2rem,2.5vw,1.6rem);
+            font-weight: 900; color: #fff;
+            line-height: 1; letter-spacing: -0.5px;
+        }
+        .kpi.bad  .kpi-val { color: #f87171; }
+        .kpi.good .kpi-val { color: #4ade80; }
+        .kpi.warn .kpi-val { color: #fbbf24; }
+        .kpi-label {
+            font-size: 0.58rem; color: #64748b;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            font-weight: 700; margin-top: 6px;
+        }
+
+        /* Hours bar */
+        .hours-bar-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px; padding: 18px 20px; margin-bottom: 14px;
+        }
+        .hours-bar-title {
+            font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+            margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .bar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px; height: 10px;
+            overflow: hidden; margin-bottom: 6px;
+        }
+        .bar-fill {
+            height: 100%; border-radius: 999px;
+            transition: width .6s cubic-bezier(.4,0,.2,1);
+        }
+        .bar-fill.quoted  { background: linear-gradient(90deg,#475569,#94a3b8); }
+        .bar-fill.over    { background: linear-gradient(90deg,#ef4444,#f87171); }
+        .bar-fill.under   { background: linear-gradient(90deg,#22c55e,#4ade80); }
+        .bar-legend {
+            display: flex; justify-content: space-between;
+            font-size: 0.72rem; color: #64748b;
+        }
+        .bar-legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot.quoted { background: #94a3b8; }
+        .dot.over   { background: #f87171; }
+        .dot.under  { background: #4ade80; }
+        .missing-note {
+            font-size: 0.72rem; color: #475569; font-style: italic; margin-top: 6px;
+        }
+
+        /* Expense breakdown */
+        .expense-breakdown {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden; margin-bottom: 14px;
+        }
+        .eb-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 11px 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.83rem;
+        }
+        .eb-row:last-child { border-bottom: none; }
+        .eb-row.total { background: rgba(255,255,255,0.03); font-weight: 700; }
+        .eb-name  { color: #94a3b8; }
+        .eb-amt   { font-family: 'Outfit'; font-weight: 800; color: #fff; }
+        .eb-pct   { font-size: 0.68rem; color: #475569; margin-left: 8px; }
+
+        /* Suggestions */
+        .suggestion-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .suggestion {
+            display: flex; gap: 12px; align-items: flex-start;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 12px 14px;
+            font-size: 0.82rem; color: #94a3b8; line-height: 1.45;
+        }
+        .suggestion-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border); color: #fff;
+            padding: 12px; border-radius: 12px;
+            font-family: 'Outfit'; font-weight: 700;
+            font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg,#616768,#c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        /* Calculate CTA */
+        .calc-btn {
+            width: 100%;
+            background: linear-gradient(135deg,#616768,#c0cbcc);
+            border: none; color: #fff;
+            padding: 16px; border-radius: 16px;
+            font-family: 'Outfit'; font-weight: 900;
+            font-size: 1rem; text-transform: uppercase; letter-spacing: 2px;
+            cursor: pointer; transition: .2s;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+            margin-top: 4px;
+        }
+        .calc-btn:hover { transform: translateY(-2px); letter-spacing: 2.5px; }
+
+        /* Input error state */
+        input.input-error { border-color: #ef4444 !important; }
+        .error-msg {
+            font-size: 0.7rem; color: #f87171;
+            margin-top: 4px; display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        @media(max-width:620px) {
+            .input-grid       { grid-template-columns: 1fr; }
+            .input-grid.three { grid-template-columns: 1fr 1fr; }
+            .kpi-row          { grid-template-columns: repeat(2,1fr); }
+            .action-row       { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="freelance">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Freelance Project Profitability
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Quoted vs actual hours, real effective rate, true profit — see exactly where the money went.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- PROJECT INFO -->
+                <div class="section-label">Project Details</div>
+                <div class="input-grid" style="grid-template-columns:1fr 1fr; margin-bottom:14px;">
+                    <div class="field">
+                        <span class="field-label">Project Name</span>
+                        <input type="text" id="projName" placeholder="e.g. Landing Page Redesign" oninput="autoCalc()">
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Client</span>
+                        <input type="text" id="clientName" placeholder="e.g. Acme Corp" oninput="autoCalc()">
+                    </div>
+                </div>
+
+                <hr class="divider" style="margin:18px 0;">
+
+                <!-- BILLING -->
+                <div class="section-label">Billing</div>
+                <div class="input-grid three">
+                    <div class="field">
+                        <span class="field-label">Amount Charged <span style="color:#ef4444;">*</span></span>
+                        <div class="input-wrap has-prefix">
+                            <span class="input-prefix">$</span>
+                            <input type="number" id="quoted" placeholder="2500" min="0" oninput="clearError('quoted'); autoCalc()">
+                        </div>
+                        <span class="error-msg" id="err-quoted">Enter the amount charged.</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Your Target Rate</span>
+                        <span class="field-sub">What you want to earn/hr</span>
+                        <div class="input-wrap has-prefix">
+                            <span class="input-prefix">$</span>
+                            <input type="number" id="rate" placeholder="75" min="0" oninput="autoCalc()">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Tax / Platform Fee %</span>
+                        <span class="field-sub">Upwork, PayPal, GST, etc.</span>
+                        <div class="input-wrap has-suffix">
+                            <input type="number" id="taxPct" placeholder="20" min="0" max="100" oninput="autoCalc()">
+                            <span class="input-suffix">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <!-- HOURS -->
+                <div class="section-label">Hours</div>
+                <div class="input-grid three">
+                    <div class="field">
+                        <span class="field-label">Hours Quoted / Estimated</span>
+                        <span class="field-sub">What you told the client</span>
+                        <div class="input-wrap has-suffix">
+                            <input type="number" id="hoursQuoted" placeholder="20" min="0" oninput="autoCalc()">
+                            <span class="input-suffix">hrs</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Hours Actually Spent <span style="color:#ef4444;">*</span></span>
+                        <span class="field-sub">Tracked / honest total</span>
+                        <div class="input-wrap has-suffix">
+                            <input type="number" id="hoursActual" placeholder="28" min="0" oninput="clearError('hoursActual'); autoCalc()">
+                            <span class="input-suffix">hrs</span>
+                        </div>
+                        <span class="error-msg" id="err-hoursActual">Enter actual hours worked.</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Unpaid Extras (hrs)</span>
+                        <span class="field-sub">Revisions, calls, emails</span>
+                        <div class="input-wrap has-suffix">
+                            <input type="number" id="hoursUnpaid" placeholder="3" min="0" oninput="autoCalc()">
+                            <span class="input-suffix">hrs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <!-- EXPENSES -->
+                <div class="section-label">
+                    Project Expenses
+                    <span style="color:#334155;font-weight:400;text-transform:none;letter-spacing:0;font-size:0.7rem;">
+                        (tools, subscriptions, subcontractors…)
+                    </span>
+                </div>
+                <div class="expense-list" id="expenseList">
+                    <div class="expense-row">
+                        <input type="text" placeholder="Expense name (e.g. Stock photos)" oninput="autoCalc()">
+                        <div class="input-wrap has-prefix" style="min-width:110px;">
+                            <span class="input-prefix">$</span>
+                            <input type="number" placeholder="0" min="0" oninput="autoCalc()" style="padding-left:26px;">
+                        </div>
+                        <button class="btn-del" onclick="delExpense(this)" title="Remove">×</button>
+                    </div>
+                </div>
+                <button class="btn-add-expense" onclick="addExpense()">+ Add Expense</button>
+
+                <hr class="divider">
+
+                <button class="calc-btn" onclick="triggerCalculate()">Calculate Profitability →</button>
+
+                <!-- RESULTS -->
+                <div id="resultPanel" class="result-panel" style="margin-top:28px;"></div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ─────────────────────────────────────────────────────
+       SINGLE SOURCE OF TRUTH
+       All numbers flow from compute(). Nothing recalculates
+       outside this function. Display and copy both read from
+       the same returned object.
+    ───────────────────────────────────────────────────── */
+
+    function readInputs() {
+        return {
+            projName  : document.getElementById('projName').value.trim()    || 'Unnamed Project',
+            clientName: document.getElementById('clientName').value.trim()  || '—',
+            quoted    : Math.max(0, parseFloat(document.getElementById('quoted').value)      || 0),
+            rate      : Math.max(0, parseFloat(document.getElementById('rate').value)        || 0),
+            taxPct    : Math.min(100, Math.max(0, parseFloat(document.getElementById('taxPct').value) || 0)),
+            hQuoted   : Math.max(0, parseFloat(document.getElementById('hoursQuoted').value) || 0),
+            hActual   : Math.max(0, parseFloat(document.getElementById('hoursActual').value) || 0),
+            hUnpaid   : Math.max(0, parseFloat(document.getElementById('hoursUnpaid').value) || 0),
+            expenses  : readExpenses()
+        };
+    }
+
+    function readExpenses() {
+        const rows = document.querySelectorAll('#expenseList .expense-row');
+        const out  = [];
+        rows.forEach(r => {
+            const name = r.querySelector('input[type="text"]').value.trim()    || 'Unnamed';
+            const amt  = Math.max(0, parseFloat(r.querySelector('input[type="number"]').value) || 0);
+            if (amt > 0) out.push({ name, amt });
+        });
+        return out;
+    }
+
+    /*
+     * compute() — the single arithmetic function.
+     * Returns a plain object. Nothing else does maths.
+     */
+    function compute(inp) {
+        const totalExpenses = inp.expenses.reduce((s, e) => s + e.amt, 0);
+        const taxAmt        = inp.quoted * (inp.taxPct / 100);
+        const netRevenue    = inp.quoted - taxAmt;              // revenue after fees/tax
+        const grossProfit   = netRevenue - totalExpenses;       // profit after all costs
+        const totalHours    = inp.hActual + inp.hUnpaid;
+
+        /*
+         * MARGIN: gross profit as % of net revenue (what actually landed in your account).
+         * Using netRevenue — not quoted — because the tax/fee money was never yours.
+         * Guard against division by zero.
+         */
+        const marginPct = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+
+        /*
+         * EFFECTIVE RATE: profit per total hour worked (including unpaid extras).
+         * Guard: 0 hours → null (we will not display a misleading $0/hr).
+         */
+        const effectiveRate = totalHours > 0 ? grossProfit / totalHours : null;
+
+        /*
+         * HOURS VARIANCE: positive = over estimate, negative = under.
+         * null when quoted hours not entered (prevents misleading bar).
+         */
+        const hasQuotedHours  = inp.hQuoted > 0;
+        const hoursVariance   = hasQuotedHours ? inp.hActual - inp.hQuoted : null;
+        const hoursVariancePct= hasQuotedHours && inp.hQuoted > 0
+                                    ? ((inp.hActual - inp.hQuoted) / inp.hQuoted) * 100
+                                    : null;
+
+        /*
+         * SCOPE CREEP VALUE: dollar value of unpaid hours at effective rate.
+         * Shown only when we have a valid effective rate.
+         */
+        const scopeCreepValue = (inp.hUnpaid > 0 && effectiveRate !== null)
+                                    ? inp.hUnpaid * effectiveRate
+                                    : null;
+
+        /*
+         * TARGET COMPARISON: only shown when user entered a target rate.
+         */
+        const targetEarning = (inp.rate > 0 && totalHours > 0)
+                                    ? inp.rate * totalHours
+                                    : null;
+        const vsTarget      = (targetEarning !== null)
+                                    ? grossProfit - targetEarning
+                                    : null;
+
+        return {
+            inp,
+            totalExpenses,
+            taxAmt,
+            netRevenue,
+            grossProfit,
+            totalHours,
+            marginPct,
+            effectiveRate,
+            hasQuotedHours,
+            hoursVariance,
+            hoursVariancePct,
+            scopeCreepValue,
+            targetEarning,
+            vsTarget
+        };
+    }
+
+    /* ─── Formatting helpers ─── */
+    function fmt(n, dec) {
+        const d = dec !== undefined ? dec : 0;
+        return '$' + Math.abs(n).toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    function fmtSigned(n, dec) {
+        const d = dec !== undefined ? dec : 0;
+        return (n < 0 ? '-' : '+') + fmt(n, d);
+    }
+    function fmtHrs(n, dec) {
+        const d = dec !== undefined ? dec : 1;
+        return n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    /* ─── Validation ─── */
+    function validate() {
+        let ok = true;
+        const q  = parseFloat(document.getElementById('quoted').value);
+        const ha = parseFloat(document.getElementById('hoursActual').value);
+        if (!q || q <= 0) {
+            showError('quoted');
+            ok = false;
+        }
+        if (!ha || ha <= 0) {
+            showError('hoursActual');
+            ok = false;
+        }
+        return ok;
+    }
+    function showError(id) {
+        document.getElementById(id).classList.add('input-error');
+        document.getElementById('err-' + id).classList.add('visible');
+    }
+    function clearError(id) {
+        document.getElementById(id).classList.remove('input-error');
+        document.getElementById('err-' + id).classList.remove('visible');
+    }
+
+    /* ─── Auto-calc (debounced) ─── */
+    let autoTimer = null;
+    function autoCalc() {
+        clearTimeout(autoTimer);
+        autoTimer = setTimeout(() => {
+            const q  = parseFloat(document.getElementById('quoted').value);
+            const ha = parseFloat(document.getElementById('hoursActual').value);
+            // Only auto-render when both required fields are populated
+            if (q > 0 && ha > 0) render();
+        }, 400);
+    }
+
+    /* ─── Manual calculate button ─── */
+    function triggerCalculate() {
+        if (!validate()) return;
+        render();
+    }
+
+    /* ─── Main render ─── */
+    function render() {
+        const inp = readInputs();
+        const r   = compute(inp);
+        const panel = document.getElementById('resultPanel');
+        panel.innerHTML = buildHTML(r);
+        panel.classList.add('visible');
+    }
+
+    /* ─── Build result HTML from computed object ─── */
+    function buildHTML(r) {
+        const { inp, grossProfit, netRevenue, taxAmt, totalExpenses,
+                marginPct, effectiveRate, totalHours,
+                hasQuotedHours, hoursVariance, hoursVariancePct,
+                scopeCreepValue, targetEarning, vsTarget } = r;
+
+        /* ── Verdict ── */
+        let vClass, vIcon, vTitle, vSub;
+        if (marginPct >= 40) {
+            vClass = 'profit'; vIcon = '🟢';
+            vTitle = 'Profitable Project';
+            vSub   = marginPct.toFixed(0) + '% net margin — solid work, this one paid well.';
+        } else if (marginPct >= 10) {
+            vClass = 'break'; vIcon = '🟡';
+            vTitle = 'Barely Breaking Even';
+            vSub   = marginPct.toFixed(0) + '% net margin — you made money, but scope creep or expenses ate the gains.';
+        } else if (marginPct >= 0) {
+            vClass = 'break'; vIcon = '🟠';
+            vTitle = 'Thin Margin';
+            vSub   = marginPct.toFixed(0) + '% net margin — re-evaluate your quoting on similar projects.';
+        } else {
+            vClass = 'loss'; vIcon = '🔴';
+            vTitle = 'This Project Lost Money';
+            vSub   = 'Your costs exceeded net revenue. Use this as a calibration for future quotes.';
+        }
+
+        /* ── KPI colour logic ──
+           effectiveRate can be null (no hours). We never colour null as "good".
+        */
+        const gpClass = grossProfit < 0 ? 'bad' : marginPct >= 40 ? 'good' : 'warn';
+        const mrClass = marginPct  < 0  ? 'bad' : marginPct >= 40 ? 'good' : 'warn';
+
+        let erClass, erVal;
+        if (effectiveRate === null) {
+            erClass = '';
+            erVal   = '—';
+        } else if (effectiveRate < 0) {
+            erClass = 'bad';
+            erVal   = fmt(effectiveRate, 0) + '/hr';
+        } else if (inp.rate > 0) {
+            erClass = effectiveRate >= inp.rate ? 'good' : effectiveRate >= inp.rate * 0.7 ? 'warn' : 'bad';
+            erVal   = fmt(effectiveRate, 0) + '/hr';
+        } else {
+            erClass = effectiveRate > 0 ? 'good' : 'bad';
+            erVal   = fmt(effectiveRate, 0) + '/hr';
+        }
+
+        let ovClass, ovVal;
+        if (hoursVariance === null) {
+            ovClass = '';
+            ovVal   = 'N/A';
+        } else {
+            ovClass = hoursVariance <= 0 ? 'good' : hoursVariancePct > 20 ? 'bad' : 'warn';
+            ovVal   = (hoursVariance === 0 ? '± 0' : (hoursVariance > 0 ? '+' : '')) +
+                       fmtHrs(hoursVariance, 1) + 'h';
+        }
+
+        /* ── Hours bar ── */
+        let hoursBarHTML = '';
+        if (totalHours > 0) {
+            const maxH     = Math.max(inp.hQuoted || 0, totalHours, 1);
+            const quotedW  = inp.hQuoted > 0 ? Math.min((inp.hQuoted / maxH) * 100, 100) : 0;
+            const actualW  = Math.min((totalHours / maxH) * 100, 100);
+            const isOver   = hoursVariance !== null && hoursVariance > 0;
+            const actualClass = hoursVariance === null ? (totalHours > 0 ? 'under' : '') : (isOver ? 'over' : 'under');
+
+            hoursBarHTML = `
+            <div class="hours-bar-wrap">
+                <div class="hours-bar-title">Hours: Quoted vs Reality</div>
+                ${inp.hQuoted > 0 ? `
+                <div style="margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#64748b;margin-bottom:4px;">
+                        <span>Quoted</span><span>${fmtHrs(inp.hQuoted, 0)} hrs</span>
+                    </div>
+                    <div class="bar-track"><div class="bar-fill quoted" style="width:${quotedW}%"></div></div>
+                </div>` : ''}
+                <div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#64748b;margin-bottom:4px;">
+                        <span>Actual${inp.hUnpaid > 0 ? ' (incl. unpaid)' : ''}</span>
+                        <span>${fmtHrs(totalHours, 1)} hrs</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill ${actualClass}" style="width:${actualW}%"></div>
+                    </div>
+                </div>
+                ${!inp.hQuoted ? '<p class="missing-note">Quoted hours not entered — over/under estimate cannot be shown.</p>' : ''}
+                <div class="bar-legend" style="margin-top:10px;">
+                    ${inp.hQuoted > 0 ? '<span><span class="dot quoted"></span>Estimated</span>' : ''}
+                    <span>
+                        <span class="dot ${actualClass}"></span>
+                        Actual${hoursVariance !== null ? (isOver ? ' (over estimate)' : ' (under estimate)') : ''}
+                    </span>
+                    ${inp.hUnpaid > 0 ? `<span style="color:#f87171;">+ ${fmtHrs(inp.hUnpaid, 1)}h unpaid</span>` : ''}
+                </div>
+            </div>`;
+        }
+
+        /* ── Expense table ── */
+        let expRowsHTML = '';
+        if (r.inp.expenses.length > 0 || taxAmt > 0) {
+            let rows = inp.expenses.map(e => {
+                const pct = netRevenue > 0 ? ((e.amt / netRevenue) * 100).toFixed(1) + '%' : '';
+                return `<div class="eb-row">
+                    <span class="eb-name">${e.name}</span>
+                    <span class="eb-amt">${fmt(e.amt, 2)}<span class="eb-pct">${pct}</span></span>
+                </div>`;
+            }).join('');
+
+            if (taxAmt > 0) {
+                rows += `<div class="eb-row">
+                    <span class="eb-name">Tax / Platform Fee (${inp.taxPct}%)</span>
+                    <span class="eb-amt">${fmt(taxAmt, 2)}</span>
+                </div>`;
+            }
+
+            rows += `<div class="eb-row total">
+                <span class="eb-name" style="color:#fff;">Total Costs</span>
+                <span class="eb-amt">${fmt(totalExpenses + taxAmt, 2)}</span>
+            </div>`;
+
+            expRowsHTML = `
+            <div class="section-label" style="margin-top:4px;">Cost Breakdown</div>
+            <div class="expense-breakdown">${rows}</div>`;
+        }
+
+        /* ── Scope creep value row ── */
+        let scopeHTML = '';
+        if (scopeCreepValue !== null && scopeCreepValue > 0) {
+            scopeHTML = `
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;
+                        padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <span style="font-size:0.82rem;color:#64748b;">💸 Unpaid scope creep cost you approx.</span>
+                <span style="font-family:'Outfit';font-weight:800;color:#f87171;">${fmt(scopeCreepValue, 0)}</span>
+            </div>`;
+        }
+
+        /* ── Target rate comparison ── */
+        let targetHTML = '';
+        if (targetEarning !== null && vsTarget !== null) {
+            targetHTML = `
+            <div class="section-label">vs Your Target Rate (${fmt(inp.rate, 0)}/hr)</div>
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;
+                        padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:0.82rem;color:#64748b;">Target earning for ${fmtHrs(totalHours, 1)} hrs</span>
+                <span style="font-family:'Outfit';font-weight:800;color:#94a3b8;">${fmt(targetEarning, 0)}</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;
+                        padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <span style="font-size:0.82rem;color:#64748b;">${vsTarget >= 0 ? '🟢 Earned above target' : '🔴 Shortfall vs target'}</span>
+                <span style="font-family:'Outfit';font-weight:800;color:${vsTarget >= 0 ? '#4ade80' : '#f87171'};">
+                    ${fmtSigned(vsTarget, 0)}
+                </span>
+            </div>`;
+        }
+
+        /* ── Smart suggestions ── */
+        const tips = [];
+        if (hoursVariancePct !== null && hoursVariancePct > 20)
+            tips.push({ icon: '⏱️', text: `You went <strong>${Math.abs(hoursVariancePct).toFixed(0)}% over estimate</strong>. Add a ${Math.min(Math.round(hoursVariancePct / 10) * 10, 50)}% buffer on similar future projects.` });
+        if (inp.hUnpaid > 0)
+            tips.push({ icon: '🚫', text: `<strong>${fmtHrs(inp.hUnpaid, 1)} hrs of unpaid work</strong> (calls, revisions, emails). Add a revision policy or cap to future contracts.` });
+        if (effectiveRate !== null && inp.rate > 0 && effectiveRate < inp.rate * 0.7)
+            tips.push({ icon: '💰', text: `Effective rate (${fmt(effectiveRate, 0)}/hr) is more than 30% below your target (${fmt(inp.rate, 0)}/hr). This project was significantly underpriced.` });
+        if (totalExpenses > 0 && netRevenue > 0 && (totalExpenses / netRevenue) > 0.2)
+            tips.push({ icon: '🧾', text: `Expenses consumed <strong>${((totalExpenses / netRevenue) * 100).toFixed(0)}%</strong> of net revenue. Consider passing tool/software costs to the client in future quotes.` });
+        if (tips.length === 0 && marginPct >= 40)
+            tips.push({ icon: '⭐', text: 'Great project! Document your workflow — this is a template worth repeating.' });
+
+        const tipsHTML = tips.length > 0
+            ? `<div class="section-label" style="margin-top:4px;">Insights for Next Time</div>
+               <div class="suggestion-list">${tips.map(t =>
+                   `<div class="suggestion"><span class="suggestion-icon">${t.icon}</span><span>${t.text}</span></div>`
+               ).join('')}</div>`
+            : '';
+
+        return `
+            <div class="verdict ${vClass}">
+                <div class="verdict-icon">${vIcon}</div>
+                <div class="verdict-body">
+                    <div class="verdict-title">${vTitle}</div>
+                    <div class="verdict-sub">${vSub}</div>
+                </div>
+            </div>
+
+            <div class="kpi-row">
+                <div class="kpi ${gpClass}">
+                    <div class="kpi-val">${grossProfit < 0 ? '-' : ''}${fmt(grossProfit, 0)}</div>
+                    <div class="kpi-label">Net Profit</div>
+                </div>
+                <div class="kpi ${mrClass}">
+                    <div class="kpi-val">${marginPct.toFixed(1)}%</div>
+                    <div class="kpi-label">Profit Margin</div>
+                </div>
+                <div class="kpi ${erClass}">
+                    <div class="kpi-val">${erVal}</div>
+                    <div class="kpi-label">Effective Rate</div>
+                </div>
+                <div class="kpi ${ovClass}">
+                    <div class="kpi-val">${ovVal}</div>
+                    <div class="kpi-label">Hours Over/Under</div>
+                </div>
+            </div>
+
+            ${hoursBarHTML}
+            ${expRowsHTML}
+            ${scopeHTML}
+            ${targetHTML}
+            ${tipsHTML}
+
+            <div class="action-row">
+                <button class="btn-action primary" onclick="copyResult()">Copy Summary</button>
+                <button class="btn-action" onclick="resetAll()">✕ Reset</button>
+            </div>
+        `;
+    }
+
+    /* ─────────────────────────────────────────────────────
+       COPY SUMMARY
+       Reads inputs → runs compute() → formats from that same
+       object. Guaranteed to match what is on screen.
+    ───────────────────────────────────────────────────── */
+    function copyResult() {
+        const inp = readInputs();
+        const r   = compute(inp);
+
+        const erLine = r.effectiveRate !== null
+            ? `Effective Rate:   ${fmt(r.effectiveRate, 2)}/hr`
+            : `Effective Rate:   N/A (no hours entered)`;
+
+        const ovLine = r.hoursVariance !== null
+            ? `Hours Over/Under: ${r.hoursVariance > 0 ? '+' : ''}${fmtHrs(r.hoursVariance, 1)}h`
+            : `Hours Over/Under: N/A (no quoted hours entered)`;
+
+        const scopeLine = r.scopeCreepValue !== null && r.scopeCreepValue > 0
+            ? `\nUnpaid scope creep cost: ${fmt(r.scopeCreepValue, 0)}`
+            : '';
+
+        const targetLine = r.vsTarget !== null
+            ? `\nVs target (${fmt(inp.rate, 0)}/hr): ${fmtSigned(r.vsTarget, 0)}`
+            : '';
+
+        const text =
+`Project:          ${inp.projName}
+Client:           ${inp.clientName}
+Amount Charged:   ${fmt(inp.quoted, 2)}
+Tax / Fees:       ${fmt(r.taxAmt, 2)} (${inp.taxPct}%)
+Net Revenue:      ${fmt(r.netRevenue, 2)}
+Total Expenses:   ${fmt(r.totalExpenses, 2)}
+Net Profit:       ${r.grossProfit < 0 ? '-' : ''}${fmt(r.grossProfit, 2)}
+Profit Margin:    ${r.marginPct.toFixed(1)}% (of net revenue)
+Hours Actual:     ${fmtHrs(r.totalHours, 1)}h${inp.hUnpaid > 0 ? ` (incl. ${fmtHrs(inp.hUnpaid,1)}h unpaid)` : ''}
+${erLine}
+${ovLine}${scopeLine}${targetLine}
+— via Rebrixe Profitability Tool`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            const orig = btn.innerText;
+            btn.innerText = '✓ Copied!';
+            setTimeout(() => { btn.innerText = orig; }, 2000);
+        }).catch(() => {
+            alert('Copy failed — please copy manually:\n\n' + text);
+        });
+    }
+
+    /* ─── Expense helpers ─── */
+    function addExpense() {
+        const list = document.getElementById('expenseList');
+        const row  = document.createElement('div');
+        row.className = 'expense-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Expense name" oninput="autoCalc()">
+            <div class="input-wrap has-prefix" style="min-width:110px;">
+                <span class="input-prefix">$</span>
+                <input type="number" placeholder="0" min="0" oninput="autoCalc()" style="padding-left:26px;">
+            </div>
+            <button class="btn-del" onclick="delExpense(this)" title="Remove">×</button>`;
+        list.appendChild(row);
+    }
+
+    function delExpense(btn) {
+        btn.closest('.expense-row').remove();
+        autoCalc();
+    }
+
+    /* ─── Reset ─── */
+    function resetAll() {
+        ['projName','clientName','quoted','rate','taxPct','hoursQuoted','hoursActual','hoursUnpaid']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; el.classList.remove('input-error'); }
+            });
+        ['err-quoted','err-hoursActual'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('visible');
+        });
+        document.getElementById('expenseList').innerHTML = `
+            <div class="expense-row">
+                <input type="text" placeholder="Expense name (e.g. Stock photos)" oninput="autoCalc()">
+                <div class="input-wrap has-prefix" style="min-width:110px;">
+                    <span class="input-prefix">$</span>
+                    <input type="number" placeholder="0" min="0" oninput="autoCalc()" style="padding-left:26px;">
+                </div>
+                <button class="btn-del" onclick="delExpense(this)" title="Remove">×</button>
+            </div>`;
+        const panel = document.getElementById('resultPanel');
+        panel.innerHTML = '';
+        panel.classList.remove('visible');
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

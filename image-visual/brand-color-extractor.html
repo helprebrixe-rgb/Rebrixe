@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brand Colour Extractor — Extract Logo Colors & Generate Palette | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Upload a logo and instantly extract brand colours. Generate tints, shades, and full palettes. Export as CSS variables, Tailwind config, or hex list. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; background: #fff; padding: 4px; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; }
+
+        .ctrl-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .ctrl-row .section-label { margin-bottom: 0; margin-right: 4px; }
+
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        .slider-group { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .slider-hint { font-size: 0.62rem; color: var(--text-dim); }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Results panel */
+        .results-panel { display: none; }
+        .results-panel.visible { display: block; }
+
+        /* Extracted swatches */
+        .swatches-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .swatches-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 0; }
+        .swatch-item { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+        .swatch-block {
+            width: 64px; height: 64px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s;
+            position: relative;
+        }
+        .swatch-block:hover { transform: translateY(-4px) scale(1.06); box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
+        .swatch-block.selected::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 900; background: rgba(0,0,0,0.35); border-radius: 12px; color: #fff; }
+        .swatch-hex { font-size: 0.65rem; font-weight: 700; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .swatch-copy-hint { font-size: 0.58rem; color: var(--text-dim); }
+
+        /* Tints & shades */
+        .palette-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .palette-color-section { margin-bottom: 24px; }
+        .palette-color-section:last-child { margin-bottom: 0; }
+        .palette-color-name { font-size: 0.72rem; font-weight: 800; color: var(--text-sec); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .palette-color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .shade-strip { display: flex; gap: 4px; border-radius: 10px; overflow: hidden; }
+        .shade-cell { flex: 1; height: 48px; cursor: pointer; position: relative; transition: flex 0.2s; }
+        .shade-cell:hover { flex: 1.6; }
+        .shade-cell .shade-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.55rem; font-weight: 700; padding: 2px 0; background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.8); opacity: 0; transition: opacity 0.15s; }
+        .shade-cell:hover .shade-label { opacity: 1; }
+
+        /* Export card */
+        .export-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .export-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+        .exp-tab { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .exp-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; font-family: 'Fira Code', monospace; font-size: 0.75rem; color: var(--text-sec); white-space: pre; overflow-x: auto; line-height: 1.7; max-height: 260px; overflow-y: auto; }
+        .code-block .k { color: #FF79C6; }
+        .code-block .v { color: var(--accent); }
+        .code-block .c { color: var(--text-dim); }
+        .copy-code-btn { margin-top: 10px; padding: 9px 18px; border-radius: 9px; border: 1px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .copy-code-btn:hover { background: rgba(255,214,0,0.14); }
+
+        /* Preview card — mock brand board */
+        .preview-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .brand-board { border-radius: 12px; overflow: hidden; border: 1px solid var(--border-mid); }
+        .brand-board-header { padding: 20px 24px; display: flex; align-items: center; gap: 12px; }
+        .brand-board-logo-placeholder { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1rem; }
+        .brand-board-name { font-weight: 800; font-size: 1rem; }
+        .brand-board-body { padding: 20px 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .brand-board-btn { padding: 10px 20px; border-radius: 8px; border: none; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.82rem; cursor: default; }
+        .brand-board-pill { padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; }
+        .brand-board-footer { padding: 14px 24px; font-size: 0.75rem; font-weight: 600; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .swatches-grid { gap: 8px; }
+            .swatch-block { width: 52px; height: 52px; }
+            .shade-cell { height: 38px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Brand Colour Extractor</h1>
+                <p class="tool-page-sub">Upload a logo — extract brand colours, generate full tint & shade palettes, preview on a brand board, export as CSS, Tailwind, or Figma tokens.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your logo here</p>
+                <p class="drop-sub">PNG, SVG, JPG or WebP · or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label" style="margin-bottom:12px;">Extraction Options</div>
+                    <div class="ctrl-row">
+                        <span class="section-label" style="margin-bottom:0;">Colours to extract</span>
+                        <button class="tog-btn" data-n="4" onclick="setN(this)">4</button>
+                        <button class="tog-btn active" data-n="6" onclick="setN(this)">6</button>
+                        <button class="tog-btn" data-n="8" onclick="setN(this)">8</button>
+                        <button class="tog-btn" data-n="12" onclick="setN(this)">12</button>
+                    </div>
+                    <div class="ctrl-row" style="margin-top:12px;">
+                        <span class="section-label" style="margin-bottom:0;">Skip near-white/black</span>
+                        <button class="tog-btn active" id="btnSkipNeutral" onclick="toggleSkip(this)">On</button>
+                        <button class="tog-btn" id="btnSkipOff" onclick="toggleSkipOff(this)">Off</button>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <div>
+                                <div class="slider-label">Tints & Shades per colour</div>
+                                <div class="slider-hint">Steps in each palette strip</div>
+                            </div>
+                            <span class="slider-val" id="valSteps">9</span>
+                        </div>
+                        <input type="range" class="ctrl-slider" id="sliderSteps" min="5" max="13" step="2" value="9" oninput="document.getElementById('valSteps').textContent=this.value">
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span>Extracting colours with k-means…</span>
+                </div>
+
+                <!-- Action -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doExtract()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Extract Brand Colours</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div class="results-panel" id="resultsPanel">
+
+                    <!-- Extracted swatches -->
+                    <div class="swatches-card">
+                        <div class="section-label">Extracted Colours <span id="swatchCount" style="color:var(--primary);font-family:'Fira Code',monospace;"></span></div>
+                        <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:14px;">Click any swatch to copy hex. Click again to pin/unpin from palette.</p>
+                        <div class="swatches-grid" id="swatchesGrid"></div>
+                    </div>
+
+                    <!-- Tints & Shades -->
+                    <div class="palette-card">
+                        <div class="section-label" style="margin-bottom:4px;">Full Palette — Tints & Shades</div>
+                        <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:18px;">Hover any cell to see value, click to copy hex.</p>
+                        <div id="paletteSections"></div>
+                    </div>
+
+                    <!-- Brand Board Preview -->
+                    <div class="preview-card">
+                        <div class="section-label" style="margin-bottom:14px;">Brand Board Preview</div>
+                        <div class="brand-board" id="brandBoard"></div>
+                    </div>
+
+                    <!-- Export -->
+                    <div class="export-card">
+                        <div class="section-label" style="margin-bottom:12px;">Export</div>
+                        <div class="export-tabs">
+                            <button class="exp-tab active" onclick="setExport(this,'css')">CSS Variables</button>
+                            <button class="exp-tab" onclick="setExport(this,'tailwind')">Tailwind Config</button>
+                            <button class="exp-tab" onclick="setExport(this,'tokens')">Design Tokens (JSON)</button>
+                            <button class="exp-tab" onclick="setExport(this,'hex')">Hex List</button>
+                            <button class="exp-tab" onclick="setExport(this,'scss')">SCSS</button>
+                        </div>
+                        <div class="code-block" id="codeBlock"></div>
+                        <button class="copy-code-btn" onclick="copyCode()">⎘ Copy to clipboard</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>K-means colour clustering</h3>
+                        <p>Samples pixels from your logo and groups similar colours together using k-means clustering — the same technique used in design tools to find dominant brand colours.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Tints &amp; shades formula</h3>
+                        <p>Each extracted colour is mixed toward white (tints) and toward black (shades) in equal steps, giving you a complete <code>50–900</code> style scale for every brand hue.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Skip neutrals option</h3>
+                        <p>Whites, blacks, and near-greys dominate most logos. Toggle <code>Skip near-white/black</code> on to surface the actual brand accent colours instead of background fills.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs in your browser via the <code>Canvas API</code>. Your logo never touches a server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let extractedColors = []; // [{hex, r, g, b, count}]
+    let paletteData = {};     // hex -> [{hex,label}...]
+    let numColors = 6;
+    let skipNeutral = true;
+    let currentExportFmt = 'css';
+
+    // ─── DROP ZONE ────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultsPanel').classList.remove('visible');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origImg = null; origFile = null;
+        extractedColors = []; paletteData = {};
+    }
+
+    // ─── CONTROLS ─────────────────────────────────────────────────────────────
+    function setN(btn) {
+        document.querySelectorAll('[data-n]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        numColors = parseInt(btn.dataset.n);
+    }
+    function toggleSkip(btn) {
+        document.getElementById('btnSkipNeutral').classList.add('active');
+        document.getElementById('btnSkipOff').classList.remove('active');
+        skipNeutral = true;
+    }
+    function toggleSkipOff(btn) {
+        document.getElementById('btnSkipOff').classList.add('active');
+        document.getElementById('btnSkipNeutral').classList.remove('active');
+        skipNeutral = false;
+    }
+
+    // ─── K-MEANS COLOUR EXTRACTION ────────────────────────────────────────────
+    function samplePixels(img, maxSamples) {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, Math.sqrt(maxSamples / (img.naturalWidth * img.naturalHeight)));
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const pixels = [];
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] < 30) continue; // skip transparent
+            pixels.push([data[i], data[i+1], data[i+2]]);
+        }
+        return pixels;
+    }
+
+    function isNeutral(r, g, b) {
+        const lum = 0.299*r + 0.587*g + 0.114*b;
+        const sat = Math.max(r,g,b) - Math.min(r,g,b);
+        return lum > 230 || lum < 25 || sat < 20;
+    }
+
+    function colorDistance(a, b) {
+        return (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2;
+    }
+
+    function kmeans(pixels, k, iterations=20) {
+        if (pixels.length === 0) return [];
+        // Init centroids: pick spread pixels
+        let centroids = [];
+        centroids.push(pixels[Math.floor(Math.random() * pixels.length)]);
+        for (let c = 1; c < k; c++) {
+            const dists = pixels.map(p => Math.min(...centroids.map(ct => colorDistance(p, ct))));
+            const total = dists.reduce((a, b) => a + b, 0);
+            let r = Math.random() * total;
+            let chosen = pixels[pixels.length - 1];
+            for (let i = 0; i < dists.length; i++) { r -= dists[i]; if (r <= 0) { chosen = pixels[i]; break; } }
+            centroids.push(chosen);
+        }
+
+        let assignments = new Array(pixels.length).fill(0);
+        for (let iter = 0; iter < iterations; iter++) {
+            // Assign
+            let changed = false;
+            for (let i = 0; i < pixels.length; i++) {
+                let best = 0, bestDist = Infinity;
+                for (let c = 0; c < k; c++) {
+                    const d = colorDistance(pixels[i], centroids[c]);
+                    if (d < bestDist) { bestDist = d; best = c; }
+                }
+                if (assignments[i] !== best) { assignments[i] = best; changed = true; }
+            }
+            if (!changed) break;
+            // Update centroids
+            const sums = Array.from({length: k}, () => [0,0,0,0]);
+            for (let i = 0; i < pixels.length; i++) {
+                const c = assignments[i];
+                sums[c][0] += pixels[i][0];
+                sums[c][1] += pixels[i][1];
+                sums[c][2] += pixels[i][2];
+                sums[c][3]++;
+            }
+            centroids = sums.map(s => s[3] > 0 ? [s[0]/s[3], s[1]/s[3], s[2]/s[3]] : centroids[0]);
+        }
+
+        // Count
+        const counts = new Array(k).fill(0);
+        assignments.forEach(a => counts[a]++);
+        return centroids.map((c, i) => ({
+            r: Math.round(c[0]), g: Math.round(c[1]), b: Math.round(c[2]), count: counts[i]
+        })).sort((a, b) => b.count - a.count);
+    }
+
+    function toHex(r, g, b) {
+        return '#' + [r,g,b].map(v => Math.min(255,Math.max(0,Math.round(v))).toString(16).padStart(2,'0')).join('');
+    }
+
+    function generateShades(r, g, b, steps) {
+        const result = [];
+        // steps: e.g. 9 → 50,100,200,300,400,500,600,700,800,900 (we do steps evenly)
+        const labels = steps === 5 ? ['100','300','500','700','900']
+                     : steps === 7 ? ['50','100','200','400','600','800','900']
+                     : steps === 9 ? ['50','100','200','300','400','500','600','700','800','900'].slice(0,9)
+                     : ['50','100','200','300','400','500','600','700','800','900','950','975','990'].slice(0,steps);
+        // Tints: mix toward white; middle = base; shades: mix toward black
+        const half = Math.floor(steps / 2);
+        for (let i = 0; i < steps; i++) {
+            let nr, ng, nb;
+            if (i < half) {
+                // tint — mix toward white
+                const t = 1 - (i / half);
+                nr = Math.round(r + (255 - r) * t);
+                ng = Math.round(g + (255 - g) * t);
+                nb = Math.round(b + (255 - b) * t);
+            } else if (i === half) {
+                nr = r; ng = g; nb = b;
+            } else {
+                // shade — mix toward black
+                const t = (i - half) / (steps - 1 - half);
+                nr = Math.round(r * (1 - t));
+                ng = Math.round(g * (1 - t));
+                nb = Math.round(b * (1 - t));
+            }
+            result.push({ hex: toHex(nr, ng, nb), label: labels[i] || String(i*100) });
+        }
+        return result;
+    }
+
+    // ─── MAIN EXTRACT ─────────────────────────────────────────────────────────
+    function doExtract() {
+        if (!origImg) { showToast('Upload a logo first', 'error'); return; }
+        document.getElementById('processing').classList.add('visible');
+        document.getElementById('resultsPanel').classList.remove('visible');
+
+        setTimeout(() => {
+            let pixels = samplePixels(origImg, 12000);
+            if (skipNeutral) pixels = pixels.filter(p => !isNeutral(p[0], p[1], p[2]));
+            if (pixels.length < numColors * 10) {
+                // fallback: re-sample without filter
+                pixels = samplePixels(origImg, 12000);
+            }
+
+            const steps = parseInt(document.getElementById('sliderSteps').value);
+            const k = Math.min(numColors, Math.floor(pixels.length / 5));
+            const clusters = kmeans(pixels, Math.max(1, k));
+
+            extractedColors = clusters.map(c => ({ ...c, hex: toHex(c.r, c.g, c.b) }));
+
+            // Generate palette for each
+            paletteData = {};
+            extractedColors.forEach(c => {
+                paletteData[c.hex] = generateShades(c.r, c.g, c.b, steps);
+            });
+
+            renderSwatches();
+            renderPalette();
+            renderBrandBoard();
+            renderExport(currentExportFmt);
+
+            document.getElementById('processing').classList.remove('visible');
+            document.getElementById('resultsPanel').classList.add('visible');
+            document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast(`${extractedColors.length} brand colours extracted ✓`, 'success');
+        }, 40);
+    }
+
+    // ─── RENDER SWATCHES ──────────────────────────────────────────────────────
+    function renderSwatches() {
+        const grid = document.getElementById('swatchesGrid');
+        document.getElementById('swatchCount').textContent = `— ${extractedColors.length} found`;
+        grid.innerHTML = '';
+        extractedColors.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'swatch-item';
+            item.innerHTML = `
+                <div class="swatch-block" style="background:${c.hex}" onclick="copySwatch('${c.hex}', this)" title="Click to copy ${c.hex}"></div>
+                <span class="swatch-hex">${c.hex}</span>
+                <span class="swatch-copy-hint">click to copy</span>
+            `;
+            grid.appendChild(item);
+        });
+    }
+
+    function copySwatch(hex, el) {
+        navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex} ✓`, 'success'));
+    }
+
+    // ─── RENDER PALETTE ───────────────────────────────────────────────────────
+    function renderPalette() {
+        const container = document.getElementById('paletteSections');
+        container.innerHTML = '';
+        extractedColors.forEach((c, idx) => {
+            const shades = paletteData[c.hex] || [];
+            const section = document.createElement('div');
+            section.className = 'palette-color-section';
+            const strip = shades.map(s =>
+                `<div class="shade-cell" style="background:${s.hex}" onclick="navigator.clipboard.writeText('${s.hex}').then(()=>showToast('Copied ${s.hex} ✓','success'))" title="${s.hex}">
+                    <span class="shade-label">${s.label}<br>${s.hex}</span>
+                </div>`
+            ).join('');
+            section.innerHTML = `
+                <div class="palette-color-name">
+                    <span class="palette-color-dot" style="background:${c.hex}"></span>
+                    Color ${idx + 1} &mdash; <span style="font-family:'Fira Code',monospace;color:var(--primary)">${c.hex}</span>
+                </div>
+                <div class="shade-strip">${strip}</div>
+            `;
+            container.appendChild(section);
+        });
+    }
+
+    // ─── BRAND BOARD PREVIEW ──────────────────────────────────────────────────
+    function renderBrandBoard() {
+        const board = document.getElementById('brandBoard');
+        if (extractedColors.length < 1) return;
+        const primary = extractedColors[0].hex;
+        const secondary = extractedColors[1] ? extractedColors[1].hex : '#333';
+        const accent = extractedColors[2] ? extractedColors[2].hex : '#666';
+        const lum = c => { const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16); return 0.299*r+0.587*g+0.114*b; };
+        const textOn = hex => lum({hex}.hex || hex) > 140 ? '#111' : '#fff'; // fix: simple
+        const textOnHex = hex => { const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return (0.299*r+0.587*g+0.114*b)>140?'#111':'#fff'; };
+        board.innerHTML = `
+            <div class="brand-board-header" style="background:${primary}">
+                <div class="brand-board-logo-placeholder" style="background:${secondary};color:${textOnHex(secondary)}">B</div>
+                <span class="brand-board-name" style="color:${textOnHex(primary)}">Brand Name</span>
+            </div>
+            <div class="brand-board-body" style="background:#fff">
+                <button class="brand-board-btn" style="background:${primary};color:${textOnHex(primary)}">Primary Button</button>
+                <button class="brand-board-btn" style="background:${secondary};color:${textOnHex(secondary)}">Secondary</button>
+                <button class="brand-board-btn" style="background:transparent;border:2px solid ${primary};color:${primary}">Outline</button>
+                <span class="brand-board-pill" style="background:${accent}22;color:${accent};border:1px solid ${accent}55">Tag / Badge</span>
+            </div>
+            <div class="brand-board-footer" style="background:${secondary};color:${textOnHex(secondary)}">
+                © 2025 Brand Name · Built with Rebrixe
+            </div>
+        `;
+    }
+
+    // ─── EXPORT CODE ──────────────────────────────────────────────────────────
+    function setExport(btn, fmt) {
+        document.querySelectorAll('.exp-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentExportFmt = fmt;
+        renderExport(fmt);
+    }
+
+    function slugify(i) { return `brand-color-${i+1}`; }
+
+    function renderExport(fmt) {
+        const block = document.getElementById('codeBlock');
+        if (extractedColors.length === 0) return;
+        let code = '';
+
+        if (fmt === 'css') {
+            code = `:root {\n`;
+            extractedColors.forEach((c, i) => {
+                const name = slugify(i);
+                code += `  /* Color ${i+1}: ${c.hex} */\n`;
+                code += `  --${name}: ${c.hex};\n`;
+                (paletteData[c.hex] || []).forEach(s => {
+                    code += `  --${name}-${s.label}: ${s.hex};\n`;
+                });
+                code += `\n`;
+            });
+            code += `}`;
+        } else if (fmt === 'scss') {
+            extractedColors.forEach((c, i) => {
+                const name = slugify(i);
+                code += `// Color ${i+1}: ${c.hex}\n`;
+                code += `$${name}: ${c.hex};\n`;
+                (paletteData[c.hex] || []).forEach(s => {
+                    code += `$${name}-${s.label}: ${s.hex};\n`;
+                });
+                code += `\n`;
+            });
+        } else if (fmt === 'tailwind') {
+            code = `// tailwind.config.js\nmodule.exports = {\n  theme: {\n    extend: {\n      colors: {\n`;
+            extractedColors.forEach((c, i) => {
+                const name = `brand${i+1}`;
+                code += `        '${name}': {\n`;
+                (paletteData[c.hex] || []).forEach(s => {
+                    code += `          '${s.label}': '${s.hex}',\n`;
+                });
+                code += `        },\n`;
+            });
+            code += `      },\n    },\n  },\n};`;
+        } else if (fmt === 'tokens') {
+            const tokens = {};
+            extractedColors.forEach((c, i) => {
+                const name = `brand-color-${i+1}`;
+                tokens[name] = { value: c.hex, type: 'color' };
+                (paletteData[c.hex] || []).forEach(s => {
+                    tokens[`${name}-${s.label}`] = { value: s.hex, type: 'color' };
+                });
+            });
+            code = JSON.stringify(tokens, null, 2);
+        } else if (fmt === 'hex') {
+            extractedColors.forEach((c, i) => {
+                code += `/* Color ${i+1} */\n${c.hex}\n`;
+                (paletteData[c.hex] || []).forEach(s => code += `${s.hex}  /* ${s.label} */\n`);
+                code += `\n`;
+            });
+        }
+
+        block.textContent = code;
+    }
+
+    function copyCode() {
+        const text = document.getElementById('codeBlock').textContent;
+        navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard ✓', 'success'));
+    }
+
+    // ─── UTILS ────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

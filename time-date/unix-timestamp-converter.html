@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unix Timestamp Converter | Rebrixe</title>
+    <meta name="description" content="Convert Unix timestamps to human-readable dates and back. Live current timestamp, supports seconds and milliseconds, UTC and local time.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ─── Layout ─── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        /* ─── Live bar ─── */
+        .live-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px 22px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .live-left { display: flex; flex-direction: column; gap: 4px; }
+        .live-tag {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pulse-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--primary);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.4; transform: scale(0.7); }
+        }
+        .live-ts {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .live-ms {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #475569;
+            margin-top: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        .live-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* ─── Buttons ─── */
+        .btn-sm {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+        .btn-sm:hover { border-color: var(--primary); color: #fff; }
+        .btn-sm:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .btn-sm.accent {
+            background: rgba(120,129,132,0.12);
+            border-color: rgba(139,158,168,0.3);
+            color: var(--primary);
+        }
+        .btn-sm.accent:hover { background: rgba(120,129,132,0.22); }
+
+        /* ─── Mode tabs ─── */
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 13px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            text-align: center;
+        }
+        .tab-btn.active {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(120,129,132,0.1);
+        }
+        .tab-btn:hover:not(.active) { border-color: #475569; color: #94a3b8; }
+        .tab-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        /* ─── Sections ─── */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ─── Input group ─── */
+        .input-group { margin-bottom: 18px; }
+        .input-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+        .ts-input {
+            flex: 1;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 15px 18px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            outline: none;
+            transition: border-color 0.2s;
+            min-width: 0;
+            font-variant-numeric: tabular-nums;
+            /* Hides browser number spinners */
+            -moz-appearance: textfield;
+        }
+        .ts-input::-webkit-outer-spin-button,
+        .ts-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .ts-input:focus { border-color: var(--primary); }
+        .ts-input::placeholder { color: #334155; }
+        .ts-input.error { border-color: rgba(239,68,68,0.6); }
+
+        /* ─── Unit pills ─── */
+        .unit-toggle {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .unit-pill {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            user-select: none;
+        }
+        .unit-pill.active { border-color: var(--primary); color: var(--primary); background: rgba(120,129,132,0.1); }
+        .unit-pill:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        /* ─── Human date inputs ─── */
+        .human-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        input[type="date"], input[type="time"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+        }
+        input[type="date"]:focus, input[type="time"]:focus { border-color: var(--primary); }
+
+        /* ─── Timezone selector ─── */
+        .tz-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .tz-label-sm {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .tz-select {
+            flex: 1;
+            min-width: 0;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #94a3b8;
+            padding: 7px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+        }
+        .tz-select:focus { border-color: var(--primary); color: #fff; }
+
+        /* ─── Result grid ─── */
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .result-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .result-card.wide { grid-column: span 2; }
+        .result-card.highlighted {
+            border-color: var(--primary);
+            background: rgba(120,129,132,0.06);
+        }
+        .rc-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            color: #475569;
+        }
+        .rc-val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: #e2e8f0;
+            word-break: break-all;
+            line-height: 1.3;
+            font-variant-numeric: tabular-nums;
+        }
+        .result-card.highlighted .rc-val { color: #fff; font-size: 1.1rem; }
+        .rc-copy {
+            align-self: flex-start;
+            background: none;
+            border: 1px solid var(--border);
+            color: #475569;
+            padding: 3px 9px;
+            border-radius: 7px;
+            font-size: 0.65rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            margin-top: 2px;
+        }
+        .rc-copy:hover { border-color: var(--primary); color: var(--primary); }
+        .rc-copy:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        /* ─── Error bar ─── */
+        .error-bar {
+            display: none;
+            background: rgba(239,68,68,0.07);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.82rem;
+            color: #f87171;
+            margin-top: 14px;
+        }
+        .error-bar.show { display: block; }
+
+        /* ─── Limitations notice ─── */
+        .limits-box {
+            margin-top: 28px;
+            background: rgba(255,255,255,0.015);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 20px;
+        }
+        .limits-title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .limits-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .limits-list li {
+            font-size: 0.78rem;
+            color: #475569;
+            padding-left: 16px;
+            position: relative;
+            line-height: 1.5;
+        }
+        .limits-list li::before {
+            content: '!';
+            position: absolute;
+            left: 0;
+            color: #64748b;
+            font-weight: 700;
+        }
+        .limits-list li strong { color: #94a3b8; font-weight: 600; }
+
+        /* ─── TZ note ─── */
+        .tz-note {
+            font-size: 0.75rem;
+            color: #475569;
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.01);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .tz-note span { color: #94a3b8; font-weight: 600; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .result-grid { grid-template-columns: 1fr; }
+            .result-card.wide { grid-column: span 1; }
+            .human-grid { grid-template-columns: 1fr; }
+            .live-bar { flex-direction: column; align-items: flex-start; }
+            .live-right { width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Unix Timestamp Converter</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Convert timestamps to human dates and back — seconds, milliseconds, UTC, and local time.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- ── LIVE TICKER ── -->
+            <div class="live-bar" role="status" aria-live="off" aria-label="Live Unix timestamp">
+                <div class="live-left">
+                    <div class="live-tag"><div class="pulse-dot" aria-hidden="true"></div> Live Unix Timestamp</div>
+                    <div class="live-ts" id="liveSec" aria-label="Current Unix timestamp in seconds">—</div>
+                    <div class="live-ms" id="liveMs">milliseconds: —</div>
+                </div>
+                <div class="live-right">
+                    <button class="btn-sm accent" onclick="useNowInConverter()" aria-label="Use current timestamp in converter">⬇ Use Now</button>
+                    <button class="btn-sm" id="copyLiveBtn" onclick="copyLive()">Copy Seconds</button>
+                    <button class="btn-sm" id="copyLiveMsBtn" onclick="copyLiveMs()">Copy Ms</button>
+                </div>
+            </div>
+
+            <!-- ── MODE TABS ── -->
+            <div class="mode-tabs" role="tablist">
+                <button class="tab-btn active" id="tab-ts" role="tab" aria-selected="true" aria-controls="sec-ts" onclick="switchMode('ts')">Timestamp → Date</button>
+                <button class="tab-btn" id="tab-human" role="tab" aria-selected="false" aria-controls="sec-human" onclick="switchMode('human')">Date → Timestamp</button>
+            </div>
+
+            <!-- ── SECTION A: Timestamp → Date ── -->
+            <div class="section active" id="sec-ts" role="tabpanel" aria-labelledby="tab-ts">
+                <div class="input-group">
+                    <label class="input-label" for="tsInput">Enter Unix Timestamp</label>
+                    <div class="input-row">
+                        <input
+                            class="ts-input"
+                            type="text"
+                            id="tsInput"
+                            inputmode="numeric"
+                            placeholder="e.g. 1717200000"
+                            autocomplete="off"
+                            spellcheck="false"
+                            oninput="onTsInput()"
+                            onpaste="scheduleTsConvert()"
+                        >
+                        <button class="btn-sm accent" onclick="useNowInConverter()" style="padding:0 18px; font-size:0.68rem;" aria-label="Fill current timestamp">Now</button>
+                    </div>
+                    <div class="unit-toggle" role="group" aria-label="Timestamp unit">
+                        <span class="unit-pill active" id="pill-sec" role="radio" aria-checked="true" tabindex="0"
+                              onclick="setUnit('sec')" onkeydown="pillKey(event,'sec')">Seconds (s)</span>
+                        <span class="unit-pill" id="pill-ms" role="radio" aria-checked="false" tabindex="0"
+                              onclick="setUnit('ms')" onkeydown="pillKey(event,'ms')">Milliseconds (ms)</span>
+                    </div>
+                </div>
+                <div class="error-bar" id="tsError" role="alert"></div>
+                <div id="tsResults"></div>
+            </div>
+
+            <!-- ── SECTION B: Date → Timestamp ── -->
+            <div class="section" id="sec-human" role="tabpanel" aria-labelledby="tab-human">
+                <div class="input-group">
+                    <label class="input-label">Pick a Date &amp; Time</label>
+                    <div class="human-grid">
+                        <input type="date" id="humanDate" aria-label="Date" oninput="convertHuman()">
+                        <input type="time" id="humanTime" value="00:00" step="1" aria-label="Time (HH:MM:SS)" oninput="convertHuman()">
+                    </div>
+                    <div class="tz-row">
+                        <span class="tz-label-sm">Interpret as</span>
+                        <select class="tz-select" id="humanTzMode" onchange="convertHuman()" aria-label="Timezone mode for date input">
+                            <option value="local">My local timezone</option>
+                            <option value="utc">UTC</option>
+                        </select>
+                        <button class="btn-sm" onclick="setHumanNow()" style="border-radius:999px; padding:5px 14px; font-size:0.7rem;" aria-label="Use current date and time">Use Now</button>
+                    </div>
+                </div>
+                <div id="humanResults"></div>
+            </div>
+
+            <!-- ── TZ notice ── -->
+            <div class="tz-note" aria-label="Detected timezone">
+                🌐 Your browser timezone: <span id="tzDisplay">detecting…</span>
+            </div>
+
+            <!-- ── LIMITATIONS NOTICE ── -->
+            <div class="limits-box" role="note" aria-label="Tool limitations">
+                <div class="limits-title">
+                    <span aria-hidden="true">⚠</span> What this tool does not do — read before relying on output
+                </div>
+                <ul class="limits-list">
+                    <li><strong>Timezone detection is browser-only.</strong> This tool reads your browser's reported timezone via <code>Intl.DateTimeFormat()</code>. It cannot detect VPN-mismatched timezones, OS-level overrides, or enterprise proxy offsets.</li>
+                    <li><strong>Local-time display depends on your browser.</strong> The "Local Date &amp; Time" result uses <code>toLocaleString()</code>, which formats dates differently across browsers and OS locales. The format is not customisable here.</li>
+                    <li><strong>Valid range is 1970–2099.</strong> Timestamps outside this range are rejected. Negative timestamps (pre-1970) and far-future timestamps are not supported.</li>
+                    <li><strong>Milliseconds auto-detection in Seconds mode.</strong> If you enter a 13+ digit number while in "Seconds" mode, the tool assumes it's milliseconds and silently converts it. There is no warning shown. Switch to Milliseconds mode to be explicit.</li>
+                    <li><strong>Seconds input accepts decimals but truncates them.</strong> If you type <code>1717200000.999</code>, the fractional part is discarded. Sub-second precision is lost.</li>
+                    <li><strong>Copy buttons require clipboard permission.</strong> On some browsers or HTTP (non-HTTPS) pages, <code>navigator.clipboard</code> is blocked. Copy buttons will silently fail in that case.</li>
+                    <li><strong>"Relative time" is approximate.</strong> Values like "3 days ago" round to the nearest whole unit and do not account for DST changes or leap seconds within that range.</li>
+                    <li><strong>Day-of-Year uses local time, not UTC.</strong> The day-of-year count is computed from the timestamp as interpreted in your local timezone. The UTC day-of-year may differ by ±1 day near midnight.</li>
+                    <li><strong>No server-side validation.</strong> All conversion happens in your browser. Results are only as accurate as your system clock.</li>
+                </ul>
+            </div>
+
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════════════════════════
+    var tsUnit = 'sec';
+    var liveInterval = null;
+    var tsConvertTimer = null;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TIMEZONE DISPLAY
+    // ═══════════════════════════════════════════════════════════════
+    (function initTz() {
+        try {
+            var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            var offsetMin = new Date().getTimezoneOffset();
+            var sign = offsetMin <= 0 ? '+' : '-';
+            var absH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+            var absM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+            document.getElementById('tzDisplay').textContent =
+                tz + ' (UTC' + sign + absH + ':' + absM + ')';
+        } catch (e) {
+            document.getElementById('tzDisplay').textContent = 'Unknown';
+        }
+    })();
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LIVE TICKER
+    // ═══════════════════════════════════════════════════════════════
+    function tickLive() {
+        var now = Date.now();
+        var sec = Math.floor(now / 1000);
+        // Use raw string concatenation – no locale formatting on the live ticker
+        // so it doesn't jitter with locale thousands-separators in some browsers
+        document.getElementById('liveSec').textContent = sec.toString();
+        document.getElementById('liveMs').textContent  = 'milliseconds: ' + now.toString();
+    }
+    tickLive();
+    liveInterval = setInterval(tickLive, 1000);
+
+    function copyLive() {
+        var sec = Math.floor(Date.now() / 1000).toString();
+        copyToClipboard(sec, document.getElementById('copyLiveBtn'), 'Copy Seconds');
+    }
+
+    function copyLiveMs() {
+        var ms = Date.now().toString();
+        copyToClipboard(ms, document.getElementById('copyLiveMsBtn'), 'Copy Ms');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  CLIPBOARD HELPER
+    //  Falls back gracefully if clipboard API is unavailable
+    // ═══════════════════════════════════════════════════════════════
+    function copyToClipboard(text, btn, originalLabel) {
+        if (!navigator.clipboard) {
+            // Fallback: select a temporary textarea
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showCopied(btn, originalLabel);
+            } catch(e) { /* silent */ }
+            document.body.removeChild(ta);
+            return;
+        }
+        navigator.clipboard.writeText(text).then(function() {
+            showCopied(btn, originalLabel);
+        }).catch(function() { /* silent */ });
+    }
+
+    function showCopied(btn, originalLabel) {
+        if (!btn) return;
+        btn.textContent = '✓ Copied';
+        setTimeout(function() { btn.textContent = originalLabel; }, 1800);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  MODE SWITCH
+    // ═══════════════════════════════════════════════════════════════
+    function switchMode(mode) {
+        ['ts', 'human'].forEach(function(m) {
+            var tabEl  = document.getElementById('tab-' + m);
+            var secEl  = document.getElementById('sec-' + m);
+            var active = (m === mode);
+            tabEl.classList.toggle('active', active);
+            tabEl.setAttribute('aria-selected', active ? 'true' : 'false');
+            secEl.classList.toggle('active', active);
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  UNIT TOGGLE (Timestamp → Date section)
+    // ═══════════════════════════════════════════════════════════════
+    function setUnit(u) {
+        tsUnit = u;
+        var secPill = document.getElementById('pill-sec');
+        var msPill  = document.getElementById('pill-ms');
+        secPill.classList.toggle('active', u === 'sec');
+        secPill.setAttribute('aria-checked', u === 'sec' ? 'true' : 'false');
+        msPill.classList.toggle('active', u === 'ms');
+        msPill.setAttribute('aria-checked', u === 'ms' ? 'true' : 'false');
+        convertTs();
+    }
+
+    function pillKey(e, u) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setUnit(u); }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  USE NOW → FILL TIMESTAMP INPUT
+    // ═══════════════════════════════════════════════════════════════
+    function useNowInConverter() {
+        switchMode('ts');
+        var val = tsUnit === 'ms' ? Date.now() : Math.floor(Date.now() / 1000);
+        document.getElementById('tsInput').value = val.toString();
+        convertTs();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DEBOUNCE HELPERS
+    // ═══════════════════════════════════════════════════════════════
+    function onTsInput() {
+        clearTimeout(tsConvertTimer);
+        tsConvertTimer = setTimeout(convertTs, 120);
+    }
+
+    function scheduleTsConvert() {
+        // Paste fires before the value updates; defer one tick
+        setTimeout(function() { convertTs(); }, 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TIMESTAMP → DATE
+    // ═══════════════════════════════════════════════════════════════
+    function convertTs() {
+        var raw    = document.getElementById('tsInput').value.trim();
+        var errEl  = document.getElementById('tsError');
+        var resEl  = document.getElementById('tsResults');
+        var inputEl = document.getElementById('tsInput');
+
+        // Clear
+        errEl.classList.remove('show');
+        errEl.textContent = '';
+        inputEl.classList.remove('error');
+
+        if (!raw) { resEl.innerHTML = ''; return; }
+
+        // Reject non-numeric input
+        if (!/^-?\d+(\.\d+)?$/.test(raw)) {
+            showTsError(errEl, inputEl, resEl, 'That doesn\'t look like a number. Enter digits only (e.g. 1717200000).');
+            return;
+        }
+
+        var num = parseFloat(raw);
+
+        if (!isFinite(num)) {
+            showTsError(errEl, inputEl, resEl, 'The value is too large or invalid.');
+            return;
+        }
+
+        // Negative timestamps not supported
+        if (num < 0) {
+            showTsError(errEl, inputEl, resEl, 'Negative timestamps (pre-1970 dates) are not supported by this tool.');
+            return;
+        }
+
+        var ms;
+        if (tsUnit === 'ms') {
+            ms = Math.floor(num);
+        } else {
+            // In seconds mode: if the number has 13+ digits, silently treat as ms
+            // This is by design but disclosed in the limitations section above.
+            ms = num > 1e12 ? Math.floor(num) : Math.floor(num * 1000);
+        }
+
+        var d = new Date(ms);
+
+        // Validate date object
+        if (isNaN(d.getTime())) {
+            showTsError(errEl, inputEl, resEl, 'Could not parse this as a valid date.');
+            return;
+        }
+
+        var year = d.getFullYear();
+        if (year < 1970 || year > 2099) {
+            showTsError(errEl, inputEl, resEl,
+                'Date falls outside the supported range (1 Jan 1970 – 31 Dec 2099). Got year ' + year + '.');
+            return;
+        }
+
+        var epochSec = Math.floor(ms / 1000);
+        var epochMs  = ms;
+
+        // Format strings — safe (no untrusted input injected into innerHTML)
+        var localStr    = d.toLocaleString();
+        var utcStr      = d.toUTCString();
+        var isoStr      = d.toISOString();
+        var dateOnly    = d.toLocaleDateString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+        var timeStr     = d.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        var relStr      = relativeTime(d);
+        var doy         = dayOfYear(d);
+        var weekNum     = isoWeekNumber(d);
+
+        resEl.innerHTML = buildTsResultGrid(
+            localStr, dateOnly, timeStr, utcStr, isoStr,
+            relStr, epochSec, epochMs, doy, weekNum
+        );
+    }
+
+    function showTsError(errEl, inputEl, resEl, msg) {
+        errEl.textContent = msg;
+        errEl.classList.add('show');
+        inputEl.classList.add('error');
+        resEl.innerHTML = '';
+    }
+
+    function buildTsResultGrid(localStr, dateOnly, timeStr, utcStr, isoStr, relStr, epochSec, epochMs, doy, weekNum) {
+        // All values are computed (not user input), so safe to embed.
+        // Use data attributes and JS handlers for copy — no inline onclick with user data
+        var rows = [
+            { wide: true, hi: true,  label: 'Local Date & Time',     val: localStr,        copy: true },
+            { wide: false, hi: false, label: 'Date',                  val: dateOnly,        copy: true },
+            { wide: false, hi: false, label: 'Time (local)',          val: timeStr,         copy: true },
+            { wide: true,  hi: false, label: 'UTC',                   val: utcStr,          copy: true },
+            { wide: true,  hi: false, label: 'ISO 8601',              val: isoStr,          copy: true },
+            { wide: false, hi: false, label: 'Relative',              val: relStr,          copy: false },
+            { wide: false, hi: false, label: 'Unix (seconds)',        val: epochSec + '',   copy: true },
+            { wide: false, hi: false, label: 'Unix (milliseconds)',   val: epochMs + '',    copy: true },
+            { wide: false, hi: false, label: 'Day of Year (local tz)',val: doy + '',        copy: false },
+            { wide: false, hi: false, label: 'ISO Week Number',       val: 'Week ' + weekNum, copy: false }
+        ];
+
+        var html = '<div class="result-grid">';
+        rows.forEach(function(r, i) {
+            var wideClass = r.wide ? ' wide' : '';
+            var hiClass   = r.hi   ? ' highlighted' : '';
+            var copyBtn   = r.copy
+                ? '<button class="rc-copy" data-copy="' + escAttr(r.val) + '" data-idx="' + i + '">Copy</button>'
+                : '';
+            html += '<div class="result-card' + wideClass + hiClass + '">'
+                  + '<div class="rc-label">' + esc(r.label) + '</div>'
+                  + '<div class="rc-val">'   + esc(r.val)   + '</div>'
+                  + copyBtn
+                  + '</div>';
+        });
+        html += '</div>';
+
+        return html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DATE → TIMESTAMP
+    // ═══════════════════════════════════════════════════════════════
+    function setHumanNow() {
+        var now = new Date();
+        document.getElementById('humanDate').value = toLocalISODate(now);
+        document.getElementById('humanTime').value = toLocalISOTime(now);
+        convertHuman();
+    }
+
+    function convertHuman() {
+        var dv    = document.getElementById('humanDate').value;
+        var tv    = document.getElementById('humanTime').value || '00:00:00';
+        var mode  = document.getElementById('humanTzMode').value; // 'local' or 'utc'
+        var resEl = document.getElementById('humanResults');
+
+        if (!dv) { resEl.innerHTML = ''; return; }
+
+        // Normalise time to HH:MM:SS
+        if (/^\d{2}:\d{2}$/.test(tv)) tv = tv + ':00';
+
+        var d;
+        if (mode === 'utc') {
+            // Parse as UTC
+            d = new Date(dv + 'T' + tv + 'Z');
+        } else {
+            // Parse as local time. "YYYY-MM-DDTHH:MM:SS" without Z = local time per spec.
+            d = new Date(dv + 'T' + tv);
+        }
+
+        if (!d || isNaN(d.getTime())) { resEl.innerHTML = ''; return; }
+
+        var year = d.getFullYear();
+        if (year < 1970 || year > 2099) { resEl.innerHTML = ''; return; }
+
+        var epochSec = Math.floor(d.getTime() / 1000);
+        var epochMs  = d.getTime();
+        var isoStr   = d.toISOString();
+        var utcStr   = d.toUTCString();
+        var localStr = d.toLocaleString();
+        var relStr   = relativeTime(d);
+        var doy      = dayOfYear(d);
+        var weekNum  = isoWeekNumber(d);
+
+        var rows = [
+            { wide: false, hi: true,  label: 'Unix (seconds)',         val: epochSec + '',   copy: true },
+            { wide: false, hi: true,  label: 'Unix (milliseconds)',    val: epochMs + '',    copy: true },
+            { wide: true,  hi: false, label: 'ISO 8601',               val: isoStr,          copy: true },
+            { wide: true,  hi: false, label: 'UTC String',             val: utcStr,          copy: true },
+            { wide: false, hi: false, label: 'Local Date & Time',      val: localStr,        copy: true },
+            { wide: false, hi: false, label: 'Relative',               val: relStr,          copy: false },
+            { wide: false, hi: false, label: 'Day of Year (local tz)', val: doy + '',        copy: false },
+            { wide: false, hi: false, label: 'ISO Week Number',        val: 'Week ' + weekNum, copy: false }
+        ];
+
+        var html = '<div class="result-grid">';
+        rows.forEach(function(r, i) {
+            var wideClass = r.wide ? ' wide' : '';
+            var hiClass   = r.hi   ? ' highlighted' : '';
+            var copyBtn   = r.copy
+                ? '<button class="rc-copy" data-copy="' + escAttr(r.val) + '" data-idx="' + i + '">Copy</button>'
+                : '';
+            html += '<div class="result-card' + wideClass + hiClass + '">'
+                  + '<div class="rc-label">' + esc(r.label) + '</div>'
+                  + '<div class="rc-val">'   + esc(r.val)   + '</div>'
+                  + copyBtn
+                  + '</div>';
+        });
+        html += '</div>';
+
+        resEl.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  EVENT DELEGATION — copy buttons
+    //  All copy buttons in result areas route through here so we
+    //  never embed raw copy strings in onclick attributes.
+    // ═══════════════════════════════════════════════════════════════
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.rc-copy');
+        if (!btn) return;
+        var text = btn.getAttribute('data-copy');
+        if (text == null) return;
+        copyToClipboard(text, btn, 'Copy');
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HELPERS
+    // ═══════════════════════════════════════════════════════════════
+
+    // Safe HTML escape for text content
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Safe HTML attribute escape
+    function escAttr(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    // Relative time — approximate, documented as such in limitations
+    function relativeTime(d) {
+        var diff = d.getTime() - Date.now();
+        var abs  = Math.abs(diff);
+        var past = diff < 0;
+
+        var s    = Math.floor(abs / 1000);
+        var m    = Math.floor(s / 60);
+        var h    = Math.floor(m / 60);
+        var days = Math.floor(h / 24);
+        var yrs  = Math.floor(days / 365);
+
+        var str;
+        if (abs < 5000)      str = 'Just now';
+        else if (s < 90)     str = s + ' seconds';
+        else if (m < 90)     str = m + ' minutes';
+        else if (h < 36)     str = h + ' hours';
+        else if (days < 365) str = days + ' days';
+        else                 str = yrs + ' year' + (yrs > 1 ? 's' : '');
+
+        if (str === 'Just now') return str;
+        return past ? str + ' ago' : 'in ' + str;
+    }
+
+    // Day of year — uses local timezone (documented in limitations)
+    function dayOfYear(d) {
+        var start = new Date(d.getFullYear(), 0, 1);
+        var diff  = d.getTime() - start.getTime();
+        return Math.floor(diff / 86400000) + 1; // 1-indexed
+    }
+
+    // ISO 8601 week number
+    function isoWeekNumber(d) {
+        var date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        var day  = date.getUTCDay() || 7; // Mon=1..Sun=7
+        date.setUTCDate(date.getUTCDate() + 4 - day);
+        var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+        return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    }
+
+    // Local date in YYYY-MM-DD for <input type="date">
+    function toLocalISODate(d) {
+        var y  = d.getFullYear();
+        var mo = String(d.getMonth() + 1).padStart(2, '0');
+        var dy = String(d.getDate()).padStart(2, '0');
+        return y + '-' + mo + '-' + dy;
+    }
+
+    // Local time in HH:MM:SS for <input type="time">
+    function toLocalISOTime(d) {
+        var h  = String(d.getHours()).padStart(2, '0');
+        var mi = String(d.getMinutes()).padStart(2, '0');
+        var se = String(d.getSeconds()).padStart(2, '0');
+        return h + ':' + mi + ':' + se;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  INIT: pre-fill human section with today's date
+    // ═══════════════════════════════════════════════════════════════
+    (function init() {
+        var today = new Date();
+        document.getElementById('humanDate').value = toLocalISODate(today);
+        document.getElementById('humanTime').value = toLocalISOTime(today);
+    })();
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

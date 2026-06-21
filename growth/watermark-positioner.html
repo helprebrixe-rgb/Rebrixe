@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watermark Positioner | Rebrixe</title>
+    <meta name="description" content="Easily position your watermark on your videos with our Watermark Positioner. Perfect for content creators, marketers, and social media managers looking to protect their content while maintaining a professional look. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent: #ff007f; --border: #334155; --bg: #05070a; --card: #0f172a; }
+
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 20px; }
+
+        /* ---- LAYOUT ---- */
+        .layout-grid { display: grid; grid-template-columns: 1fr 320px; gap: 30px; margin-top: 20px; align-items: start; }
+
+        /* ---- STAGE ---- */
+        .stage-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+        .video-stage {
+            background: #000; border: 1px solid var(--border); border-radius: 20px;
+            position: relative; overflow: hidden;
+            width: 100%; max-width: 310px;
+            aspect-ratio: 9/16;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            cursor: crosshair;
+        }
+
+        #mainVideo { width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 1; }
+
+        /* ---- DROP ZONE ---- */
+        #dropZone {
+            position: absolute; inset: 0; z-index: 50;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+            background: rgba(5,7,10,0.85); backdrop-filter: blur(4px);
+            transition: opacity 0.3s;
+        }
+        #dropZone.hidden { opacity: 0; pointer-events: none; }
+        .upload-btn {
+            background: var(--accent); color: white; border: none;
+            padding: 11px 22px; border-radius: 10px; font-weight: 700; font-size: 0.85rem;
+            cursor: pointer; transition: transform 0.15s, opacity 0.15s; white-space: nowrap;
+        }
+        .upload-btn:hover { transform: scale(1.04); opacity: 0.9; }
+        .upload-btn.secondary { background: #1e293b; border: 1px solid var(--border); }
+        .upload-hint { font-size: 0.65rem; color: #64748b; text-align: center; max-width: 200px; }
+
+        /* ---- SAFE ZONE OVERLAY CANVAS ---- */
+        #safeCanvas { position: absolute; inset: 0; z-index: 8; pointer-events: none; width: 100%; height: 100%; }
+
+        /* ---- DRAG GUIDE LINES ---- */
+        #hGuide, #vGuide {
+            position: absolute; pointer-events: none; z-index: 9; opacity: 0; transition: opacity 0.1s;
+        }
+        #hGuide { width: 100%; height: 1px; background: rgba(255,0,127,0.55); left: 0; }
+        #vGuide { height: 100%; width: 1px; background: rgba(255,0,127,0.55); top: 0; }
+        #hGuide.show, #vGuide.show { opacity: 1; }
+
+        /* ---- WATERMARK ---- */
+        #watermark {
+            position: absolute; top: 10%; left: 10%;
+            width: 80px; cursor: move; user-select: none;
+            touch-action: none; z-index: 20; opacity: 0.85;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
+            transition: filter 0.15s;
+        }
+        #watermark.in-danger { filter: drop-shadow(0 0 8px rgba(255,60,60,0.9)); }
+        #watermark.in-safe   { filter: drop-shadow(0 0 8px rgba(0,255,127,0.7)); }
+
+        /* Fallback SVG watermark shown when no logo uploaded */
+        #wmFallback {
+            position: absolute; top: 10%; left: 10%;
+            width: 80px; height: 36px; z-index: 20;
+            pointer-events: none; display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.15); border-radius: 6px;
+            font-size: 0.6rem; color: rgba(255,255,255,0.7); font-weight: 700;
+            letter-spacing: 1px; cursor: move; user-select: none; touch-action: none;
+            border: 1.5px dashed rgba(255,255,255,0.4);
+            display: none; /* hidden initially, shown when no logo */
+        }
+
+        /* ---- ZONE BADGE ---- */
+        #zoneBadge {
+            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 30; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.5px;
+            padding: 4px 10px; border-radius: 20px;
+            background: rgba(0,255,127,0.18); color: #00ff7f; border: 1px solid rgba(0,255,127,0.35);
+            pointer-events: none; transition: all 0.2s;
+            opacity: 0;
+        }
+        #zoneBadge.danger { background: rgba(255,60,60,0.18); color: #ff4444; border-color: rgba(255,60,60,0.35); }
+        #zoneBadge.show { opacity: 1; }
+
+        /* ---- SIDEBAR ---- */
+        .sidebar { display: flex; flex-direction: column; gap: 14px; }
+        .control-card { background: var(--card); border: 1px solid var(--border); padding: 18px; border-radius: 14px; }
+        .control-card h3 { font-family: 'Outfit'; font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+
+        /* ---- PLATFORM TABS ---- */
+        .platform-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+        .ptab {
+            flex: 1; min-width: 60px; padding: 7px 4px; border-radius: 8px; border: 1px solid var(--border);
+            background: transparent; color: #64748b; font-size: 0.68rem; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .ptab:hover { border-color: #475569; color: #94a3b8; }
+        .ptab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+        /* ---- TOGGLE SWITCH ---- */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .toggle-row label { font-size: 0.73rem; color: #94a3b8; margin: 0; }
+        .toggle { position: relative; width: 36px; height: 20px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: #1e293b; border-radius: 20px;
+            cursor: pointer; transition: 0.2s; border: 1px solid var(--border);
+        }
+        .toggle-slider:before {
+            content: ''; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px;
+            background: #475569; border-radius: 50%; transition: 0.2s;
+        }
+        .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+        .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: white; }
+
+        /* ---- SLIDERS ---- */
+        .slider-row { margin-bottom: 14px; }
+        .slider-row label { display: flex; justify-content: space-between; font-size: 0.72rem; color: #94a3b8; margin-bottom: 6px; }
+        .slider-row label span { color: white; font-weight: 600; }
+        input[type="range"] {
+            width: 100%; -webkit-appearance: none; height: 4px; border-radius: 4px;
+            background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--val, 50%), #1e293b var(--val, 50%), #1e293b 100%);
+            outline: none; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: white; box-shadow: 0 0 0 3px var(--accent); cursor: pointer;
+        }
+
+        /* ---- QUICK POSITIONS ---- */
+        .pos-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+        .pos-btn {
+            aspect-ratio: 1; border: 1px solid var(--border); border-radius: 8px;
+            background: #0a1120; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s; color: #475569; font-size: 0.8rem;
+        }
+        .pos-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,0,127,0.07); }
+
+        /* ---- POSITION DATA ---- */
+        .pos-data-block { display: flex; gap: 8px; }
+        .pos-data-block > div {
+            flex: 1; background: #05070a; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 8px; text-align: center;
+        }
+        .pos-data-block .val { font-family: monospace; font-size: 1.05rem; color: var(--accent); font-weight: 700; }
+        .pos-data-block .lbl { font-size: 0.58rem; color: #475569; margin-top: 2px; text-transform: uppercase; }
+
+        /* ---- COPY BUTTON ---- */
+        .copy-btn {
+            width: 100%; margin-top: 10px; padding: 9px; border-radius: 9px;
+            background: transparent; border: 1px solid var(--border); color: #64748b;
+            font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+        }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .copy-btn.copied { border-color: #00c47a; color: #00c47a; }
+
+        /* ---- AI ANALYSIS BLOCK ---- */
+        #aiBlock {
+            background: linear-gradient(135deg, rgba(255,0,127,0.06), rgba(0,0,0,0));
+            border: 1px solid rgba(255,0,127,0.2);
+        }
+        .ai-label { display: flex; align-items: center; gap: 6px; }
+        .ai-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.8s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(0.7)} }
+        #aiText { font-size: 0.72rem; color: #94a3b8; line-height: 1.6; min-height: 48px; }
+        #aiText strong { color: white; }
+
+        /* ---- CHANGE FILE BUTTONS ---- */
+        .change-row { display: flex; gap: 8px; }
+        .change-btn {
+            flex: 1; padding: 8px 4px; border-radius: 9px; border: 1px solid var(--border);
+            background: transparent; color: #64748b; font-size: 0.68rem; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .change-btn:hover { border-color: #64748b; color: #94a3b8; }
+
+        /* ---- NUDGE KEYS HINT ---- */
+        .nudge-hint { font-size: 0.6rem; color: #334155; text-align: center; margin-top: 4px; }
+        kbd { background: #1e293b; border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; font-size: 0.6rem; }
+
+        /* ---- RESPONSIVE ---- */
+        @media (max-width: 800px) {
+            .layout-grid { grid-template-columns: 1fr; }
+            .video-stage { max-width: 260px; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">← Back to tools</a>
+
+        <header style="text-align:center; margin-bottom:24px;">
+            <h1 style="font-family:'Outfit'; font-size:2.2rem;">Watermark Positioner</h1>
+            <p style="color:#64748b; font-size:0.9rem;">Find the perfect safe zone for your logo before you render.</p>
+        </header>
+
+        <div class="layout-grid">
+
+            <!-- ========== STAGE ========== -->
+            <div class="stage-wrap">
+                <div class="video-stage" id="stage">
+                    <video id="mainVideo" loop muted playsinline></video>
+                    <canvas id="safeCanvas"></canvas>
+
+                    <div id="hGuide"></div>
+                    <div id="vGuide"></div>
+
+                    <!-- Watermark image (user logo) -->
+                    <img id="watermark" alt="Logo" style="display:none;"
+                         src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+
+                    <!-- Fallback text watermark when no logo uploaded -->
+                    <div id="wmFallback">YOUR LOGO</div>
+
+                    <div id="zoneBadge">✓ Safe Zone</div>
+
+                    <!-- Drop Zone -->
+                    <div id="dropZone">
+                        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="margin-bottom:4px;">
+                            <circle cx="22" cy="22" r="21" stroke="#334155" stroke-width="1.5"/>
+                            <path d="M22 14v16M14 22h16" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                        <p style="font-size:0.78rem; color:#94a3b8; font-weight:600;">Upload your assets</p>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                            <button class="upload-btn" onclick="document.getElementById('vidIn').click()">📹 Upload Video</button>
+                            <button class="upload-btn secondary" onclick="document.getElementById('logoIn').click()">🖼 Upload Logo</button>
+                        </div>
+                        <p class="upload-hint">Or use arrow keys to nudge once placed</p>
+                        <input type="file" id="vidIn" hidden accept="video/*" onchange="loadVideo(this)">
+                        <input type="file" id="logoIn" hidden accept="image/*" onchange="loadLogo(this)">
+                    </div>
+                </div>
+
+                <!-- Change files (shown after upload) -->
+                <div class="change-row" id="changeRow" style="display:none; width:100%; max-width:310px;">
+                    <button class="change-btn" onclick="document.getElementById('vidIn2').click()">↺ Change Video</button>
+                    <button class="change-btn" onclick="document.getElementById('logoIn2').click()">↺ Change Logo</button>
+                    <input type="file" id="vidIn2" hidden accept="video/*" onchange="loadVideo(this)">
+                    <input type="file" id="logoIn2" hidden accept="image/*" onchange="loadLogo(this)">
+                </div>
+                <p class="nudge-hint">Nudge with <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> arrow keys &nbsp;|&nbsp; Hold <kbd>Shift</kbd> for 10px</p>
+            </div>
+
+            <!-- ========== SIDEBAR ========== -->
+            <div class="sidebar">
+
+                <!-- PLATFORM PRESETS -->
+                <div class="control-card">
+                    <h3>Platform Safe Zones</h3>
+                    <div class="platform-tabs">
+                        <button class="ptab active" data-p="tiktok" onclick="setPlatform(this)">TikTok</button>
+                        <button class="ptab" data-p="reels"  onclick="setPlatform(this)">Reels</button>
+                        <button class="ptab" data-p="shorts" onclick="setPlatform(this)">Shorts</button>
+                        <button class="ptab" data-p="none"   onclick="setPlatform(this)">None</button>
+                    </div>
+                    <div class="toggle-row" style="margin-top:12px;">
+                        <label>Show danger zones</label>
+                        <label class="toggle"><input type="checkbox" id="zoneToggle" checked onchange="drawOverlay()"><span class="toggle-slider"></span></label>
+                    </div>
+                    <p style="font-size:0.62rem; color:#475569; margin-top:2px;">Red zones = UI elements (likes, comments). Green = safe area.</p>
+                </div>
+
+                <!-- WATERMARK STYLE -->
+                <div class="control-card">
+                    <h3>Watermark Style</h3>
+                    <div class="slider-row">
+                        <label>Size <span id="sizeVal">80px</span></label>
+                        <input type="range" id="sizeRange" min="30" max="200" value="80" oninput="updateStyle(this,'size')">
+                    </div>
+                    <div class="slider-row">
+                        <label>Opacity <span id="opacVal">85%</span></label>
+                        <input type="range" id="opacRange" min="10" max="100" value="85" oninput="updateStyle(this,'opac')">
+                    </div>
+                    <div class="toggle-row">
+                        <label>White tint (for dark logos)</label>
+                        <label class="toggle"><input type="checkbox" id="tintToggle" onchange="updateTint()"><span class="toggle-slider"></span></label>
+                    </div>
+                </div>
+
+                <!-- QUICK POSITIONS -->
+                <div class="control-card">
+                    <h3>Quick Position</h3>
+                    <div class="pos-grid">
+                        <button class="pos-btn" title="Top Left"     onclick="snapTo('tl')">↖</button>
+                        <button class="pos-btn" title="Top Center"   onclick="snapTo('tc')">↑</button>
+                        <button class="pos-btn" title="Top Right"    onclick="snapTo('tr')">↗</button>
+                        <button class="pos-btn" title="Middle Left"  onclick="snapTo('ml')">←</button>
+                        <button class="pos-btn" title="Center"       onclick="snapTo('cc')">⊙</button>
+                        <button class="pos-btn" title="Middle Right" onclick="snapTo('mr')">→</button>
+                        <button class="pos-btn" title="Bottom Left"  onclick="snapTo('bl')">↙</button>
+                        <button class="pos-btn" title="Bottom Center"onclick="snapTo('bc')">↓</button>
+                        <button class="pos-btn" title="Bottom Right" onclick="snapTo('br')">↘</button>
+                    </div>
+                </div>
+
+                <!-- POSITION DATA -->
+                <div class="control-card">
+                    <h3>Position Data</h3>
+                    <div class="pos-data-block">
+                        <div><div class="val" id="posX">10%</div><div class="lbl">Left (X)</div></div>
+                        <div><div class="val" id="posY">10%</div><div class="lbl">Top (Y)</div></div>
+                    </div>
+                    <button class="copy-btn" id="copyBtn" onclick="copyPosition()">Copy CSS snippet</button>
+                </div>
+
+                <!-- AI ANALYSIS -->
+                <div class="control-card" id="aiBlock">
+                    <h3><span class="ai-label"><span class="ai-dot"></span> Smart Placement Tip</span></h3>
+                    <p id="aiText">Upload your video and logo to get a placement recommendation.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer style="margin-top:80px; padding:60px 20px; background:#05070a; border-top:1px solid #1e293b; text-align:center; color:#64748b;">
+        <div style="max-width:1200px; margin:0 auto;">
+            <h3 style="color:white; font-family:'Outfit';">Rebrixe Engine</h3>
+            <p style="font-size:0.8rem;">Content Protection Suite v1.0</p>
+        </div>
+    </footer>
+
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+const stage      = document.getElementById('stage');
+const video      = document.getElementById('mainVideo');
+const wm         = document.getElementById('watermark');
+const wmFallback = document.getElementById('wmFallback');
+const safeCanvas = document.getElementById('safeCanvas');
+const ctx        = safeCanvas.getContext('2d');
+const hGuide     = document.getElementById('hGuide');
+const vGuide     = document.getElementById('vGuide');
+const zoneBadge  = document.getElementById('zoneBadge');
+
+let isDragging  = false;
+let logoLoaded  = false;
+let videoLoaded = false;
+let currentPlatform = 'tiktok';
+
+// active drag element (img or fallback div)
+let activeDragEl = wmFallback;
+
+/* ============================================================
+   SAFE ZONE MAPS  (% of 9:16 frame, top/bottom/left/right for each danger rect)
+   each entry: { label, t, b, l, r }  (0–1 fractions)
+============================================================ */
+const PLATFORM_ZONES = {
+    tiktok: {
+        danger: [
+            { label:'Profile',    t:0.70, b:0.84, l:0.68, r:1.0  },
+            { label:'Like',       t:0.60, b:0.75, l:0.72, r:1.0  },
+            { label:'Comment',    t:0.75, b:0.88, l:0.72, r:1.0  },
+            { label:'Share',      t:0.87, b:0.97, l:0.72, r:1.0  },
+            { label:'Caption',    t:0.82, b:0.95, l:0.0,  r:0.75 },
+            { label:'Top Bar',    t:0.0,  b:0.06, l:0.0,  r:1.0  },
+        ]
+    },
+    reels: {
+        danger: [
+            { label:'Username',   t:0.78, b:0.87, l:0.0,  r:0.70 },
+            { label:'Caption',    t:0.87, b:0.96, l:0.0,  r:0.70 },
+            { label:'Reactions',  t:0.58, b:0.80, l:0.72, r:1.0  },
+            { label:'Top Bar',    t:0.0,  b:0.06, l:0.0,  r:1.0  },
+        ]
+    },
+    shorts: {
+        danger: [
+            { label:'Username',   t:0.78, b:0.87, l:0.0,  r:0.65 },
+            { label:'Caption',    t:0.86, b:0.95, l:0.0,  r:0.65 },
+            { label:'Actions',    t:0.55, b:0.90, l:0.72, r:1.0  },
+            { label:'Subscribe',  t:0.74, b:0.85, l:0.0,  r:0.55 },
+            { label:'Top Bar',    t:0.0,  b:0.06, l:0.0,  r:1.0  },
+        ]
+    },
+    none: { danger: [] }
+};
+
+/* ============================================================
+   CANVAS OVERLAY
+============================================================ */
+function drawOverlay() {
+    const W = safeCanvas.width  = stage.offsetWidth;
+    const H = safeCanvas.height = stage.offsetHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    const showZones = document.getElementById('zoneToggle').checked;
+    if (!showZones) return;
+
+    const zones = PLATFORM_ZONES[currentPlatform] || { danger: [] };
+
+    zones.danger.forEach(z => {
+        const x = z.l * W, y = z.t * H, w = (z.r - z.l) * W, h = (z.b - z.t) * H;
+        // danger fill
+        ctx.fillStyle = 'rgba(255,40,60,0.13)';
+        ctx.fillRect(x, y, w, h);
+        // border
+        ctx.strokeStyle = 'rgba(255,40,60,0.45)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        // label
+        ctx.fillStyle = 'rgba(255,80,80,0.85)';
+        ctx.font = `bold ${Math.max(8, W * 0.028)}px Inter, sans-serif`;
+        ctx.fillText(z.label, x + 4, y + 12);
+    });
+
+    // safe region highlight  (soft green glow)
+    if (currentPlatform !== 'none') {
+        // centre band that is typically safe
+        ctx.fillStyle = 'rgba(0,200,100,0.04)';
+        ctx.fillRect(0, H * 0.07, W * 0.68, H * 0.55);
+        ctx.strokeStyle = 'rgba(0,200,100,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0.5, H * 0.07 + 0.5, W * 0.68 - 1, H * 0.55 - 1);
+    }
+}
+
+/* ============================================================
+   DRAG LOGIC (works for both img and div fallback)
+============================================================ */
+function getActiveEl() {
+    return logoLoaded ? wm : wmFallback;
+}
+
+function initDrag(el) {
+    el.addEventListener('pointerdown', e => {
+        isDragging = true;
+        el.setPointerCapture(e.pointerId);
+        hGuide.classList.add('show');
+        vGuide.classList.add('show');
+        e.preventDefault();
+    });
+}
+
+initDrag(wm);
+initDrag(wmFallback);
+
+window.addEventListener('pointermove', e => {
+    if (!isDragging) return;
+    const el = getActiveEl();
+    const rect = stage.getBoundingClientRect();
+    const elW = el.offsetWidth, elH = el.offsetHeight;
+    let x = e.clientX - rect.left - elW / 2;
+    let y = e.clientY - rect.top  - elH / 2;
+
+    x = Math.max(0, Math.min(x, rect.width  - elW));
+    y = Math.max(0, Math.min(y, rect.height - elH));
+
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+    if (!logoLoaded) { wm.style.left = x+'px'; wm.style.top = y+'px'; }
+
+    // Guides
+    hGuide.style.top  = (y + elH / 2) + 'px';
+    vGuide.style.left = (x + elW / 2) + 'px';
+
+    updatePositionUI(x, y, rect.width, rect.height);
+    checkZone(x, y, elW, elH, rect.width, rect.height);
+});
+
+window.addEventListener('pointerup', () => {
+    isDragging = false;
+    hGuide.classList.remove('show');
+    vGuide.classList.remove('show');
+    setTimeout(() => { zoneBadge.classList.remove('show'); }, 1400);
+});
+
+/* ============================================================
+   KEYBOARD NUDGE
+============================================================ */
+document.addEventListener('keydown', e => {
+    const el = getActiveEl();
+    if (!el || document.activeElement.tagName === 'INPUT') return;
+    const arrows = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
+    if (!arrows.includes(e.key)) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    const rect = stage.getBoundingClientRect();
+    const elW  = el.offsetWidth, elH = el.offsetHeight;
+    let x = parseFloat(el.style.left) || 0;
+    let y = parseFloat(el.style.top)  || 0;
+    if (e.key === 'ArrowUp')    y -= step;
+    if (e.key === 'ArrowDown')  y += step;
+    if (e.key === 'ArrowLeft')  x -= step;
+    if (e.key === 'ArrowRight') x += step;
+    x = Math.max(0, Math.min(x, rect.width  - elW));
+    y = Math.max(0, Math.min(y, rect.height - elH));
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (!logoLoaded) { wm.style.left = x+'px'; wm.style.top = y+'px'; }
+    updatePositionUI(x, y, rect.width, rect.height);
+    checkZone(x, y, elW, elH, rect.width, rect.height);
+});
+
+/* ============================================================
+   ZONE CHECK + BADGE
+============================================================ */
+function checkZone(x, y, elW, elH, stW, stH) {
+    const cx = (x + elW/2) / stW, cy = (y + elH/2) / stH;
+    const zones = PLATFORM_ZONES[currentPlatform]?.danger || [];
+    let inDanger = false;
+    zones.forEach(z => {
+        if (cx >= z.l && cx <= z.r && cy >= z.t && cy <= z.b) inDanger = true;
+    });
+    const el = getActiveEl();
+    el.classList.toggle('in-danger', inDanger);
+    el.classList.remove(inDanger ? 'in-safe' : 'in-danger');
+    if (inDanger) el.classList.add('in-danger'); else el.classList.add('in-safe');
+
+    zoneBadge.textContent = inDanger ? '⚠ Danger Zone' : '✓ Safe Zone';
+    zoneBadge.classList.toggle('danger', inDanger);
+    zoneBadge.classList.add('show');
+}
+
+/* ============================================================
+   POSITION UI
+============================================================ */
+function updatePositionUI(x, y, stW, stH) {
+    const xP = Math.round((x / stW) * 100);
+    const yP = Math.round((y / stH) * 100);
+    document.getElementById('posX').textContent = xP + '%';
+    document.getElementById('posY').textContent = yP + '%';
+    triggerAITip(xP, yP);
+}
+
+/* ============================================================
+   COPY CSS
+============================================================ */
+function copyPosition() {
+    const x = document.getElementById('posX').textContent;
+    const y = document.getElementById('posY').textContent;
+    const css = `position: absolute;\nleft: ${x};\ntop: ${y};\nopacity: ${document.getElementById('opacRange').value/100};`;
+    navigator.clipboard.writeText(css).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy CSS snippet'; btn.classList.remove('copied'); }, 2000);
+    });
+}
+
+/* ============================================================
+   QUICK SNAP POSITIONS
+============================================================ */
+const SNAP_MARGIN = 0.06; // 6% inset from edges
+function snapTo(pos) {
+    const el = getActiveEl();
+    const rect = stage.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    const elW = el.offsetWidth, elH = el.offsetHeight;
+    const m = SNAP_MARGIN;
+    const positions = {
+        tl: [W*m,          H*m],
+        tc: [W/2-elW/2,    H*m],
+        tr: [W*(1-m)-elW,  H*m],
+        ml: [W*m,          H/2-elH/2],
+        cc: [W/2-elW/2,    H/2-elH/2],
+        mr: [W*(1-m)-elW,  H/2-elH/2],
+        bl: [W*m,          H*(1-m)-elH],
+        bc: [W/2-elW/2,    H*(1-m)-elH],
+        br: [W*(1-m)-elW,  H*(1-m)-elH],
+    };
+    const [x, y] = positions[pos];
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (!logoLoaded) { wm.style.left = x+'px'; wm.style.top = y+'px'; }
+    updatePositionUI(x, y, W, H);
+    checkZone(x, y, elW, elH, W, H);
+
+    // brief guide flash
+    hGuide.style.top  = (y + elH/2) + 'px';
+    vGuide.style.left = (x + elW/2) + 'px';
+    hGuide.classList.add('show'); vGuide.classList.add('show');
+    setTimeout(() => { hGuide.classList.remove('show'); vGuide.classList.remove('show'); }, 500);
+}
+
+/* ============================================================
+   LOAD ASSETS
+============================================================ */
+function loadVideo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    video.src = URL.createObjectURL(file);
+    video.play();
+    videoLoaded = true;
+    document.getElementById('dropZone').classList.add('hidden');
+    document.getElementById('changeRow').style.display = 'flex';
+    // show the fallback drag target if no logo yet
+    if (!logoLoaded) wmFallback.style.display = 'flex';
+    drawOverlay();
+    snapTo('br'); // default safe-ish position
+    triggerAITip(null, null, true);
+}
+
+function loadLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    wm.onload = () => {
+        // copy position from fallback
+        wm.style.left = wmFallback.style.left;
+        wm.style.top  = wmFallback.style.top;
+        wm.style.display = 'block';
+        wmFallback.style.display = 'none';
+        logoLoaded = true;
+        updateStyle();
+        triggerAITip(null, null, false, true);
+    };
+    wm.src = url;
+    if (!videoLoaded) {
+        document.getElementById('dropZone').classList.add('hidden');
+        document.getElementById('changeRow').style.display = 'flex';
+        wmFallback.style.display = 'flex';
+    }
+}
+
+/* ============================================================
+   STYLE UPDATES
+============================================================ */
+function updateStyle(el, type) {
+    if (type === 'size' || !type) {
+        const v = document.getElementById('sizeRange').value;
+        document.getElementById('sizeVal').textContent = v + 'px';
+        wm.style.width = v + 'px';
+        wmFallback.style.width  = v + 'px';
+        wmFallback.style.height = Math.round(v * 0.45) + 'px';
+        updateSliderFill(document.getElementById('sizeRange'), 30, 200);
+    }
+    if (type === 'opac' || !type) {
+        const v = document.getElementById('opacRange').value;
+        document.getElementById('opacVal').textContent = v + '%';
+        wm.style.opacity = v / 100;
+        wmFallback.style.opacity = v / 100;
+        updateSliderFill(document.getElementById('opacRange'), 10, 100);
+    }
+}
+
+function updateSliderFill(input, min, max) {
+    const pct = ((input.value - min) / (max - min)) * 100;
+    input.style.setProperty('--val', pct + '%');
+}
+
+function updateTint() {
+    const on = document.getElementById('tintToggle').checked;
+    wm.style.filter = on
+        ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.7)) brightness(0) invert(1)'
+        : 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))';
+}
+
+/* ============================================================
+   PLATFORM SWITCH
+============================================================ */
+function setPlatform(btn) {
+    document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPlatform = btn.dataset.p;
+    drawOverlay();
+    // re-check current zone
+    const el = getActiveEl();
+    const rect = stage.getBoundingClientRect();
+    checkZone(parseFloat(el.style.left)||0, parseFloat(el.style.top)||0,
+              el.offsetWidth, el.offsetHeight, rect.width, rect.height);
+}
+
+/* ============================================================
+   AI TIP COPY
+============================================================ */
+const AI_TIPS = {
+    tiktok: [
+        "On TikTok, the <strong>top-left corner (8–12% left, 8–12% top)</strong> is historically the safest zone — it avoids both the like column and the caption overlay at the bottom.",
+        "TikTok's right rail (likes, comments, share) occupies roughly <strong>28% of the right edge</strong>. Keep your logo left of 68% to avoid it.",
+        "The bottom 20% of TikTok frames is nearly always covered by captions and the creator handle. Consider the <strong>upper third</strong> for maximum visibility.",
+        "For TikTok brand safety, the sweet spot is <strong>top-left to mid-left</strong> — visible throughout the video lifecycle without fighting UI chrome.",
+    ],
+    reels: [
+        "Instagram Reels shows the username and caption in the bottom 25%. Place your watermark in the <strong>upper portion of the frame</strong> for best visibility.",
+        "Reels reaction buttons sit on the right rail. Keeping your logo <strong>below 65% width and above 75% height</strong> avoids all UI conflict.",
+        "For Reels, the <strong>top-left quadrant</strong> gives the cleanest look — it mirrors how professional branded content positions identity marks.",
+    ],
+    shorts: [
+        "YouTube Shorts overlays a subscribe button mid-bottom. The <strong>upper-left area</strong> keeps your logo clear of all interactive elements.",
+        "Shorts UI stacks vertically on the right. Anything left of 65% and above 55% top is your <strong>safe canvas</strong> for watermarks.",
+        "For Shorts longevity, favour the <strong>top corners</strong> — they survive reposts across platforms with minimal cropping risk.",
+    ],
+    none: [
+        "No platform overlay selected. Drag your logo to any position and note the percentage coordinates for your render settings.",
+    ]
+};
+
+let aiThrottle = null;
+function triggerAITip(x, y, firstVideo, firstLogo) {
+    clearTimeout(aiThrottle);
+    aiThrottle = setTimeout(() => {
+        const pool = AI_TIPS[currentPlatform] || AI_TIPS.none;
+        let tip;
+        if (firstVideo) {
+            tip = `Video loaded. <strong>Safe zones highlighted in green</strong> — red zones show where the ${currentPlatform} UI overlays will appear. Try the quick-position buttons to snap to a safe corner.`;
+        } else if (firstLogo) {
+            tip = `Logo loaded. Drag it into a <strong>green safe zone</strong>, or use the 9-point quick position grid. The badge below the preview will confirm safe or danger placement.`;
+        } else {
+            tip = pool[Math.floor(Math.random() * pool.length)];
+        }
+        const el = document.getElementById('aiText');
+        el.style.opacity = 0;
+        setTimeout(() => { el.innerHTML = tip; el.style.opacity = 1; }, 200);
+    }, 600);
+}
+
+document.getElementById('aiText').style.transition = 'opacity 0.2s';
+
+/* ============================================================
+   RESIZE: redraw canvas on window resize
+============================================================ */
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(drawOverlay, 120);
+});
+
+/* ============================================================
+   INIT
+============================================================ */
+// show fallback watermark placeholder in initial state so users know it's draggable
+// (hidden until video or logo loaded; shown by loadVideo/loadLogo)
+wmFallback.style.display = 'none';
+
+// init slider fills
+updateSliderFill(document.getElementById('sizeRange'), 30, 200);
+updateSliderFill(document.getElementById('opacRange'), 10, 100);
+
+// rotate AI tips on platform switch
+document.querySelectorAll('.ptab').forEach(btn => {
+    btn.addEventListener('click', () => setTimeout(() => triggerAITip(), 50));
+});
+
+</script>
+    <script src="../nav.js"></script>
+</body>
+</html>

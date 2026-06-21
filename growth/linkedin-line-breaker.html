@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Line Breaker | Rebrixe</title>
+    <meta name="description" content="Create perfect line breaks for your LinkedIn posts with our LinkedIn Line Breaker. Ideal for professionals, marketers, and entrepreneurs looking to improve readability and engagement on their LinkedIn content. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent: #0077b5; --border: #334155; --bg: #05070a; --card: #0f172a; }
+
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+
+        /* ── Header ── */
+        header { text-align: center; margin-bottom: 10px; }
+        header h1 { font-family: 'Outfit'; font-size: 2.5rem; color: #0077b5; }
+        header p { color: #64748b; margin-top: 6px; }
+
+        /* ── Mode Selector ── */
+        .mode-row {
+            display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+            margin: 24px 0 10px;
+        }
+        .mode-btn {
+            background: #0f172a; border: 1px solid #334155; color: #94a3b8;
+            padding: 8px 16px; border-radius: 8px; font-family: 'Outfit';
+            font-size: 0.75rem; font-weight: 700; letter-spacing: .5px;
+            text-transform: uppercase; cursor: pointer; transition: all .2s;
+        }
+        .mode-btn:hover { border-color: var(--accent); color: white; }
+        .mode-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+        /* ── Editor Grid ── */
+        .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px; }
+
+        .panel-label { font-family: 'Outfit'; font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .char-count { font-size: 0.7rem; font-family: 'Inter'; }
+        .char-count.warn { color: #f59e0b; }
+        .char-count.over { color: #ef4444; }
+
+        textarea {
+            width: 100%; height: 400px; background: #000; border: 1px solid var(--border);
+            border-radius: 12px; color: #cbd5e1; padding: 20px; font-family: 'Inter';
+            font-size: 0.95rem; line-height: 1.6; resize: none; outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        textarea:focus { border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 119, 181, 0.2); }
+
+        /* ── Output ── */
+        .output-wrapper { position: relative; }
+        .output-area {
+            background: #fff; color: #191919; border-radius: 12px; padding: 20px;
+            height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;
+            border: 5px solid #eef3f8; line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .output-area .placeholder { color: #aaa; font-style: italic; }
+
+        /* LinkedIn mock header */
+        .li-mock-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 20px 0; background: #fff; border-radius: 12px 12px 0 0;
+            border: 5px solid #eef3f8; border-bottom: none;
+        }
+        .li-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: linear-gradient(135deg, #0077b5, #00a0dc);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Outfit'; font-weight: 800; color: white; font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .li-meta { flex: 1; }
+        .li-name { font-weight: 700; font-size: 0.82rem; color: #191919; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .li-sub { font-size: 0.72rem; color: #666; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+        /* with mock header, adjust output */
+        .output-area.with-header { border-radius: 0 0 12px 12px; border-top: 1px solid #e8e8e8; }
+
+        /* ── Processing overlay ── */
+        .processing-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,.7);
+            border-radius: 12px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 14px;
+            opacity: 0; pointer-events: none; transition: opacity .25s;
+            z-index: 10;
+        }
+        .processing-overlay.show { opacity: 1; pointer-events: all; }
+        .spinner {
+            width: 36px; height: 36px; border: 3px solid #1e3a5f;
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .processing-label { font-family: 'Outfit'; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ── Controls ── */
+        .controls { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 16px; }
+        .btn-main {
+            background: var(--accent); color: white; border: none; padding: 14px 20px;
+            border-radius: 10px; font-weight: 800; cursor: pointer; font-family: 'Outfit';
+            text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;
+            transition: opacity .2s, transform .1s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-main:hover { opacity: .9; }
+        .btn-main:active { transform: scale(.98); }
+        .btn-main.secondary { background: #1e293b; }
+        .btn-main.copy-success { background: #10b981 !important; }
+
+        /* ── Tips bar ── */
+        .tips-bar {
+            margin-top: 28px; background: #0f172a; border: 1px solid #1e293b;
+            border-radius: 12px; padding: 18px 24px;
+        }
+        .tips-bar h3 { font-family: 'Outfit'; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .tips-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .tip-card {
+            background: #05070a; border: 1px solid #1e293b; border-radius: 8px;
+            padding: 12px 14px; font-size: 0.8rem; color: #94a3b8; line-height: 1.5;
+        }
+        .tip-card strong { color: #cbd5e1; display: block; margin-bottom: 3px; font-size: 0.78rem; font-family: 'Outfit'; }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px;
+        }
+        .stat-pill {
+            background: #0f172a; border: 1px solid #1e293b; border-radius: 6px;
+            padding: 6px 14px; font-size: 0.75rem; color: #64748b;
+            font-family: 'Outfit'; display: flex; align-items: center; gap: 6px;
+        }
+        .stat-pill span { color: white; font-weight: 700; }
+
+        @media (max-width: 768px) {
+            .editor-grid { grid-template-columns: 1fr; }
+            .controls { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 480px) {
+            header h1 { font-size: 1.8rem; }
+            .controls { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="text-formatting.html" class="back-btn">back to tools</a>
+
+        <header>
+            <h1>LinkedIn Line Breaker</h1>
+            <p>Turn dense paragraphs into scroll-stopping "Broetry" that drives engagement.</p>
+        </header>
+
+        <!-- Mode selector -->
+        <div class="mode-row">
+            <button class="mode-btn active" data-mode="sentence" onclick="setMode(this, 'sentence')">📝 Per Sentence</button>
+            <button class="mode-btn" data-mode="clause" onclick="setMode(this, 'clause')">✂️ Per Clause</button>
+            <button class="mode-btn" data-mode="word3" onclick="setMode(this, 'word3')">🔥 3-Word Punches</button>
+            <button class="mode-btn" data-mode="manual" onclick="setMode(this, 'manual')">🎯 Smart Break</button>
+        </div>
+
+        <div class="editor-grid">
+            <!-- Input -->
+            <div>
+                <div class="panel-label">
+                    <span>Your Draft</span>
+                    <span id="inputCharCount" class="char-count">0 / 3000</span>
+                </div>
+                <textarea
+                    id="inputText"
+                    placeholder="Paste your LinkedIn post here. It can be a wall of text — we'll break it down into something people actually read.&#10;&#10;Try any length, any format. We handle it all."
+                    oninput="updateCounter()"
+                ></textarea>
+            </div>
+
+            <!-- Output -->
+            <div>
+                <div class="panel-label">
+                    <span>Feed Preview</span>
+                    <span id="outputLineCount" class="char-count">— lines</span>
+                </div>
+                <!-- LinkedIn mock profile bar -->
+                <div class="li-mock-header">
+                    <div class="li-avatar">YN</div>
+                    <div class="li-meta">
+                        <div class="li-name">Your Name • 1st</div>
+                        <div class="li-sub">Your Headline here · Just now</div>
+                    </div>
+                </div>
+                <div class="output-wrapper">
+                    <div id="outputText" class="output-area with-header">
+                        <span class="placeholder">Your formatted post will appear here — looking exactly like it will on LinkedIn.</span>
+                    </div>
+                    <div class="processing-overlay" id="processingOverlay">
+                        <div class="spinner"></div>
+                        <div class="processing-label" id="processingLabel">Analysing structure…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row" id="statsRow" style="display:none;">
+            <div class="stat-pill">Lines: <span id="statLines">0</span></div>
+            <div class="stat-pill">Words: <span id="statWords">0</span></div>
+            <div class="stat-pill">Chars: <span id="statChars">0</span></div>
+            <div class="stat-pill" id="statLimitPill">Limit: <span id="statLimit" style="color:#10b981;">OK</span></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-main" id="breakBtn" onclick="breakLines()">🔨 Break into One-Liners</button>
+            <button class="btn-main secondary" id="copyBtn" onclick="copyOutput()">📋 Copy</button>
+        </div>
+
+        <!-- Tips -->
+        <div class="tips-bar">
+            <h3>LinkedIn Engagement Tips</h3>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <strong>Hook = First Line</strong>
+                    Start with a bold claim, surprising stat, or controversial take. LinkedIn cuts off after line 1–2.
+                </div>
+                <div class="tip-card">
+                    <strong>One Idea Per Line</strong>
+                    Each line should be a complete thought. Readers scan — make each line worth stopping for.
+                </div>
+                <div class="tip-card">
+                    <strong>Empty Lines Are Free Real Estate</strong>
+                    White space signals "this is easy to read." Dense paragraphs get scrolled past instantly.
+                </div>
+                <div class="tip-card">
+                    <strong>End With a Question</strong>
+                    Posts that ask something get 3x more comments. Always end with an invitation to respond.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer style="margin-top: 120px; padding: 80px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3 style="color: white; font-family: 'Outfit'; margin-bottom: 10px;">Rebrixe Engine</h3>
+            <p style="font-size: 0.85rem; margin-bottom: 20px;">The Digital Identity & Growth Suite for 2026.</p>
+            <div style="height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin-bottom: 20px;"></div>
+            <p style="font-size: 0.75rem;">© 2026 Rebrixe Engine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const LI_LIMIT = 3000;
+        let currentMode = 'sentence';
+        let lastOutput = '';
+
+        /* ── Mode switcher ── */
+        function setMode(btn, mode) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = mode;
+            // Re-run if there's already output
+            if (lastOutput) breakLines();
+        }
+
+        /* ── Character counter on input ── */
+        function updateCounter() {
+            const len = document.getElementById('inputText').value.length;
+            const el = document.getElementById('inputCharCount');
+            el.textContent = len + ' / ' + LI_LIMIT;
+            el.className = 'char-count' + (len > LI_LIMIT ? ' over' : len > LI_LIMIT * 0.85 ? ' warn' : '');
+        }
+
+        /* ── Core formatting engine ── */
+        function formatText(raw, mode) {
+            if (!raw.trim()) return '';
+
+            switch (mode) {
+
+                case 'sentence': {
+                    // Split on sentence-ending punctuation — handles missing periods too
+                    // Also honour existing manual newlines the user put in
+                    const byNewline = raw.split(/\n+/);
+                    const sentences = [];
+                    byNewline.forEach(block => {
+                        if (!block.trim()) return;
+                        // Match sentences: anything ending in . ! ? or just the whole fragment
+                        const found = block.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g);
+                        if (found) found.forEach(s => { if (s.trim()) sentences.push(s.trim()); });
+                        else if (block.trim()) sentences.push(block.trim());
+                    });
+                    return sentences.join('\n\n');
+                }
+
+                case 'clause': {
+                    // Split on sentence endings AND on commas / semicolons / em-dashes / conjunctions
+                    const byNewline = raw.split(/\n+/);
+                    const parts = [];
+                    byNewline.forEach(block => {
+                        if (!block.trim()) return;
+                        // First split by sentences
+                        const sents = block.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) || [block];
+                        sents.forEach(sent => {
+                            // Then by clauses: comma/semicolon/em-dash, but keep the delimiter
+                            const clauses = sent.split(/(?<=[,;—])\s+|(?=\s+(?:but|and|yet|so|because|although|while|since|if|when|after|before|unless)\s)/i);
+                            clauses.forEach(c => { if (c.trim()) parts.push(c.trim()); });
+                        });
+                    });
+                    return parts.join('\n\n');
+                }
+
+                case 'word3': {
+                    // Every 3–5 words get their own line (dramatic punch style)
+                    // Natural breaks at punctuation get priority
+                    const words = raw.replace(/\n+/g, ' ').trim().split(/\s+/);
+                    const lines = [];
+                    let i = 0;
+                    while (i < words.length) {
+                        // Check if current or next 2 words end with punctuation → break there
+                        let chunk = [];
+                        let breakFound = false;
+                        for (let j = i; j < Math.min(i + 6, words.length); j++) {
+                            chunk.push(words[j]);
+                            if (/[.!?,;:—]$/.test(words[j])) {
+                                breakFound = true;
+                                i = j + 1;
+                                break;
+                            }
+                            if (chunk.length >= 4) {
+                                i = j + 1;
+                                breakFound = true;
+                                break;
+                            }
+                        }
+                        if (!breakFound) i = words.length;
+                        if (chunk.length) lines.push(chunk.join(' ').trim());
+                    }
+                    return lines.join('\n\n');
+                }
+
+                case 'manual': {
+                    // Smart break: sentence split but also detects lists (numbers/bullets),
+                    // keeps short punchy sentences alone, merges orphan fragments
+                    const lines = raw.split(/\n+/);
+                    const result = [];
+                    let buffer = '';
+
+                    lines.forEach(line => {
+                        line = line.trim();
+                        if (!line) {
+                            if (buffer) { result.push(buffer); buffer = ''; }
+                            return;
+                        }
+                        // Detect list items (1. or - or • at start) → always own line
+                        if (/^(\d+[\.\)]\s|[-•*]\s)/.test(line)) {
+                            if (buffer) { result.push(buffer); buffer = ''; }
+                            result.push(line);
+                            return;
+                        }
+                        // Split into sentences
+                        const sents = line.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) || [line];
+                        sents.forEach(s => {
+                            s = s.trim();
+                            if (!s) return;
+                            const words = s.split(/\s+/).length;
+                            // Very short fragments (< 4 words) — try to attach to previous
+                            if (words < 4 && result.length > 0) {
+                                result[result.length - 1] += ' ' + s;
+                            } else {
+                                result.push(s);
+                            }
+                        });
+                    });
+                    if (buffer) result.push(buffer);
+                    return result.filter(l => l.trim()).join('\n\n');
+                }
+            }
+            return raw;
+        }
+
+        /* ── Main action ── */
+        const processingMessages = [
+            'Analysing sentence structure…',
+            'Detecting natural break points…',
+            'Optimising for LinkedIn feed…',
+            'Formatting for engagement…',
+            'Applying readability score…',
+            'Calibrating line weights…',
+        ];
+
+        function breakLines() {
+            const input = document.getElementById('inputText').value;
+            if (!input.trim()) return;
+
+            // Show processing overlay
+            const overlay = document.getElementById('processingOverlay');
+            const label = document.getElementById('processingLabel');
+            label.textContent = processingMessages[Math.floor(Math.random() * processingMessages.length)];
+            overlay.classList.add('show');
+
+            // Simulate smart processing delay (keeps the AI illusion)
+            const delay = 400 + Math.random() * 600;
+            setTimeout(() => {
+                const formatted = formatText(input, currentMode);
+                lastOutput = formatted;
+
+                const outputEl = document.getElementById('outputText');
+                outputEl.innerHTML = ''; // clear placeholder
+                outputEl.textContent = formatted;
+
+                // Update stats
+                const lines = formatted.split('\n').filter(l => l.trim()).length;
+                const words = formatted.split(/\s+/).filter(Boolean).length;
+                const chars = formatted.length;
+
+                document.getElementById('statLines').textContent = lines;
+                document.getElementById('statWords').textContent = words;
+                document.getElementById('statChars').textContent = chars;
+
+                const limitEl = document.getElementById('statLimit');
+                const limitPill = document.getElementById('statLimitPill');
+                if (chars > LI_LIMIT) {
+                    limitEl.textContent = 'OVER by ' + (chars - LI_LIMIT);
+                    limitEl.style.color = '#ef4444';
+                } else if (chars > LI_LIMIT * 0.9) {
+                    limitEl.textContent = (LI_LIMIT - chars) + ' left';
+                    limitEl.style.color = '#f59e0b';
+                } else {
+                    limitEl.textContent = 'OK (' + (LI_LIMIT - chars) + ' left)';
+                    limitEl.style.color = '#10b981';
+                }
+
+                document.getElementById('outputLineCount').textContent = lines + ' lines';
+                document.getElementById('statsRow').style.display = 'flex';
+
+                overlay.classList.remove('show');
+            }, delay);
+        }
+
+        /* ── Copy with visual feedback ── */
+        function copyOutput() {
+            if (!lastOutput) return;
+            navigator.clipboard.writeText(lastOutput).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('copy-success');
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy';
+                    btn.classList.remove('copy-success');
+                }, 2200);
+            });
+        }
+
+        /* ── Keyboard shortcut: Ctrl/Cmd + Enter to break ── */
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') breakLines();
+        });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

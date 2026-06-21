@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk URL Slug Generator — Convert Titles to Clean URL Slugs | Rebrixe</title>
+    <meta name="description" content="Instantly convert hundreds of article titles into clean, SEO-friendly URL slugs. Bulk process, customize separators, handle stop words, copy or export in one click.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root { --slug-mono: 'JetBrains Mono', monospace; }
+
+        /* ── Layout ─────────────────────────────────────────────── */
+        .slug-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 56px 20px 100px;
+        }
+        .slug-header { text-align: center; margin-bottom: 48px; }
+        .slug-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-dim, rgba(0,220,130,.12));
+            border: 1px solid var(--border-glow, rgba(0,220,130,.3));
+            border-radius: 100px;
+            padding: 5px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            color: var(--accent, #00dc82);
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .slug-eyebrow-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent, #00dc82);
+            animation: sgPulse 2s infinite;
+        }
+        @keyframes sgPulse { 0%,100%{opacity:1}50%{opacity:.3} }
+        .slug-header h1 { font-size: clamp(1.6rem,4vw,2.2rem); font-weight: 700; letter-spacing: -.03em; margin-bottom: 10px; }
+        .slug-header p { color: var(--text2,#8892a4); font-size: .92rem; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+        /* ── Cards ──────────────────────────────────────────────── */
+        .sg-card {
+            background: var(--surface, #0d1117);
+            border: 1px solid var(--border, rgba(255,255,255,.07));
+            border-radius: 20px;
+            padding: 26px;
+            margin-bottom: 18px;
+        }
+        .sg-card-label {
+            font-size: 10px; font-weight: 700; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--text3, #4a5568);
+            display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+        }
+        .sg-card-label::after { content:''; flex:1; height:1px; background:var(--border,rgba(255,255,255,.07)); }
+        .sg-step-num {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:22px; height:22px; border-radius:50%;
+            background:var(--accent-dim,rgba(0,220,130,.12));
+            border:1px solid var(--border-glow,rgba(0,220,130,.3));
+            color:var(--accent,#00dc82); font-size:10px; font-weight:700; flex-shrink:0;
+        }
+
+        /* ── Two-column input/output ───────────────────────────── */
+        .sg-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media(max-width:640px){ .sg-columns { grid-template-columns:1fr; } }
+
+        .sg-col-head {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+        }
+        .sg-col-label {
+            font-size: 10px; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--text3,#4a5568);
+        }
+
+        .sg-textarea {
+            width: 100%; min-height: 280px; max-height: 480px;
+            background: var(--surface2,#111820);
+            border: 1px solid var(--border,rgba(255,255,255,.07));
+            border-radius: 12px; padding: 14px;
+            color: var(--text,#e2e8f0);
+            font-family: var(--slug-mono); font-size: .78rem; line-height: 1.9;
+            resize: vertical; outline: none; transition: border-color .2s;
+        }
+        .sg-textarea:focus { border-color: var(--accent,#00dc82); }
+        .sg-textarea::placeholder { color: var(--text3,#4a5568); }
+        .sg-textarea.output-area {
+            background: var(--surface2,#111820);
+            color: var(--accent,#00dc82);
+            cursor: default;
+        }
+        .sg-textarea.output-area:focus { border-color: var(--border,rgba(255,255,255,.07)); }
+
+        /* ── Options grid ───────────────────────────────────────── */
+        .sg-opts-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        @media(max-width:700px){ .sg-opts-grid { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:400px){ .sg-opts-grid { grid-template-columns: 1fr; } }
+
+        .sg-field-label {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .08em; text-transform: uppercase;
+            color: var(--text3,#4a5568); margin-bottom: 7px;
+        }
+        .sg-select-wrap { position: relative; }
+        .sg-select-wrap::after {
+            content:'▾'; position:absolute; right:12px; top:50%;
+            transform:translateY(-50%); color:var(--text3,#4a5568);
+            pointer-events:none; font-size:.72rem;
+        }
+        .sg-select {
+            width: 100%; background: var(--surface2,#111820);
+            border: 1px solid var(--border,rgba(255,255,255,.07));
+            border-radius: 12px; padding: 10px 13px;
+            color: var(--text,#e2e8f0);
+            font-family: var(--sans,'Space Grotesk',sans-serif);
+            font-size: .85rem; outline: none; cursor: pointer;
+            appearance: none; -webkit-appearance: none;
+            transition: border-color .2s;
+        }
+        .sg-select:focus { border-color: var(--accent,#00dc82); }
+
+        /* ── Toggle options ─────────────────────────────────────── */
+        .sg-toggles {
+            display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 0;
+        }
+        .sg-toggle {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 14px;
+            background: var(--surface2,#111820);
+            border: 1px solid var(--border,rgba(255,255,255,.07));
+            border-radius: 10px; cursor: pointer;
+            font-size: .8rem; color: var(--text2,#8892a4);
+            transition: .15s; user-select: none;
+        }
+        .sg-toggle:hover { border-color: rgba(255,255,255,.14); color: var(--text,#e2e8f0); }
+        .sg-toggle input { accent-color: var(--accent,#00dc82); cursor: pointer; width:14px; height:14px; }
+        .sg-toggle.active { border-color: var(--border-glow,rgba(0,220,130,.3)); color: var(--text,#e2e8f0); }
+
+        /* ── Stats row ──────────────────────────────────────────── */
+        .sg-stats {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+            margin-top: 10px;
+        }
+
+        /* ── Buttons ────────────────────────────────────────────── */
+        .sg-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 11px 20px;
+            border: none; border-radius: 10px; cursor: pointer;
+            font-family: var(--sans,'Space Grotesk',sans-serif);
+            font-size: .85rem; font-weight: 600;
+            transition: transform .15s, box-shadow .2s, background .2s;
+            white-space: nowrap; position: relative; overflow: hidden;
+        }
+        .sg-btn:active { transform: scale(.97); }
+        .sg-btn[disabled] { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+        .sg-btn::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.15) 50%,transparent 75%);
+            transform:translateX(-100%); transition:transform .6s ease;
+        }
+        .sg-btn:hover::before { transform:translateX(100%); }
+
+        .sg-btn-primary {
+            background: linear-gradient(135deg,var(--accent,#00dc82),#00b86b);
+            color: #052015;
+            box-shadow: 0 4px 16px -4px rgba(0,220,130,.4), inset 0 1px 0 rgba(255,255,255,.25);
+        }
+        .sg-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px -4px rgba(0,220,130,.6), inset 0 1px 0 rgba(255,255,255,.3); }
+
+        .sg-btn-ghost {
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border,rgba(255,255,255,.08));
+            color: var(--text,#e2e8f0);
+        }
+        .sg-btn-ghost:hover { background: rgba(255,255,255,.07); border-color: var(--border-glow,rgba(0,220,130,.3)); color: var(--accent,#00dc82); transform: translateY(-1px); }
+
+        .sg-btn-hero {
+            min-height: 54px; font-size: .95rem; font-weight: 700;
+            padding: 16px 28px; border-radius: 13px; flex: 1;
+        }
+
+        .sg-link-btn {
+            background: transparent; border: 1px solid transparent;
+            color: var(--text2,#8892a4); font-family: var(--sans,sans-serif);
+            font-size: .7rem; font-weight: 600; letter-spacing: .04em;
+            text-transform: uppercase; padding: 5px 11px; border-radius: 8px;
+            cursor: pointer; transition: .15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .sg-link-btn:hover { color:var(--accent,#00dc82); background:var(--accent-dim,rgba(0,220,130,.08)); border-color:var(--border-glow,rgba(0,220,130,.2)); }
+        .sg-link-btn svg { width:11px; height:11px; }
+
+        .sg-action-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+        /* ── Preview table ──────────────────────────────────────── */
+        .sg-preview-wrap {
+            background: var(--surface2,#111820);
+            border: 1px solid var(--border,rgba(255,255,255,.07));
+            border-radius: 12px; overflow: hidden; margin-top: 14px;
+        }
+        .sg-preview-head {
+            display: grid; grid-template-columns: 1fr 1fr 36px;
+            gap: 10px; padding: 8px 14px;
+            font-size: 10px; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--text3,#4a5568);
+            border-bottom: 1px solid var(--border,rgba(255,255,255,.07));
+        }
+        .sg-preview-scroll { max-height: 320px; overflow-y: auto; }
+        .sg-preview-row {
+            display: grid; grid-template-columns: 1fr 1fr 36px;
+            gap: 10px; padding: 9px 14px;
+            border-bottom: 1px solid var(--border,rgba(255,255,255,.04));
+            align-items: center; transition: background .12s;
+            font-size: .77rem;
+        }
+        .sg-preview-row:last-child { border-bottom: none; }
+        .sg-preview-row:hover { background: var(--surface3,#161e28); }
+        .sg-orig { color: var(--text2,#8892a4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sg-slug-cell {
+            font-family: var(--slug-mono); color: var(--accent,#00dc82);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .sg-copy-row {
+            background: transparent; border: 1px solid transparent;
+            color: var(--text3,#4a5568); width: 28px; height: 28px;
+            border-radius: 7px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: .15s;
+        }
+        .sg-copy-row:hover { background: var(--accent-dim,rgba(0,220,130,.1)); border-color: var(--border-glow,rgba(0,220,130,.3)); color: var(--accent,#00dc82); }
+        .sg-copy-row svg { width: 12px; height: 12px; }
+
+        /* ── Warning pill for duplicates ────────────────────────── */
+        .sg-dup-warn {
+            display: none; align-items: center; gap: 6px; padding: 4px 10px;
+            background: rgba(255,179,71,.1); border: 1px solid rgba(255,179,71,.3);
+            border-radius: 100px; font-size: .72rem; font-weight: 600;
+            color: var(--warn,#ffb347);
+        }
+
+        /* ── FAQ / SEO ─────────────────────────────────────────── */
+        .sg-seo { margin-top: 70px; }
+        .sg-seo h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 10px; letter-spacing: -.02em; }
+        .sg-seo p { color: var(--text2,#8892a4); font-size: .88rem; line-height: 1.75; margin-bottom: 16px; }
+        .sg-faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+        @media(max-width:580px){ .sg-faq-grid { grid-template-columns: 1fr; } }
+        .sg-faq-card {
+            background: var(--surface,#0d1117); border: 1px solid var(--border,rgba(255,255,255,.07));
+            border-radius: 16px; padding: 18px 20px; transition: border-color .2s;
+        }
+        .sg-faq-card:hover { border-color: rgba(255,255,255,.12); }
+        .sg-faq-card h3 { font-size: .88rem; font-weight: 600; margin-bottom: 7px; }
+        .sg-faq-card p { color: var(--text2,#8892a4); font-size: .81rem; line-height: 1.6; margin: 0; }
+
+        /* ── Toast ──────────────────────────────────────────────── */
+        #sg-toast {
+            position: fixed; bottom: 28px; left: 50%;
+            transform: translateX(-50%) translateY(70px);
+            background: var(--surface3,#161e28);
+            border: 1px solid var(--border-glow,rgba(0,220,130,.35));
+            color: var(--accent,#00dc82); padding: 10px 24px;
+            border-radius: 100px; font-size: .83rem; font-weight: 600;
+            transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+            z-index: 999; white-space: nowrap;
+            box-shadow: 0 8px 24px -8px rgba(0,220,130,.35);
+        }
+        #sg-toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body data-theme="technical">
+
+<div id="sg-toast" aria-live="polite"></div>
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="seo-validation.html" class="back-btn">← Back to Tools</a>
+
+    <div class="slug-container">
+
+        <!-- Header -->
+        <header class="slug-header">
+            <h1>Bulk URL Slug Generator</h1>
+            <p>Paste hundreds of article titles — get clean, SEO-ready URL slugs instantly. No typos, no spaces, no broken links.</p>
+        </header>
+
+        <!-- Options -->
+        <div class="sg-card">
+            <div class="sg-card-label"><span class="sg-step-num">⚙</span>Options</div>
+
+            <div class="sg-opts-grid">
+                <div>
+                    <label class="sg-field-label" for="sgSeparator">Separator</label>
+                    <div class="sg-select-wrap">
+                        <select class="sg-select" id="sgSeparator" onchange="sg.process()">
+                            <option value="-" selected>Hyphen  —  word-slug</option>
+                            <option value="_">Underscore  —  word_slug</option>
+                            <option value=".">Dot  —  word.slug</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="sg-field-label" for="sgCase">Case</label>
+                    <div class="sg-select-wrap">
+                        <select class="sg-select" id="sgCase" onchange="sg.process()">
+                            <option value="lower" selected>lowercase</option>
+                            <option value="upper">UPPERCASE</option>
+                            <option value="none">Preserve</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="sg-field-label" for="sgMaxLen">Max Length</label>
+                    <div class="sg-select-wrap">
+                        <select class="sg-select" id="sgMaxLen" onchange="sg.process()">
+                            <option value="0" selected>No limit</option>
+                            <option value="60">60 chars (recommended)</option>
+                            <option value="75">75 chars</option>
+                            <option value="100">100 chars</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="sg-field-label" for="sgPrefix">Prefix (optional)</label>
+                    <div class="sg-select-wrap">
+                        <select class="sg-select" id="sgPrefix" onchange="sg.process()">
+                            <option value="" selected>None</option>
+                            <option value="blog/">blog/</option>
+                            <option value="post/">post/</option>
+                            <option value="article/">article/</option>
+                            <option value="news/">news/</option>
+                            <option value="guide/">guide/</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sg-toggles">
+                <label class="sg-toggle" id="tgStopwords">
+                    <input type="checkbox" id="sgStopwords" onchange="sg.updateToggle(this); sg.process()">
+                    Remove stop words
+                </label>
+                <label class="sg-toggle" id="tgNumbers">
+                    <input type="checkbox" id="sgNumbers" checked onchange="sg.updateToggle(this); sg.process()">
+                    Keep numbers
+                </label>
+                <label class="sg-toggle" id="tgTranslit">
+                    <input type="checkbox" id="sgTranslit" checked onchange="sg.updateToggle(this); sg.process()">
+                    Transliterate accents
+                </label>
+                <label class="sg-toggle" id="tgTrailingSlash">
+                    <input type="checkbox" id="sgTrailingSlash" onchange="sg.updateToggle(this); sg.process()">
+                    Trailing slash
+                </label>
+                <label class="sg-toggle" id="tgNumPrefix">
+                    <input type="checkbox" id="sgNumPrefix" onchange="sg.updateToggle(this); sg.process()">
+                    Number rows (1-, 2-…)
+                </label>
+            </div>
+        </div>
+
+        <!-- Input / Output columns -->
+        <div class="sg-card">
+            <div class="sg-card-label"><span class="sg-step-num">1</span>Paste Titles</div>
+
+            <div class="sg-columns">
+                <!-- Input -->
+                <div>
+                    <div class="sg-col-head">
+                        <span class="sg-col-label">Article Titles</span>
+                        <div style="display:flex;gap:6px;">
+                            <button class="sg-link-btn" onclick="sg.clearInput()">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                Clear
+                            </button>
+                            <button class="sg-link-btn" onclick="sg.loadSample()">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>
+                                Sample
+                            </button>
+                        </div>
+                    </div>
+                    <textarea
+                        class="sg-textarea"
+                        id="sgInput"
+                        placeholder="Paste your article titles here, one per line:
+
+How to Build a Startup in 2024
+The Best SEO Strategies for New Blogs
+10 Tools Every Developer Should Know
+Getting Started with Python & Django
+Améliorer votre référencement naturel"
+                        oninput="sg.process()"
+                        spellcheck="false"></textarea>
+                    <div class="sg-stats" id="sgInputStats">
+                        <span class="badge badge-green" id="sgTotalBadge" style="display:none">0 titles</span>
+                        <span class="badge badge-warn" id="sgEmptyBadge" style="display:none">0 empty skipped</span>
+                        <span class="sg-dup-warn" id="sgDupWarn">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <span id="sgDupText">0 duplicate slugs</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Output -->
+                <div>
+                    <div class="sg-col-head">
+                        <span class="sg-col-label">Generated Slugs</span>
+                        <div style="display:flex;gap:6px;">
+                            <button class="sg-link-btn" onclick="sg.copyAll()">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                Copy All
+                            </button>
+                            <button class="sg-link-btn" onclick="sg.downloadTxt()">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                .txt
+                            </button>
+                            <button class="sg-link-btn" onclick="sg.downloadCsv()">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                .csv
+                            </button>
+                        </div>
+                    </div>
+                    <textarea
+                        class="sg-textarea output-area"
+                        id="sgOutput"
+                        readonly
+                        placeholder="Slugs will appear here…"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side-by-side preview table -->
+        <div class="sg-card" id="sgPreviewCard" style="display:none;">
+            <div class="sg-card-label"><span class="sg-step-num">2</span>Preview &amp; Copy Individual</div>
+            <div class="sg-preview-wrap">
+                <div class="sg-preview-head">
+                    <span>Original Title</span>
+                    <span>Generated Slug</span>
+                    <span></span>
+                </div>
+                <div class="sg-preview-scroll" id="sgPreviewRows"></div>
+            </div>
+            <div class="sg-action-row">
+                <button class="sg-btn sg-btn-primary sg-btn-hero" onclick="sg.copyAll()">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    Copy All Slugs
+                </button>
+                <button class="sg-btn sg-btn-ghost" onclick="sg.downloadCsv()">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Export CSV (Title + Slug)
+                </button>
+                <button class="sg-btn sg-btn-ghost" onclick="sg.downloadTxt()">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Export .txt (slugs only)
+                </button>
+            </div>
+        </div>
+
+        <!-- SEO section -->
+        <div class="sg-seo">
+            <h2>Why clean URL slugs matter for SEO</h2>
+            <p>A URL slug is the part of a web address that identifies a specific page — for example <code style="background:var(--surface2,#111820);padding:2px 7px;border-radius:5px;font-family:var(--slug-mono);font-size:.8rem;">/how-to-build-a-startup-in-2024</code>. Search engines read slugs to understand page content, and well-formed slugs can meaningfully improve click-through rates in search results.</p>
+            <p>This tool handles every edge case: accented characters, special symbols, mixed cases, multiple spaces, numbers, stop words — so you can process an entire content calendar in seconds instead of manually editing each URL.</p>
+            <div class="sg-faq-grid">
+                <div class="sg-faq-card">
+                    <h3>Should I remove stop words from slugs?</h3>
+                    <p>It depends. Removing words like "the", "a", "and" makes slugs shorter and more keyword-dense. But sometimes they're needed for readability. Toggle the option and compare — the preview updates instantly.</p>
+                </div>
+                <div class="sg-faq-card">
+                    <h3>What's the ideal slug length?</h3>
+                    <p>Google typically displays ~70 characters in search result URLs. Keeping slugs under 60 characters ensures nothing gets truncated and the keyword signals stay concentrated.</p>
+                </div>
+                <div class="sg-faq-card">
+                    <h3>Why use hyphens, not underscores?</h3>
+                    <p>Google treats hyphens as word separators (like spaces) but underscores join words into one token. "seo-tools" is three keywords; "seo_tools" is one. Hyphens are the strong default for SEO.</p>
+                </div>
+                <div class="sg-faq-card">
+                    <h3>Why do accented characters get converted?</h3>
+                    <p>Characters like é, ñ, ü get percent-encoded in URLs (%C3%A9), which looks broken in shared links. Transliteration converts them to plain ASCII equivalents automatically.</p>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /slug-container -->
+</main>
+
+<footer></footer>
+
+<script>
+const sg = (() => {
+    // Common English stop words
+    const STOP_WORDS = new Set([
+        'a','an','the','and','or','but','in','on','at','to','for','of','with',
+        'by','from','is','was','are','were','be','been','being','have','has',
+        'had','do','does','did','will','would','could','should','may','might',
+        'shall','can','need','dare','ought','used','it','its','this','that',
+        'these','those','i','you','he','she','we','they','my','your','his',
+        'her','our','their','what','which','who','how','when','where','why',
+        'all','any','each','every','both','few','more','most','other','some',
+        'such','no','not','only','same','so','than','too','very','just','about',
+        'as','into','through','during','before','after','above','below','between',
+        'up','down','out','off','over','under','again','then','once'
+    ]);
+
+    // Accent transliteration map
+    const TRANSLIT = {
+        'à':'a','á':'a','â':'a','ã':'a','ä':'a','å':'a','æ':'ae','ç':'c',
+        'è':'e','é':'e','ê':'e','ë':'e','ì':'i','í':'i','î':'i','ï':'i',
+        'ð':'d','ñ':'n','ò':'o','ó':'o','ô':'o','õ':'o','ö':'o','ø':'o',
+        'ù':'u','ú':'u','û':'u','ü':'u','ý':'y','þ':'th','ÿ':'y','ß':'ss',
+        'À':'A','Á':'A','Â':'A','Ã':'A','Ä':'A','Å':'A','Æ':'AE','Ç':'C',
+        'È':'E','É':'E','Ê':'E','Ë':'E','Ì':'I','Í':'I','Î':'I','Ï':'I',
+        'Ñ':'N','Ò':'O','Ó':'O','Ô':'O','Õ':'O','Ö':'O','Ø':'O',
+        'Ù':'U','Ú':'U','Û':'U','Ü':'U','Ý':'Y','&':'and','@':'at',
+        '#':'','$':'','%':'','*':'','!':'','?':'','(':'',')'  :'',
+        '#':'','$':'','%':'','*':'','!':'','?':'','(':'',' )':'',
+'"':'',"'":''
+    };
+
+    const SAMPLE = `How to Build a Startup From Scratch in 2024
+The Best SEO Strategies for New Bloggers
+10 Must-Have Tools Every Developer Should Know
+Getting Started with Python & Django — A Beginner's Guide
+Améliorer votre référencement naturel en 2024
+Why Consistency Beats Talent (Most of the Time)
+Top 5 Ways to Monetize a YouTube Channel
+The Complete Guide to Email Marketing Automation
+Understanding JavaScript Promises vs. Async/Await
+How I Grew My Newsletter to 50,000 Subscribers`;
+
+    let pairs = []; // [{original, slug}]
+    let toastTimer = null;
+
+    // ── Slug engine ────────────────────────────────────────────
+    function toSlug(title) {
+        const sep        = document.getElementById('sgSeparator').value;
+        const caseMode   = document.getElementById('sgCase').value;
+        const maxLen     = parseInt(document.getElementById('sgMaxLen').value) || 0;
+        const prefix     = document.getElementById('sgPrefix').value;
+        const stopwords  = document.getElementById('sgStopwords').checked;
+        const keepNums   = document.getElementById('sgNumbers').checked;
+        const translit   = document.getElementById('sgTranslit').checked;
+        const trailingSlash = document.getElementById('sgTrailingSlash').checked;
+
+        let s = title.trim();
+
+        // Transliterate accents & special chars
+        if (translit) {
+            s = s.split('').map(c => TRANSLIT[c] !== undefined ? TRANSLIT[c] : c).join('');
+        }
+
+        // Strip anything not alphanumeric, space, hyphen
+        s = s.replace(/[^a-zA-Z0-9\s\-]/g, ' ');
+
+        // Split into words
+        let words = s.split(/[\s\-]+/).filter(w => w.length > 0);
+
+        // Remove stop words
+        if (stopwords) words = words.filter(w => !STOP_WORDS.has(w.toLowerCase()));
+
+        // Remove numbers if option unchecked
+        if (!keepNums) words = words.filter(w => !/^\d+$/.test(w));
+
+        // Apply case
+        if (caseMode === 'lower') words = words.map(w => w.toLowerCase());
+        else if (caseMode === 'upper') words = words.map(w => w.toUpperCase());
+
+        // Join
+        let slug = words.join(sep);
+
+        // Trim leading/trailing separator
+        const escapedSep = sep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        slug = slug.replace(new RegExp(`^${escapedSep}+|${escapedSep}+$`, 'g'), '');
+
+        // Max length — cut at word boundary
+        if (maxLen > 0 && slug.length > maxLen) {
+            slug = slug.substring(0, maxLen);
+            const lastSep = slug.lastIndexOf(sep);
+            if (lastSep > 0) slug = slug.substring(0, lastSep);
+            slug = slug.replace(new RegExp(`${escapedSep}+$`, 'g'), '');
+        }
+
+        // Trailing slash
+        if (trailingSlash && slug) slug += '/';
+
+        return prefix + slug;
+    }
+
+    // ── Main process ───────────────────────────────────────────
+    function process() {
+        const raw   = document.getElementById('sgInput').value;
+        const lines = raw.split('\n');
+        const numPrefix = document.getElementById('sgNumPrefix').checked;
+
+        let total = 0, empty = 0;
+        pairs = [];
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) { empty++; return; }
+            total++;
+            let slug = toSlug(trimmed);
+            if (numPrefix) slug = total + '-' + slug;
+            pairs.push({ original: trimmed, slug });
+        });
+
+        // Detect duplicate slugs
+        const slugCounts = {};
+        pairs.forEach(p => { slugCounts[p.slug] = (slugCounts[p.slug] || 0) + 1; });
+        const dupCount = pairs.filter(p => slugCounts[p.slug] > 1).length;
+
+        // Output textarea
+        document.getElementById('sgOutput').value = pairs.map(p => p.slug).join('\n');
+
+        // Badges
+        const totalBadge = document.getElementById('sgTotalBadge');
+        if (total > 0) {
+            totalBadge.textContent = `${total} title${total===1?'':'s'}`;
+            totalBadge.style.display = '';
+        } else {
+            totalBadge.style.display = 'none';
+        }
+
+        const emptyBadge = document.getElementById('sgEmptyBadge');
+        if (empty > 0) {
+            emptyBadge.textContent = `${empty} empty skipped`;
+            emptyBadge.style.display = '';
+        } else {
+            emptyBadge.style.display = 'none';
+        }
+
+        const dupWarn = document.getElementById('sgDupWarn');
+        if (dupCount > 0) {
+            document.getElementById('sgDupText').textContent = `${dupCount} duplicate slug${dupCount===1?'':'s'}`;
+            dupWarn.style.display = 'flex';
+        } else {
+            dupWarn.style.display = 'none';
+        }
+
+        // Preview table
+        renderPreview();
+    }
+
+    function renderPreview() {
+        const card = document.getElementById('sgPreviewCard');
+        const container = document.getElementById('sgPreviewRows');
+        container.innerHTML = '';
+
+        if (pairs.length === 0) { card.style.display = 'none'; return; }
+        card.style.display = '';
+
+        const frag = document.createDocumentFragment();
+        pairs.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = 'sg-preview-row';
+            row.innerHTML = `
+                <span class="sg-orig" title="${esc(p.original)}">${esc(p.original)}</span>
+                <span class="sg-slug-cell" title="${esc(p.slug)}">${esc(p.slug)}</span>
+                <button class="sg-copy-row" title="Copy slug" onclick="sg.copyOne('${esc(p.slug).replace(/'/g,"\\'")}', this)">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>
+                </button>
+            `;
+            frag.appendChild(row);
+        });
+        container.appendChild(frag);
+    }
+
+    // ── Actions ────────────────────────────────────────────────
+    function copyAll() {
+        if (!pairs.length) { showToast('Nothing to copy — paste some titles first'); return; }
+        navigator.clipboard.writeText(pairs.map(p => p.slug).join('\n'))
+            .then(() => showToast(`Copied ${pairs.length} slug${pairs.length===1?'':'s'} to clipboard`));
+    }
+
+    function copyOne(slug, btn) {
+        navigator.clipboard.writeText(slug).then(() => {
+            showToast('Slug copied!');
+            if (btn) {
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
+                btn.style.color = 'var(--accent,#00dc82)';
+                setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1400);
+            }
+        });
+    }
+
+    function downloadTxt() {
+        if (!pairs.length) { showToast('Generate slugs first'); return; }
+        const content = pairs.map(p => p.slug).join('\n');
+        download('slugs.txt', content, 'text/plain');
+        showToast('Downloaded slugs.txt');
+    }
+
+    function downloadCsv() {
+        if (!pairs.length) { showToast('Generate slugs first'); return; }
+        const rows = [['Original Title', 'URL Slug'], ...pairs.map(p => [csvEsc(p.original), csvEsc(p.slug)])];
+        const content = rows.map(r => r.join(',')).join('\n');
+        download('slugs.csv', content, 'text/csv');
+        showToast('Downloaded slugs.csv');
+    }
+
+    function download(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function clearInput() {
+        document.getElementById('sgInput').value = '';
+        document.getElementById('sgOutput').value = '';
+        pairs = [];
+        document.getElementById('sgPreviewCard').style.display = 'none';
+        document.getElementById('sgTotalBadge').style.display = 'none';
+        document.getElementById('sgEmptyBadge').style.display = 'none';
+        document.getElementById('sgDupWarn').style.display = 'none';
+        showToast('Cleared');
+    }
+
+    function loadSample() {
+        document.getElementById('sgInput').value = SAMPLE;
+        process();
+        showToast('Sample titles loaded');
+    }
+
+    function updateToggle(checkbox) {
+        const label = checkbox.closest('.sg-toggle');
+        if (label) label.classList.toggle('active', checkbox.checked);
+    }
+
+    // ── Utils ──────────────────────────────────────────────────
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const csvEsc = s => `"${s.replace(/"/g,'""')}"`;
+
+    function showToast(msg) {
+        const t = document.getElementById('sg-toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    // Init checked state on toggles
+    function init() {
+        document.querySelectorAll('.sg-toggle input[type="checkbox"]').forEach(cb => {
+            if (cb.checked) cb.closest('.sg-toggle').classList.add('active');
+        });
+    }
+
+    return { process, copyAll, copyOne, downloadTxt, downloadCsv, clearInput, loadSample, updateToggle, init };
+})();
+
+sg.init();
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

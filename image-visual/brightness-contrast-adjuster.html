@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brightness & Contrast Adjuster — Fix Dark Photos Instantly | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Fix dark, washed-out or flat photos instantly. Adjust brightness, contrast, exposure, shadows and highlights with live preview. Free, browser-only, no upload.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); position: relative; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Preview area */
+        .preview-area { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 20px; }
+        .preview-toggle { display: flex; gap: 6px; margin-bottom: 14px; }
+        .ptog { padding: 6px 16px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .ptog.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .canvas-wrap { position: relative; width: 100%; border-radius: var(--radius-md); overflow: hidden; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+        #mainCanvas { max-width: 100%; max-height: 420px; display: block; border-radius: var(--radius-md); }
+
+        /* Split view */
+        .split-wrap { position: relative; width: 100%; border-radius: var(--radius-md); overflow: hidden; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; min-height: 200px; user-select: none; display: none; }
+        .split-wrap.visible { display: block; }
+        #splitBefore, #splitAfter { position: absolute; top: 0; left: 0; max-width: 100%; border-radius: var(--radius-md); display: block; }
+        #splitAfter { clip-path: inset(0 0 0 50%); }
+        .split-handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; background: var(--primary); cursor: ew-resize; z-index: 10; transform: translateX(-50%); }
+        .split-handle::before { content: '⇔'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 28px; height: 28px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #000; font-weight: 900; box-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+        .split-label { position: absolute; top: 10px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 4px 10px; border-radius: 99px; pointer-events: none; }
+        .split-label.before { left: 10px; background: rgba(0,0,0,0.6); color: var(--text-sec); }
+        .split-label.after { right: 10px; background: rgba(255,214,0,0.15); color: var(--primary); border: 1px solid var(--primary-border); }
+
+        /* Sliders section */
+        .sliders-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .sliders-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .reset-all-btn { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; display: flex; align-items: center; gap: 5px; }
+        .reset-all-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+
+        .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .slider-row:last-child { margin-bottom: 0; }
+        .slider-icon { font-size: 1rem; width: 22px; flex-shrink: 0; text-align: center; }
+        .slider-info { width: 110px; flex-shrink: 0; }
+        .slider-name { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); }
+        .slider-val { font-size: 0.7rem; font-family: 'Fira Code', monospace; color: var(--primary); font-weight: 500; }
+        .adj-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; border-radius: 99px; background: var(--border-mid); outline: none; cursor: pointer; transition: background 0.2s; }
+        .adj-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); transition: transform 0.15s; }
+        .adj-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .reset-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.75rem; cursor: pointer; transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .reset-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Auto-fix presets */
+        .autofix-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .fix-btn { padding: 8px 15px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 5px; }
+        .fix-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Format & action row */
+        .bottom-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .fmt-group { display: flex; flex-direction: column; gap: 8px; }
+        .fmt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+        .toggle-row { display: flex; gap: 6px; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .action-row { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+        .btn-main { position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 26px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; font-weight: 800; font-size: 0.9rem; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+
+        /* Histogram */
+        .histogram-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 24px; margin-bottom: 20px; }
+        .histogram-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        #histCanvas { width: 100%; height: 60px; border-radius: 8px; display: block; opacity: 0.85; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .slider-row { flex-wrap: wrap; }
+            .slider-info { width: 80px; }
+            .bottom-card { flex-direction: column; align-items: flex-start; }
+            .action-row { margin-left: 0; width: 100%; }
+            .btn-main { width: 100%; }
+            .btn-main-inner { justify-content: center; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Brightness & Contrast Adjuster</h1>
+                <p class="tool-page-sub">Fix dark, flat or washed-out photos in seconds — brightness, contrast, exposure, shadows, highlights & more.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">☀️</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <!-- Info bar -->
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="thumb">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Auto-fix presets -->
+                <div class="autofix-row">
+                    <button class="fix-btn" onclick="applyPreset('darken')">🌑 Too Dark</button>
+                    <button class="fix-btn" onclick="applyPreset('brighten')">☀️ Too Bright</button>
+                    <button class="fix-btn" onclick="applyPreset('flat')">🎨 Looks Flat</button>
+                    <button class="fix-btn" onclick="applyPreset('vivid')">✨ Make Vivid</button>
+                    <button class="fix-btn" onclick="applyPreset('matte')">🌿 Matte Film</button>
+                    <button class="fix-btn" onclick="applyPreset('punch')">💥 Add Punch</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-area">
+                    <div class="preview-toggle">
+                        <button class="ptog active" onclick="switchView('single',this)">Preview</button>
+                        <button class="ptog" onclick="switchView('split',this)">Before / After</button>
+                    </div>
+                    <div class="canvas-wrap" id="singleView">
+                        <canvas id="mainCanvas"></canvas>
+                    </div>
+                    <div class="split-wrap" id="splitView">
+                        <canvas id="splitBefore"></canvas>
+                        <canvas id="splitAfter"></canvas>
+                        <div class="split-handle" id="splitHandle"></div>
+                        <span class="split-label before">Original</span>
+                        <span class="split-label after">Adjusted</span>
+                    </div>
+                </div>
+
+                <!-- Histogram -->
+                <div class="histogram-wrap">
+                    <div class="histogram-header">
+                        <span class="section-label">Luminosity Histogram</span>
+                        <span style="font-size:0.68rem;color:var(--text-dim);">Adjust until histogram fills without clipping at edges</span>
+                    </div>
+                    <canvas id="histCanvas"></canvas>
+                </div>
+
+                <!-- Sliders -->
+                <div class="sliders-card">
+                    <div class="sliders-header">
+                        <span class="section-label">Adjustments</span>
+                        <button class="reset-all-btn" onclick="resetAll()">↺ Reset All</button>
+                    </div>
+
+                    <!-- rows: icon, name, id, min, max, default, step -->
+                    <div id="slidersWrap"></div>
+                </div>
+
+                <!-- Export row -->
+                <div class="bottom-card">
+                    <div class="fmt-group">
+                        <label>Output Format</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                            <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                            <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        </div>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn-main" onclick="doDownload()">
+                            <div class="btn-main-inner">⬇ Download Image</div>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Common photo fixes — answered</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Photo too dark?</h3>
+                        <p>Hit the <code>Too Dark</code> one-click fix, or drag <strong>Exposure</strong> and <strong>Shadows</strong> up. The histogram will tell you when you've recovered enough detail.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Looks flat and dull?</h3>
+                        <p>Raise <strong>Contrast</strong> and <strong>Clarity</strong>, drop <strong>Shadows</strong> slightly. The <code>Add Punch</code> preset does this in one click.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What's the Histogram for?</h3>
+                        <p>It shows the distribution of light in your photo. Pushed to the left = too dark. Pushed right = too bright. A good photo fills the middle with no hard clipping at either edge.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs on the <code>Canvas API</code> inside your browser. Your photo never touches any server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── SLIDER DEFINITIONS ────────────────────────────────────────────────────
+    const SLIDERS = [
+        { icon:'☀️',  id:'brightness', name:'Brightness',  min:-100, max:100,  def:0,   step:1  },
+        { icon:'◑',   id:'contrast',   name:'Contrast',    min:-100, max:100,  def:0,   step:1  },
+        { icon:'📷',  id:'exposure',   name:'Exposure',    min:-100, max:100,  def:0,   step:1  },
+        { icon:'🌑',  id:'shadows',    name:'Shadows',     min:-100, max:100,  def:0,   step:1  },
+        { icon:'💡',  id:'highlights', name:'Highlights',  min:-100, max:100,  def:0,   step:1  },
+        { icon:'🌤',  id:'whites',     name:'Whites',      min:-100, max:100,  def:0,   step:1  },
+        { icon:'⚫',  id:'blacks',     name:'Blacks',      min:-100, max:100,  def:0,   step:1  },
+        { icon:'🔷',  id:'clarity',    name:'Clarity',     min:-100, max:100,  def:0,   step:1  },
+        { icon:'🌡',  id:'temp',       name:'Warmth',      min:-100, max:100,  def:0,   step:1  },
+        { icon:'💜',  id:'tint',       name:'Tint',        min:-100, max:100,  def:0,   step:1  },
+    ];
+
+    // ─── ONE-CLICK PRESETS ─────────────────────────────────────────────────────
+    const PRESETS = {
+        darken:  { brightness:0, contrast:15, exposure:40, shadows:50, highlights:-10, whites:0, blacks:0, clarity:10, temp:0, tint:0 },
+        brighten:{ brightness:0, contrast:5,  exposure:-30,shadows:-20,highlights:-40, whites:-20,blacks:0, clarity:0,  temp:0, tint:0 },
+        flat:    { brightness:0, contrast:40, exposure:10, shadows:-10,highlights:0,   whites:0, blacks:-10,clarity:20, temp:5, tint:0 },
+        vivid:   { brightness:10,contrast:30, exposure:15, shadows:20, highlights:-15, whites:10,blacks:-10,clarity:30, temp:10,tint:5 },
+        matte:   { brightness:5, contrast:-20,exposure:10, shadows:30, highlights:-30, whites:-20,blacks:20,clarity:-10,temp:8, tint:-5},
+        punch:   { brightness:0, contrast:50, exposure:5,  shadows:-20,highlights:-10, whites:15,blacks:-15,clarity:40, temp:5, tint:0 },
+    };
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let vals = {};  // current slider values
+    let outputFmt = 'jpeg';
+
+    SLIDERS.forEach(s => { vals[s.id] = s.def; });
+
+    // ─── BUILD SLIDERS UI ──────────────────────────────────────────────────────
+    const wrap = document.getElementById('slidersWrap');
+    SLIDERS.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+        row.innerHTML = `
+            <span class="slider-icon">${s.icon}</span>
+            <div class="slider-info">
+                <div class="slider-name">${s.name}</div>
+                <div class="slider-val" id="val_${s.id}">${s.def}</div>
+            </div>
+            <input type="range" class="adj-slider" id="sl_${s.id}" min="${s.min}" max="${s.max}" value="${s.def}" step="${s.step}">
+            <button class="reset-btn" onclick="resetOne('${s.id}')" title="Reset">↺</button>`;
+        wrap.appendChild(row);
+
+        document.getElementById(`sl_${s.id}`).addEventListener('input', function() {
+            vals[s.id] = +this.value;
+            document.getElementById(`val_${s.id}`).textContent = this.value > 0 ? '+'+this.value : this.value;
+            render();
+        });
+    });
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', e => { if (e.target === dz || e.target.classList.contains('drop-icon') || e.target.classList.contains('drop-title')) fi.click(); });
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                resetAll(false);
+                render();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null;
+    }
+
+    // ─── RENDER (Canvas API filter pipeline) ──────────────────────────────────
+    function render() {
+        if (!origImg) return;
+        const v = vals;
+
+        // Build CSS filter string
+        // brightness: 0–200% (100 = neutral), exposure same range but sharper
+        const bri  = 1 + (v.brightness / 100) * 0.8;
+        const exp  = 1 + (v.exposure  / 100) * 1.2;   // exposure is stronger
+        const con  = 1 + (v.contrast  / 100) * 1.5;
+        const warm = v.temp; const tint = v.tint;
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = origImg.naturalWidth;
+        canvas.height = origImg.naturalHeight;
+
+        // draw base image
+        ctx.filter = 'none';
+        ctx.drawImage(origImg, 0, 0);
+
+        // get pixel data for manual adjustments (shadows, highlights, clarity, warmth)
+        const iw = canvas.width, ih = canvas.height;
+        const imgData = ctx.getImageData(0, 0, iw, ih);
+        const d = imgData.data;
+
+        // Build tone curves via LUT (256 values per channel)
+        const lut = buildLUT(v);
+
+        for (let i = 0; i < d.length; i += 4) {
+            d[i]   = lut.r[d[i]];
+            d[i+1] = lut.g[d[i+1]];
+            d[i+2] = lut.b[d[i+2]];
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        // Sync split canvases
+        syncSplit();
+        drawHistogram(d);
+    }
+
+    function buildLUT(v) {
+        // Compose all adjustments into per-channel lookup tables
+        const r = new Uint8ClampedArray(256);
+        const g = new Uint8ClampedArray(256);
+        const b = new Uint8ClampedArray(256);
+
+        for (let i = 0; i < 256; i++) {
+            let lum = i / 255;
+
+            // Exposure (linear pre-multiply)
+            lum *= Math.pow(2, v.exposure / 50);
+
+            // Brightness (linear offset)
+            lum += v.brightness / 255;
+
+            // Contrast (S-curve around midpoint 0.5)
+            if (v.contrast !== 0) {
+                const c = (v.contrast / 100) * 1.5;
+                lum = (lum - 0.5) * (1 + c) + 0.5;
+            }
+
+            // Shadows (affect only dark tones)
+            if (v.shadows !== 0) {
+                const s = v.shadows / 300;
+                const shadow_mask = Math.max(0, 1 - lum * 3);
+                lum += s * shadow_mask;
+            }
+
+            // Highlights (affect only bright tones)
+            if (v.highlights !== 0) {
+                const h = v.highlights / 300;
+                const hi_mask = Math.max(0, lum * 3 - 2);
+                lum += h * hi_mask;
+            }
+
+            // Whites (lift/crush very top range)
+            if (v.whites !== 0) {
+                const wm = Math.max(0, (lum - 0.75) * 4);
+                lum += (v.whites / 300) * wm;
+            }
+
+            // Blacks (lift/crush very bottom range)
+            if (v.blacks !== 0) {
+                const bm = Math.max(0, 1 - lum * 4);
+                lum += (v.blacks / 300) * bm;
+            }
+
+            // Clarity (local contrast simulation via gentle mid-tone lift)
+            if (v.clarity !== 0) {
+                const midMask = Math.sin(lum * Math.PI);
+                lum += (v.clarity / 1000) * midMask * (lum - 0.5);
+            }
+
+            const val = Math.round(Math.min(255, Math.max(0, lum * 255)));
+
+            // Warmth: shift R and B channels
+            const wShift = v.temp / 6;
+            const tShift = v.tint / 10;
+            r[i] = clamp(val + wShift + tShift);
+            g[i] = clamp(val + tShift * 0.3);
+            b[i] = clamp(val - wShift + tShift * 0.5);
+        }
+        return { r, g, b };
+    }
+
+    function clamp(v) { return Math.min(255, Math.max(0, Math.round(v))); }
+
+    // ─── HISTOGRAM ─────────────────────────────────────────────────────────────
+    function drawHistogram(pixelData) {
+        const hc = document.getElementById('histCanvas');
+        const hctx = hc.getContext('2d');
+        hc.width = hc.offsetWidth * window.devicePixelRatio || 600;
+        hc.height = 60 * window.devicePixelRatio || 60;
+        const W = hc.width, H = hc.height;
+        hctx.clearRect(0, 0, W, H);
+
+        const buckets = new Float32Array(256);
+        for (let i = 0; i < pixelData.length; i += 4) {
+            const lum = Math.round(0.299 * pixelData[i] + 0.587 * pixelData[i+1] + 0.114 * pixelData[i+2]);
+            buckets[lum]++;
+        }
+        const maxB = Math.max(...buckets);
+
+        const grad = hctx.createLinearGradient(0, 0, W, 0);
+        grad.addColorStop(0, 'rgba(255,214,0,0.15)');
+        grad.addColorStop(0.5, 'rgba(255,214,0,0.55)');
+        grad.addColorStop(1, 'rgba(255,214,0,0.15)');
+
+        hctx.beginPath();
+        hctx.moveTo(0, H);
+        for (let i = 0; i < 256; i++) {
+            const x = (i / 255) * W;
+            const y = H - (buckets[i] / maxB) * H * 0.92;
+            i === 0 ? hctx.moveTo(x, y) : hctx.lineTo(x, y);
+        }
+        hctx.lineTo(W, H);
+        hctx.closePath();
+        hctx.fillStyle = grad;
+        hctx.fill();
+    }
+
+    // ─── SPLIT VIEW ────────────────────────────────────────────────────────────
+    let splitPos = 0.5;
+
+    function syncSplit() {
+        const sv = document.getElementById('splitView');
+        if (!sv.classList.contains('visible') || !origImg) return;
+
+        const main = document.getElementById('mainCanvas');
+        const W = main.offsetWidth || main.width;
+        const H = Math.round(W * main.height / main.width);
+
+        const before = document.getElementById('splitBefore');
+        const after  = document.getElementById('splitAfter');
+        [before, after].forEach(c => { c.width = main.width; c.height = main.height; c.style.width = W+'px'; c.style.height = H+'px'; });
+        sv.style.height = H + 'px';
+
+        before.getContext('2d').drawImage(origImg, 0, 0);
+        after.getContext('2d').drawImage(main, 0, 0);
+
+        const pct = (splitPos * 100).toFixed(1);
+        after.style.clipPath = `inset(0 0 0 ${pct}%)`;
+        document.getElementById('splitHandle').style.left = pct + '%';
+    }
+
+    // Split drag
+    const sh = document.getElementById('splitHandle');
+    let dragging = false;
+    sh.addEventListener('mousedown', () => dragging = true);
+    sh.addEventListener('touchstart', () => dragging = true, { passive: true });
+    window.addEventListener('mouseup', () => dragging = false);
+    window.addEventListener('touchend', () => dragging = false);
+    window.addEventListener('mousemove', e => { if (!dragging) return; moveSplit(e.clientX); });
+    window.addEventListener('touchmove', e => { if (!dragging) return; moveSplit(e.touches[0].clientX); }, { passive: true });
+
+    function moveSplit(clientX) {
+        const sv = document.getElementById('splitView');
+        const rect = sv.getBoundingClientRect();
+        splitPos = Math.min(0.97, Math.max(0.03, (clientX - rect.left) / rect.width));
+        syncSplit();
+    }
+
+    function switchView(mode, btn) {
+        document.querySelectorAll('.ptog').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const sv = document.getElementById('splitView');
+        const snv = document.getElementById('singleView');
+        if (mode === 'split') { sv.classList.add('visible'); snv.style.display = 'none'; syncSplit(); }
+        else { sv.classList.remove('visible'); snv.style.display = ''; }
+    }
+
+    // ─── PRESETS ───────────────────────────────────────────────────────────────
+    function applyPreset(name) {
+        const p = PRESETS[name];
+        Object.keys(p).forEach(k => {
+            vals[k] = p[k];
+            const sl = document.getElementById('sl_' + k);
+            const vl = document.getElementById('val_' + k);
+            if (sl) sl.value = p[k];
+            if (vl) vl.textContent = p[k] > 0 ? '+'+p[k] : p[k];
+        });
+        render();
+        showToast('Preset applied ✓', 'success');
+    }
+
+    function resetOne(id) {
+        const def = SLIDERS.find(s => s.id === id).def;
+        vals[id] = def;
+        document.getElementById('sl_' + id).value = def;
+        document.getElementById('val_' + id).textContent = def;
+        render();
+    }
+
+    function resetAll(doRender = true) {
+        SLIDERS.forEach(s => {
+            vals[s.id] = s.def;
+            const sl = document.getElementById('sl_' + s.id);
+            const vl = document.getElementById('val_' + s.id);
+            if (sl) sl.value = s.def;
+            if (vl) vl.textContent = s.def;
+        });
+        if (doRender) { render(); showToast('Reset to original', 'success'); }
+    }
+
+    // ─── EXPORT ────────────────────────────────────────────────────────────────
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+
+    function doDownload() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const canvas = document.getElementById('mainCanvas');
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : 0.93;
+        const url = canvas.toDataURL(mime, q);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const a = document.createElement('a');
+        a.href = url; a.download = `${baseName}_adjusted.${ext}`; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

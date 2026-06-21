@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dev Stopwatch & Millisecond Timer | Execution Loop Tracker | Rebrixe</title>
+    <meta name="description" content="High-precision stopwatch with millisecond accuracy. Track multiple execution loops, label laps, export timing logs, and monitor local process performance — built for developers.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Brand ── */
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #0bb5b5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Main grid ── */
+        .sw-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            margin-bottom: 36px;
+        }
+
+        /* ── Cards ── */
+        .sw-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+        }
+
+        /* ── Clock face ── */
+        .clock-display {
+            text-align: center;
+            padding: 28px 0 20px;
+        }
+        .clock-main {
+            font-family: 'Fira Code', monospace;
+            font-size: 4.6rem;
+            font-weight: 700;
+            letter-spacing: -2px;
+            color: #fff;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .clock-main.running { color: #16f9a6; }
+        .clock-main.paused  { color: #f9c416; }
+
+        .clock-ms {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.5rem;
+            color: #475569;
+            margin-top: 4px;
+            letter-spacing: 2px;
+        }
+
+        /* ── Status pill ── */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 13px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-family: 'Fira Code', monospace;
+            margin-top: 10px;
+            transition: 0.2s;
+        }
+        .status-pill.idle    { background: rgba(71,85,105,0.3); color: #64748b; border: 1px solid #334155; }
+        .status-pill.running { background: rgba(22,249,166,0.1); color: #16f9a6; border: 1px solid rgba(22,249,166,0.3); }
+        .status-pill.paused  { background: rgba(249,196,22,0.1); color: #f9c416; border: 1px solid rgba(249,196,22,0.3); }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .dot.blink { animation: blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        /* ── Controls ── */
+        .ctrl-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 22px 0 18px;
+            flex-wrap: wrap;
+        }
+        .ctrl-btn {
+            padding: 11px 26px;
+            border-radius: 12px;
+            border: none;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: 0.15s;
+        }
+        .ctrl-btn:active { transform: scale(0.96); }
+        .btn-start  { background: #16f99a; color: #000; }
+        .btn-pause  { background: #f9c416; color: #000; }
+        .btn-lap    { background: rgba(22,195,249,0.15); color: #16c3f9; border: 1px solid rgba(22,195,249,0.35); }
+        .btn-reset  { background: rgba(231,76,60,0.12); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── Lap label input ── */
+        .lap-label-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .lap-label-row label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #16c3f9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            font-family: 'Fira Code', monospace;
+        }
+        .lap-label-row input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 10px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .lap-label-row input:focus { border-color: #16c3f9; }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .stat-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 11px 10px;
+            text-align: center;
+        }
+        .stat-box .sv {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #16f9ee;
+        }
+        .stat-box .sl {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 3px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* ── Laps table ── */
+        .laps-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .laps-title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-family: 'Fira Code', monospace;
+        }
+        .laps-actions { display: flex; gap: 6px; }
+        .sm-btn {
+            padding: 4px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            font-size: 0.65rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: 0.15s;
+        }
+        .sm-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+        .laps-wrap {
+            max-height: 310px;
+            overflow-y: auto;
+        }
+        .laps-wrap::-webkit-scrollbar { width: 4px; }
+        .laps-wrap::-webkit-scrollbar-track { background: transparent; }
+        .laps-wrap::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+        .lap-row {
+            display: grid;
+            grid-template-columns: 36px 1fr auto auto;
+            gap: 8px;
+            align-items: center;
+            padding: 7px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.74rem;
+            animation: lapIn 0.2s ease;
+        }
+        @keyframes lapIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+        .lap-num { color: #334155; font-size: 0.65rem; }
+        .lap-lbl { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lap-split { color: #fff; font-size: 0.76rem; }
+        .lap-total { color: #475569; font-size: 0.68rem; }
+        .lap-row.fastest .lap-split { color: #16f99a; }
+        .lap-row.fastest .lap-lbl::after { content: ' ⚡'; color: #16f99a; }
+        .lap-row.slowest .lap-split { color: #f97316; }
+
+        .empty-laps {
+            text-align: center;
+            padding: 32px 0;
+            color: #334155;
+            font-size: 0.75rem;
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* ── Right panel ── */
+        .panel-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-family: 'Fira Code', monospace;
+            margin-bottom: 12px;
+        }
+
+        /* ── Multi-timer ── */
+        .multi-timer-list { margin-bottom: 14px; }
+        .mt-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .mt-name {
+            flex: 1;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .mt-time {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: #fff;
+            min-width: 90px;
+            text-align: right;
+        }
+        .mt-time.running { color: #16f9a6; }
+        .mt-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; flex-shrink: 0; }
+        .mt-dot.on { background: #16f9a6; animation: blink 1s infinite; }
+        .mt-del { background: none; border: none; color: #334155; cursor: pointer; font-size: 0.8rem; padding: 0 2px; }
+        .mt-del:hover { color: #e74c3c; }
+        .mt-start-btn {
+            background: none; border: 1px solid var(--border); border-radius: 6px;
+            color: #64748b; font-family: 'Fira Code', monospace; font-size: 0.62rem;
+            padding: 3px 7px; cursor: pointer; transition: 0.15s;
+        }
+        .mt-start-btn.on { border-color: rgba(22,249,166,0.4); color: #16f9a6; }
+
+        .add-mt-row {
+            display: flex; gap: 6px; margin-bottom: 14px;
+        }
+        .add-mt-row input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 9px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            outline: none;
+        }
+        .add-mt-row input:focus { border-color: #16c3f9; }
+        .add-mt-btn {
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1px dashed rgba(22,195,249,0.4);
+            background: rgba(22,195,249,0.06);
+            color: #16c3f9;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            white-space: nowrap;
+        }
+
+        /* ── Countdown section ── */
+        .countdown-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .countdown-row input {
+            width: 52px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 6px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            text-align: center;
+            outline: none;
+        }
+        .countdown-row input:focus { border-color: #f9c416; }
+        .cd-sep { color: #475569; font-size: 0.9rem; font-family: 'Fira Code', monospace; }
+        .cd-display {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #f9c416;
+            text-align: center;
+            padding: 8px 0 4px;
+            min-height: 40px;
+        }
+        .cd-display.urgent { color: #e74c3c; animation: blink 0.4s infinite; }
+        .cd-done { color: #16f99a; animation: none !important; }
+
+        /* ── Export ── */
+        .export-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .exp-btn {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.68rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.15s;
+            text-align: center;
+        }
+        .exp-btn:hover { color: #fff; background: rgba(255,255,255,0.09); }
+
+        /* ── Keyboard hint ── */
+        .kbd-hints {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 10px 14px;
+            background: rgba(22,249,241,0.03);
+            border: 1px solid rgba(22,249,219,0.1);
+            border-radius: 10px;
+            margin-top: 14px;
+        }
+        .kbd-hint { font-size: 0.65rem; color: #475569; font-family: 'Fira Code', monospace; }
+        .kbd-hint kbd {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid #334155;
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: #94a3b8;
+            font-size: 0.65rem;
+        }
+
+        @media (max-width: 820px) {
+            .sw-grid { grid-template-columns: 1fr; }
+            .clock-main { font-size: 3.2rem; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="diagnostics-strings.html" class="back-btn">← Back to Dev Tools</a>
+    <h1 class="brand-title" style="text-align:center;">Dev Stopwatch</h1>
+    <p style="opacity:0.6;font-weight:500;text-align:center;margin-bottom:28px;">Millisecond-accurate execution tracker. Lap labels, multi-timer, countdown — built for dev workflows.</p>
+
+    <div class="sw-grid">
+
+        <!-- ── LEFT: Main stopwatch ── -->
+        <div class="sw-card">
+
+            <!-- Clock -->
+            <div class="clock-display">
+                <div class="clock-main" id="clockMain">00:00:00</div>
+                <div class="clock-ms" id="clockMs">.000</div>
+                <div><span class="status-pill idle" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusTxt">IDLE</span></span></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-box"><div class="sv" id="stLaps">0</div><div class="sl">Laps</div></div>
+                <div class="stat-box"><div class="sv" id="stFastest">—</div><div class="sl">Fastest</div></div>
+                <div class="stat-box"><div class="sv" id="stSlowest">—</div><div class="sl">Slowest</div></div>
+                <div class="stat-box"><div class="sv" id="stAvg">—</div><div class="sl">Avg Lap</div></div>
+            </div>
+
+            <!-- Lap label -->
+            <div class="lap-label-row">
+                <label>Lap label</label>
+                <input type="text" id="lapLabel" placeholder="e.g. DB query, render, API call…" maxlength="40">
+            </div>
+
+            <!-- Controls -->
+            <div class="ctrl-row">
+                <button class="ctrl-btn btn-start" id="btnStart" onclick="startStop()">▶ START</button>
+                <button class="ctrl-btn btn-lap"   id="btnLap"   onclick="recordLap()" disabled>◎ LAP</button>
+                <button class="ctrl-btn btn-reset"  id="btnReset" onclick="resetAll()" disabled>↺ RESET</button>
+            </div>
+
+            <!-- Laps -->
+            <div class="laps-header">
+                <span class="laps-title">Lap Log</span>
+                <div class="laps-actions">
+                    <button class="sm-btn" onclick="copyLaps()">Copy</button>
+                    <button class="sm-btn" onclick="exportCSV()">CSV</button>
+                    <button class="sm-btn" onclick="exportJSON()">JSON</button>
+                </div>
+            </div>
+            <div class="laps-wrap" id="lapsWrap">
+                <div class="empty-laps" id="emptyLaps">// no laps recorded yet</div>
+            </div>
+
+            <!-- Keyboard hints -->
+            <div class="kbd-hints">
+                <span class="kbd-hint"><kbd>Space</kbd> Start/Pause</span>
+                <span class="kbd-hint"><kbd>L</kbd> Lap</span>
+                <span class="kbd-hint"><kbd>R</kbd> Reset</span>
+                <span class="kbd-hint"><kbd>C</kbd> Copy laps</span>
+            </div>
+        </div>
+
+        <!-- ── RIGHT: Panel ── -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+
+            <!-- Multi-timer -->
+            <div class="sw-card">
+                <div class="panel-label">⬡ Parallel Timers</div>
+                <div class="add-mt-row">
+                    <input type="text" id="mtName" placeholder="Timer name (e.g. Worker A)" maxlength="30">
+                    <button class="add-mt-btn" onclick="addMultiTimer()">+ Add</button>
+                </div>
+                <div class="multi-timer-list" id="mtList">
+                    <div style="font-size:0.7rem;color:#334155;font-family:'Fira Code',monospace;">// add named timers to run in parallel</div>
+                </div>
+            </div>
+
+            <!-- Countdown -->
+            <div class="sw-card">
+                <div class="panel-label">⬡ Countdown Timer</div>
+                <div class="countdown-row">
+                    <input type="number" id="cdH" placeholder="hh" min="0" max="99" value="0">
+                    <span class="cd-sep">:</span>
+                    <input type="number" id="cdM" placeholder="mm" min="0" max="59" value="5">
+                    <span class="cd-sep">:</span>
+                    <input type="number" id="cdS" placeholder="ss" min="0" max="59" value="0">
+                    <button class="ctrl-btn btn-start" id="cdBtn" onclick="toggleCountdown()" style="padding:7px 14px;font-size:0.72rem;">▶</button>
+                    <button class="ctrl-btn btn-reset" onclick="resetCountdown()" style="padding:7px 12px;font-size:0.72rem;">↺</button>
+                </div>
+                <div class="cd-display" id="cdDisplay">—</div>
+                <div style="font-size:0.65rem;color:#334155;font-family:'Fira Code',monospace;">Beeps when done. Use for timed sprints, load tests, deploy waits.</div>
+            </div>
+
+            <!-- Notes / annotation -->
+            <div class="sw-card">
+                <div class="panel-label">⬡ Session Notes</div>
+                <textarea id="sessionNotes" placeholder="// paste benchmark results, context, command used…"
+                    style="width:100%;min-height:80px;background:#000;border:1px solid var(--border);border-radius:10px;color:#94a3b8;font-family:'Fira Code',monospace;font-size:0.73rem;padding:10px;resize:vertical;outline:none;box-sizing:border-box;line-height:1.6;"></textarea>
+                <div class="export-row">
+                    <button class="exp-btn" onclick="exportFull()">Export Full Report</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+<script>
+/* ══════════════════════════ MAIN STOPWATCH ══════════════════════════ */
+let swStart = 0, swElapsed = 0, swRunning = false, swRaf = null;
+let lapStart = 0, laps = [];
+
+function fmt(ms, short) {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const ms3 = ms % 1000;
+    if (short) return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms3).padStart(3,'0')}`;
+    return { hms: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`, ms: `.${String(ms3).padStart(3,'0')}` };
+}
+
+function tick() {
+    const now = performance.now();
+    const total = swElapsed + (now - swStart);
+    const f = fmt(total);
+    document.getElementById('clockMain').textContent = f.hms;
+    document.getElementById('clockMs').textContent   = f.ms;
+    swRaf = requestAnimationFrame(tick);
+}
+
+function startStop() {
+    if (!swRunning) {
+        swStart = performance.now();
+        lapStart = lapStart || swStart;
+        swRunning = true;
+        swRaf = requestAnimationFrame(tick);
+        setStatus('running');
+        document.getElementById('btnStart').textContent = '⏸ PAUSE';
+        document.getElementById('btnStart').className = 'ctrl-btn btn-pause';
+        document.getElementById('btnLap').disabled = false;
+        document.getElementById('btnReset').disabled = false;
+    } else {
+        swElapsed += performance.now() - swStart;
+        swRunning = false;
+        cancelAnimationFrame(swRaf);
+        setStatus('paused');
+        document.getElementById('btnStart').textContent = '▶ RESUME';
+        document.getElementById('btnStart').className = 'ctrl-btn btn-start';
+    }
+}
+
+function recordLap() {
+    if (!swRunning) return;
+    const now = performance.now();
+    const total = swElapsed + (now - swStart);
+    const split = total - (laps.length ? laps.reduce((a,l) => a + l.split, 0) : 0);
+    const label = document.getElementById('lapLabel').value.trim() || `Lap ${laps.length + 1}`;
+    laps.push({ n: laps.length + 1, label, split, total, ts: new Date().toISOString() });
+    document.getElementById('lapLabel').value = '';
+    renderLaps();
+    updateStats();
+}
+
+function resetAll() {
+    cancelAnimationFrame(swRaf);
+    swStart = swElapsed = lapStart = 0;
+    swRunning = false;
+    laps = [];
+    document.getElementById('clockMain').textContent = '00:00:00';
+    document.getElementById('clockMs').textContent   = '.000';
+    document.getElementById('btnStart').textContent  = '▶ START';
+    document.getElementById('btnStart').className    = 'ctrl-btn btn-start';
+    document.getElementById('btnLap').disabled  = true;
+    document.getElementById('btnReset').disabled = true;
+    setStatus('idle');
+    renderLaps();
+    updateStats();
+}
+
+function setStatus(s) {
+    const pill = document.getElementById('statusPill');
+    const dot  = document.getElementById('statusDot');
+    const txt  = document.getElementById('statusTxt');
+    const clock= document.getElementById('clockMain');
+    pill.className = `status-pill ${s}`;
+    clock.className= `clock-main ${s}`;
+    dot.className  = s === 'running' ? 'dot blink' : 'dot';
+    txt.textContent = s.toUpperCase();
+}
+
+function renderLaps() {
+    const wrap = document.getElementById('lapsWrap');
+    const empty = document.getElementById('emptyLaps');
+    if (!laps.length) {
+        wrap.innerHTML = '<div class="empty-laps" id="emptyLaps">// no laps recorded yet</div>';
+        return;
+    }
+    const minSplit = Math.min(...laps.map(l => l.split));
+    const maxSplit = Math.max(...laps.map(l => l.split));
+    wrap.innerHTML = [...laps].reverse().map(l => {
+        const cls = laps.length > 1 ? (l.split === minSplit ? 'fastest' : l.split === maxSplit ? 'slowest' : '') : '';
+        return `<div class="lap-row ${cls}">
+            <span class="lap-num">#${l.n}</span>
+            <span class="lap-lbl">${l.label}</span>
+            <span class="lap-split">${fmt(l.split, true)}</span>
+            <span class="lap-total">${fmt(l.total, true)}</span>
+        </div>`;
+    }).join('');
+}
+
+function updateStats() {
+    document.getElementById('stLaps').textContent = laps.length;
+    if (!laps.length) {
+        ['stFastest','stSlowest','stAvg'].forEach(id => document.getElementById(id).textContent = '—');
+        return;
+    }
+    const splits = laps.map(l => l.split);
+    const toS = ms => (ms / 1000).toFixed(2) + 's';
+    document.getElementById('stFastest').textContent = toS(Math.min(...splits));
+    document.getElementById('stSlowest').textContent = toS(Math.max(...splits));
+    document.getElementById('stAvg').textContent     = toS(splits.reduce((a,b) => a+b, 0) / splits.length);
+}
+
+/* ── Export ── */
+function copyLaps() {
+    if (!laps.length) return;
+    const txt = laps.map(l => `#${l.n}\t${l.label}\t${fmt(l.split,true)}\t${fmt(l.total,true)}`).join('\n');
+    navigator.clipboard.writeText(txt);
+}
+
+function exportCSV() {
+    if (!laps.length) return;
+    const rows = ['#,Label,Split,Total,Timestamp', ...laps.map(l => `${l.n},"${l.label}",${fmt(l.split,true)},${fmt(l.total,true)},${l.ts}`)];
+    dl(rows.join('\n'), 'laps.csv', 'text/csv');
+}
+
+function exportJSON() {
+    if (!laps.length) return;
+    dl(JSON.stringify(laps.map(l => ({...l, split_fmt: fmt(l.split,true), total_fmt: fmt(l.total,true)})), null, 2), 'laps.json', 'application/json');
+}
+
+function exportFull() {
+    const notes = document.getElementById('sessionNotes').value;
+    const total = swElapsed;
+    const report = {
+        session: { date: new Date().toISOString(), total_elapsed: fmt(total, true), dialect: 'dev-stopwatch' },
+        notes,
+        laps: laps.map(l => ({...l, split_fmt: fmt(l.split,true), total_fmt: fmt(l.total,true)})),
+        parallel_timers: mtTimers.map(t => ({ name: t.name, elapsed: fmt(t.elapsed, true) }))
+    };
+    dl(JSON.stringify(report, null, 2), 'session-report.json', 'application/json');
+}
+
+function dl(content, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name; a.click();
+}
+
+/* ══════════════════════════ MULTI-TIMER ══════════════════════════ */
+let mtTimers = [], mtRaf = null, mtId = 0;
+
+function addMultiTimer() {
+    const inp = document.getElementById('mtName');
+    const name = inp.value.trim() || `Timer ${mtTimers.length + 1}`;
+    inp.value = '';
+    mtTimers.push({ id: mtId++, name, elapsed: 0, start: 0, running: false });
+    renderMT();
+}
+
+function toggleMT(id) {
+    const t = mtTimers.find(x => x.id === id);
+    if (!t) return;
+    if (t.running) { t.elapsed += performance.now() - t.start; t.running = false; }
+    else { t.start = performance.now(); t.running = true; }
+    renderMT();
+    tickMT();
+}
+
+function deleteMT(id) {
+    mtTimers = mtTimers.filter(x => x.id !== id);
+    renderMT();
+}
+
+function renderMT() {
+    const list = document.getElementById('mtList');
+    if (!mtTimers.length) {
+        list.innerHTML = '<div style="font-size:0.7rem;color:#334155;font-family:\'Fira Code\',monospace;">// add named timers to run in parallel</div>';
+        return;
+    }
+    list.innerHTML = mtTimers.map(t => `<div class="mt-row" id="mt-${t.id}">
+        <span class="mt-dot ${t.running ? 'on' : ''}"></span>
+        <span class="mt-name">${t.name}</span>
+        <span class="mt-time ${t.running ? 'running' : ''}" id="mt-time-${t.id}">${fmt(t.elapsed, true)}</span>
+        <button class="mt-start-btn ${t.running ? 'on' : ''}" onclick="toggleMT(${t.id})">${t.running ? '⏸' : '▶'}</button>
+        <button class="mt-del" onclick="deleteMT(${t.id})">✕</button>
+    </div>`).join('');
+}
+
+function tickMT() {
+    const running = mtTimers.filter(t => t.running);
+    if (!running.length) return;
+    running.forEach(t => {
+        const el = document.getElementById(`mt-time-${t.id}`);
+        if (el) el.textContent = fmt(t.elapsed + (performance.now() - t.start), true);
+    });
+    requestAnimationFrame(tickMT);
+}
+
+/* ══════════════════════════ COUNTDOWN ══════════════════════════ */
+let cdTarget = 0, cdRunning = false, cdRaf = null, cdTotal = 0;
+
+function toggleCountdown() {
+    if (!cdRunning) {
+        const h = parseInt(document.getElementById('cdH').value) || 0;
+        const m = parseInt(document.getElementById('cdM').value) || 0;
+        const s = parseInt(document.getElementById('cdS').value) || 0;
+        cdTotal = (h * 3600 + m * 60 + s) * 1000;
+        if (!cdTotal) return;
+        cdTarget = performance.now() + cdTotal;
+        cdRunning = true;
+        document.getElementById('cdBtn').textContent = '⏸';
+        tickCD();
+    } else {
+        cdTotal = cdTarget - performance.now();
+        cdRunning = false;
+        cancelAnimationFrame(cdRaf);
+        document.getElementById('cdBtn').textContent = '▶';
+    }
+}
+
+function resetCountdown() {
+    cdRunning = false;
+    cancelAnimationFrame(cdRaf);
+    document.getElementById('cdDisplay').textContent = '—';
+    document.getElementById('cdDisplay').className = 'cd-display';
+    document.getElementById('cdBtn').textContent = '▶';
+}
+
+function tickCD() {
+    if (!cdRunning) return;
+    const rem = cdTarget - performance.now();
+    const disp = document.getElementById('cdDisplay');
+    if (rem <= 0) {
+        disp.textContent = '00:00:00.000';
+        disp.className = 'cd-display cd-done';
+        cdRunning = false;
+        beep();
+        return;
+    }
+    disp.textContent = fmt(Math.max(0, rem), true);
+    disp.className = 'cd-display' + (rem < 10000 ? ' urgent' : '');
+    cdRaf = requestAnimationFrame(tickCD);
+}
+
+function beep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 150, 300].forEach(delay => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.value = 880;
+            g.gain.setValueAtTime(0.3, ctx.currentTime + delay/1000);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay/1000 + 0.2);
+            o.start(ctx.currentTime + delay/1000);
+            o.stop(ctx.currentTime + delay/1000 + 0.25);
+        });
+    } catch(e) {}
+}
+
+/* ══════════════════════════ KEYBOARD ══════════════════════════ */
+document.addEventListener('keydown', e => {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.code === 'Space')  { e.preventDefault(); startStop(); }
+    if (e.code === 'KeyL')   recordLap();
+    if (e.code === 'KeyR')   resetAll();
+    if (e.code === 'KeyC')   copyLaps();
+});
+</script>
+</body>
+</html>

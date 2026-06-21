@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Colour Picker from Image — Extract Hex, RGB & HSL from Any Photo | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Upload any image and hover over pixels to instantly get Hex, RGB, and HSL colour values. Copy colours, build a palette, and export CSS variables. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Main layout */
+        .tool-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; display: none; }
+        .tool-layout.visible { display: grid; }
+
+        /* Canvas panel */
+        .canvas-panel {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            overflow: hidden; position: relative;
+        }
+        .canvas-toolbar {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+            border-bottom: 1px solid var(--border); flex-wrap: wrap;
+        }
+        .canvas-toolbar-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-right: 4px; }
+        .zoom-btn {
+            width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border-mid);
+            background: var(--surface); color: var(--text-sec); font-size: 0.85rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: all 0.15s; font-weight: 700;
+        }
+        .zoom-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+        .zoom-val { font-family: 'Fira Code', monospace; font-size: 0.75rem; color: var(--text-dim); min-width: 36px; text-align: center; }
+        .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+        .fit-btn {
+            padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .fit-btn:hover { color: var(--text-sec); border-color: var(--border-mid); }
+        .new-img-btn {
+            margin-left: auto; padding: 5px 12px; border-radius: 7px; border: 1px solid var(--primary-border);
+            background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif;
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .new-img-btn:hover { background: rgba(255,214,0,0.13); }
+
+        .canvas-wrap {
+            position: relative; overflow: hidden; background: #000;
+            min-height: 340px; cursor: crosshair;
+        }
+        #mainCanvas { display: block; max-width: 100%; image-rendering: pixelated; }
+
+        /* Magnifier loupe */
+        #loupe {
+            position: fixed; width: 120px; height: 120px; border-radius: 50%;
+            border: 3px solid var(--primary); box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,214,0,0.15);
+            overflow: hidden; pointer-events: none; z-index: 1000; display: none;
+            background: var(--bg);
+        }
+        #loupeCanvas { display: block; }
+        #loupeRing {
+            position: absolute; inset: 0; border-radius: 50%;
+            box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.12);
+        }
+        #loupeCross {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        #loupeCross::before, #loupeCross::after {
+            content: ''; position: absolute; background: rgba(255,255,255,0.45);
+        }
+        #loupeCross::before { width: 1px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+        #loupeCross::after { width: 100%; height: 1px; top: 50%; left: 0; transform: translateY(-50%); }
+
+        /* Colour info panel */
+        .info-panel { display: flex; flex-direction: column; gap: 12px; }
+
+        .live-swatch-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .live-swatch {
+            width: 100%; height: 100px; transition: background 0.05s;
+            background: #888;
+        }
+        .live-values { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .val-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .val-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); min-width: 30px; }
+        .val-code {
+            font-family: 'Fira Code', monospace; font-size: 0.82rem; color: var(--text); font-weight: 500;
+            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .copy-val-btn {
+            padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.62rem; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .copy-val-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .copy-val-btn.copied { border-color: rgba(170,255,0,0.3); color: var(--success); background: rgba(170,255,0,0.07); }
+
+        /* Palette */
+        .palette-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            overflow: hidden; flex: 1;
+        }
+        .palette-header {
+            display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px;
+        }
+        .palette-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .palette-actions { display: flex; gap: 6px; }
+        .pal-action-btn {
+            padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.62rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .pal-action-btn:hover { color: var(--text-sec); border-color: var(--border-mid); }
+        .pal-action-btn.export-btn { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .pal-action-btn.export-btn:hover { background: rgba(255,214,0,0.13); }
+
+        .palette-swatches {
+            padding: 0 10px 12px; display: flex; flex-direction: column; gap: 4px;
+            max-height: 280px; overflow-y: auto;
+        }
+        .palette-swatches::-webkit-scrollbar { width: 3px; }
+        .palette-swatches::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+        .pal-swatch-row {
+            display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px;
+            transition: background 0.12s; cursor: pointer;
+        }
+        .pal-swatch-row:hover { background: rgba(255,255,255,0.03); }
+        .pal-dot { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+        .pal-hex { font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text); flex: 1; }
+        .pal-del { width: 20px; height: 20px; border-radius: 5px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s, background 0.15s; }
+        .pal-swatch-row:hover .pal-del { opacity: 1; }
+        .pal-del:hover { background: rgba(255,68,68,0.1); color: var(--error); }
+
+        .palette-empty { padding: 20px 14px; text-align: center; font-size: 0.77rem; color: var(--text-dim); }
+        .palette-empty span { color: var(--primary); }
+
+        /* Pin hint */
+        .pin-hint {
+            text-align: center; font-size: 0.72rem; color: var(--text-dim); padding: 6px 0 0;
+        }
+        .pin-hint kbd {
+            background: var(--surface); border: 1px solid var(--border-mid); border-radius: 4px;
+            padding: 1px 6px; font-family: 'Fira Code', monospace; font-size: 0.68rem; color: var(--text-sec);
+        }
+
+        /* Export modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--card); border: 1px solid var(--border-mid); border-radius: var(--radius-lg);
+            padding: 24px; width: 100%; max-width: 460px; position: relative;
+        }
+        .modal-title { font-size: 1rem; font-weight: 800; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .modal-close {
+            position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border-radius: 7px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 0.9rem;
+        }
+        .modal-close:hover { color: var(--text-sec); }
+        .export-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+        .exp-tab {
+            padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .exp-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .export-code {
+            background: var(--surface); border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
+            padding: 14px 16px; font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text-sec);
+            white-space: pre; overflow-x: auto; line-height: 1.7; max-height: 240px; overflow-y: auto;
+        }
+        .modal-copy-btn {
+            margin-top: 12px; width: 100%; padding: 11px; border-radius: 10px; border: none;
+            background: linear-gradient(135deg, #FFD600, #FFBE00); color: #000;
+            font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.18s;
+        }
+        .modal-copy-btn:hover { box-shadow: 0 6px 20px rgba(255,200,0,0.3); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 680px) {
+            .tool-layout { grid-template-columns: 1fr; }
+            .info-panel { flex-direction: row; flex-wrap: wrap; }
+            .live-swatch-card { flex: 1; min-width: 200px; }
+            .palette-card { flex: 1; min-width: 200px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Colour Picker from Image</h1>
+                <p class="tool-page-sub">Hover over any pixel to see its Hex, RGB, and HSL value. Click to pin colours and build a palette.</p>
+                <span class="privacy-badge">100% browser-based — images never leave your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop an image here to start picking</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — JPG, PNG, WebP, GIF supported</p>
+            </div>
+
+            <!-- TOOL LAYOUT -->
+            <div class="tool-layout" id="toolLayout">
+
+                <!-- Canvas panel -->
+                <div class="canvas-panel">
+                    <div class="canvas-toolbar">
+                        <span class="canvas-toolbar-label">Zoom</span>
+                        <button class="zoom-btn" onclick="changeZoom(-0.25)">−</button>
+                        <span class="zoom-val" id="zoomVal">100%</span>
+                        <button class="zoom-btn" onclick="changeZoom(0.25)">+</button>
+                        <button class="fit-btn" onclick="fitZoom()">Fit</button>
+                        <button class="fit-btn" onclick="setZoom(1)">1:1</button>
+                        <div class="sep"></div>
+                        <button class="new-img-btn" onclick="resetTool()">↑ New Image</button>
+                    </div>
+                    <div class="canvas-wrap" id="canvasWrap">
+                        <canvas id="mainCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Info panel -->
+                <div class="info-panel">
+
+                    <!-- Live swatch -->
+                    <div class="live-swatch-card">
+                        <div class="live-swatch" id="liveSwatch"></div>
+                        <div class="live-values">
+                            <div class="val-row">
+                                <span class="val-label">HEX</span>
+                                <span class="val-code" id="valHex">#------</span>
+                                <button class="copy-val-btn" onclick="copyVal('hex')">Copy</button>
+                            </div>
+                            <div class="val-row">
+                                <span class="val-label">RGB</span>
+                                <span class="val-code" id="valRgb">rgb(—,—,—)</span>
+                                <button class="copy-val-btn" onclick="copyVal('rgb')">Copy</button>
+                            </div>
+                            <div class="val-row">
+                                <span class="val-label">HSL</span>
+                                <span class="val-code" id="valHsl">hsl(—,—%,—%)</span>
+                                <button class="copy-val-btn" onclick="copyVal('hsl')">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="pin-hint">Click pixel to pin · <kbd>C</kbd> to add · <kbd>Esc</kbd> to cancel</p>
+
+                    <!-- Palette -->
+                    <div class="palette-card">
+                        <div class="palette-header">
+                            <span class="palette-title">Pinned Palette <span id="palCount" style="color:var(--primary);font-family:'Fira Code',monospace;"></span></span>
+                            <div class="palette-actions">
+                                <button class="pal-action-btn" onclick="clearPalette()">Clear</button>
+                                <button class="pal-action-btn export-btn" onclick="openExport()">Export ↗</button>
+                            </div>
+                        </div>
+                        <div class="palette-swatches" id="paletteSwatches">
+                            <div class="palette-empty">Hover image, then <span>click</span> to pin a colour</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FAQ -->
+        <div class="container" style="padding-top:0;">
+            <article class="faq-section">
+                <h2 class="faq-heading">Why designers & devs love this</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Hover-to-inspect, no guessing</h3>
+                        <p>Move your cursor over any pixel and instantly see the exact colour values — <code>Hex</code>, <code>RGB</code>, and <code>HSL</code> update live. Great for extracting brand colours from screenshots.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Built-in magnifier loupe</h3>
+                        <p>A zoomed loupe follows your cursor so you can hit exact pixel-perfect spots on small areas — especially useful for logos, gradients, and icon assets.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Build a palette as you go</h3>
+                        <p>Click any pixel to pin its colour. Build a full palette from your image, then export as <code>CSS variables</code>, <code>HEX list</code>, or <code>JSON</code> — paste right into your project.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>No upload, no account</h3>
+                        <p>Everything runs in your browser. Images are never sent to a server. Works on any image: photos, logos, design mockups, screenshots, UI exports.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeExport()">✕</button>
+            <div class="modal-title">Export Palette</div>
+            <div class="export-tabs">
+                <button class="exp-tab active" onclick="switchExport(this,'css')">CSS Vars</button>
+                <button class="exp-tab" onclick="switchExport(this,'hex')">HEX List</button>
+                <button class="exp-tab" onclick="switchExport(this,'json')">JSON</button>
+                <button class="exp-tab" onclick="switchExport(this,'tailwind')">Tailwind</button>
+            </div>
+            <div class="export-code" id="exportCode"></div>
+            <button class="modal-copy-btn" onclick="copyExport()">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div id="loupe"><canvas id="loupeCanvas" width="120" height="120"></canvas><div id="loupeRing"></div><div id="loupeCross"></div></div>
+    <footer></footer>
+
+    <script>
+    let imgData = null, imgEl = null;
+    let zoom = 1, offsetX = 0, offsetY = 0;
+    let palette = [];
+    let currentHex = '', currentRgb = '', currentHsl = '';
+    let exportFmt = 'css';
+
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const loupeCanvas = document.getElementById('loupeCanvas');
+    const loupeCtx = loupeCanvas.getContext('2d', { willReadFrequently: true });
+    const loupe = document.getElementById('loupe');
+    const canvasWrap = document.getElementById('canvasWrap');
+
+    // ── DROP / FILE ─────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => loadFile(fi.files[0]));
+
+    function loadFile(file) {
+        if (!file || !file.type.startsWith('image/')) { showToast('Please upload an image file', 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = e => {
+            imgEl = new Image();
+            imgEl.onload = () => {
+                canvas.width = imgEl.naturalWidth;
+                canvas.height = imgEl.naturalHeight;
+                ctx.drawImage(imgEl, 0, 0);
+                imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                fitZoom();
+                dz.style.display = 'none';
+                document.getElementById('toolLayout').classList.add('visible');
+            };
+            imgEl.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ── ZOOM / FIT ──────────────────────────────────────────────────────────
+    function fitZoom() {
+        const ww = canvasWrap.offsetWidth - 2, wh = Math.max(340, window.innerHeight * 0.5);
+        const sx = ww / canvas.width, sy = wh / canvas.height;
+        setZoom(Math.min(sx, sy, 2));
+    }
+    function changeZoom(delta) { setZoom(Math.max(0.1, Math.min(zoom + delta, 8))); }
+    function setZoom(z) {
+        zoom = z;
+        canvas.style.transform = `scale(${zoom})`;
+        canvas.style.transformOrigin = 'top left';
+        canvas.style.marginBottom = ((canvas.height * zoom) - canvas.height) + 'px';
+        canvas.style.marginRight = ((canvas.width * zoom) - canvas.width) + 'px';
+        canvasWrap.style.height = (canvas.height * zoom) + 'px';
+        document.getElementById('zoomVal').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    // ── MOUSE MOVE ON CANVAS ─────────────────────────────────────────────────
+    canvas.addEventListener('mousemove', e => {
+        if (!imgData) return;
+        const rect = canvas.getBoundingClientRect();
+        const px = Math.floor((e.clientX - rect.left) / zoom);
+        const py = Math.floor((e.clientY - rect.top) / zoom);
+        if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) return;
+
+        const idx = (py * canvas.width + px) * 4;
+        const r = imgData.data[idx], g = imgData.data[idx+1], b = imgData.data[idx+2];
+        updateLive(r, g, b);
+        updateLoupe(e.clientX, e.clientY, px, py);
+        loupe.style.display = 'block';
+    });
+
+    canvas.addEventListener('mouseleave', () => { loupe.style.display = 'none'; });
+
+    canvas.addEventListener('click', e => {
+        if (!currentHex) return;
+        pinColour(currentHex, currentRgb, currentHsl);
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'c' || e.key === 'C') { if (currentHex) pinColour(currentHex, currentRgb, currentHsl); }
+    });
+
+    // ── LOUPE ───────────────────────────────────────────────────────────────
+    function updateLoupe(cx, cy, px, py) {
+        const size = 11; // pixels to show in loupe (odd number)
+        const half = Math.floor(size / 2);
+        const cellSize = Math.floor(120 / size);
+
+        loupeCtx.clearRect(0, 0, 120, 120);
+        for (let dy = -half; dy <= half; dy++) {
+            for (let dx = -half; dx <= half; dx++) {
+                const ix = Math.max(0, Math.min(canvas.width - 1, px + dx));
+                const iy = Math.max(0, Math.min(canvas.height - 1, py + dy));
+                const idx = (iy * canvas.width + ix) * 4;
+                loupeCtx.fillStyle = `rgb(${imgData.data[idx]},${imgData.data[idx+1]},${imgData.data[idx+2]})`;
+                loupeCtx.fillRect((dx + half) * cellSize, (dy + half) * cellSize, cellSize, cellSize);
+            }
+        }
+
+        loupe.style.left = (cx + 18) + 'px';
+        loupe.style.top = (cy - 75) + 'px';
+    }
+
+    // ── COLOUR MATH ─────────────────────────────────────────────────────────
+    function updateLive(r, g, b) {
+        currentHex = rgbToHex(r, g, b);
+        currentRgb = `rgb(${r}, ${g}, ${b})`;
+        const [h, s, l] = rgbToHsl(r, g, b);
+        currentHsl = `hsl(${h}, ${s}%, ${l}%)`;
+
+        document.getElementById('liveSwatch').style.background = currentHex;
+        document.getElementById('valHex').textContent = currentHex;
+        document.getElementById('valRgb').textContent = currentRgb;
+        document.getElementById('valHsl').textContent = currentHsl;
+    }
+
+    function rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) { h = s = 0; }
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+        }
+        return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+    }
+
+    // ── COPY INDIVIDUAL ─────────────────────────────────────────────────────
+    function copyVal(type) {
+        const val = { hex: currentHex, rgb: currentRgb, hsl: currentHsl }[type];
+        if (!val || val.includes('—')) return;
+        navigator.clipboard.writeText(val).then(() => {
+            const btn = document.querySelector(`[onclick="copyVal('${type}')"]`);
+            if (btn) { btn.textContent = '✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800); }
+        });
+    }
+
+    // ── PALETTE ─────────────────────────────────────────────────────────────
+    function pinColour(hex, rgb, hsl) {
+        if (palette.find(p => p.hex === hex)) { showToast('Already in palette'); return; }
+        palette.push({ hex, rgb, hsl });
+        renderPalette();
+        showToast(`Pinned ${hex}`, 'success');
+    }
+
+    function renderPalette() {
+        const wrap = document.getElementById('paletteSwatches');
+        document.getElementById('palCount').textContent = palette.length ? `(${palette.length})` : '';
+        if (!palette.length) { wrap.innerHTML = '<div class="palette-empty">Hover image, then <span>click</span> to pin a colour</div>'; return; }
+        wrap.innerHTML = '';
+        palette.forEach((c, i) => {
+            const row = document.createElement('div');
+            row.className = 'pal-swatch-row';
+            row.title = `${c.rgb}\n${c.hsl}`;
+            row.innerHTML = `<div class="pal-dot" style="background:${c.hex}"></div><span class="pal-hex">${c.hex}</span><button class="pal-del" onclick="removePalette(${i})" title="Remove">✕</button>`;
+            row.addEventListener('click', e => { if (!e.target.classList.contains('pal-del')) { navigator.clipboard.writeText(c.hex); showToast(`Copied ${c.hex}`, 'success'); } });
+            wrap.appendChild(row);
+        });
+    }
+
+    function removePalette(i) { palette.splice(i, 1); renderPalette(); }
+    function clearPalette() { if (!palette.length) return; palette = []; renderPalette(); showToast('Palette cleared'); }
+
+    // ── EXPORT ──────────────────────────────────────────────────────────────
+    function openExport() {
+        if (!palette.length) { showToast('Pin some colours first', 'error'); return; }
+        buildExportCode();
+        document.getElementById('exportModal').classList.add('open');
+    }
+    function closeExport() { document.getElementById('exportModal').classList.remove('open'); }
+
+    function switchExport(btn, fmt) {
+        document.querySelectorAll('.exp-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        exportFmt = fmt;
+        buildExportCode();
+    }
+
+    function buildExportCode() {
+        let out = '';
+        if (exportFmt === 'css') {
+            out = ':root {\n' + palette.map((c, i) => `  --color-${i+1}: ${c.hex};`).join('\n') + '\n}';
+        } else if (exportFmt === 'hex') {
+            out = palette.map(c => c.hex).join('\n');
+        } else if (exportFmt === 'json') {
+            out = JSON.stringify(palette.map((c, i) => ({ name: `color-${i+1}`, hex: c.hex, rgb: c.rgb, hsl: c.hsl })), null, 2);
+        } else if (exportFmt === 'tailwind') {
+            out = "// tailwind.config.js\nextend: {\n  colors: {\n" + palette.map((c, i) => `    'brand-${i+1}': '${c.hex}',`).join('\n') + "\n  }\n}";
+        }
+        document.getElementById('exportCode').textContent = out;
+    }
+
+    function copyExport() {
+        const code = document.getElementById('exportCode').textContent;
+        navigator.clipboard.writeText(code).then(() => showToast('Copied to clipboard!', 'success'));
+    }
+
+    // ── RESET ───────────────────────────────────────────────────────────────
+    function resetTool() {
+        imgData = null; imgEl = null; zoom = 1; palette = [];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('toolLayout').classList.remove('visible');
+        document.getElementById('dropZone').style.display = '';
+        fi.value = '';
+        renderPalette();
+    }
+
+    // ── UTILS ────────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Close modal on overlay click
+    document.getElementById('exportModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeExport(); });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

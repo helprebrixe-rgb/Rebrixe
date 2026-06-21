@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Time Zone Adjuster | Rebrixe</title>
+    <meta name="description" content="Enter your departure city, arrival city, and departure time — instantly see what time you land locally. No confusion, no mental math. The smartest flight time converter online.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* City search inputs */
+        .flight-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+        .flight-box { display: flex; flex-direction: column; gap: 8px; position: relative; }
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .city-input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .city-input:focus { border-color: var(--primary); }
+        .city-input::placeholder { color: #334155; }
+
+        /* Autocomplete dropdown */
+        .autocomplete-list {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            z-index: 100;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+        }
+        .autocomplete-list.open { display: block; }
+        .ac-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            transition: background .15s;
+        }
+        .ac-item:last-child { border-bottom: none; }
+        .ac-item:hover, .ac-item.selected { background: rgba(255,255,255,0.07); color: #fff; }
+        .ac-city { font-weight: 600; color: #fff; font-size: 0.9rem; }
+        .ac-tz { font-size: 0.72rem; color: #64748b; }
+
+        .plane-sep {
+            font-size: 1.8rem;
+            text-align: center;
+            padding-top: 32px;
+            color: var(--border);
+        }
+
+        /* Departure time + date row */
+        .dep-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .dep-row input[type="time"],
+        .dep-row input[type="date"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+        }
+        .dep-row input:focus { border-color: var(--primary); }
+
+        /* Flight duration input */
+        .duration-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .dur-label { font-size: 0.85rem; color: #94a3b8; flex: 1; }
+        .dur-label strong { color: #fff; }
+        .dur-inputs { display: flex; gap: 8px; align-items: center; }
+        .dur-inputs input[type="number"] {
+            width: 64px;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 8px 10px;
+            font-family: 'Inter';
+            font-size: 0.9rem;
+            outline: none;
+            text-align: center;
+            transition: border-color .2s;
+            -moz-appearance: textfield;
+        }
+        .dur-inputs input[type="number"]::-webkit-inner-spin-button { display: none; }
+        .dur-inputs input[type="number"]:focus { border-color: var(--primary); }
+        .dur-sep { color: #475569; font-size: 0.8rem; }
+
+        /* Quick presets */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+
+        /* Result panel */
+        .result-panel { display: none; margin-top: 8px; }
+        .result-panel.visible { display: block; }
+
+        /* Big arrival time hero */
+        .arrival-hero {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .arrival-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .arrival-hero.next-day { border-color: rgba(251,191,36,0.3); }
+        .arrival-hero.same-day { border-color: var(--primary); background: rgba(120,129,132,0.06); }
+
+        .ah-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .ah-time {
+            font-family: 'Outfit';
+            font-size: clamp(2.8rem, 8vw, 4.5rem);
+            font-weight: 900;
+            letter-spacing: -3px;
+            line-height: 1;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .arrival-hero.same-day .ah-time { color: var(--primary); }
+        .ah-date {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+        .day-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 4px 12px;
+            border-radius: 999px;
+        }
+        .badge-sameday { background: rgba(120,129,132,0.15); color: var(--primary); border: 1px solid rgba(139,148,152,0.3); }
+        .badge-nextday { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+        .badge-prev    { background: rgba(100,116,139,0.15); color: #64748b; border: 1px solid #334155; }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit';
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-unit {
+            font-size: 0.6rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* Timezone info row */
+        .tz-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .tz-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .tz-city { font-size: 0.78rem; color: #64748b; margin-bottom: 3px; }
+        .tz-name { font-size: 0.88rem; color: #fff; font-weight: 600; }
+        .tz-offset { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+        .tz-arrow { font-size: 1.2rem; color: var(--border); text-align: center; }
+
+        /* Tips */
+        .tips-box {
+            background: rgba(255,255,255,0.015);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            font-size: 0.82rem;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .tips-box strong { color: #94a3b8; }
+        .tip-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px; }
+        .tip-row:last-child { margin-bottom: 0; }
+        .tip-icon { flex-shrink: 0; }
+
+        /* Section label */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        .empty-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        @media(max-width: 640px) {
+            .flight-row { grid-template-columns: 1fr; }
+            .plane-sep { padding-top: 0; transform: rotate(90deg); font-size: 1.4rem; }
+            .dep-row { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .tz-row { grid-template-columns: 1fr; }
+            .tz-arrow { transform: rotate(90deg); }
+            .action-row { flex-direction: column; }
+            .duration-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Flight Time Zone Adjuster</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Enter departure city, arrival city &amp; departure time — see exactly what time you land, locally.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- CITY INPUTS -->
+                <div class="flight-row">
+                    <div class="flight-box" id="fromBox">
+                        <span class="field-label">🛫 From</span>
+                        <input type="text" id="fromCity" class="city-input" placeholder="Departure city..." autocomplete="off" oninput="filterCities('from')" onkeydown="navList(event,'from')" onfocus="filterCities('from')">
+                        <div class="autocomplete-list" id="fromList"></div>
+                        <input type="hidden" id="fromTz">
+                    </div>
+                    <div class="plane-sep">✈️</div>
+                    <div class="flight-box" id="toBox">
+                        <span class="field-label">🛬 To</span>
+                        <input type="text" id="toCity" class="city-input" placeholder="Arrival city..." autocomplete="off" oninput="filterCities('to')" onkeydown="navList(event,'to')" onfocus="filterCities('to')">
+                        <div class="autocomplete-list" id="toList"></div>
+                        <input type="hidden" id="toTz">
+                    </div>
+                </div>
+
+                <!-- DEPARTURE DATE + TIME -->
+                <div style="margin-bottom:8px;" class="quick-label">Departure Date &amp; Time</div>
+                <div class="dep-row" style="margin-bottom:20px;">
+                    <div class="flight-box">
+                        <input type="date" id="depDate" oninput="calculate()">
+                    </div>
+                    <div class="flight-box">
+                        <input type="time" id="depTime" value="10:00" oninput="calculate()">
+                    </div>
+                </div>
+
+                <!-- FLIGHT DURATION -->
+                <div class="duration-row">
+                    <div class="dur-label"><strong>Flight Duration</strong> — how long is the flight?</div>
+                    <div class="dur-inputs">
+                        <input type="number" id="durHrs" min="0" max="24" value="8" placeholder="h" oninput="calculate()">
+                        <span class="dur-sep">hrs</span>
+                        <input type="number" id="durMins" min="0" max="59" value="0" placeholder="m" oninput="calculate()">
+                        <span class="dur-sep">min</span>
+                    </div>
+                </div>
+
+                <!-- QUICK PRESETS -->
+                <div class="quick-label">Popular Routes</div>
+                <div class="quick-pills">
+                    <span class="pill" onclick="setRoute('New York','America/New_York','London','Europe/London',7,30)">🗽 NYC → London</span>
+                    <span class="pill" onclick="setRoute('Dubai','Asia/Dubai','London','Europe/London',7,0)">🇦🇪 Dubai → London</span>
+                    <span class="pill" onclick="setRoute('Mumbai','Asia/Kolkata','Dubai','Asia/Dubai',3,0)">🇮🇳 Mumbai → Dubai</span>
+                    <span class="pill" onclick="setRoute('Tokyo','Asia/Tokyo','Los Angeles','America/Los_Angeles',11,0)">🗼 Tokyo → LA</span>
+                    <span class="pill" onclick="setRoute('Singapore','Asia/Singapore','Sydney','Australia/Sydney',7,30)">🦁 SG → Sydney</span>
+                    <span class="pill" onclick="setRoute('London','Europe/London','New York','America/New_York',8,0)">🇬🇧 London → NYC</span>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="resultPanel" class="result-panel"></div>
+                <div id="emptyHint" class="empty-hint">Select cities &amp; departure time above to see your arrival time ↑</div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────────
+    // TIMEZONE ENGINE — Bulletproof, DST-aware, browser-agnostic
+    // Uses only Intl.DateTimeFormat which is spec-guaranteed in all
+    // modern browsers. No Date string parsing hacks.
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the UTC offset in minutes for an IANA timezone at a specific UTC moment.
+     * Uses Intl.DateTimeFormat with 'longOffset' timeZoneName which returns
+     * a string like "GMT+05:30" — fully standardised by the ECMAScript spec.
+     *
+     * @param {string} ianaZone  - e.g. "America/New_York", "Asia/Kolkata"
+     * @param {Date}   utcMoment - the UTC moment to evaluate DST at
+     * @returns {number} offset in minutes (positive = ahead of UTC, negative = behind)
+     */
+    function getOffsetMinutes(ianaZone, utcMoment) {
+        try {
+            const fmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: ianaZone,
+                timeZoneName: 'longOffset',
+                year:   'numeric',
+                month:  '2-digit',
+                day:    '2-digit',
+                hour:   '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            const parts = fmt.formatToParts(utcMoment);
+            const tzPart = parts.find(p => p.type === 'timeZoneName');
+            if (!tzPart) return 0;
+            // "longOffset" always gives "GMT+HH:MM" or "GMT-HH:MM" or "GMT+0" / "GMT"
+            const match = tzPart.value.match(/GMT([+-])(\d{1,2}):?(\d{2})?/);
+            if (!match) return 0; // GMT+0 / UTC case
+            const sign    = match[1] === '+' ? 1 : -1;
+            const hours   = parseInt(match[2], 10);
+            const minutes = match[3] ? parseInt(match[3], 10) : 0;
+            return sign * (hours * 60 + minutes);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Convert a local wall-clock time (date string + time string) in a given
+     * IANA timezone to a UTC Date object. Handles DST correctly via a
+     * two-pass approach that resolves the ambiguity at DST transitions.
+     *
+     * This is the CORRECT way — we never rely on new Date(string) parsing
+     * locale-formatted strings, which is browser-dependent and unreliable.
+     *
+     * @param {string} dateStr  - "YYYY-MM-DD"
+     * @param {string} timeStr  - "HH:MM"
+     * @param {string} ianaZone - IANA timezone identifier
+     * @returns {Date} UTC Date object
+     */
+    function localToUTC(dateStr, timeStr, ianaZone) {
+        // Step 1: Treat the input as UTC to extract the calendar numbers cleanly.
+        // This is NOT asserting it IS UTC — it's just a number container.
+        const naiveUTC = new Date(dateStr + 'T' + timeStr + ':00Z');
+
+        // Step 2: First pass — get the offset at this naive moment
+        const offset1 = getOffsetMinutes(ianaZone, naiveUTC);
+
+        // Step 3: Compute a first approximation of the real UTC moment
+        const approxUTC = new Date(naiveUTC.getTime() - offset1 * 60000);
+
+        // Step 4: Re-evaluate the offset at the approximate UTC moment.
+        // This second pass resolves DST edge cases where the transition
+        // falls between the naiveUTC and the approxUTC moments.
+        const offset2 = getOffsetMinutes(ianaZone, approxUTC);
+
+        // Step 5: Final UTC moment using the corrected offset
+        return new Date(naiveUTC.getTime() - offset2 * 60000);
+    }
+
+    /**
+     * Convert a UTC Date to local wall-clock time in a given IANA timezone.
+     * Returns a Date object where the UTC fields (getUTCHours, getUTCDate etc.)
+     * represent the local time. This is safe to use for display purposes.
+     *
+     * @param {Date}   utcDate  - the UTC moment
+     * @param {string} ianaZone - IANA timezone identifier
+     * @returns {Date} a Date object whose UTC fields = local display fields
+     */
+    function utcToLocalDisplay(utcDate, ianaZone) {
+        const offset = getOffsetMinutes(ianaZone, utcDate);
+        return new Date(utcDate.getTime() + offset * 60000);
+    }
+
+    /**
+     * Format a UTC offset in minutes to a human-readable string.
+     * e.g. 330 → "UTC+5:30", -300 → "UTC−5:00", 0 → "UTC+0"
+     *
+     * @param {number} mins
+     * @returns {string}
+     */
+    function formatOffset(mins) {
+        if (mins === 0) return 'UTC+0';
+        const sign   = mins > 0 ? '+' : '−';
+        const absMins = Math.abs(mins);
+        const h      = Math.floor(absMins / 60);
+        const m      = absMins % 60;
+        return m > 0 ? `UTC${sign}${h}:${String(m).padStart(2, '0')}` : `UTC${sign}${h}`;
+    }
+
+    /**
+     * Get a display-friendly offset string for the autocomplete dropdown.
+     * Evaluated at "now" which is fine for display labelling.
+     *
+     * @param {string} ianaZone
+     * @returns {string} e.g. "+5:30"
+     */
+    function getOffsetStrNow(ianaZone) {
+        const mins = getOffsetMinutes(ianaZone, new Date());
+        if (mins === 0) return '+0';
+        const sign   = mins > 0 ? '+' : '−';
+        const absMins = Math.abs(mins);
+        const h      = Math.floor(absMins / 60);
+        const m      = absMins % 60;
+        return m > 0 ? `${sign}${h}:${String(m).padStart(2, '0')}` : `${sign}${h}`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // CITY / TIMEZONE DATASET
+    // Format: [Display Name, IANA Timezone, Country/Region]
+    // ─────────────────────────────────────────────────────────────────
+    const CITIES = [
+        // North America
+        ['New York',          'America/New_York',                 'USA'],
+        ['Los Angeles',       'America/Los_Angeles',              'USA'],
+        ['Chicago',           'America/Chicago',                  'USA'],
+        ['Dallas',            'America/Chicago',                  'USA'],
+        ['Houston',           'America/Chicago',                  'USA'],
+        ['Miami',             'America/New_York',                 'USA'],
+        ['San Francisco',     'America/Los_Angeles',              'USA'],
+        ['Seattle',           'America/Los_Angeles',              'USA'],
+        ['Atlanta',           'America/New_York',                 'USA'],
+        ['Denver',            'America/Denver',                   'USA'],
+        ['Phoenix',           'America/Phoenix',                  'USA'],
+        ['Boston',            'America/New_York',                 'USA'],
+        ['Washington DC',     'America/New_York',                 'USA'],
+        ['Las Vegas',         'America/Los_Angeles',              'USA'],
+        ['Toronto',           'America/Toronto',                  'Canada'],
+        ['Vancouver',         'America/Vancouver',                'Canada'],
+        ['Montreal',          'America/Toronto',                  'Canada'],
+        ['Calgary',           'America/Edmonton',                 'Canada'],
+        ['Mexico City',       'America/Mexico_City',              'Mexico'],
+        ['Cancun',            'America/Cancun',                   'Mexico'],
+        // Europe
+        ['London',            'Europe/London',                    'UK'],
+        ['Paris',             'Europe/Paris',                     'France'],
+        ['Amsterdam',         'Europe/Amsterdam',                 'Netherlands'],
+        ['Frankfurt',         'Europe/Berlin',                    'Germany'],
+        ['Berlin',            'Europe/Berlin',                    'Germany'],
+        ['Munich',            'Europe/Berlin',                    'Germany'],
+        ['Madrid',            'Europe/Madrid',                    'Spain'],
+        ['Barcelona',         'Europe/Madrid',                    'Spain'],
+        ['Rome',              'Europe/Rome',                      'Italy'],
+        ['Milan',             'Europe/Rome',                      'Italy'],
+        ['Zurich',            'Europe/Zurich',                    'Switzerland'],
+        ['Brussels',          'Europe/Brussels',                  'Belgium'],
+        ['Vienna',            'Europe/Vienna',                    'Austria'],
+        ['Stockholm',         'Europe/Stockholm',                 'Sweden'],
+        ['Copenhagen',        'Europe/Copenhagen',                'Denmark'],
+        ['Oslo',              'Europe/Oslo',                      'Norway'],
+        ['Helsinki',          'Europe/Helsinki',                  'Finland'],
+        ['Warsaw',            'Europe/Warsaw',                    'Poland'],
+        ['Prague',            'Europe/Prague',                    'Czech Republic'],
+        ['Budapest',          'Europe/Budapest',                  'Hungary'],
+        ['Athens',            'Europe/Athens',                    'Greece'],
+        ['Lisbon',            'Europe/Lisbon',                    'Portugal'],
+        ['Dublin',            'Europe/Dublin',                    'Ireland'],
+        ['Istanbul',          'Europe/Istanbul',                  'Turkey'],
+        ['Moscow',            'Europe/Moscow',                    'Russia'],
+        // Middle East
+        ['Dubai',             'Asia/Dubai',                       'UAE'],
+        ['Abu Dhabi',         'Asia/Dubai',                       'UAE'],
+        ['Riyadh',            'Asia/Riyadh',                      'Saudi Arabia'],
+        ['Jeddah',            'Asia/Riyadh',                      'Saudi Arabia'],
+        ['Doha',              'Asia/Qatar',                       'Qatar'],
+        ['Kuwait City',       'Asia/Kuwait',                      'Kuwait'],
+        ['Bahrain',           'Asia/Bahrain',                     'Bahrain'],
+        ['Muscat',            'Asia/Muscat',                      'Oman'],
+        ['Tel Aviv',          'Asia/Jerusalem',                   'Israel'],
+        ['Beirut',            'Asia/Beirut',                      'Lebanon'],
+        ['Amman',             'Asia/Amman',                       'Jordan'],
+        // Asia
+        ['Mumbai',            'Asia/Kolkata',                     'India'],
+        ['Delhi',             'Asia/Kolkata',                     'India'],
+        ['Bangalore',         'Asia/Kolkata',                     'India'],
+        ['Chennai',           'Asia/Kolkata',                     'India'],
+        ['Hyderabad',         'Asia/Kolkata',                     'India'],
+        ['Kolkata',           'Asia/Kolkata',                     'India'],
+        ['Ahmedabad',         'Asia/Kolkata',                     'India'],
+        ['Karachi',           'Asia/Karachi',                     'Pakistan'],
+        ['Islamabad',         'Asia/Karachi',                     'Pakistan'],
+        ['Lahore',            'Asia/Karachi',                     'Pakistan'],
+        ['Dhaka',             'Asia/Dhaka',                       'Bangladesh'],
+        ['Colombo',           'Asia/Colombo',                     'Sri Lanka'],
+        ['Kathmandu',         'Asia/Kathmandu',                   'Nepal'],
+        ['Kabul',             'Asia/Kabul',                       'Afghanistan'],
+        ['Bangkok',           'Asia/Bangkok',                     'Thailand'],
+        ['Singapore',         'Asia/Singapore',                   'Singapore'],
+        ['Kuala Lumpur',      'Asia/Kuala_Lumpur',                'Malaysia'],
+        ['Jakarta',           'Asia/Jakarta',                     'Indonesia'],
+        ['Manila',            'Asia/Manila',                      'Philippines'],
+        ['Ho Chi Minh City',  'Asia/Ho_Chi_Minh',                 'Vietnam'],
+        ['Hanoi',             'Asia/Ho_Chi_Minh',                 'Vietnam'],
+        ['Yangon',            'Asia/Rangoon',                     'Myanmar'],
+        ['Phnom Penh',        'Asia/Phnom_Penh',                  'Cambodia'],
+        ['Tokyo',             'Asia/Tokyo',                       'Japan'],
+        ['Osaka',             'Asia/Tokyo',                       'Japan'],
+        ['Seoul',             'Asia/Seoul',                       'South Korea'],
+        ['Beijing',           'Asia/Shanghai',                    'China'],
+        ['Shanghai',          'Asia/Shanghai',                    'China'],
+        ['Hong Kong',         'Asia/Hong_Kong',                   'Hong Kong'],
+        ['Taipei',            'Asia/Taipei',                      'Taiwan'],
+        ['Guangzhou',         'Asia/Shanghai',                    'China'],
+        ['Chengdu',           'Asia/Shanghai',                    'China'],
+        ['Almaty',            'Asia/Almaty',                      'Kazakhstan'],
+        ['Tashkent',          'Asia/Tashkent',                    'Uzbekistan'],
+        // Oceania
+        ['Sydney',            'Australia/Sydney',                 'Australia'],
+        ['Melbourne',         'Australia/Melbourne',              'Australia'],
+        ['Brisbane',          'Australia/Brisbane',               'Australia'],
+        ['Perth',             'Australia/Perth',                  'Australia'],
+        ['Auckland',          'Pacific/Auckland',                 'New Zealand'],
+        ['Fiji',              'Pacific/Fiji',                     'Fiji'],
+        // Africa
+        ['Cairo',             'Africa/Cairo',                     'Egypt'],
+        ['Lagos',             'Africa/Lagos',                     'Nigeria'],
+        ['Nairobi',           'Africa/Nairobi',                   'Kenya'],
+        ['Johannesburg',      'Africa/Johannesburg',              'South Africa'],
+        ['Cape Town',         'Africa/Johannesburg',              'South Africa'],
+        ['Casablanca',        'Africa/Casablanca',                'Morocco'],
+        ['Addis Ababa',       'Africa/Addis_Ababa',               'Ethiopia'],
+        ['Accra',             'Africa/Accra',                     'Ghana'],
+        ['Dar es Salaam',     'Africa/Dar_es_Salaam',             'Tanzania'],
+        ['Tunis',             'Africa/Tunis',                     'Tunisia'],
+        // South America
+        ['São Paulo',         'America/Sao_Paulo',                'Brazil'],
+        ['Rio de Janeiro',    'America/Sao_Paulo',                'Brazil'],
+        ['Buenos Aires',      'America/Argentina/Buenos_Aires',   'Argentina'],
+        ['Lima',              'America/Lima',                     'Peru'],
+        ['Bogotá',            'America/Bogota',                   'Colombia'],
+        ['Santiago',          'America/Santiago',                 'Chile'],
+        ['Caracas',           'America/Caracas',                  'Venezuela'],
+    ];
+
+    // ─────────────────────────────────────────────────────────────────
+    // AUTOCOMPLETE STATE
+    // ─────────────────────────────────────────────────────────────────
+    let fromSelected = null;
+    let toSelected   = null;
+    let acIdx        = { from: -1, to: -1 };
+
+    function filterCities(side) {
+        const inp  = document.getElementById(side === 'from' ? 'fromCity' : 'toCity');
+        const list = document.getElementById(side === 'from' ? 'fromList' : 'toList');
+        const q    = inp.value.trim().toLowerCase();
+        acIdx[side] = -1;
+
+        if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
+
+        const matches = CITIES.filter(c =>
+            c[0].toLowerCase().startsWith(q) || c[0].toLowerCase().includes(q)
+        ).slice(0, 8);
+
+        if (!matches.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
+
+        list.innerHTML = matches.map((c, i) => {
+            const offset = getOffsetStrNow(c[1]);
+            return `<div class="ac-item" data-idx="${i}" data-name="${c[0]}" data-tz="${c[1]}"
+                         onmousedown="pickCity(event,'${side}')">
+                <span class="ac-city">${c[0]}</span>
+                <span class="ac-tz">${c[2]} · ${c[1].replace(/_/g,' ')} · UTC${offset}</span>
+            </div>`;
+        }).join('');
+        list.classList.add('open');
+    }
+
+    function navList(e, side) {
+        const list  = document.getElementById(side === 'from' ? 'fromList' : 'toList');
+        const items = list.querySelectorAll('.ac-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+            acIdx[side] = Math.min(acIdx[side] + 1, items.length - 1);
+            highlightAc(items, side); e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+            acIdx[side] = Math.max(acIdx[side] - 1, 0);
+            highlightAc(items, side); e.preventDefault();
+        } else if (e.key === 'Enter' && acIdx[side] >= 0) {
+            items[acIdx[side]].dispatchEvent(new MouseEvent('mousedown'));
+            e.preventDefault();
+        } else if (e.key === 'Escape') {
+            list.classList.remove('open');
+        }
+    }
+
+    function highlightAc(items, side) {
+        items.forEach((el, i) => el.classList.toggle('selected', i === acIdx[side]));
+    }
+
+    function pickCity(e, side) {
+        e.preventDefault();
+        const el   = e.currentTarget;
+        const name = el.dataset.name;
+        const tz   = el.dataset.tz;
+        if (side === 'from') {
+            document.getElementById('fromCity').value = name;
+            document.getElementById('fromTz').value   = tz;
+            fromSelected = { name, tz };
+            document.getElementById('fromList').classList.remove('open');
+        } else {
+            document.getElementById('toCity').value = name;
+            document.getElementById('toTz').value   = tz;
+            toSelected = { name, tz };
+            document.getElementById('toList').classList.remove('open');
+        }
+        calculate();
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#fromBox') && !e.target.closest('#toBox')) {
+            document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('open'));
+        }
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // PRESET ROUTES
+    // ─────────────────────────────────────────────────────────────────
+    function setRoute(fromName, fromTz, toName, toTz, hrs, mins) {
+        document.getElementById('fromCity').value = fromName;
+        document.getElementById('fromTz').value   = fromTz;
+        document.getElementById('toCity').value   = toName;
+        document.getElementById('toTz').value     = toTz;
+        fromSelected = { name: fromName, tz: fromTz };
+        toSelected   = { name: toName,   tz: toTz   };
+        document.getElementById('durHrs').value  = hrs;
+        document.getElementById('durMins').value = mins;
+        calculate();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // INIT — set today's date as default
+    // ─────────────────────────────────────────────────────────────────
+    (function init() {
+        const today = new Date();
+        // Format as YYYY-MM-DD in local machine time (not UTC) to avoid off-by-one
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        document.getElementById('depDate').value = `${y}-${m}-${d}`;
+    })();
+
+    // ─────────────────────────────────────────────────────────────────
+    // CORE CALCULATION — the only function that produces output
+    // All timezone math goes through the verified engine above.
+    // ─────────────────────────────────────────────────────────────────
+    function calculate() {
+        const panel = document.getElementById('resultPanel');
+        const hint  = document.getElementById('emptyHint');
+
+        const fromTz    = document.getElementById('fromTz').value;
+        const toTz      = document.getElementById('toTz').value;
+        const depDateV  = document.getElementById('depDate').value;
+        const depTimeV  = document.getElementById('depTime').value;
+        const durH      = Math.max(0, parseInt(document.getElementById('durHrs').value,  10) || 0);
+        const durM      = Math.max(0, Math.min(59, parseInt(document.getElementById('durMins').value, 10) || 0));
+
+        if (!fromTz || !toTz || !depDateV || !depTimeV) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            return;
+        }
+
+        // ── 1. Convert departure local → UTC ──────────────────────
+        // localToUTC correctly accounts for DST at the departure timezone
+        const depUTC = localToUTC(depDateV, depTimeV, fromTz);
+
+        // ── 2. Add flight duration to get arrival UTC ──────────────
+        const flightMs = (durH * 60 + durM) * 60000;
+        const arrUTC   = new Date(depUTC.getTime() + flightMs);
+
+        // ── 3. Convert arrival UTC → destination local display ─────
+        // getOffsetMinutes is called at the ARRIVAL UTC moment, not departure.
+        // This correctly handles flights that cross DST transitions.
+        const toOffsetAtArrival   = getOffsetMinutes(toTz,   arrUTC);
+        const fromOffsetAtDep     = getOffsetMinutes(fromTz, depUTC);
+
+        const arrLocalDisplay = utcToLocalDisplay(arrUTC, toTz);
+
+        // ── 4. Extract display fields from the local display Date ──
+        // We use getUTC* because utcToLocalDisplay shifts the time into UTC fields
+        const arrHour = arrLocalDisplay.getUTCHours();
+        const arrMin  = arrLocalDisplay.getUTCMinutes();
+        const ampm    = arrHour >= 12 ? 'PM' : 'AM';
+        const h12     = arrHour % 12 || 12;
+        const arrTimeStr = `${h12}:${String(arrMin).padStart(2, '0')} ${ampm}`;
+        const arrTime24  = `${String(arrHour).padStart(2, '0')}:${String(arrMin).padStart(2, '0')}`;
+
+        // ── 5. Arrival date display ────────────────────────────────
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const arrDateStr = `${DAYS[arrLocalDisplay.getUTCDay()]}, ${arrLocalDisplay.getUTCDate()} ${MONTHS[arrLocalDisplay.getUTCMonth()]} ${arrLocalDisplay.getUTCFullYear()}`;
+
+        // ── 6. Day difference (calendar days in destination zone) ──
+        // Compare departure date (in departure zone) vs arrival date (in arrival zone)
+        const depLocalDisplay = utcToLocalDisplay(depUTC, fromTz);
+        const depMidnightUTC  = Date.UTC(
+            depLocalDisplay.getUTCFullYear(),
+            depLocalDisplay.getUTCMonth(),
+            depLocalDisplay.getUTCDate()
+        );
+        const arrMidnightUTC  = Date.UTC(
+            arrLocalDisplay.getUTCFullYear(),
+            arrLocalDisplay.getUTCMonth(),
+            arrLocalDisplay.getUTCDate()
+        );
+        const dayDiff = Math.round((arrMidnightUTC - depMidnightUTC) / 86400000);
+
+        // ── 7. Badge & hero styling ────────────────────────────────
+        let badgeHTML = '';
+        let heroClass = 'same-day';
+        if (dayDiff === 0) {
+            badgeHTML = `<span class="day-badge badge-sameday">Same Day Arrival</span>`;
+            heroClass = 'same-day';
+        } else if (dayDiff === 1) {
+            badgeHTML = `<span class="day-badge badge-nextday">+1 Next Day</span>`;
+            heroClass = 'next-day';
+        } else if (dayDiff > 1) {
+            badgeHTML = `<span class="day-badge badge-nextday">+${dayDiff} Days Later</span>`;
+            heroClass = 'next-day';
+        } else {
+            badgeHTML = `<span class="day-badge badge-prev">${dayDiff} Day Earlier</span>`;
+            heroClass = '';
+        }
+
+        // ── 8. Timezone shift label ────────────────────────────────
+        // Uses the departure-moment offset for from, and arrival-moment offset for to
+        // giving the most accurate shift number for this specific journey
+        const tzDiffMins = toOffsetAtArrival - fromOffsetAtDep;
+        const tzDiffHrs  = tzDiffMins / 60;
+        const fmtShift   = v => v % 1 === 0 ? String(v) : v.toFixed(1);
+        const tzDiffLabel = tzDiffMins === 0
+            ? 'Same timezone'
+            : tzDiffMins > 0
+                ? `+${fmtShift(tzDiffHrs)} hrs ahead`
+                : `${fmtShift(tzDiffHrs)} hrs behind`;
+
+        // ── 9. Jet lag advisory ────────────────────────────────────
+        const absShift = Math.abs(tzDiffHrs);
+        let bodyClockNote = '';
+        if (absShift >= 8)       bodyClockNote = '⚠️ Severe jet lag likely — 8+ hour shift. Consider melatonin.';
+        else if (absShift >= 5)  bodyClockNote = '😴 Moderate jet lag expected. Stay hydrated in-flight.';
+        else if (absShift >= 3)  bodyClockNote = '😐 Mild time adjustment — most people adapt in 1–2 days.';
+        else if (absShift > 0)   bodyClockNote = '✅ Small time shift — minimal jet lag expected.';
+        else                     bodyClockNote = '✅ Same timezone — no jet lag!';
+
+        // ── 10. "When you depart it will be X in destination" ─────
+        const depInDestDisplay = utcToLocalDisplay(depUTC, toTz);
+        const dH   = depInDestDisplay.getUTCHours();
+        const dM   = depInDestDisplay.getUTCMinutes();
+        const dAMPM = dH >= 12 ? 'PM' : 'AM';
+        const d12  = dH % 12 || 12;
+        const depInDestStr = `${d12}:${String(dM).padStart(2, '0')} ${dAMPM}`;
+
+        // ── 11. Offsets for display ────────────────────────────────
+        const fromOffsetStr = formatOffset(fromOffsetAtDep);
+        const toOffsetStr   = formatOffset(toOffsetAtArrival);
+
+        const fromName = fromSelected?.name || document.getElementById('fromCity').value;
+        const toName   = toSelected?.name   || document.getElementById('toCity').value;
+
+        // ── 12. Render ─────────────────────────────────────────────
+        panel.innerHTML = `
+            <div class="section-label">Local Arrival Time</div>
+            <div class="arrival-hero ${heroClass}">
+                <div class="ah-label">You land at (${toName} local time)</div>
+                <div class="ah-time">${arrTimeStr}</div>
+                <div class="ah-date">${arrDateStr}</div>
+                ${badgeHTML}
+            </div>
+
+            <div class="section-label">Flight Summary</div>
+            <div class="stats-grid">
+                <div class="stat-cell">
+                    <div class="stat-num">${durH}h${durM > 0 ? ' ' + durM + 'm' : ''}</div>
+                    <div class="stat-unit">Flight Duration</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num">${tzDiffLabel}</div>
+                    <div class="stat-unit">Time Zone Shift</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num">${arrTime24}</div>
+                    <div class="stat-unit">24h Arrival</div>
+                </div>
+            </div>
+
+            <div class="section-label">Timezone Info</div>
+            <div class="tz-row">
+                <div class="tz-box">
+                    <div class="tz-city">🛫 ${fromName}</div>
+                    <div class="tz-name">${fromTz.replace(/_/g, ' ')}</div>
+                    <div class="tz-offset">${fromOffsetStr} at departure</div>
+                </div>
+                <div class="tz-arrow">→</div>
+                <div class="tz-box">
+                    <div class="tz-city">🛬 ${toName}</div>
+                    <div class="tz-name">${toTz.replace(/_/g, ' ')}</div>
+                    <div class="tz-offset">${toOffsetStr} at arrival</div>
+                </div>
+            </div>
+
+            <div class="section-label">Travel Tips</div>
+            <div class="tips-box">
+                <div class="tip-row"><span class="tip-icon">🕐</span><span>When you depart, it will be <strong>${depInDestStr}</strong> in ${toName}.</span></div>
+                <div class="tip-row"><span class="tip-icon">${bodyClockNote.split(' ')[0]}</span><span>${bodyClockNote.substring(bodyClockNote.indexOf(' ') + 1)}</span></div>
+                <div class="tip-row"><span class="tip-icon">📱</span><span>Set your watch to <strong>${toName} time</strong> when you board — helps your body adjust faster.</span></div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn-action primary" onclick="copyResult()">Copy Result</button>
+                <button class="btn-action" onclick="swapCities()">⇄ Swap</button>
+                <button class="btn-action" onclick="resetAll()">✕ Reset</button>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // UTILITY ACTIONS
+    // ─────────────────────────────────────────────────────────────────
+    function swapCities() {
+        const fName = document.getElementById('fromCity').value;
+        const fTz   = document.getElementById('fromTz').value;
+        const tName = document.getElementById('toCity').value;
+        const tTz   = document.getElementById('toTz').value;
+        document.getElementById('fromCity').value = tName;
+        document.getElementById('fromTz').value   = tTz;
+        document.getElementById('toCity').value   = fName;
+        document.getElementById('toTz').value     = fTz;
+        [fromSelected, toSelected] = [toSelected, fromSelected];
+        calculate();
+    }
+
+    function resetAll() {
+        ['fromCity', 'toCity'].forEach(id => document.getElementById(id).value = '');
+        ['fromTz',   'toTz'  ].forEach(id => document.getElementById(id).value = '');
+        fromSelected = null;
+        toSelected   = null;
+        document.getElementById('durHrs').value  = 8;
+        document.getElementById('durMins').value = 0;
+        document.getElementById('depTime').value = '10:00';
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('emptyHint').style.display = 'block';
+    }
+
+    function copyResult() {
+        const from  = document.getElementById('fromCity').value;
+        const to    = document.getElementById('toCity').value;
+        const dep   = document.getElementById('depTime').value;
+        const date  = document.getElementById('depDate').value;
+        const cells = document.querySelectorAll('.stat-cell');
+        const dur   = cells[0]?.querySelector('.stat-num')?.innerText || '';
+        const shift = cells[1]?.querySelector('.stat-num')?.innerText || '';
+        const arrT  = document.querySelector('.ah-time')?.innerText  || '';
+        const arrD  = document.querySelector('.ah-date')?.innerText  || '';
+        const text  = `Flight: ${from} → ${to}\nDeparture: ${dep} on ${date}\nFlight Duration: ${dur}\nTimezone Shift: ${shift}\nArrival (local): ${arrT} — ${arrD}`;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            if (btn) { btn.innerText = '✓ Copied!'; setTimeout(() => btn.innerText = 'Copy Result', 2000); }
+        });
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

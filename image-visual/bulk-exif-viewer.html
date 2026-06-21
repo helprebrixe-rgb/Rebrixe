@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bulk EXIF Viewer — Read EXIF Data from 20+ Photos at Once | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Upload 20+ photos and instantly see all EXIF metadata in a sortable, filterable table. Export to CSV. Free, browser-only — your photos never leave your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #00E5FF;
+            --accent: #00B8D9;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FFD600;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(0,229,255,0.07);
+            --primary-border: rgba(0,229,255,0.22);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(0,229,255,0.55), rgba(0,184,217,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(0,229,255,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(0,229,255,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,229,255,0.08), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(0,229,255,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(0,229,255,0.15), 0 0 0 3px rgba(0,229,255,0.12); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(0,229,255,0.2)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(0,229,255,0.35); }
+        #fileInput { display: none; }
+
+        /* Toolbar */
+        .toolbar {
+            display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 18px; margin-bottom: 16px;
+        }
+        .toolbar.visible { display: flex; }
+        .toolbar-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+        .file-count-badge { font-size: 0.72rem; font-weight: 800; background: var(--primary-dim); border: 1px solid var(--primary-border); color: var(--primary); padding: 4px 12px; border-radius: 99px; font-family: 'Fira Code', monospace; white-space: nowrap; }
+        .search-input {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 14px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.8rem;
+            outline: none; width: 200px; transition: border-color 0.2s;
+        }
+        .search-input::placeholder { color: var(--text-dim); }
+        .search-input:focus { border-color: var(--primary-border); }
+        .col-toggle-wrap { position: relative; }
+        .tog-btn {
+            padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+            color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700;
+            cursor: pointer; transition: all 0.18s; white-space: nowrap;
+        }
+        .tog-btn.active, .tog-btn:hover { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .col-dropdown {
+            display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 100;
+            background: var(--card); border: 1px solid var(--border-mid); border-radius: var(--radius-md);
+            padding: 10px; min-width: 200px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+        .col-dropdown.open { display: block; }
+        .col-dropdown label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 0.75rem; color: var(--text-sec); cursor: pointer; border-radius: 6px; transition: background 0.15s; }
+        .col-dropdown label:hover { background: var(--surface); }
+        .col-dropdown input[type=checkbox] { accent-color: var(--primary); width: 13px; height: 13px; }
+
+        .btn-csv {
+            padding: 9px 18px; border-radius: 10px; border: none;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #000; font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 800;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+        }
+        .btn-csv:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,229,255,0.25); }
+        .btn-reset { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .btn-reset:hover { border-color: var(--error); color: var(--error); }
+
+        /* Summary strip */
+        .summary-strip { display: none; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .summary-strip.visible { display: flex; }
+        .sum-pill { flex: 1; min-width: 110px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .sum-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .sum-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .sum-val.green { color: var(--success); }
+        .sum-val.warn { color: var(--warn); }
+
+        /* Table */
+        .table-wrap {
+            display: none; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px;
+        }
+        .table-wrap.visible { display: block; }
+        .table-scroll { overflow-x: auto; max-height: 540px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        thead { position: sticky; top: 0; z-index: 10; }
+        th {
+            background: var(--surface); color: var(--text-dim); font-weight: 700; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.8px; padding: 11px 14px; text-align: left;
+            white-space: nowrap; cursor: pointer; user-select: none; transition: color 0.15s; border-bottom: 1px solid var(--border);
+        }
+        th:hover { color: var(--primary); }
+        th.sort-asc::after { content: ' ↑'; color: var(--primary); }
+        th.sort-desc::after { content: ' ↓'; color: var(--primary); }
+        td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        td.filename { color: var(--text); font-weight: 600; max-width: 180px; }
+        td.mono { font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-dim); }
+        td.highlight { color: var(--primary); font-family: 'Fira Code', monospace; font-size: 0.72rem; }
+        td.no-data { color: var(--text-dim); font-style: italic; font-size: 0.7rem; }
+        tbody tr { transition: background 0.12s; }
+        tbody tr:hover { background: rgba(0,229,255,0.03); }
+        tbody tr:last-child td { border-bottom: none; }
+        td .thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; display: block; border: 1px solid var(--border-mid); }
+
+        /* Missing EXIF warning row */
+        .no-exif-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 99px; background: rgba(255,214,0,0.1); border: 1px solid rgba(255,214,0,0.25); color: var(--warn); }
+
+        /* Progress */
+        .progress-wrap { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 22px; margin-bottom: 16px; }
+        .progress-wrap.visible { display: block; }
+        .progress-label { font-size: 0.8rem; font-weight: 700; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .progress-bar-bg { background: var(--surface); border-radius: 99px; height: 5px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.2s; width: 0%; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Map hint */
+        .map-hint { background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); padding: 12px 18px; font-size: 0.78rem; color: var(--primary); margin-bottom: 16px; display: none; align-items: center; gap: 10px; }
+        .map-hint.visible { display: flex; }
+        .map-hint a { color: var(--primary); font-weight: 700; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 640px) {
+            .search-input { width: 100%; }
+            .toolbar { gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="metadata-analysis.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Bulk EXIF Viewer</h1>
+                <p class="tool-page-sub">Upload 20+ photos — see all EXIF metadata in a sortable table. Export to CSV. No upload, no server.</p>
+                <span class="privacy-badge">Processed in your browser — photos never leave your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*" multiple>
+                <span class="drop-icon">📷</span>
+                <p class="drop-title">Drop your photos here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — JPG, TIFF, HEIC supported</p>
+            </div>
+
+            <!-- PROGRESS -->
+            <div class="progress-wrap" id="progressWrap">
+                <div class="progress-label"><span id="progressText">Reading EXIF…</span><span id="progressCount">0 / 0</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+            </div>
+
+            <!-- SUMMARY -->
+            <div class="summary-strip" id="summaryStrip">
+                <div class="sum-pill"><div class="sum-label">Total Files</div><div class="sum-val" id="sumTotal">—</div></div>
+                <div class="sum-pill"><div class="sum-label">With EXIF</div><div class="sum-val green" id="sumExif">—</div></div>
+                <div class="sum-pill"><div class="sum-label">Without EXIF</div><div class="sum-val warn" id="sumNoExif">—</div></div>
+                <div class="sum-pill"><div class="sum-label">Cameras Found</div><div class="sum-val" id="sumCameras">—</div></div>
+                <div class="sum-pill"><div class="sum-label">GPS Data</div><div class="sum-val" id="sumGps">—</div></div>
+                <div class="sum-pill"><div class="sum-label">Date Range</div><div class="sum-val" id="sumDates" style="font-size:0.72rem">—</div></div>
+            </div>
+
+            <!-- MAP HINT -->
+            <div class="map-hint" id="mapHint">
+                <span>📍</span>
+                <span id="mapHintText">photos have GPS coordinates. Copy them below and paste into <a href="https://maps.google.com" target="_blank" rel="noopener">Google Maps</a> to see where they were taken.</span>
+            </div>
+
+            <!-- TOOLBAR -->
+            <div class="toolbar" id="toolbar">
+                <div class="toolbar-left">
+                    <span class="file-count-badge" id="fileCountBadge">0 files</span>
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Filter by filename, camera…" oninput="filterTable()">
+                    <div class="col-toggle-wrap">
+                        <button class="tog-btn" onclick="toggleColDropdown()">⚙ Columns</button>
+                        <div class="col-dropdown" id="colDropdown"></div>
+                    </div>
+                </div>
+                <button class="btn-csv" onclick="exportCSV()">⬇ Export CSV</button>
+                <button class="btn-reset" onclick="resetTool()">✕ Clear</button>
+            </div>
+
+            <!-- TABLE -->
+            <div class="table-wrap" id="tableWrap">
+                <div class="table-scroll">
+                    <table id="exifTable">
+                        <thead id="tableHead"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FAQ -->
+        <div class="container" style="padding-top:0">
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use Bulk EXIF Viewer?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What is EXIF data?</h3>
+                        <p>EXIF (Exchangeable Image File Format) is metadata your camera embeds in every photo — camera model, lens, shutter speed, ISO, GPS location, and the exact date/time it was shot.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Sort & filter shoots instantly</h3>
+                        <p>Sort 500 photos by camera, ISO, focal length or date in one click. Find every shot taken above <code>ISO 3200</code> without opening Lightroom. Perfect for culling shoots.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Privacy check before sharing</h3>
+                        <p>See which photos contain GPS coordinates before posting them online. The GPS column lights up so you can strip location data before uploading anywhere.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Export to CSV for reporting</h3>
+                        <p>Photographers managing client shoots or stock libraries can export all metadata to CSV and import it directly into Excel, Airtable, or Notion for archiving.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── COLUMNS DEFINITION ────────────────────────────────────────────────────
+    const ALL_COLS = [
+        { key: 'thumb',        label: 'Preview',      default: true,  sortable: false },
+        { key: 'filename',     label: 'File Name',    default: true,  sortable: true  },
+        { key: 'size',         label: 'Size',         default: true,  sortable: true  },
+        { key: 'make',         label: 'Camera Make',  default: true,  sortable: true  },
+        { key: 'model',        label: 'Camera Model', default: true,  sortable: true  },
+        { key: 'lens',         label: 'Lens',         default: true,  sortable: true  },
+        { key: 'date',         label: 'Date Taken',   default: true,  sortable: true  },
+        { key: 'width',        label: 'Width',        default: true,  sortable: true  },
+        { key: 'height',       label: 'Height',       default: true,  sortable: true  },
+        { key: 'fstop',        label: 'Aperture',     default: true,  sortable: true  },
+        { key: 'shutter',      label: 'Shutter',      default: true,  sortable: true  },
+        { key: 'iso',          label: 'ISO',          default: true,  sortable: true  },
+        { key: 'focal',        label: 'Focal Len',    default: true,  sortable: true  },
+        { key: 'flash',        label: 'Flash',        default: false, sortable: true  },
+        { key: 'exposure',     label: 'Exp. Prog.',   default: false, sortable: true  },
+        { key: 'metering',     label: 'Metering',     default: false, sortable: true  },
+        { key: 'whitebalance', label: 'White Bal.',   default: false, sortable: true  },
+        { key: 'orientation',  label: 'Orientation',  default: false, sortable: true  },
+        { key: 'software',     label: 'Software',     default: false, sortable: true  },
+        { key: 'gps',          label: 'GPS',          default: true,  sortable: false },
+    ];
+
+    let visibleCols = ALL_COLS.filter(c => c.default).map(c => c.key);
+    let allRows = [];       // parsed EXIF row objects
+    let filteredRows = [];  // after search filter
+    let sortKey = 'filename', sortDir = 1;
+
+    // ─── DROP / FILE INPUT ─────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => handleFiles(fi.files));
+
+    function handleFiles(files) {
+        const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if (!imgs.length) { showToast('No image files found', 'error'); return; }
+        processFiles(imgs);
+    }
+
+    // ─── EXIF PARSING ─────────────────────────────────────────────────────────
+    // Pure JS minimal EXIF reader — handles JPEG / TIFF, no library needed
+    const EXIF_TAGS = {
+        0x010E: 'ImageDescription', 0x010F: 'Make', 0x0110: 'Model',
+        0x0112: 'Orientation', 0x011A: 'XResolution', 0x011B: 'YResolution',
+        0x0131: 'Software', 0x0132: 'DateTime', 0x013B: 'Artist',
+        0x8769: 'ExifIFD', 0x8825: 'GPSIFD',
+        0xA002: 'PixelXDimension', 0xA003: 'PixelYDimension',
+        0x829A: 'ExposureTime', 0x829D: 'FNumber',
+        0x8822: 'ExposureProgram', 0x8827: 'ISOSpeedRatings',
+        0x9003: 'DateTimeOriginal', 0x9004: 'DateTimeDigitized',
+        0x9201: 'ShutterSpeedValue', 0x9202: 'ApertureValue',
+        0x9204: 'ExposureBiasValue', 0x9205: 'MaxApertureValue',
+        0x9207: 'MeteringMode', 0x9208: 'LightSource',
+        0x9209: 'Flash', 0x920A: 'FocalLength',
+        0xA20E: 'FocalPlaneXResolution', 0xA20F: 'FocalPlaneYResolution',
+        0xA210: 'FocalPlaneResolutionUnit', 0xA217: 'SensingMethod',
+        0xA300: 'FileSource', 0xA301: 'SceneType',
+        0xA402: 'ExposureMode', 0xA403: 'WhiteBalance',
+        0xA404: 'DigitalZoomRatio', 0xA405: 'FocalLengthIn35mmFilm',
+        0xA406: 'SceneCaptureType', 0xA420: 'ImageUniqueID',
+        0xA433: 'LensMake', 0xA434: 'LensModel',
+    };
+    const GPS_TAGS = { 0: 'GPSVersionID', 1: 'GPSLatitudeRef', 2: 'GPSLatitude', 3: 'GPSLongitudeRef', 4: 'GPSLongitude', 5: 'GPSAltitudeRef', 6: 'GPSAltitude' };
+    const METERING_MODES = ['Unknown','Average','Center-weighted','Spot','Multi-spot','Multi-segment','Partial'];
+    const EXPOSURE_PROGS = ['Not Defined','Manual','Normal','Aperture Priority','Shutter Priority','Creative','Action','Portrait','Landscape'];
+    const FLASH_MAP = { 0:'No Flash', 1:'Flash Fired', 5:'Flash Fired, No Strobe Return', 7:'Flash Fired, Strobe Return', 9:'Flash Fired, Compulsory', 13:'Flash Fired, Compulsory, No Strobe', 15:'Flash Fired, Compulsory, Strobe', 16:'No Flash, Compulsory', 24:'No Flash, Auto', 25:'Flash Fired, Auto', 29:'Flash Fired, Auto, No Strobe', 31:'Flash Fired, Auto, Strobe', 32:'No Flash Function', 65:'Flash Fired, Red-eye', 71:'Flash Fired, Red-eye, Strobe' };
+
+    function readUint16(buf, off, le) { return le ? buf[off] | (buf[off+1]<<8) : (buf[off]<<8) | buf[off+1]; }
+    function readUint32(buf, off, le) { return le ? buf[off]|(buf[off+1]<<8)|(buf[off+2]<<16)|(buf[off+3]<<24)>>>0 : (buf[off]<<24)|(buf[off+1]<<16)|(buf[off+2]<<8)|buf[off+3]>>>0; }
+    function readInt32(buf, off, le) { const u = readUint32(buf,off,le); return u >= 0x80000000 ? u - 0x100000000 : u; }
+    function readRational(buf, off, le) { const n = readUint32(buf,off,le), d = readUint32(buf,off+4,le); return d === 0 ? 0 : n/d; }
+    function readSRational(buf, off, le) { const n = readInt32(buf,off,le), d = readInt32(buf,off+4,le); return d === 0 ? 0 : n/d; }
+    function readString(buf, off, len) { let s=''; for(let i=0;i<len&&buf[off+i]!==0;i++) s+=String.fromCharCode(buf[off+i]); return s.trim(); }
+
+    function parseIFD(buf, ifdOff, tiffStart, le, tagMap) {
+        const result = {};
+        if (ifdOff + 2 > buf.length) return result;
+        const count = readUint16(buf, ifdOff, le);
+        for (let i = 0; i < count; i++) {
+            const eOff = ifdOff + 2 + i * 12;
+            if (eOff + 12 > buf.length) break;
+            const tag = readUint16(buf, eOff, le);
+            const type = readUint16(buf, eOff+2, le);
+            const num  = readUint32(buf, eOff+4, le);
+            const valOff = eOff + 8;
+            const TYPE_SIZES = [0,1,1,2,4,8,1,1,2,4,8,4,8];
+            const tSize = type < TYPE_SIZES.length ? TYPE_SIZES[type] : 1;
+            const totalBytes = tSize * num;
+            const dataOff = totalBytes > 4 ? tiffStart + readUint32(buf, valOff, le) : valOff;
+            if (dataOff + totalBytes > buf.length) continue;
+
+            let val;
+            if (type === 2) { val = readString(buf, dataOff, num); }
+            else if (type === 3) { val = num === 1 ? readUint16(buf, dataOff, le) : Array.from({length:num},(_,k)=>readUint16(buf,dataOff+k*2,le)); }
+            else if (type === 4) { val = num === 1 ? readUint32(buf, dataOff, le) : Array.from({length:num},(_,k)=>readUint32(buf,dataOff+k*4,le)); }
+            else if (type === 5) { val = num === 1 ? readRational(buf, dataOff, le) : Array.from({length:num},(_,k)=>readRational(buf,dataOff+k*8,le)); }
+            else if (type === 9) { val = num === 1 ? readInt32(buf, dataOff, le) : null; }
+            else if (type === 10){ val = num === 1 ? readSRational(buf, dataOff, le) : null; }
+            else { val = null; }
+
+            const name = tagMap[tag];
+            if (name) result[name] = val;
+            if (name === 'ExifIFD' && val) Object.assign(result, parseIFD(buf, tiffStart+val, tiffStart, le, EXIF_TAGS));
+            if (name === 'GPSIFD' && val) Object.assign(result, parseIFD(buf, tiffStart+val, tiffStart, le, GPS_TAGS));
+        }
+        return result;
+    }
+
+    function parseEXIF(arrayBuffer) {
+        const buf = new Uint8Array(arrayBuffer);
+        if (buf[0]===0xFF && buf[1]===0xD8) {
+            // JPEG: scan for APP1 (0xFFE1)
+            let off = 2;
+            while (off < buf.length - 2) {
+                if (buf[off] !== 0xFF) break;
+                const marker = buf[off+1];
+                const segLen = readUint16(buf, off+2, false);
+                if (marker === 0xE1 && segLen > 6) {
+                    const exif = String.fromCharCode(...buf.slice(off+4, off+10));
+                    if (exif.startsWith('Exif')) {
+                        const tiffStart = off + 10;
+                        const le = buf[tiffStart] === 0x49;
+                        const ifdOff = readUint32(buf, tiffStart+4, le);
+                        return parseIFD(buf, tiffStart+ifdOff, tiffStart, le, EXIF_TAGS);
+                    }
+                }
+                off += 2 + segLen;
+            }
+        } else if ((buf[0]===0x49&&buf[1]===0x49)||(buf[0]===0x4D&&buf[1]===0x4D)) {
+            // TIFF
+            const le = buf[0]===0x49;
+            const ifdOff = readUint32(buf, 4, le);
+            return parseIFD(buf, ifdOff, 0, le, EXIF_TAGS);
+        }
+        return null;
+    }
+
+    function dmsToDecimal(dms, ref) {
+        if (!Array.isArray(dms) || dms.length < 3) return null;
+        let dec = dms[0] + dms[1]/60 + dms[2]/3600;
+        if (ref === 'S' || ref === 'W') dec = -dec;
+        return dec.toFixed(6);
+    }
+
+    function fmtShutter(val) {
+        if (!val && val !== 0) return null;
+        if (val < 1) return '1/' + Math.round(1/val);
+        return val + 's';
+    }
+    function fmtBytes(b) { if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+
+    // ─── PROCESS FILES ────────────────────────────────────────────────────────
+    async function processFiles(files) {
+        dz.style.display = 'none';
+        showProgress(true);
+        allRows = [];
+
+        for (let i = 0; i < files.length; i++) {
+            updateProgress(i, files.length);
+            try { allRows.push(await readFileExif(files[i])); }
+            catch(e) { allRows.push({ filename: files[i].name, size: files[i].size, _error: true }); }
+        }
+        updateProgress(files.length, files.length);
+
+        setTimeout(() => {
+            showProgress(false);
+            buildColDropdown();
+            renderTable();
+            renderSummary();
+            document.getElementById('toolbar').classList.add('visible');
+            document.getElementById('tableWrap').classList.add('visible');
+            document.getElementById('fileCountBadge').textContent = files.length + ' files';
+        }, 200);
+    }
+
+    function readFileExif(file) {
+        return new Promise((resolve) => {
+            const thumbUrl = URL.createObjectURL(file);
+            const reader = new FileReader();
+            reader.onload = e => {
+                const exif = parseEXIF(e.target.result) || {};
+                // Build row
+                const lat = dmsToDecimal(exif.GPSLatitude, exif.GPSLatitudeRef);
+                const lng = dmsToDecimal(exif.GPSLongitude, exif.GPSLongitudeRef);
+                resolve({
+                    _thumb: thumbUrl,
+                    filename: file.name,
+                    size: file.size,
+                    _rawSize: file.size,
+                    make: exif.Make || '',
+                    model: exif.Model || '',
+                    lens: exif.LensModel || '',
+                    date: exif.DateTimeOriginal || exif.DateTime || '',
+                    width: exif.PixelXDimension || '',
+                    height: exif.PixelYDimension || '',
+                    fstop: exif.FNumber ? 'f/' + exif.FNumber.toFixed(1) : '',
+                    shutter: exif.ExposureTime ? fmtShutter(exif.ExposureTime) : '',
+                    iso: exif.ISOSpeedRatings || '',
+                    focal: exif.FocalLength ? exif.FocalLength.toFixed(0) + 'mm' : '',
+                    flash: exif.Flash != null ? (FLASH_MAP[exif.Flash] || 'Flash: '+exif.Flash) : '',
+                    exposure: exif.ExposureProgram != null ? (EXPOSURE_PROGS[exif.ExposureProgram] || '') : '',
+                    metering: exif.MeteringMode != null ? (METERING_MODES[exif.MeteringMode] || '') : '',
+                    whitebalance: exif.WhiteBalance != null ? (exif.WhiteBalance === 0 ? 'Auto' : 'Manual') : '',
+                    orientation: exif.Orientation != null ? exif.Orientation : '',
+                    software: exif.Software || '',
+                    gps: (lat && lng) ? lat + ', ' + lng : '',
+                    _hasExif: Object.keys(exif).length > 0,
+                });
+            };
+            reader.onerror = () => resolve({ _thumb: thumbUrl, filename: file.name, size: file.size, _rawSize: file.size, _hasExif: false });
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // ─── RENDER TABLE ─────────────────────────────────────────────────────────
+    function renderTable() {
+        filteredRows = applyFilter(allRows);
+        buildHead();
+        buildBody();
+    }
+
+    function applyFilter(rows) {
+        const q = document.getElementById('searchInput').value.trim().toLowerCase();
+        if (!q) return rows;
+        return rows.filter(r => {
+            return ['filename','make','model','lens','date','iso','fstop','shutter'].some(k => String(r[k]||'').toLowerCase().includes(q));
+        });
+    }
+
+    function buildHead() {
+        const cols = ALL_COLS.filter(c => visibleCols.includes(c.key));
+        const tr = document.createElement('tr');
+        cols.forEach(col => {
+            const th = document.createElement('th');
+            th.textContent = col.label;
+            if (col.sortable) {
+                if (sortKey === col.key) th.className = sortDir === 1 ? 'sort-asc' : 'sort-desc';
+                th.onclick = () => { if (sortKey === col.key) sortDir *= -1; else { sortKey = col.key; sortDir = 1; } buildHead(); buildBody(); };
+            }
+            tr.appendChild(th);
+        });
+        document.getElementById('tableHead').innerHTML = '';
+        document.getElementById('tableHead').appendChild(tr);
+    }
+
+    function buildBody() {
+        const cols = ALL_COLS.filter(c => visibleCols.includes(c.key));
+        const sorted = [...filteredRows].sort((a,b) => {
+            let av = a[sortKey], bv = b[sortKey];
+            if (sortKey === 'size') { av = a._rawSize||0; bv = b._rawSize||0; }
+            if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
+            return String(av||'').localeCompare(String(bv||'')) * sortDir;
+        });
+
+        const frag = document.createDocumentFragment();
+        sorted.forEach(row => {
+            const tr = document.createElement('tr');
+            cols.forEach(col => {
+                const td = document.createElement('td');
+                if (col.key === 'thumb') {
+                    if (row._thumb) { const img = document.createElement('img'); img.src = row._thumb; img.className = 'thumb'; img.loading = 'lazy'; td.appendChild(img); }
+                    else td.textContent = '—';
+                } else if (col.key === 'filename') {
+                    td.className = 'filename';
+                    td.title = row.filename;
+                    td.textContent = row.filename;
+                } else if (col.key === 'size') {
+                    td.className = 'mono';
+                    td.textContent = fmtBytes(row._rawSize||0);
+                } else if (col.key === 'gps') {
+                    if (row.gps) {
+                        const a = document.createElement('a');
+                        a.href = `https://maps.google.com/?q=${row.gps}`;
+                        a.target = '_blank'; a.rel = 'noopener';
+                        a.style.cssText = 'color:var(--primary);font-size:0.7rem;font-family:Fira Code,monospace;text-decoration:none;';
+                        a.title = row.gps;
+                        a.textContent = '📍 ' + row.gps;
+                        td.appendChild(a);
+                    } else {
+                        td.innerHTML = '<span class="no-data">—</span>';
+                    }
+                } else {
+                    const v = row[col.key];
+                    if (!v && v !== 0) {
+                        td.innerHTML = row._hasExif ? '<span class="no-data">—</span>' : '<span class="no-exif-badge">No EXIF</span>';
+                    } else {
+                        td.className = ['iso','width','height','fstop','shutter','focal'].includes(col.key) ? 'highlight' : '';
+                        td.title = String(v);
+                        td.textContent = v;
+                    }
+                }
+                tr.appendChild(td);
+            });
+            frag.appendChild(tr);
+        });
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        tbody.appendChild(frag);
+    }
+
+    // ─── SUMMARY ───────────────────────────────────────────────────────────────
+    function renderSummary() {
+        const total = allRows.length;
+        const withExif = allRows.filter(r => r._hasExif).length;
+        const withGps = allRows.filter(r => r.gps).length;
+        const cameras = new Set(allRows.map(r => r.model).filter(Boolean)).size;
+        const dates = allRows.map(r => r.date).filter(Boolean).sort();
+        const dateRange = dates.length ? (dates[0].slice(0,10) + (dates.length > 1 ? ' → ' + dates[dates.length-1].slice(0,10) : '')) : '—';
+
+        document.getElementById('sumTotal').textContent = total;
+        document.getElementById('sumExif').textContent = withExif;
+        document.getElementById('sumNoExif').textContent = total - withExif;
+        document.getElementById('sumCameras').textContent = cameras || '—';
+        document.getElementById('sumGps').textContent = withGps ? withGps + ' photos' : 'None';
+        document.getElementById('sumDates').textContent = dateRange;
+        document.getElementById('summaryStrip').classList.add('visible');
+
+        if (withGps > 0) {
+            document.getElementById('mapHintText').innerHTML = `<strong>${withGps}</strong> photo${withGps>1?'s':''} have GPS coordinates. Click any <strong>📍</strong> in the table to open in Google Maps.`;
+            document.getElementById('mapHint').classList.add('visible');
+        }
+    }
+
+    // ─── COLUMN TOGGLE ────────────────────────────────────────────────────────
+    function buildColDropdown() {
+        const dd = document.getElementById('colDropdown');
+        dd.innerHTML = '';
+        ALL_COLS.forEach(col => {
+            if (col.key === 'thumb') return; // always visible
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.checked = visibleCols.includes(col.key);
+            cb.onchange = () => {
+                if (cb.checked) { if (!visibleCols.includes(col.key)) visibleCols.push(col.key); }
+                else { visibleCols = visibleCols.filter(k => k !== col.key); }
+                renderTable();
+            };
+            label.appendChild(cb);
+            label.append(' ' + col.label);
+            dd.appendChild(label);
+        });
+    }
+
+    function toggleColDropdown() {
+        document.getElementById('colDropdown').classList.toggle('open');
+    }
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.col-toggle-wrap')) document.getElementById('colDropdown').classList.remove('open');
+    });
+
+    // ─── FILTER ────────────────────────────────────────────────────────────────
+    function filterTable() { renderTable(); }
+
+    // ─── EXPORT CSV ───────────────────────────────────────────────────────────
+    function exportCSV() {
+        if (!allRows.length) { showToast('No data to export', 'error'); return; }
+        const cols = ALL_COLS.filter(c => c.key !== 'thumb');
+        const header = cols.map(c => c.label).join(',');
+        const rows = allRows.map(r =>
+            cols.map(c => {
+                const v = c.key === 'size' ? fmtBytes(r._rawSize||0) : String(r[c.key] ?? '');
+                return '"' + v.replace(/"/g, '""') + '"';
+            }).join(',')
+        );
+        const csv = [header, ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'exif_data.csv'; a.click();
+        URL.revokeObjectURL(url);
+        showToast('CSV exported ✓', 'success');
+    }
+
+    // ─── PROGRESS ─────────────────────────────────────────────────────────────
+    function showProgress(show) {
+        document.getElementById('progressWrap').classList.toggle('visible', show);
+    }
+    function updateProgress(done, total) {
+        document.getElementById('progressText').textContent = `Reading EXIF… (${done} of ${total})`;
+        document.getElementById('progressCount').textContent = `${Math.round(done/total*100)}%`;
+        document.getElementById('progressFill').style.width = (done/total*100) + '%';
+    }
+
+    // ─── RESET ────────────────────────────────────────────────────────────────
+    function resetTool() {
+        allRows.forEach(r => { if (r._thumb) URL.revokeObjectURL(r._thumb); });
+        allRows = []; filteredRows = [];
+        document.getElementById('toolbar').classList.remove('visible');
+        document.getElementById('tableWrap').classList.remove('visible');
+        document.getElementById('summaryStrip').classList.remove('visible');
+        document.getElementById('mapHint').classList.remove('visible');
+        document.getElementById('tableHead').innerHTML = '';
+        document.getElementById('tableBody').innerHTML = '';
+        document.getElementById('searchInput').value = '';
+        dz.style.display = '';
+        fi.value = '';
+        showToast('Cleared', '');
+    }
+
+    // ─── TOAST ────────────────────────────────────────────────────────────────
+    function showToast(msg, type='') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type;
+        t.classList.add('show'); clearTimeout(t._t);
+        t._t = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

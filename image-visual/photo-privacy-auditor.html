@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Photo Privacy Audit — What Data Is Hidden in Your Photos? | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Scan any photo for hidden EXIF data — GPS location, device model, exact timestamp, camera settings and more. Free privacy audit, runs entirely in your browser.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FF8C00;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* "How to get original" callout above drop zone */
+        .tip-bar {
+            display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+        }
+        .tip-chip {
+            flex: 1; min-width: 160px; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 12px 14px; font-size: 0.75rem; color: var(--text-sec); line-height: 1.5;
+        }
+        .tip-chip-icon { font-size: 1rem; display: block; margin-bottom: 4px; }
+        .tip-chip strong { color: var(--success); font-weight: 700; display: block; font-size: 0.72rem; margin-bottom: 2px; }
+        .tip-chip.bad { border-color: rgba(255,68,68,0.15); }
+        .tip-chip.bad strong { color: var(--error); }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Section label */
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Privacy Score Card */
+        .score-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 24px; margin-bottom: 20px;
+        }
+        .score-header { display: flex; align-items: center; gap: 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .score-ring-wrap { position: relative; flex-shrink: 0; }
+        .score-ring { width: 76px; height: 76px; }
+        .score-ring circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+        .ring-bg { stroke: rgba(255,255,255,0.06); }
+        .ring-fill { stroke: var(--error); stroke-dasharray: 201; stroke-dashoffset: 201; transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.4s; transform: rotate(-90deg); transform-origin: center; }
+        .score-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 800; font-family: 'Fira Code', monospace; }
+        .score-meta { flex: 1; }
+        .score-label { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+        .score-desc { font-size: 0.8rem; color: var(--text-sec); line-height: 1.5; }
+
+        /* Risk pills row */
+        .risk-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .risk-pill {
+            display: flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--surface);
+            font-size: 0.75rem; font-weight: 700; color: var(--text-dim);
+            min-width: 0; flex: 1;
+        }
+        .risk-pill.found { border-color: rgba(255,68,68,0.3); background: rgba(255,68,68,0.05); color: #FF9090; }
+        .risk-pill.found .rpill-dot { background: var(--error); box-shadow: 0 0 6px rgba(255,68,68,0.5); }
+        .risk-pill.safe { border-color: rgba(170,255,0,0.2); background: rgba(170,255,0,0.04); color: #88CC44; }
+        .risk-pill.safe .rpill-dot { background: var(--success); }
+        .rpill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+        .rpill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Data sections */
+        .data-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; }
+        .data-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; cursor: pointer; transition: background 0.15s;
+        }
+        .data-section-header:hover { background: rgba(255,255,255,0.02); }
+        .dsh-left { display: flex; align-items: center; gap: 10px; }
+        .dsh-icon { font-size: 1.1rem; }
+        .dsh-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+        .dsh-badge { font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .dsh-badge.found { background: rgba(255,68,68,0.12); color: var(--error); border: 1px solid rgba(255,68,68,0.25); }
+        .dsh-badge.safe { background: rgba(170,255,0,0.07); color: var(--success); border: 1px solid rgba(170,255,0,0.2); }
+        .dsh-badge.info { background: var(--primary-dim); color: var(--primary); border: 1px solid var(--primary-border); }
+        .dsh-arrow { font-size: 0.75rem; color: var(--text-dim); transition: transform 0.2s; }
+        .dsh-arrow.open { transform: rotate(180deg); }
+        .data-section-body { display: none; padding: 0 20px 18px; border-top: 1px solid var(--border); }
+        .data-section-body.open { display: block; }
+
+        /* GPS block inside body */
+        .gps-coords { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+        .coord-box { flex: 1; min-width: 140px; background: var(--surface); border: 1px solid var(--border-mid); border-radius: var(--radius-md); padding: 14px 16px; }
+        .coord-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 700; margin-bottom: 4px; }
+        .coord-val { font-size: 0.95rem; font-weight: 700; color: var(--error); font-family: 'Fira Code', monospace; }
+        .coord-dms { font-size: 0.68rem; color: var(--text-dim); margin-top: 3px; font-family: 'Fira Code', monospace; }
+
+        /* Map embed */
+        .map-wrap { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); margin-bottom: 14px; position: relative; background: var(--surface); }
+        .map-wrap iframe { display: block; width: 100%; height: 300px; border: 0; }
+        .map-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; background: var(--surface); font-size: 0.8rem; color: var(--text-dim); }
+        .map-loading .spin { width: 18px; height: 18px; border: 2px solid rgba(255,214,0,0.15); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* EXIF table */
+        .exif-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+        .exif-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+        .exif-table td { padding: 8px 4px; font-size: 0.76rem; vertical-align: top; }
+        .exif-table td:first-child { color: var(--text-dim); font-weight: 700; width: 44%; padding-right: 12px; }
+        .exif-table td:last-child { color: var(--text-sec); font-family: 'Fira Code', monospace; font-size: 0.73rem; word-break: break-all; }
+        .exif-table tr:hover td { background: rgba(255,255,255,0.015); }
+        .exif-highlight td:last-child { color: var(--error) !important; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 22px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-outline { flex: 1; min-width: 120px; padding: 13px 18px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-outline:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Strip instructions */
+        .strip-card { background: rgba(255,140,0,0.05); border: 1px solid rgba(255,140,0,0.2); border-radius: var(--radius-md); padding: 18px 20px; margin-bottom: 20px; }
+        .strip-title { font-size: 0.82rem; font-weight: 800; color: var(--warn); margin-bottom: 12px; }
+        .strip-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+        .strip-item { background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); padding: 10px 12px; }
+        .strip-os { font-size: 0.68rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+        .strip-steps { font-size: 0.74rem; color: var(--text-sec); line-height: 1.7; }
+        .strip-steps code { font-family: 'Fira Code', monospace; font-size: 0.7rem; color: var(--accent); background: rgba(255,183,0,0.07); padding: 1px 5px; border-radius: 3px; }
+
+        /* No data state */
+        .empty-state { text-align: center; padding: 28px 20px; }
+        .empty-state-icon { font-size: 1.8rem; display: block; margin-bottom: 8px; }
+        .empty-state-title { font-size: 0.88rem; font-weight: 700; color: var(--text-sec); margin-bottom: 5px; }
+        .empty-state-sub { font-size: 0.76rem; color: var(--text-dim); line-height: 1.6; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ / SEO */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.5px; }
+        .faq-sub { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 18px; line-height: 1.6; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .tip-bar { flex-direction: column; }
+            .gps-coords { flex-direction: column; }
+            .action-row { flex-direction: column; }
+            .score-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+    <main>
+        <div class="container">
+            <a href="metadata-analysis.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Photo Privacy Audit</h1>
+                <p class="tool-page-sub">Scan what's secretly embedded in your photos — location, device, timestamps, camera settings. The data you never knew you were sharing.</p>
+                <span class="privacy-badge">Runs entirely in your browser — photo never uploaded</span>
+            </div>
+
+            <!-- Works / Doesn't work tip bar -->
+            <div class="tip-bar">
+                <div class="tip-chip">
+                    <span class="tip-chip-icon">✅</span>
+                    <strong>GPS will be found in:</strong>
+                    Original camera shots transferred via USB, cable or AirDrop · iCloud / Google Photos downloads · Email attachments sent as "original" · TIFF & HEIC from iPhone
+                </div>
+                <div class="tip-chip bad">
+                    <span class="tip-chip-icon">⚠️</span>
+                    <strong>GPS is stripped by:</strong>
+                    WhatsApp · Instagram · Facebook · Twitter/X · Telegram · Screenshots · PNG exports from editing apps
+                </div>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🔍</span>
+                <p class="drop-title">Drop any photo to audit its hidden data</p>
+                <p class="drop-sub">JPG · PNG · TIFF · HEIC · WebP &nbsp;·&nbsp; or <span onclick="document.getElementById('fileInput').click()">browse files</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Privacy Score Card -->
+                <div class="score-card" id="scoreCard">
+                    <div class="score-header">
+                        <div class="score-ring-wrap">
+                            <svg class="score-ring" viewBox="0 0 76 76">
+                                <circle class="ring-bg" cx="38" cy="38" r="32"/>
+                                <circle class="ring-fill" id="ringFill" cx="38" cy="38" r="32"/>
+                            </svg>
+                            <div class="score-num" id="scoreNum" style="color:var(--error)">—</div>
+                        </div>
+                        <div class="score-meta">
+                            <div class="score-label" id="scoreLabel">Scanning…</div>
+                            <div class="score-desc" id="scoreDesc">Analysing EXIF metadata embedded in your photo.</div>
+                        </div>
+                    </div>
+                    <div class="risk-row" id="riskRow"></div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row" id="actionRow" style="display:none">
+                    <button class="btn-main" id="btnMaps" onclick="openGoogleMaps()" style="display:none">
+                        <div class="btn-main-inner"><span>🗺️</span><span>Open in Google Maps</span></div>
+                    </button>
+                    <button class="btn-outline" onclick="copyCoords()" id="btnCopyCoords" style="display:none">📋 Copy GPS</button>
+                    <button class="btn-outline" onclick="copyReport()">📄 Copy Full Report</button>
+                </div>
+
+                <!-- Data sections — dynamically populated -->
+                <div id="dataSections"></div>
+
+                <!-- Strip instructions — shown only when GPS found -->
+                <div class="strip-card" id="stripCard" style="display:none">
+                    <div class="strip-title">🛡️ How to remove this data before sharing</div>
+                    <div class="strip-grid">
+                        <div class="strip-item">
+                            <div class="strip-os">Windows</div>
+                            <div class="strip-steps">Right-click file → <code>Properties</code> → <code>Details</code> tab → <code>Remove Properties and Personal Information</code> → Select all → OK</div>
+                        </div>
+                        <div class="strip-item">
+                            <div class="strip-os">macOS</div>
+                            <div class="strip-steps">Open in <code>Preview</code> → <code>File</code> → <code>Export…</code> → uncheck "Embed metadata" · Or: right-click → Quick Actions → Convert Image</div>
+                        </div>
+                        <div class="strip-item">
+                            <div class="strip-os">iPhone</div>
+                            <div class="strip-steps">Share photo → <code>Options</code> (top) → turn off <code>Location</code> before sending. Or share via WhatsApp which strips it automatically.</div>
+                        </div>
+                        <div class="strip-item">
+                            <div class="strip-os">Android</div>
+                            <div class="strip-steps">Open in Google Photos → <code>⋮</code> menu → <code>Remove location</code>. Or go to Camera settings → turn off <code>Save location</code> for future shots.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /tool-panel -->
+
+            <!-- SEO / FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">What data is hidden in your photos?</h2>
+                <p class="faq-sub">
+                    Every JPEG taken by a smartphone or digital camera contains invisible EXIF (Exchangeable Image File) metadata written at the moment of capture.
+                    This tool reads that metadata entirely inside your browser — your photo is never uploaded anywhere.
+                    Here's what gets embedded and why it matters:
+                </p>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>📍 GPS location — the biggest risk</h3>
+                        <p>If your phone's location access is on, every photo stores GPS coordinates accurate to a few metres. Posting an unstripped photo from home can reveal your exact home address to anyone. This works on original files from USB transfer, AirDrop, iCloud/Google Photos downloads, or email "original" attachments.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>⚠️ Why WhatsApp photos show no GPS</h3>
+                        <p>WhatsApp, Instagram, Facebook, Twitter/X and Telegram all automatically strip GPS and most EXIF before storing your photo on their servers. This is a privacy protection — but it also means using this tool on a WhatsApp-received image won't show location. Use it on the <em>original</em> camera file instead.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>📱 Device fingerprint in every shot</h3>
+                        <p>Your camera model, manufacturer, firmware version, and sometimes even a unique serial number are stored in every photo EXIF. This lets anyone identify the exact device that took a photo — used in legal investigations, copyright disputes, and journalism verification.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>🕐 Exact timestamp — down to the second</h3>
+                        <p>EXIF stores three timestamps: original capture time, digitized time, and file modification time. These can be used to verify or disprove an alibi, establish a timeline, or detect if metadata was manipulated — which is why courts increasingly request original photo files.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>📷 Camera settings reveal your gear</h3>
+                        <p>Shutter speed, aperture (f-stop), ISO, focal length, flash status and white balance are all stored. Forensic analysts use these to verify photo authenticity. Photographers use them to review what settings produced a particular result.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>🔒 100% private — how does this work?</h3>
+                        <p>This tool uses the browser's <code>FileReader</code> API to read your file locally, then parses the binary EXIF bytes using a pure JavaScript parser — no libraries, no servers. Your image never leaves your device. It works offline once the page is loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ────────────────────────────────────────────────────────────────
+    let currentLat = null, currentLng = null, currentExif = {}, currentFile = null;
+
+    // ─── RISK ITEMS CONFIG ────────────────────────────────────────────────────
+    // Each item: { key, label, icon, check(exif) -> value|null, risk: 'high'|'info' }
+    const RISK_ITEMS = [
+        { key: 'gps',      label: 'GPS Location',    icon: '📍', risk: 'high',
+          check: e => (e['GPS Lat'] && e['GPS Lng']) ? 'Found' : null },
+        { key: 'device',   label: 'Device Model',    icon: '📱', risk: 'info',
+          check: e => [e['Camera Make'], e['Camera Model']].filter(Boolean).join(' ') || null },
+        { key: 'datetime', label: 'Exact Timestamp', icon: '🕐', risk: 'info',
+          check: e => e['Date Taken'] || e['Date Modified'] || null },
+        { key: 'software', label: 'Software / App',  icon: '💻', risk: 'info',
+          check: e => e['Software'] || null },
+        { key: 'altitude', label: 'Altitude',        icon: '⛰️', risk: 'info',
+          check: e => (e['GPS Alt'] !== undefined) ? (parseFloat(e['GPS Alt']).toFixed(1)+' m') : null },
+    ];
+
+    // ─── DROP ZONE ────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        currentFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const buf = e.target.result;
+            document.getElementById('imgThumb').src = URL.createObjectURL(file);
+            document.getElementById('imgName').textContent = file.name;
+            document.getElementById('imgDims').textContent = fmtBytes(file.size) + ' · ' + (file.type || 'image');
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+
+            try {
+                const exif = parseEXIF(buf);
+                currentExif = exif;
+                renderAll(exif);
+            } catch(err) {
+                renderAll({});
+                showToast('Limited EXIF found — file may be PNG/WebP or stripped', 'error');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        document.getElementById('dataSections').innerHTML = '';
+        document.getElementById('riskRow').innerHTML = '';
+        document.getElementById('stripCard').style.display = 'none';
+        document.getElementById('actionRow').style.display = 'none';
+        fi.value = '';
+        currentLat = null; currentLng = null; currentExif = {}; currentFile = null;
+    }
+
+    // ─── EXIF PARSER ─────────────────────────────────────────────────────────
+    function parseEXIF(buf) {
+        const view = new DataView(buf);
+        const result = {};
+        if (view.byteLength < 4) return result;
+
+        // JPEG check
+        if (view.getUint16(0) !== 0xFFD8) return result;
+
+        let offset = 2;
+        while (offset + 4 < view.byteLength) {
+            const marker = view.getUint16(offset);
+            if (marker === 0xFFE1) { offset += 2; break; }
+            if ((marker & 0xFF00) !== 0xFF00) break;
+            offset += 2 + view.getUint16(offset + 2);
+        }
+        if (offset + 10 > view.byteLength) return result;
+
+        // APP1 length + "Exif\0\0"
+        const segLen = view.getUint16(offset);
+        const hdr = String.fromCharCode(view.getUint8(offset+2),view.getUint8(offset+3),view.getUint8(offset+4),view.getUint8(offset+5));
+        if (hdr !== 'Exif') return result;
+
+        const tiff = offset + 8;
+        const endian = view.getUint16(tiff);
+        const le = (endian === 0x4949);
+
+        const r16 = o => view.getUint16(tiff+o, le);
+        const r32 = o => view.getUint32(tiff+o, le);
+        const rs32 = o => view.getInt32(tiff+o, le);
+
+        const readRat  = o => { const n=r32(o),d=r32(o+4); return d?n/d:0; };
+        const readSRat = o => { const n=rs32(o),d=rs32(o+4); return d?n/d:0; };
+
+        function readStr(o, len) {
+            let s='';
+            for(let i=0;i<len-1&&tiff+o+i<buf.byteLength;i++){
+                const c=view.getUint8(tiff+o+i); if(!c) break; s+=String.fromCharCode(c);
+            }
+            return s.trim();
+        }
+
+        const TAGS = {
+            0x010F:'Camera Make',0x0110:'Camera Model',0x0112:'Orientation',
+            0x011A:'X Resolution',0x011B:'Y Resolution',0x0128:'Resolution Unit',
+            0x0131:'Software',0x0132:'Date Modified',0x013B:'Artist',0x8298:'Copyright',
+            0x8769:'_ExifIFD',0x8825:'_GpsIFD',
+            0x9003:'Date Taken',0x9004:'Date Digitized',
+            0x9290:'Subsec Time',0x9291:'Subsec Original',
+            0xA002:'Image Width',0xA003:'Image Height',
+            0x8827:'ISO',0x829A:'Exposure Time',0x829D:'F-Number',
+            0x9201:'Shutter Speed',0x9202:'Aperture',0x9204:'Exposure Bias',
+            0x9207:'Metering Mode',0x9208:'Light Source',0x9209:'Flash',
+            0x920A:'Focal Length',0xA405:'Focal Length 35mm',
+            0xA001:'Color Space',0xA300:'File Source',0xA301:'Scene Type',
+            0xA420:'Image Unique ID',0xA434:'Lens Model',0xA435:'Lens Serial',
+            // GPS
+            0x0001:'GPS Lat Ref',0x0002:'GPS Lat',0x0003:'GPS Lng Ref',0x0004:'GPS Lng',
+            0x0005:'GPS Alt Ref',0x0006:'GPS Alt',0x0007:'GPS Time',0x0008:'GPS Satellites',
+            0x000C:'GPS Speed Ref',0x000D:'GPS Speed',0x000E:'GPS Track Ref',0x000F:'GPS Track',
+            0x0010:'GPS Dir Ref',0x0011:'GPS Dir',0x001D:'GPS Date',
+        };
+
+        const TYPE_SIZES = [0,1,1,2,4,8,1,1,2,4,8,4,8];
+
+        function readIFD(ifdOff) {
+            if (ifdOff + 2 > view.byteLength - tiff) return;
+            const count = r16(ifdOff);
+            for (let i = 0; i < count && i < 256; i++) {
+                const eOff = ifdOff + 2 + i*12;
+                if (tiff+eOff+12 > view.byteLength) break;
+                const tag  = r16(eOff);
+                const type = r16(eOff+2);
+                const n    = r32(eOff+4);
+                const tsz  = TYPE_SIZES[type] || 1;
+                let vOff   = eOff + 8;
+                if (n * tsz > 4) vOff = r32(eOff+8);
+
+                let val;
+                try {
+                    if (type===2) { val = readStr(vOff, n); }
+                    else if (type===5) {
+                        if (n===1) val = readRat(vOff);
+                        else { val=[]; for(let j=0;j<Math.min(n,8);j++) val.push(readRat(vOff+j*8)); }
+                    }
+                    else if (type===10) { val = readSRat(vOff); }
+                    else if (type===3)  { val = r16(vOff); }
+                    else if (type===4||type===9) { val = r32(vOff); }
+                    else if (type===1)  { val = n>1?[...Array(Math.min(n,8))].map((_,j)=>view.getUint8(tiff+vOff+j)):view.getUint8(tiff+vOff); }
+                } catch(e){ continue; }
+
+                const name = TAGS[tag];
+                if (!name) continue;
+                if (val !== undefined && val !== null && val !== '') result[name] = val;
+
+                if (name==='_ExifIFD') try { readIFD(val); } catch(e){}
+                if (name==='_GpsIFD') try { readIFD(val); } catch(e){}
+            }
+        }
+
+        const ifd0 = r32(4);
+        readIFD(ifd0);
+        delete result['_ExifIFD']; delete result['_GpsIFD'];
+        return result;
+    }
+
+    // ─── GPS HELPERS ─────────────────────────────────────────────────────────
+    function gpsToDecimal(arr) {
+        if (!Array.isArray(arr)||arr.length<3) return null;
+        return arr[0]+arr[1]/60+arr[2]/3600;
+    }
+    function decToDMS(d) {
+        const deg=Math.floor(Math.abs(d)), min=Math.floor((Math.abs(d)-deg)*60);
+        const sec=((Math.abs(d)-deg-min/60)*3600).toFixed(1);
+        return `${deg}° ${min}' ${sec}"`;
+    }
+
+    // ─── FORMAT EXIF VALUES ──────────────────────────────────────────────────
+    function fmtVal(key, val) {
+        if (val===null||val===undefined) return '—';
+        if (key==='Exposure Time'&&typeof val==='number') return val<1?`1/${Math.round(1/val)}s`:val.toFixed(4)+'s';
+        if (key==='F-Number'&&typeof val==='number') return 'f/'+val.toFixed(1);
+        if (key==='Focal Length'||key==='Focal Length 35mm') return typeof val==='number'?val.toFixed(1)+' mm':val;
+        if (key==='Flash') { const m={0:'No flash',1:'Fired',5:'Fired, no return',7:'Fired, return',16:'Off',24:'Auto, no fire',25:'Auto, fired',32:'Not available',65:'Red-eye reduction'}; return m[val]||'Code '+val; }
+        if (key==='Metering Mode') { const m={0:'Unknown',1:'Average',2:'Center-weighted',3:'Spot',4:'Multi-spot',5:'Multi-segment',6:'Partial'}; return m[val]||val; }
+        if (key==='Color Space') return val===1?'sRGB':val===65535?'Uncalibrated':'Code '+val;
+        if (key==='Orientation') { const m={1:'Normal',3:'Rotated 180°',6:'Rotated 90° CW',8:'Rotated 90° CCW'}; return m[val]||'Code '+val; }
+        if (Array.isArray(val)) return val.map(v=>typeof v==='number'?v.toFixed(4).replace(/\.?0+$/,''):v).join(', ');
+        if (typeof val==='number') return val.toFixed(4).replace(/\.?0+$/,'');
+        return String(val);
+    }
+
+    // ─── RENDER ALL ──────────────────────────────────────────────────────────
+    function renderAll(exif) {
+        // Resolve GPS first
+        let lat=null, lng=null, hasGps=false;
+        if (exif['GPS Lat'] && exif['GPS Lng']) {
+            lat = gpsToDecimal(exif['GPS Lat']);
+            lng = gpsToDecimal(exif['GPS Lng']);
+            if (lat!==null&&lng!==null) {
+                if (exif['GPS Lat Ref']==='S') lat=-lat;
+                if (exif['GPS Lng Ref']==='W') lng=-lng;
+                currentLat=lat; currentLng=lng; hasGps=true;
+            }
+        }
+
+        // Score: count found sensitive items
+        const gpsFound    = hasGps;
+        const deviceFound = !!(exif['Camera Make']||exif['Camera Model']);
+        const dateFound   = !!(exif['Date Taken']||exif['Date Modified']);
+        const softFound   = !!exif['Software'];
+        const altFound    = exif['GPS Alt']!==undefined;
+        const totalFields = Object.keys(exif).filter(k=>!k.startsWith('GPS Lat')&&!k.startsWith('GPS Lng')&&!k.startsWith('GPS Alt')&&k!=='_ExifIFD'&&k!=='_GpsIFD').length + (hasGps?3:0);
+
+        const foundCount = [gpsFound,deviceFound,dateFound,softFound,altFound].filter(Boolean).length;
+        const hasAny = totalFields > 0 || hasGps;
+
+        // Privacy exposure score (0=safe, 100=fully exposed)
+        let exposure = 0;
+        if (gpsFound)    exposure += 55;
+        if (deviceFound) exposure += 15;
+        if (dateFound)   exposure += 15;
+        if (softFound)   exposure += 8;
+        if (altFound)    exposure += 7;
+        exposure = Math.min(100, exposure);
+
+        // Render score ring
+        const CIRC = 201;
+        const fillPct = exposure / 100;
+        const offset  = CIRC - (CIRC * fillPct);
+        const ring    = document.getElementById('ringFill');
+        const scoreNum= document.getElementById('scoreNum');
+        setTimeout(() => { ring.style.strokeDashoffset = offset; }, 60);
+        ring.style.stroke = exposure>=55?'var(--error)':exposure>=25?'var(--warn)':'var(--success)';
+        scoreNum.style.color = exposure>=55?'var(--error)':exposure>=25?'var(--warn)':'var(--success)';
+        scoreNum.textContent = exposure+'%';
+
+        let lbl, desc;
+        if (!hasAny) {
+            lbl='No EXIF Data Found'; desc='This image has no readable metadata — it was likely stripped by an app or is a PNG/WebP/screenshot.';
+            scoreNum.textContent='0%'; ring.style.stroke='var(--success)'; scoreNum.style.color='var(--success)';
+        } else if (gpsFound) {
+            lbl='⚠️ High Exposure — GPS Found'; desc='This photo contains GPS coordinates that pinpoint the exact location where it was taken. Do not share this file publicly without stripping it first.';
+        } else if (deviceFound||dateFound) {
+            lbl='Moderate Exposure — Device & Time'; desc='No GPS, but this photo reveals your device model and exact capture timestamp. This can still be used for device fingerprinting or timeline analysis.';
+        } else {
+            lbl='Low Exposure — Basic Metadata Only'; desc='No sensitive location or device data found. This photo has minimal identifiable information embedded.';
+        }
+        document.getElementById('scoreLabel').textContent = lbl;
+        document.getElementById('scoreDesc').textContent  = desc;
+
+        // Risk pills
+        const riskRow = document.getElementById('riskRow');
+        riskRow.innerHTML = '';
+        const pills = [
+            { label: 'GPS Location',   found: gpsFound,    icon: '📍' },
+            { label: 'Device Model',   found: deviceFound, icon: '📱' },
+            { label: 'Timestamp',      found: dateFound,   icon: '🕐' },
+            { label: 'Software Info',  found: softFound,   icon: '💻' },
+            { label: 'Altitude',       found: altFound,    icon: '⛰️' },
+        ];
+        pills.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'risk-pill ' + (p.found ? 'found' : 'safe');
+            div.innerHTML = `<span class="rpill-dot"></span><span class="rpill-label">${p.icon} ${p.label}</span>`;
+            riskRow.appendChild(div);
+        });
+
+        // Action buttons
+        const ar = document.getElementById('actionRow');
+        ar.style.display = hasAny ? 'flex' : 'none';
+        document.getElementById('btnMaps').style.display     = hasGps ? 'flex' : 'none';
+        document.getElementById('btnCopyCoords').style.display = hasGps ? 'block' : 'none';
+
+        // Strip card
+        document.getElementById('stripCard').style.display = hasGps ? 'block' : 'none';
+
+        // Build data sections
+        const container = document.getElementById('dataSections');
+        container.innerHTML = '';
+
+        // 1. GPS Section
+        buildSection(container, {
+            icon: '📍', title: 'GPS Location', openByDefault: true,
+            badge: gpsFound ? 'found' : 'safe',
+            badgeText: gpsFound ? '⚠ SENSITIVE' : 'Not Found',
+            render: body => {
+                if (!gpsFound) {
+                    body.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🗺️</span><div class="empty-state-title">No GPS data found</div><div class="empty-state-sub">GPS is stripped by WhatsApp, Instagram, screenshots, and most editing apps.<br>Try the original camera file transferred via USB or AirDrop.</div></div>`;
+                    return;
+                }
+                // Coords
+                const div = document.createElement('div');
+                div.innerHTML = `<div class="gps-coords">
+                    <div class="coord-box"><div class="coord-label">Latitude</div><div class="coord-val">${lat.toFixed(6)}°</div><div class="coord-dms">${decToDMS(lat)} ${lat>=0?'N':'S'}</div></div>
+                    <div class="coord-box"><div class="coord-label">Longitude</div><div class="coord-val">${lng.toFixed(6)}°</div><div class="coord-dms">${decToDMS(lng)} ${lng>=0?'E':'W'}</div></div>
+                    ${altFound?`<div class="coord-box"><div class="coord-label">Altitude</div><div class="coord-val" style="color:var(--primary)">${parseFloat(exif['GPS Alt']).toFixed(1)} m</div><div class="coord-dms">above sea level</div></div>`:''}
+                </div>
+                <div class="map-wrap"><div class="map-loading" id="mapLoading"><div class="spin"></div><span>Loading map…</span></div>
+                <iframe id="mapEmbed" src="https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed" title="Photo location" loading="lazy" onload="document.getElementById('mapLoading').style.display='none'"></iframe></div>`;
+                // GPS metadata table
+                const gpsKeys = ['GPS Lat Ref','GPS Lng Ref','GPS Alt Ref','GPS Time','GPS Date','GPS Speed','GPS Dir','GPS Satellites'];
+                const gpsRows = gpsKeys.filter(k=>exif[k]!==undefined).map(k=>`<tr><td>${k}</td><td>${fmtVal(k,exif[k])}</td></tr>`).join('');
+                if (gpsRows) div.innerHTML += `<table class="exif-table">${gpsRows}</table>`;
+                body.appendChild(div);
+            }
+        });
+
+        // 2. Device section
+        const deviceRows = ['Camera Make','Camera Model','Lens Model','Lens Serial','Image Unique ID','Software'].filter(k=>exif[k]);
+        buildSection(container, {
+            icon: '📱', title: 'Device & Lens',
+            badge: deviceFound ? 'info' : 'safe',
+            badgeText: deviceFound ? 'Exposed' : 'Not Found',
+            openByDefault: deviceFound,
+            render: body => {
+                if (!deviceFound && !exif['Software']) { body.innerHTML=`<div class="empty-state"><span class="empty-state-icon">📱</span><div class="empty-state-title">No device info found</div></div>`; return; }
+                const table = document.createElement('table'); table.className='exif-table';
+                deviceRows.forEach(k => { const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td>${fmtVal(k,exif[k])}</td>`; if(k==='Camera Make'||k==='Camera Model') tr.classList.add('exif-highlight'); table.appendChild(tr); });
+                body.appendChild(table);
+            }
+        });
+
+        // 3. Timestamp section
+        const dateKeys = ['Date Taken','Date Digitized','Date Modified','Subsec Time','Subsec Original'];
+        const dateRows = dateKeys.filter(k=>exif[k]);
+        buildSection(container, {
+            icon: '🕐', title: 'Timestamps',
+            badge: dateFound ? 'info' : 'safe',
+            badgeText: dateFound ? 'Exposed' : 'Not Found',
+            openByDefault: dateFound,
+            render: body => {
+                if (!dateRows.length) { body.innerHTML=`<div class="empty-state"><span class="empty-state-icon">🕐</span><div class="empty-state-title">No timestamp found</div></div>`; return; }
+                const table = document.createElement('table'); table.className='exif-table';
+                dateRows.forEach(k => { const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td>${fmtVal(k,exif[k])}</td>`; tr.classList.add('exif-highlight'); table.appendChild(tr); });
+                body.appendChild(table);
+            }
+        });
+
+        // 4. Camera settings
+        const camKeys = ['Exposure Time','F-Number','ISO','Focal Length','Focal Length 35mm','Shutter Speed','Aperture','Exposure Bias','Flash','Metering Mode','Light Source','Color Space','Orientation','X Resolution','Y Resolution','Image Width','Image Height'];
+        const camRows = camKeys.filter(k=>exif[k]!==undefined);
+        buildSection(container, {
+            icon: '📷', title: 'Camera Settings',
+            badge: camRows.length ? 'info' : 'safe',
+            badgeText: camRows.length ? camRows.length+' fields' : 'None',
+            openByDefault: false,
+            render: body => {
+                if (!camRows.length) { body.innerHTML=`<div class="empty-state"><span class="empty-state-icon">📷</span><div class="empty-state-title">No camera settings found</div></div>`; return; }
+                const table = document.createElement('table'); table.className='exif-table';
+                camRows.forEach(k => { const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td>${fmtVal(k,exif[k])}</td>`; table.appendChild(tr); });
+                body.appendChild(table);
+            }
+        });
+
+        // 5. Copyright / Author
+        const metaKeys = ['Artist','Copyright','Software','Image Unique ID'];
+        const metaRows = metaKeys.filter(k=>exif[k]);
+        if (metaRows.length) {
+            buildSection(container, {
+                icon: '©️', title: 'Author & Copyright',
+                badge: 'info', badgeText: 'Found',
+                openByDefault: true,
+                render: body => {
+                    const table = document.createElement('table'); table.className='exif-table';
+                    metaRows.forEach(k => { const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td>${fmtVal(k,exif[k])}</td>`; table.appendChild(tr); });
+                    body.appendChild(table);
+                }
+            });
+        }
+
+        if (!hasAny) showToast('No EXIF found — PNG, WebP & screenshots have no metadata', 'error');
+        else if (gpsFound) showToast('⚠️ GPS location found in this photo!', 'error');
+        else showToast('Scan complete — no GPS found', 'success');
+    }
+
+    // ─── BUILD COLLAPSIBLE SECTION ────────────────────────────────────────────
+    function buildSection(parent, { icon, title, badge, badgeText, openByDefault, render }) {
+        const id = 'sec_' + Math.random().toString(36).slice(2,7);
+        const wrap = document.createElement('div'); wrap.className='data-section';
+        const header = document.createElement('div'); header.className='data-section-header';
+        header.innerHTML = `<div class="dsh-left"><span class="dsh-icon">${icon}</span><span class="dsh-title">${title}</span><span class="dsh-badge ${badge}">${badgeText}</span></div><span class="dsh-arrow ${openByDefault?'open':''}" id="arr_${id}">▼</span>`;
+        const body = document.createElement('div'); body.className='data-section-body'+(openByDefault?' open':''); body.id=id;
+        render(body);
+        header.addEventListener('click', () => { body.classList.toggle('open'); document.getElementById('arr_'+id).classList.toggle('open'); });
+        wrap.appendChild(header); wrap.appendChild(body); parent.appendChild(wrap);
+    }
+
+    // ─── ACTIONS ─────────────────────────────────────────────────────────────
+    function openGoogleMaps() {
+        if (currentLat===null) return;
+        window.open(`https://www.google.com/maps?q=${currentLat},${currentLng}&z=15`,'_blank');
+    }
+
+    function copyCoords() {
+        if (currentLat===null) return;
+        navigator.clipboard.writeText(`${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`)
+            .then(()=>showToast('GPS coordinates copied!','success'))
+            .catch(()=>showToast('Copy failed','error'));
+    }
+
+    function copyReport() {
+        const exif = currentExif;
+        const device = [exif['Camera Make'],exif['Camera Model']].filter(Boolean).join(' ')||'Not found';
+        const date   = exif['Date Taken']||exif['Date Modified']||'Not found';
+        const gps    = currentLat!==null ? `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}\n  Google Maps: https://www.google.com/maps?q=${currentLat},${currentLng}` : 'Not found (stripped or not present)';
+        let report   = `=== PHOTO PRIVACY AUDIT REPORT ===\nFile: ${currentFile?currentFile.name:'Unknown'} (${currentFile?fmtBytes(currentFile.size):''})\n\n`;
+        report += `GPS Location:  ${gps}\n`;
+        report += `Device:        ${device}\n`;
+        report += `Date Taken:    ${date}\n`;
+        report += `Software:      ${exif['Software']||'Not found'}\n`;
+        if (exif['Lens Model']) report += `Lens:          ${exif['Lens Model']}\n`;
+        report += `\n=== ALL EXIF FIELDS ===\n`;
+        Object.entries(exif).forEach(([k,v])=>{ report+=`${k.padEnd(22)} ${fmtVal(k,v)}\n`; });
+        report += `\nGenerated by Rebrixe Photo Privacy Audit — 100% private, browser-only.`;
+        navigator.clipboard.writeText(report)
+            .then(()=>showToast('Full report copied!','success'))
+            .catch(()=>showToast('Copy failed','error'));
+    }
+
+    // ─── UTILS ───────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

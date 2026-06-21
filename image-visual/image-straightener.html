@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Straightener — Fix Tilted Photos with Precision | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Straighten tilted photos with decimal-precision rotation. Grid overlay, horizon guide, auto-crop, instant download. Free, browser-only — your image never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Canvas wrapper */
+        .canvas-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .canvas-wrap {
+            position: relative; background: repeating-conic-gradient(#1a1600 0% 25%, #0e0d00 0% 50%) 0 0 / 20px 20px;
+            border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center;
+            min-height: 300px; max-height: 480px;
+        }
+        #previewCanvas { max-width: 100%; max-height: 480px; display: block; border-radius: 4px; }
+        #gridCanvas { position: absolute; inset: 0; pointer-events: none; border-radius: 4px; }
+
+        /* Rotation controls */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+
+        /* Big angle display */
+        .angle-display { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
+        .angle-val-wrap { text-align: center; }
+        .angle-big { font-family: 'Fira Code', monospace; font-size: 3rem; font-weight: 500; color: var(--primary); line-height: 1; letter-spacing: -2px; }
+        .angle-unit { font-size: 0.7rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+        .angle-btns { display: flex; flex-direction: column; gap: 6px; }
+        .nudge-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-mid); background: var(--surface); color: var(--text-sec); font-size: 1rem; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; }
+        .nudge-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .nudge-btn:active { transform: scale(0.93); }
+
+        /* Slider */
+        .slider-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .slider-label { font-size: 0.68rem; color: var(--text-dim); font-weight: 700; min-width: 28px; font-family: 'Fira Code', monospace; }
+        .rot-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .rot-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 10px rgba(255,214,0,0.45); transition: transform 0.15s; }
+        .rot-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* Quick presets row */
+        .quick-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+        .qbtn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.15s; font-family: 'Outfit', sans-serif; }
+        .qbtn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Options row */
+        .options-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Fine input */
+        .fine-row { display: flex; gap: 8px; align-items: center; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500; padding: 9px 13px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 110px; }
+        .px-input:focus { border-color: var(--primary); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+        .btn-ghost { flex: 1; min-width: 120px; padding: 14px 20px; border-radius: 14px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-ghost:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Format row */
+        .format-row { display: flex; gap: 8px; align-items: center; padding: 14px 18px; background: var(--surface); border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+        .format-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-right: 4px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Degree indicator ring */
+        .degree-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+        .degree-ring svg { width: 100%; height: 100%; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .angle-big { font-size: 2.2rem; }
+            .action-row { flex-direction: column; }
+            .options-row { grid-template-columns: 1fr; }
+            .btn-main, .btn-secondary, .btn-ghost { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Straightener</h1>
+                <p class="tool-page-sub">Fix tilted shots with decimal precision. Grid overlay, horizon guide, auto-crop to remove edges.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">📐</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Canvas preview -->
+                <div class="canvas-section">
+                    <div class="section-label">Live Preview</div>
+                    <div class="canvas-wrap" id="canvasWrap">
+                        <canvas id="previewCanvas"></canvas>
+                        <canvas id="gridCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Rotation</div>
+
+                    <!-- Big angle readout + nudge -->
+                    <div class="angle-display">
+                        <!-- Dial SVG -->
+                        <div class="degree-ring">
+                            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" id="dialSvg">
+                                <circle cx="40" cy="40" r="34" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+                                <circle cx="40" cy="40" r="34" stroke="rgba(255,214,0,0.22)" stroke-width="2" stroke-dasharray="213.6" stroke-dashoffset="213.6" id="dialArc" stroke-linecap="round"/>
+                                <line id="dialNeedle" x1="40" y1="40" x2="40" y2="10" stroke="#FFD600" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="40" cy="40" r="3" fill="#FFD600"/>
+                            </svg>
+                        </div>
+                        <div class="angle-val-wrap">
+                            <div class="angle-big" id="angleBig">0.0°</div>
+                            <div class="angle-unit">degrees</div>
+                        </div>
+                        <div class="angle-btns">
+                            <button class="nudge-btn" title="+0.1°" onclick="nudge(0.1)">▲</button>
+                            <button class="nudge-btn" title="−0.1°" onclick="nudge(-0.1)">▼</button>
+                        </div>
+                    </div>
+
+                    <!-- Slider −45 to +45 -->
+                    <div class="slider-wrap">
+                        <span class="slider-label">−45</span>
+                        <input type="range" class="rot-slider" id="rotSlider" min="-45" max="45" step="0.1" value="0" oninput="onSlider(this.value)">
+                        <span class="slider-label">+45</span>
+                    </div>
+
+                    <!-- Quick angle presets -->
+                    <div style="margin-bottom:10px;">
+                        <div class="section-label" style="margin-bottom:8px;">Quick adjust</div>
+                        <div class="quick-row">
+                            <button class="qbtn" onclick="nudge(-5)">−5°</button>
+                            <button class="qbtn" onclick="nudge(-1)">−1°</button>
+                            <button class="qbtn" onclick="nudge(-0.5)">−0.5°</button>
+                            <button class="qbtn" onclick="setAngle(0)">Reset 0°</button>
+                            <button class="qbtn" onclick="nudge(0.5)">+0.5°</button>
+                            <button class="qbtn" onclick="nudge(1)">+1°</button>
+                            <button class="qbtn" onclick="nudge(5)">+5°</button>
+                        </div>
+                    </div>
+
+                    <!-- Fine input -->
+                    <div style="margin-bottom:18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <div class="section-label" style="margin-bottom:0; white-space:nowrap;">Exact angle</div>
+                        <input class="px-input" type="number" id="fineInput" step="0.1" min="-45" max="45" placeholder="e.g. -2.3" style="width:110px;">
+                        <button class="tog-btn" onclick="applyFine()">Set</button>
+                        <button class="tog-btn" onclick="setAngle(90)" title="Rotate 90° CW">↻ 90°</button>
+                        <button class="tog-btn" onclick="setAngle(-90)" title="Rotate 90° CCW">↺ 90°</button>
+                        <button class="tog-btn" onclick="setAngle(180)">↕ 180°</button>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="options-row">
+                        <div class="opt-group">
+                            <label>Grid Overlay</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn" data-grid="none" onclick="setGrid(this)">None</button>
+                                <button class="tog-btn active" data-grid="thirds" onclick="setGrid(this)">Rule of Thirds</button>
+                                <button class="tog-btn" data-grid="center" onclick="setGrid(this)">Crosshair</button>
+                                <button class="tog-btn" data-grid="fine" onclick="setGrid(this)">Fine Grid</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Edge Handling</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-edge="autocrop" onclick="setEdge(this)">Auto-Crop</button>
+                                <button class="tog-btn" data-edge="fill" onclick="setEdge(this)">Fill Black</button>
+                                <button class="tog-btn" data-edge="transparent" onclick="setEdge(this)">Transparent</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Output Format</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doExport()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⬇</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Download Straightened Image</span>
+                        </div>
+                    </button>
+                    <button class="btn-ghost" onclick="setAngle(0)">↺ Reset</button>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Decimal precision</h3>
+                        <p>Rotate to <code>0.1°</code> increments — perfect for fixing the subtle 1–2° tilt that ruins an otherwise great shot. Use the nudge arrows for hair-fine adjustments.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Rule of thirds grid</h3>
+                        <p>Toggle the grid overlay while rotating so you can align horizons, buildings, and subjects to the guidelines — no guessing, no re-editing later.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Auto-crop removes white corners</h3>
+                        <p><code>Auto-Crop</code> automatically trims the rotated image to the largest rectangle with no empty corners. Your final image is clean with no black or transparent edges.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs on the <code>Canvas API</code> inside your browser. Your photo never touches a server. Works offline once the page is loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let angle = 0;       // degrees, full range for 90/180; clamped to -45..45 for slider
+    let gridMode = 'thirds';
+    let edgeMode = 'autocrop';
+    let outputFmt = 'jpeg';
+
+    // ── DROP / LOAD ────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                angle = 0;
+                syncSlider();
+                renderPreview();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = ''; document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origImg = null; origFile = null; angle = 0;
+    }
+
+    // ── CONTROLS ──────────────────────────────────────────────────────────────
+    function setGrid(btn) { document.querySelectorAll('[data-grid]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); gridMode = btn.dataset.grid; renderPreview(); }
+    function setEdge(btn) { document.querySelectorAll('[data-edge]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); edgeMode = btn.dataset.edge; renderPreview(); }
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+
+    function onSlider(v) { angle = parseFloat(v); syncUI(); renderPreview(); }
+    function nudge(d) { angle = Math.round((angle + d) * 10) / 10; syncSlider(); syncUI(); renderPreview(); }
+    function setAngle(v) { angle = v; syncSlider(); syncUI(); renderPreview(); }
+    function applyFine() {
+        const v = parseFloat(document.getElementById('fineInput').value);
+        if (isNaN(v)) { showToast('Enter a valid angle', 'error'); return; }
+        angle = Math.round(v * 10) / 10;
+        syncSlider(); syncUI(); renderPreview();
+    }
+
+    function syncSlider() {
+        // Slider clamped to -45..45 visually
+        const clamped = Math.max(-45, Math.min(45, angle));
+        document.getElementById('rotSlider').value = clamped;
+    }
+
+    function syncUI() {
+        document.getElementById('angleBig').textContent = (angle >= 0 ? '+' : '') + angle.toFixed(1) + '°';
+        document.getElementById('fineInput').value = angle;
+        // Dial needle
+        const rad = (angle / 180) * Math.PI;
+        const cx = 40, cy = 40, r = 30;
+        const nx = cx + r * Math.sin(rad);
+        const ny = cy - r * Math.cos(rad);
+        document.getElementById('dialNeedle').setAttribute('x2', nx);
+        document.getElementById('dialNeedle').setAttribute('y2', ny);
+        // Arc
+        const pct = Math.abs(angle) / 45;
+        const circ = 2 * Math.PI * 34;
+        document.getElementById('dialArc').setAttribute('stroke-dashoffset', circ - circ * Math.min(pct, 1));
+        document.getElementById('dialArc').setAttribute('stroke', angle < 0 ? '#FF9500' : '#FFD600');
+    }
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
+    function renderPreview() {
+        if (!origImg) return;
+        const wrap = document.getElementById('canvasWrap');
+        const pc = document.getElementById('previewCanvas');
+        const gc = document.getElementById('gridCanvas');
+
+        const rad = (angle * Math.PI) / 180;
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+
+        // Compute output canvas size
+        let outW, outH;
+        if (edgeMode === 'autocrop') {
+            // Largest inscribed rectangle
+            const { w, h } = largestRect(sw, sh, Math.abs(rad));
+            outW = Math.round(w); outH = Math.round(h);
+        } else {
+            // Bounding box of rotated image
+            outW = Math.round(Math.abs(sw * Math.cos(rad)) + Math.abs(sh * Math.sin(rad)));
+            outH = Math.round(Math.abs(sw * Math.sin(rad)) + Math.abs(sh * Math.cos(rad)));
+        }
+
+        pc.width = outW; pc.height = outH;
+        gc.width = outW; gc.height = outH;
+
+        // Scale for display
+        const maxW = wrap.clientWidth || 800;
+        const maxH = 460;
+        const scale = Math.min(maxW / outW, maxH / outH, 1);
+        pc.style.width = gc.style.width = Math.round(outW * scale) + 'px';
+        pc.style.height = gc.style.height = Math.round(outH * scale) + 'px';
+
+        const ctx = pc.getContext('2d');
+        ctx.clearRect(0, 0, outW, outH);
+
+        if (edgeMode === 'fill') {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, outW, outH);
+        }
+
+        ctx.save();
+        ctx.translate(outW / 2, outH / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(origImg, -sw / 2, -sh / 2, sw, sh);
+        ctx.restore();
+
+        // Grid overlay
+        drawGrid(gc, outW, outH);
+    }
+
+    function drawGrid(canvas, w, h) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        if (gridMode === 'none') return;
+
+        ctx.strokeStyle = 'rgba(255,214,0,0.35)';
+        ctx.lineWidth = Math.max(1, w / 800);
+
+        if (gridMode === 'thirds') {
+            for (let i = 1; i <= 2; i++) {
+                ctx.beginPath(); ctx.moveTo(w * i / 3, 0); ctx.lineTo(w * i / 3, h); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, h * i / 3); ctx.lineTo(w, h * i / 3); ctx.stroke();
+            }
+        } else if (gridMode === 'center') {
+            ctx.strokeStyle = 'rgba(255,214,0,0.55)';
+            ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+            // Diagonals
+            ctx.strokeStyle = 'rgba(255,214,0,0.18)';
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(w, 0); ctx.lineTo(0, h); ctx.stroke();
+        } else if (gridMode === 'fine') {
+            ctx.strokeStyle = 'rgba(255,214,0,0.18)';
+            const cols = 10, rows = 10;
+            for (let i = 1; i < cols; i++) { ctx.beginPath(); ctx.moveTo(w * i / cols, 0); ctx.lineTo(w * i / cols, h); ctx.stroke(); }
+            for (let j = 1; j < rows; j++) { ctx.beginPath(); ctx.moveTo(0, h * j / rows); ctx.lineTo(w, h * j / rows); ctx.stroke(); }
+            // Stronger center
+            ctx.strokeStyle = 'rgba(255,214,0,0.45)';
+            ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+        }
+
+        // Horizon reference line (always)
+        ctx.strokeStyle = 'rgba(255,68,68,0.5)';
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Largest inscribed rectangle in a rotated rectangle
+    function largestRect(w, h, angle) {
+        // angle in radians (positive)
+        const a = angle % (Math.PI / 2);
+        if (a === 0) return { w, h };
+        const sinA = Math.abs(Math.sin(a)), cosA = Math.abs(Math.cos(a));
+        let rw, rh;
+        if (w <= h) {
+            rw = w / (cosA + (h / w) * sinA);
+        } else {
+            rw = w / (cosA + (w / h) * sinA);
+        }
+        rh = rw * h / w;
+        // Scale to fit
+        const scale = Math.min(
+            (w * cosA - h * sinA < 0) ? 1 : (w * cosA) / (rw * cosA + rh * sinA),
+            (h * cosA - w * sinA < 0) ? 1 : (h * cosA) / (rh * cosA + rw * sinA)
+        );
+        // Simpler reliable formula
+        const cos2 = cosA * cosA, sin2 = sinA * sinA;
+        const rw2 = (w * cosA - h * sinA) / (cos2 - sin2);
+        const rh2 = (h * cosA - w * sinA) / (cos2 - sin2);
+        if (rw2 > 0 && rh2 > 0) return { w: rw2, h: rh2 };
+        // Fallback: just shrink by cos(a)
+        return { w: w * cosA, h: h * cosA };
+    }
+
+    // ── EXPORT ────────────────────────────────────────────────────────────────
+    function doExport() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const rad = (angle * Math.PI) / 180;
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+
+        let outW, outH;
+        if (edgeMode === 'autocrop') {
+            const { w, h } = largestRect(sw, sh, Math.abs(rad));
+            outW = Math.round(w); outH = Math.round(h);
+        } else {
+            outW = Math.round(Math.abs(sw * Math.cos(rad)) + Math.abs(sh * Math.sin(rad)));
+            outH = Math.round(Math.abs(sw * Math.sin(rad)) + Math.abs(sh * Math.cos(rad)));
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        if (edgeMode === 'fill') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, outW, outH); }
+
+        ctx.save();
+        ctx.translate(outW / 2, outH / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(origImg, -sw / 2, -sh / 2, sw, sh);
+        ctx.restore();
+
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : 0.94;
+        const dataURL = canvas.toDataURL(mime, q);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const a = document.createElement('a');
+        a.href = dataURL; a.download = `${base}_straightened.${ext}`; a.click();
+        showToast('Downloaded! ✓', 'success');
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Redraw on window resize
+    window.addEventListener('resize', () => { if (origImg) renderPreview(); });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

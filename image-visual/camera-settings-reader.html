@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camera Settings Reader — Read EXIF Data & Learn What It Means | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Upload any photo and instantly read its EXIF data — aperture, ISO, shutter speed, focal length and more. Get plain-English explanations of every camera setting.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --info: #5BC8FF;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-decoration: none; margin-bottom: 28px; transition: color 0.2s; }
+        .back-btn:hover { color: var(--primary); }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* No EXIF warning */
+        .no-exif-notice { background: rgba(255,68,68,0.07); border: 1px solid rgba(255,68,68,0.2); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 20px; display: none; }
+        .no-exif-notice.visible { display: block; }
+        .no-exif-notice p { font-size: 0.82rem; color: #ff7777; font-weight: 600; }
+        .no-exif-notice p span { color: var(--text-sec); font-weight: 400; }
+
+        /* Primary settings grid */
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+
+        .primary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+        .setting-tile {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 16px 18px; cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+            position: relative; overflow: hidden;
+        }
+        .setting-tile:hover { border-color: var(--primary-border); transform: translateY(-1px); }
+        .setting-tile.active { border-color: var(--primary-border); background: var(--primary-dim); }
+        .setting-tile::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--primary), var(--accent)); opacity: 0; transition: opacity 0.2s; }
+        .setting-tile.active::before, .setting-tile:hover::before { opacity: 1; }
+
+        .tile-icon { font-size: 1.4rem; margin-bottom: 8px; display: block; }
+        .tile-name { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 4px; }
+        .tile-value { font-size: 1.25rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; letter-spacing: -0.5px; }
+        .tile-value.na { color: var(--text-dim); font-size: 0.85rem; }
+        .tile-badge { display: inline-block; margin-top: 6px; font-size: 0.6rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-good { background: rgba(170,255,0,0.1); color: var(--success); border: 1px solid rgba(170,255,0,0.2); }
+        .badge-warn { background: rgba(255,183,0,0.1); color: var(--accent); border: 1px solid rgba(255,183,0,0.25); }
+        .badge-bad { background: rgba(255,68,68,0.1); color: var(--error); border: 1px solid rgba(255,68,68,0.2); }
+        .badge-info { background: rgba(91,200,255,0.1); color: var(--info); border: 1px solid rgba(91,200,255,0.2); }
+
+        /* Explanation panel */
+        .explain-panel { background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); padding: 18px 20px; margin-top: 14px; display: none; }
+        .explain-panel.visible { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .explain-title { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 8px; }
+        .explain-body { font-size: 0.82rem; color: var(--text-sec); line-height: 1.7; }
+        .explain-body strong { color: var(--text); }
+        .explain-tip { margin-top: 10px; font-size: 0.76rem; color: var(--text-dim); padding-top: 10px; border-top: 1px solid var(--border); }
+        .explain-tip::before { content: '💡 '; }
+
+        /* Secondary / all EXIF */
+        .all-exif-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .exif-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .exif-toggle-arrow { font-size: 0.7rem; color: var(--text-dim); transition: transform 0.2s; }
+        .exif-toggle-arrow.open { transform: rotate(180deg); }
+        .exif-table { margin-top: 16px; display: none; }
+        .exif-table.visible { display: block; }
+        .exif-row { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 0.78rem; }
+        .exif-row:last-child { border-bottom: none; }
+        .exif-key { font-weight: 700; color: var(--text-sec); min-width: 160px; flex-shrink: 0; }
+        .exif-val { font-family: 'Fira Code', monospace; color: var(--text); word-break: break-all; }
+
+        /* Shot analysis */
+        .analysis-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .analysis-points { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+        .analysis-point { display: flex; gap: 12px; align-items: flex-start; font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .analysis-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 6px; }
+        .analysis-point strong { color: var(--text); }
+
+        /* Copy button */
+        .copy-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; float: right; }
+        .copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .primary-grid { grid-template-columns: 1fr 1fr; }
+            .exif-key { min-width: 120px; }
+        }
+        @media (max-width: 400px) {
+            .primary-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="metadata-analysis.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Camera Settings Reader</h1>
+                <p class="tool-page-sub">Upload any JPEG — see aperture, ISO, shutter speed & more. Tap any value to learn what it means in plain English.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/tiff,image/heic">
+                <span class="drop-icon">📷</span>
+                <p class="drop-title">Drop a JPEG photo here</p>
+                <p class="drop-sub">EXIF data is embedded by cameras & phones · <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyAll()">⎘ Copy All</button>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- No EXIF warning -->
+                <div class="no-exif-notice" id="noExifNotice">
+                    <p>⚠ No EXIF camera data found. <span>This happens with screenshots, images edited in apps, or photos stripped of metadata. Try an original photo directly from your camera or phone.</span></p>
+                </div>
+
+                <!-- Primary 4 settings -->
+                <div class="settings-card" id="primaryCard" style="display:none">
+                    <div class="section-label">Core Camera Settings — tap any to learn more</div>
+                    <div class="primary-grid" id="primaryGrid"></div>
+                    <div class="explain-panel" id="explainPanel">
+                        <div class="explain-title" id="explainTitle"></div>
+                        <div class="explain-body" id="explainBody"></div>
+                        <div class="explain-tip" id="explainTip"></div>
+                    </div>
+                </div>
+
+                <!-- Shot analysis -->
+                <div class="analysis-card" id="analysisCard" style="display:none">
+                    <div class="section-label">Shot Analysis</div>
+                    <div class="analysis-points" id="analysisPoints"></div>
+                </div>
+
+                <!-- All EXIF data -->
+                <div class="all-exif-card" id="allExifCard" style="display:none">
+                    <div class="exif-toggle" onclick="toggleAllExif()">
+                        <div class="section-label" style="margin-bottom:0">All EXIF Data</div>
+                        <span class="exif-toggle-arrow" id="exifArrow">▼</span>
+                    </div>
+                    <div class="exif-table" id="exifTable"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Understanding your camera settings</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What is EXIF data?</h3>
+                        <p>EXIF (Exchangeable Image File Format) is metadata your camera writes into every JPEG. It records how the shot was taken — aperture, shutter speed, ISO, GPS, lens, camera model and more.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>The Exposure Triangle</h3>
+                        <p><code>Aperture</code>, <code>Shutter Speed</code> and <code>ISO</code> work together. Change one and you affect the others. Mastering the balance between them is the foundation of photography.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Why no data shows up?</h3>
+                        <p>Screenshots, social media downloads, and apps like WhatsApp strip EXIF. Always use the original file from your camera roll or SD card for the full metadata.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Focal length & crop factor</h3>
+                        <p>The focal length shown is the physical lens length. On crop-sensor cameras (APS-C), multiply by ~<code>1.5×</code> to get the full-frame equivalent field of view.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── EXIF EXPLANATIONS ─────────────────────────────────────────────────────
+    const EXPLAIN = {
+        aperture: {
+            title: 'Aperture (f-stop)',
+            icon: '🔆',
+            body: (v) => {
+                const n = parseFloat(v.replace('f/',''));
+                const wide = n <= 2.8, narrow = n >= 8;
+                return `Aperture is the opening in your lens — measured as an <strong>f-number</strong>. <strong>${v}</strong> means ${wide ? 'a <strong>wide opening</strong>, which lets in a lot of light and creates a shallow depth of field — the background will be blurry (bokeh effect).' : narrow ? 'a <strong>narrow opening</strong>, letting in less light but keeping more of the scene in sharp focus — great for landscapes.' : 'a <strong>mid-range opening</strong>, balancing light intake and depth of field.'}
+                <br><br>Lower f-number = wider opening = more light + blurrier background. Higher f-number = smaller opening = less light + sharper background.`;
+            },
+            tip: (v) => {
+                const n = parseFloat(v.replace('f/',''));
+                if (n <= 1.8) return 'Very fast lens — excellent for low light and portraits. Background will be very blurry.';
+                if (n <= 2.8) return 'Great portrait aperture. Shallow depth of field isolates your subject nicely.';
+                if (n <= 5.6) return 'Versatile range — works for street, travel and general photography.';
+                return 'Landscape territory — almost everything front-to-back will be in focus.';
+            },
+            badge: (v) => {
+                const n = parseFloat(v.replace('f/',''));
+                if (n <= 2.8) return {cls:'badge-info', label:'Shallow DOF'};
+                if (n <= 5.6) return {cls:'badge-good', label:'Versatile'};
+                return {cls:'badge-good', label:'Deep DOF'};
+            }
+        },
+        shutter: {
+            title: 'Shutter Speed',
+            icon: '⏱',
+            body: (v) => {
+                const sec = parseSS(v);
+                const fast = sec <= 1/500, slow = sec >= 1/30;
+                return `Shutter speed is <strong>how long your sensor is exposed to light</strong>. <strong>${v}</strong> means ${fast ? 'a <strong>very fast shutter</strong> — it freezes motion completely. Sports, birds, fast action.' : slow ? 'a <strong>slow shutter</strong> — motion blur is likely unless the camera was on a tripod. Handheld shots under 1/60s often show camera shake.' : 'a <strong>moderate shutter speed</strong> — enough to freeze everyday motion, though fast subjects may show blur.'}
+                <br><br>The general handheld rule: shutter speed should be at least <strong>1/focal length</strong> seconds to avoid shake.`;
+            },
+            tip: (v) => {
+                const sec = parseSS(v);
+                if (sec <= 1/1000) return 'Sports mode territory. You can freeze a hummingbird in flight at this speed.';
+                if (sec <= 1/250) return 'Freezes most everyday motion — walking, moderate sports.';
+                if (sec <= 1/60) return 'Generally safe handheld on wide lenses. Use image stabilisation if you have it.';
+                if (sec <= 1/15) return 'Risky handheld — tripod recommended. Long-exposure effects start here.';
+                return 'Long exposure territory. Use a tripod. Great for light trails, waterfalls, night sky.';
+            },
+            badge: (v) => {
+                const sec = parseSS(v);
+                if (sec <= 1/500) return {cls:'badge-good', label:'Freezes motion'};
+                if (sec <= 1/60) return {cls:'badge-info', label:'Normal range'};
+                return {cls:'badge-warn', label:'Motion blur risk'};
+            }
+        },
+        iso: {
+            title: 'ISO Sensitivity',
+            icon: '🌡',
+            body: (v) => {
+                const n = parseInt(v);
+                return `ISO controls <strong>how sensitive your camera sensor is to light</strong>. ISO <strong>${v}</strong> is ${n <= 400 ? '<strong>low</strong> — clean, detailed image with minimal noise (grain).' : n <= 1600 ? '<strong>moderate</strong> — slight noise may appear in shadows, but generally acceptable.' : '<strong>high</strong> — noticeable grain in the image. The camera boosted sensitivity because there wasn\'t enough light.'}
+                <br><br>Think of ISO like film speed from the old days. Always aim for the lowest ISO possible — bump it up only when shutter speed and aperture can\'t get you enough light.`;
+            },
+            tip: (v) => {
+                const n = parseInt(v);
+                if (n <= 200) return 'Perfect. Maximum image quality — great light conditions.';
+                if (n <= 800) return 'Clean image. Slight shadow noise at 100% zoom but very acceptable.';
+                if (n <= 3200) return 'Visible grain — you were in a low-light situation. Consider a flash or wider aperture next time.';
+                return 'High noise. Your camera was really struggling for light. Shot may look grainy when printed large.';
+            },
+            badge: (v) => {
+                const n = parseInt(v);
+                if (n <= 400) return {cls:'badge-good', label:'Low noise'};
+                if (n <= 1600) return {cls:'badge-info', label:'Moderate noise'};
+                return {cls:'badge-warn', label:'High noise'};
+            }
+        },
+        focal: {
+            title: 'Focal Length',
+            icon: '🔭',
+            body: (v) => {
+                const n = parseInt(v);
+                const type = n <= 24 ? 'ultra-wide' : n <= 35 ? 'wide' : n <= 70 ? 'standard' : n <= 135 ? 'short telephoto' : 'telephoto';
+                const use = n <= 24 ? 'landscapes, interiors, architecture — expect some edge distortion.' : n <= 35 ? 'street photography and documentary — close to human eye perspective.' : n <= 70 ? 'portraits, everyday shots and travel — very versatile.' : n <= 135 ? 'flattering portraits — slight compression makes faces look great.' : 'wildlife, sports, and distant subjects — strong background compression.';
+                return `Focal length determines <strong>how much of the scene fits in frame</strong> and the perspective look. <strong>${v}</strong> is a <strong>${type}</strong> focal length — commonly used for ${use}
+                <br><br>Shorter = wider view. Longer = more zoom, more compression of background.`;
+            },
+            tip: (v) => {
+                const n = parseInt(v);
+                if (n <= 24) return 'Wide angle — be mindful of distortion near edges. Great for environments and context.';
+                if (n <= 50) return 'Closest to human eye perspective. Many pros shoot with a 35mm or 50mm as their main lens.';
+                if (n <= 85) return 'Classic portrait focal length. Subject isolation and flattering compression.';
+                return 'Telephoto — you were zoomed in or far away. Strong background compression is a creative tool.';
+            },
+            badge: (v) => {
+                const n = parseInt(v);
+                if (n <= 24) return {cls:'badge-info', label:'Wide angle'};
+                if (n <= 50) return {cls:'badge-good', label:'Standard'};
+                if (n <= 135) return {cls:'badge-info', label:'Portrait range'};
+                return {cls:'badge-warn', label:'Telephoto'};
+            }
+        }
+    };
+
+    function parseSS(v) {
+        if (!v) return 1;
+        if (v.includes('/')) { const p = v.split('/'); return parseFloat(p[0]) / parseFloat(p[1]); }
+        return parseFloat(v);
+    }
+
+    // ─── STATE ──────────────────────────────────────────────────────────────────
+    let activeKey = null, allExifData = {};
+
+    // ─── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+            };
+            img.src = e.target.result;
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+            parseEXIF(e.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; activeKey = null; allExifData = {};
+    }
+
+    // ─── EXIF PARSER (pure JS, no library) ─────────────────────────────────────
+    function parseEXIF(dataURL) {
+        const b64 = dataURL.split(',')[1];
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const dv = new DataView(bytes.buffer);
+
+        const result = {};
+
+        try {
+            if (dv.getUint16(0) !== 0xFFD8) { renderNoExif(); return; }
+            let offset = 2;
+            let foundEXIF = false;
+            while (offset < bytes.length - 2) {
+                const marker = dv.getUint16(offset);
+                if (marker === 0xFFE1) { // APP1 / EXIF
+                    foundEXIF = true;
+                    parseIFD(dv, offset + 10, result);
+                    break;
+                }
+                if ((marker & 0xFF00) !== 0xFF00) break;
+                offset += 2 + dv.getUint16(offset + 2);
+            }
+            if (!foundEXIF) { renderNoExif(); return; }
+        } catch(e) { renderNoExif(); return; }
+
+        allExifData = result;
+        renderResults(result);
+    }
+
+    function parseIFD(dv, start, out) {
+        // Determine endianness
+        const byteOrder = dv.getUint16(start);
+        const le = byteOrder === 0x4949;
+        const r16 = (o) => le ? dv.getUint16(o, true) : dv.getUint16(o);
+        const r32 = (o) => le ? dv.getUint32(o, true) : dv.getUint32(o);
+        const rs32 = (o) => le ? dv.getInt32(o, true) : dv.getInt32(o);
+
+        const ifdOffset = start + r32(start + 4);
+        readIFD(dv, ifdOffset, start, le, r16, r32, rs32, out);
+    }
+
+    function readIFD(dv, ifdOffset, base, le, r16, r32, rs32, out) {
+        try {
+            const count = r16(ifdOffset);
+            for (let i = 0; i < count; i++) {
+                const e = ifdOffset + 2 + i * 12;
+                const tag = r16(e);
+                const type = r16(e + 2);
+                const cnt = r32(e + 4);
+                const valOffset = e + 8;
+
+                const val = readTagValue(dv, tag, type, cnt, valOffset, base, le, r16, r32, rs32);
+                if (val !== null) {
+                    const name = TAG_NAMES[tag];
+                    if (name) out[name] = val;
+                }
+
+                // Follow ExifIFD pointer
+                if (tag === 0x8769) {
+                    const subOffset = r32(valOffset);
+                    readIFD(dv, base + subOffset, base, le, r16, r32, rs32, out);
+                }
+                // Follow GPS IFD pointer
+                if (tag === 0x8825) {
+                    const gpsOffset = r32(valOffset);
+                    readGPS(dv, base + gpsOffset, base, le, r16, r32, rs32, out);
+                }
+            }
+        } catch(e) {}
+    }
+
+    function readTagValue(dv, tag, type, cnt, valOffset, base, le, r16, r32, rs32) {
+        try {
+            const r16v = (o) => le ? dv.getUint16(o, true) : dv.getUint16(o);
+            const r32v = (o) => le ? dv.getUint32(o, true) : dv.getUint32(o);
+            const rs32v = (o) => le ? dv.getInt32(o, true) : dv.getInt32(o);
+
+            // Determine where actual data lives
+            const typeSize = [0,1,1,2,4,8,1,1,2,4,8,4,8][type] || 1;
+            const dataSize = typeSize * cnt;
+            const dataOffset = dataSize > 4 ? base + r32v(valOffset) : valOffset;
+
+            if (type === 2) { // ASCII
+                let s = '';
+                for (let i = 0; i < cnt - 1; i++) s += String.fromCharCode(dv.getUint8(dataOffset + i));
+                return s.trim() || null;
+            }
+            if (type === 3) return r16v(dataOffset); // SHORT
+            if (type === 4) return r32v(dataOffset); // LONG
+            if (type === 9) return rs32v(dataOffset); // SLONG
+            if (type === 5) { // RATIONAL
+                const num = r32v(dataOffset), den = r32v(dataOffset + 4);
+                return den === 0 ? 0 : num / den;
+            }
+            if (type === 10) { // SRATIONAL
+                const num = rs32v(dataOffset), den = rs32v(dataOffset + 4);
+                return den === 0 ? 0 : num / den;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    function readGPS(dv, offset, base, le, r16, r32, rs32, out) {
+        try {
+            const count = le ? dv.getUint16(offset, true) : dv.getUint16(offset);
+            for (let i = 0; i < count; i++) {
+                const e = offset + 2 + i * 12;
+                const tag = le ? dv.getUint16(e, true) : dv.getUint16(e);
+                if (tag === 1) out['GPSLatRef'] = String.fromCharCode(dv.getUint8(e + 8));
+                if (tag === 3) out['GPSLngRef'] = String.fromCharCode(dv.getUint8(e + 8));
+                if (tag === 2 || tag === 4) {
+                    const vo = e + 8;
+                    const dataOffset = base + (le ? dv.getUint32(vo, true) : dv.getUint32(vo));
+                    const deg = (le ? dv.getUint32(dataOffset, true) : dv.getUint32(dataOffset)) /
+                                (le ? dv.getUint32(dataOffset+4, true) : dv.getUint32(dataOffset+4));
+                    const min = (le ? dv.getUint32(dataOffset+8, true) : dv.getUint32(dataOffset+8)) /
+                                (le ? dv.getUint32(dataOffset+12, true) : dv.getUint32(dataOffset+12));
+                    const sec = (le ? dv.getUint32(dataOffset+16, true) : dv.getUint32(dataOffset+16)) /
+                                (le ? dv.getUint32(dataOffset+20, true) : dv.getUint32(dataOffset+20));
+                    out[tag === 2 ? 'GPSLat' : 'GPSLng'] = deg + min/60 + sec/3600;
+                }
+            }
+        } catch(e) {}
+    }
+
+    const TAG_NAMES = {
+        0x010F: 'Make', 0x0110: 'Model', 0x0112: 'Orientation',
+        0x011A: 'XResolution', 0x011B: 'YResolution', 0x0132: 'DateTime',
+        0x013B: 'Artist', 0x8298: 'Copyright',
+        0x829A: 'ExposureTime', 0x829D: 'FNumber',
+        0x8822: 'ExposureProgram', 0x8827: 'ISOSpeedRatings',
+        0x9003: 'DateTimeOriginal', 0x9004: 'DateTimeDigitized',
+        0x9201: 'ShutterSpeedValue', 0x9202: 'ApertureValue',
+        0x9203: 'BrightnessValue', 0x9204: 'ExposureBiasValue',
+        0x9205: 'MaxApertureValue', 0x9207: 'MeteringMode',
+        0x9208: 'LightSource', 0x9209: 'Flash',
+        0x920A: 'FocalLength', 0x9214: 'SubjectArea',
+        0xA002: 'PixelXDimension', 0xA003: 'PixelYDimension',
+        0xA20E: 'FocalPlaneXResolution', 0xA210: 'FocalPlaneResolutionUnit',
+        0xA217: 'SensingMethod', 0xA300: 'FileSource',
+        0xA301: 'SceneType', 0xA401: 'CustomRendered',
+        0xA402: 'ExposureMode', 0xA403: 'WhiteBalance',
+        0xA404: 'DigitalZoomRatio', 0xA405: 'FocalLengthIn35mmFilm',
+        0xA406: 'SceneCaptureType', 0xA408: 'Contrast',
+        0xA409: 'Saturation', 0xA40A: 'Sharpness',
+        0xA432: 'LensInfo', 0xA433: 'LensMake', 0xA434: 'LensModel',
+        0x9291: 'SubSecTimeOriginal', 0x0213: 'YCbCrPositioning',
+    };
+
+    const EXPOSURE_PROGRAMS = ['Not defined','Manual','Program AE','Aperture priority','Shutter priority','Creative','Action','Portrait','Landscape'];
+    const METERING_MODES = ['Unknown','Average','Center-weighted','Spot','Multi-spot','Multi-segment','Partial'];
+    const WHITE_BALANCE = ['Auto','Manual'];
+    const SCENE_TYPES = ['Standard','Landscape','Portrait','Night scene'];
+    const EXPOSURE_MODES = ['Auto','Manual','Auto bracket'];
+
+    // ─── RENDER ─────────────────────────────────────────────────────────────────
+    function renderNoExif() {
+        document.getElementById('noExifNotice').classList.add('visible');
+        document.getElementById('primaryCard').style.display = 'none';
+        document.getElementById('analysisCard').style.display = 'none';
+        document.getElementById('allExifCard').style.display = 'none';
+    }
+
+    function renderResults(d) {
+        document.getElementById('noExifNotice').classList.remove('visible');
+
+        // Format primary values
+        const aperture = d.FNumber ? `f/${d.FNumber % 1 === 0 ? d.FNumber : d.FNumber.toFixed(1)}` : null;
+        const shutter = d.ExposureTime ? formatSS(d.ExposureTime) : null;
+        const iso = d.ISOSpeedRatings ? String(d.ISOSpeedRatings) : null;
+        const focal = d.FocalLengthIn35mmFilm ? `${d.FocalLengthIn35mmFilm}mm` : d.FocalLength ? `${Math.round(d.FocalLength)}mm` : null;
+
+        const hasPrimary = aperture || shutter || iso || focal;
+
+        if (hasPrimary) {
+            document.getElementById('primaryCard').style.display = 'block';
+            const tiles = [
+                { key: 'aperture', label: 'Aperture', val: aperture },
+                { key: 'shutter', label: 'Shutter Speed', val: shutter },
+                { key: 'iso', label: 'ISO', val: iso },
+                { key: 'focal', label: 'Focal Length', val: focal },
+            ];
+            const grid = document.getElementById('primaryGrid');
+            grid.innerHTML = '';
+            tiles.forEach(t => {
+                const ex = EXPLAIN[t.key];
+                const badge = t.val && ex ? ex.badge(t.val) : null;
+                grid.innerHTML += `
+                    <div class="setting-tile" id="tile-${t.key}" onclick="activateTile('${t.key}','${(t.val||'').replace(/'/g,"\\'")}')">
+                        <span class="tile-icon">${ex ? ex.icon : '📌'}</span>
+                        <div class="tile-name">${t.label}</div>
+                        <div class="tile-value ${t.val ? '' : 'na'}">${t.val || 'Not found'}</div>
+                        ${badge && t.val ? `<span class="tile-badge ${badge.cls}">${badge.label}</span>` : ''}
+                    </div>`;
+            });
+        } else {
+            document.getElementById('primaryCard').style.display = 'none';
+        }
+
+        // Shot analysis
+        buildAnalysis(d, aperture, shutter, iso, focal);
+
+        // All EXIF
+        buildAllExif(d);
+    }
+
+    function activateTile(key, val) {
+        if (!val || val === 'Not found') return;
+        const ex = EXPLAIN[key];
+        if (!ex) return;
+
+        // Toggle off
+        if (activeKey === key) {
+            document.getElementById(`tile-${key}`).classList.remove('active');
+            document.getElementById('explainPanel').classList.remove('visible');
+            activeKey = null; return;
+        }
+
+        document.querySelectorAll('.setting-tile').forEach(t => t.classList.remove('active'));
+        document.getElementById(`tile-${key}`).classList.add('active');
+
+        document.getElementById('explainTitle').textContent = ex.title;
+        document.getElementById('explainBody').innerHTML = ex.body(val);
+        document.getElementById('explainTip').textContent = ex.tip(val);
+        document.getElementById('explainPanel').classList.add('visible');
+        activeKey = key;
+    }
+
+    function buildAnalysis(d, aperture, shutter, iso, focal) {
+        const points = [];
+
+        // Exposure mode
+        if (d.ExposureProgram !== undefined) {
+            const ep = EXPOSURE_PROGRAMS[d.ExposureProgram] || 'Unknown';
+            points.push(`<strong>Shooting mode:</strong> ${ep}${d.ExposureProgram === 1 ? ' — you had full manual control over aperture and shutter.' : d.ExposureProgram === 3 ? ' — you set the aperture, camera chose shutter speed.' : d.ExposureProgram === 4 ? ' — you set the shutter speed, camera chose aperture.' : d.ExposureProgram === 2 ? ' — camera handled everything automatically.' : ''}`);
+        }
+
+        // Light conditions guess
+        if (iso) {
+            const n = parseInt(iso);
+            if (n <= 400) points.push(`<strong>Lighting conditions:</strong> Bright scene — low ISO confirms good light (daylight or well-lit indoor).`);
+            else if (n <= 1600) points.push(`<strong>Lighting conditions:</strong> Moderate light — indoor, cloudy, or shaded environment likely.`);
+            else points.push(`<strong>Lighting conditions:</strong> Low light scene — camera boosted ISO to expose correctly. Expect some grain.`);
+        }
+
+        // Motion likelihood
+        if (shutter) {
+            const sec = parseSS(shutter);
+            if (sec <= 1/500) points.push(`<strong>Motion blur:</strong> None — shutter was fast enough to freeze all motion.`);
+            else if (sec <= 1/60) points.push(`<strong>Motion blur:</strong> Likely safe — adequate for still subjects and steady hands.`);
+            else points.push(`<strong>Motion blur:</strong> Possible — slow shutter may show camera shake or moving subjects as blurred.`);
+        }
+
+        // Flash
+        if (d.Flash !== undefined) {
+            const fired = (d.Flash & 1) === 1;
+            points.push(`<strong>Flash:</strong> ${fired ? 'Flash fired — artificial light was used. Check for harsh shadows or red-eye.' : 'No flash — natural or ambient light only.'}`);
+        }
+
+        // White balance
+        if (d.WhiteBalance !== undefined) {
+            points.push(`<strong>White balance:</strong> ${WHITE_BALANCE[d.WhiteBalance] || 'Unknown'} — ${d.WhiteBalance === 0 ? 'camera corrected colour temperature automatically.' : 'manually locked to a specific colour temperature.'}`);
+        }
+
+        // Camera / lens
+        if (d.Make || d.Model) points.push(`<strong>Camera:</strong> ${[d.Make, d.Model].filter(Boolean).join(' ')}`);
+        if (d.LensModel) points.push(`<strong>Lens:</strong> ${d.LensModel}`);
+        if (d.DateTimeOriginal) points.push(`<strong>Shot taken:</strong> ${d.DateTimeOriginal.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$3/$2/$1')}`);
+
+        if (d.ExposureBiasValue !== undefined && d.ExposureBiasValue !== 0) {
+            const ev = d.ExposureBiasValue;
+            points.push(`<strong>Exposure compensation:</strong> ${ev > 0 ? '+' : ''}${ev.toFixed(1)} EV — ${ev > 0 ? 'intentionally overexposed (brighter).' : 'intentionally underexposed (darker).'}`);
+        }
+
+        if (d.GPSLat && d.GPSLng) {
+            const lat = (d.GPSLatRef === 'S' ? -1 : 1) * d.GPSLat;
+            const lng = (d.GPSLngRef === 'W' ? -1 : 1) * d.GPSLng;
+            points.push(`<strong>GPS location:</strong> ${lat.toFixed(5)}°, ${lng.toFixed(5)}° — <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;">View on map ↗</a>`);
+        }
+
+        const card = document.getElementById('analysisCard');
+        if (points.length) {
+            card.style.display = 'block';
+            document.getElementById('analysisPoints').innerHTML = points.map(p =>
+                `<div class="analysis-point"><div class="analysis-dot"></div><div>${p}</div></div>`
+            ).join('');
+        } else {
+            card.style.display = 'none';
+        }
+    }
+
+    function buildAllExif(d) {
+        const card = document.getElementById('allExifCard');
+        const table = document.getElementById('exifTable');
+        const keys = Object.keys(d);
+        if (!keys.length) { card.style.display = 'none'; return; }
+        card.style.display = 'block';
+
+        const friendly = {
+            FNumber: v => `f/${Number(v).toFixed(1)}`,
+            ExposureTime: v => formatSS(v),
+            FocalLength: v => `${Math.round(v)}mm`,
+            FocalLengthIn35mmFilm: v => `${v}mm (35mm equiv)`,
+            ExposureProgram: v => EXPOSURE_PROGRAMS[v] || v,
+            MeteringMode: v => METERING_MODES[v] || v,
+            WhiteBalance: v => WHITE_BALANCE[v] || v,
+            Flash: v => (v & 1) ? 'Fired' : 'Did not fire',
+            ExposureMode: v => EXPOSURE_MODES[v] || v,
+            SceneCaptureType: v => SCENE_TYPES[v] || v,
+            ExposureBiasValue: v => `${v > 0 ? '+' : ''}${Number(v).toFixed(2)} EV`,
+            BrightnessValue: v => Number(v).toFixed(2),
+            XResolution: v => `${Math.round(v)} dpi`,
+            YResolution: v => `${Math.round(v)} dpi`,
+            DigitalZoomRatio: v => v === 0 ? 'Not used' : `${Number(v).toFixed(2)}×`,
+            GPSLat: v => Number(v).toFixed(6) + '°',
+            GPSLng: v => Number(v).toFixed(6) + '°',
+        };
+
+        table.innerHTML = keys.map(k => {
+            const raw = d[k];
+            const display = friendly[k] ? friendly[k](raw) : raw;
+            return `<div class="exif-row"><span class="exif-key">${k}</span><span class="exif-val">${display}</span></div>`;
+        }).join('');
+    }
+
+    function toggleAllExif() {
+        const t = document.getElementById('exifTable');
+        const a = document.getElementById('exifArrow');
+        t.classList.toggle('visible');
+        a.classList.toggle('open');
+    }
+
+    function formatSS(v) {
+        if (v >= 1) return `${v}s`;
+        const denom = Math.round(1 / v);
+        return `1/${denom}s`;
+    }
+
+    function copyAll() {
+        if (!Object.keys(allExifData).length) return;
+        const lines = Object.entries(allExifData).map(([k, v]) => `${k}: ${v}`).join('\n');
+        navigator.clipboard.writeText(lines).then(() => showToast('EXIF data copied!', 'success'));
+    }
+
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Break Reminder Timer | Rebrixe</title>
+    <meta name="description" content="Silent break reminder that alerts every 45 minutes. Stand up, rest your eyes, drink water. Runs in background tab. Customizable intervals and break types.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Break Reminder Timer",
+      "description": "Silent break reminder that alerts every 45 minutes. Stand up, rest your eyes, drink water. Runs in background tab. Customizable intervals and break types.",
+      "url": "https://rebrixe.com/time-date/break-reminder-timer",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Rebrixe",
+        "url": "https://Rebrixe.com"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://Rebrixe.com"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Time Date",
+          "item": "https://rebrixe.com/time-date"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Timers Focus Tools",
+          "item": "https://rebrixe.com/time-date/timers-focus-tools"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Break Reminder Timer",
+          "item": "https://rebrixe.com/time-date/break-reminder-timer"
+        }
+      ]
+    }
+  ]
+}
+</script>
+    <style>
+        .tool-wrap { max-width: 760px; margin: 40px auto; }
+
+        /* ── Status Ring ── */
+        .ring-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+        .ring-outer {
+            position: relative;
+            width: 200px; height: 200px;
+            margin-bottom: 18px;
+        }
+        .ring-svg { transform: rotate(-90deg); }
+        .ring-track { fill: none; stroke: var(--border); stroke-width: 8; }
+        .ring-fill  {
+            fill: none; stroke: var(--primary); stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 565;
+            stroke-dashoffset: 565;
+            transition: stroke-dashoffset 1s linear;
+        }
+        .ring-fill.urgent { stroke: #f97316; }
+        .ring-fill.resting { stroke: #22c55e; }
+        .ring-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .ring-time {
+            font-family: 'Outfit';
+            font-size: 2.6rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .ring-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #64748b;
+        }
+
+        @keyframes pulse-ring {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .ring-outer.alerting { animation: pulse-ring 0.7s ease-in-out infinite; }
+
+        /* ── Status text ── */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: #64748b;
+            transition: .3s;
+        }
+        .status-pill.active  { background: rgba(120,129,132,0.12); color: var(--primary); border-color: var(--primary); }
+        .status-pill.break   { background: rgba(34,197,94,0.1); color: #22c55e; border-color: rgba(34,197,94,0.3); }
+        .status-pill.alerting{ background: rgba(249,115,22,0.1); color: #f97316; border-color: rgba(249,115,22,0.3); }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .status-dot.blink { animation: pulse-ring 0.8s ease-in-out infinite; }
+
+        /* ── Controls ── */
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .btn-main {
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            padding: 13px 28px;
+            border-radius: 14px;
+            border: none;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            color: #000;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(145,152,155,0.35); }
+        .btn-stop {
+            background: rgba(239,68,68,0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .btn-stop:hover { background: rgba(239,68,68,0.2); transform: translateY(-2px); }
+        .btn-snooze {
+            background: rgba(249,115,22,0.1);
+            color: #f97316;
+            border: 1px solid rgba(249,115,22,0.3);
+        }
+        .btn-snooze:hover { background: rgba(249,115,22,0.2); transform: translateY(-2px); }
+        .btn-skip {
+            background: rgba(255,255,255,0.04);
+            color: #64748b;
+            border: 1px solid var(--border);
+        }
+        .btn-skip:hover { color: #fff; border-color: #fff; transform: translateY(-2px); }
+
+        /* ── Settings card ── */
+        .settings-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px 24px;
+            margin-bottom: 16px;
+        }
+        .settings-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 16px;
+        }
+
+        /* Interval selector */
+        .interval-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        .interval-label { font-size: 0.82rem; color: #94a3b8; min-width: 110px; }
+        .interval-pills { display: flex; gap: 7px; flex-wrap: wrap; }
+        .int-pill {
+            padding: 6px 13px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: #64748b;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .int-pill.active, .int-pill:hover {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(139,148,152,0.1);
+        }
+        .int-custom {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .int-custom input {
+            width: 52px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #fff;
+            padding: 6px 8px;
+            font-family: 'Outfit';
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-align: center;
+            outline: none;
+        }
+        .int-custom input:focus { border-color: var(--primary); }
+        .int-custom span { font-size: 0.72rem; color: #64748b; }
+
+        /* Break type checkboxes */
+        .break-types {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .bt-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: .2s;
+            background: rgba(255,255,255,0.02);
+            user-select: none;
+        }
+        .bt-card.checked {
+            border-color: var(--primary);
+            background: rgba(120,129,132,0.1);
+        }
+        .bt-card input { display: none; }
+        .bt-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+        .bt-name { font-size: 0.62rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; }
+        .bt-card.checked .bt-name { color: var(--primary); }
+
+        /* Sound toggle */
+        .sound-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .sound-label { font-size: 0.82rem; color: #94a3b8; flex: 1; }
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .3s;
+            border: 1px solid var(--border);
+        }
+        .slider:before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b;
+            border-radius: 50%;
+            transition: .3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider:before { transform: translateX(20px); background: var(--primary); }
+
+        /* ── Alert overlay ── */
+        .alert-box {
+            display: none;
+            background: rgba(249,115,22,0.07);
+            border: 1px solid rgba(249,115,22,0.35);
+            border-radius: 20px;
+            padding: 22px 24px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .alert-box.visible { display: block; }
+        .alert-emoji { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+        .alert-title {
+            font-family: 'Outfit';
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #f97316;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+        .alert-sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 16px; }
+        .alert-action-row { display: flex; gap: 10px; justify-content: center; }
+
+        /* ── Session stats ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit';
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.55rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        /* ── Streak bar ── */
+        .streak-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .streak-label { font-size: 0.78rem; color: #64748b; flex: 1; }
+        .streak-dots { display: flex; gap: 6px; }
+        .s-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            transition: .3s;
+        }
+        .s-dot.taken { background: #22c55e; border-color: #22c55e; }
+        .s-dot.missed{ background: #ef4444; border-color: #ef4444; }
+
+        @media(max-width:560px) {
+            .break-types { grid-template-columns: repeat(2,1fr); }
+            .stats-row { grid-template-columns: repeat(2,1fr); }
+            .interval-row { flex-direction: column; align-items: flex-start; }
+            .controls-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="timers-focus-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Break Reminder Timer</h1>
+            <p style="color:#64748b; font-size:0.92rem;">Runs silently in the background. Reminds you to stand up, rest your eyes, and drink water.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- ALERT BOX (shows on break) -->
+            <div class="alert-box" id="alertBox">
+                <span class="alert-emoji" id="alertEmoji">🧘</span>
+                <div class="alert-title" id="alertTitle">Time for a break!</div>
+                <div class="alert-sub" id="alertSub">You've been working hard. Step away for a moment.</div>
+                <div class="alert-action-row">
+                    <button class="btn-main btn-snooze" id="btnSnooze" onclick="snooze()">⏰ Snooze 5 min</button>
+                    <button class="btn-main btn-start" onclick="dismissBreak()" style="padding:13px 20px;">✓ Done, Resume</button>
+                </div>
+            </div>
+
+            <!-- RING + STATUS -->
+            <div class="ring-wrap">
+                <div class="ring-outer" id="ringOuter">
+                    <svg class="ring-svg" width="200" height="200" viewBox="0 0 200 200">
+                        <circle class="ring-track" cx="100" cy="100" r="90"/>
+                        <circle class="ring-fill" id="ringFill" cx="100" cy="100" r="90"/>
+                    </svg>
+                    <div class="ring-center">
+                        <div class="ring-time" id="ringTime">--:--</div>
+                        <div class="ring-label" id="ringLabel">not started</div>
+                    </div>
+                </div>
+                <div class="status-pill" id="statusPill">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Ready to start</span>
+                </div>
+            </div>
+
+            <!-- CONTROLS -->
+            <div class="controls-row">
+                <button class="btn-main btn-start" id="btnStart" onclick="startTimer()">▶ Start Session</button>
+                <button class="btn-main btn-stop"  id="btnStop"  onclick="stopTimer()" style="display:none;">■ Stop</button>
+                <button class="btn-main btn-skip"  id="btnSkip"  onclick="skipBreak()" style="display:none;">↩ Skip Break</button>
+            </div>
+
+            <!-- SESSION STATS -->
+            <div class="stats-row">
+                <div class="stat-cell"><div class="stat-num" id="statBreaks">0</div><div class="stat-lbl">Breaks Taken</div></div>
+                <div class="stat-cell"><div class="stat-num" id="statSkipped">0</div><div class="stat-lbl">Skipped</div></div>
+                <div class="stat-cell"><div class="stat-num" id="statFocusTime">0m</div><div class="stat-lbl">Focus Time</div></div>
+                <div class="stat-cell"><div class="stat-num" id="statCycles">0</div><div class="stat-lbl">Cycles Done</div></div>
+            </div>
+
+            <!-- STREAK -->
+            <div class="streak-wrap">
+                <div class="streak-label">🔥 Last 8 reminders</div>
+                <div class="streak-dots" id="streakDots"></div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div class="settings-card">
+                <div class="settings-title">⚙ Settings</div>
+
+                <div class="interval-row">
+                    <span class="interval-label">Remind every</span>
+                    <div class="interval-pills">
+                        <span class="int-pill" data-min="25" onclick="pickPreset(25,this)">25 min</span>
+                        <span class="int-pill active" data-min="45" onclick="pickPreset(45,this)">45 min</span>
+                        <span class="int-pill" data-min="60" onclick="pickPreset(60,this)">60 min</span>
+                        <span class="int-pill" data-min="90" onclick="pickPreset(90,this)">90 min</span>
+                    </div>
+                    <div class="int-custom">
+                        <input type="number" id="customMin" min="1" max="240" placeholder="–" oninput="pickCustom(this)">
+                        <span>min</span>
+                    </div>
+                </div>
+
+                <div class="settings-title" style="margin-bottom:12px;">Break reminders to include</div>
+                <div class="break-types">
+                    <label class="bt-card checked" id="bt-eyes">
+                        <input type="checkbox" checked onchange="syncBreakTypes()">
+                        <span class="bt-icon">👁</span>
+                        <span class="bt-name">Rest Eyes</span>
+                    </label>
+                    <label class="bt-card checked" id="bt-water">
+                        <input type="checkbox" checked onchange="syncBreakTypes()">
+                        <span class="bt-icon">💧</span>
+                        <span class="bt-name">Drink Water</span>
+                    </label>
+                    <label class="bt-card checked" id="bt-stretch">
+                        <input type="checkbox" checked onchange="syncBreakTypes()">
+                        <span class="bt-icon">🙆</span>
+                        <span class="bt-name">Stretch</span>
+                    </label>
+                    <label class="bt-card checked" id="bt-walk">
+                        <input type="checkbox" checked onchange="syncBreakTypes()">
+                        <span class="bt-icon">🚶</span>
+                        <span class="bt-name">Short Walk</span>
+                    </label>
+                </div>
+
+                <div class="sound-row">
+                    <span class="sound-label">🔔 Sound alert (soft chime)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="soundToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+
+    <script>
+    // ── State ──────────────────────────────────────────────────────
+    var intervalMin   = 45;
+    var timerSecs     = intervalMin * 60;
+    var totalSecs     = timerSecs;
+    var running       = false;
+    var onBreak       = false;
+    var ticker        = null;
+    var focusTicker   = null;
+    var breaksTaken   = 0;
+    var breaksSkipped = 0;
+    var cyclesDone    = 0;
+    var focusSecs     = 0;
+    var streakHistory = [];
+
+    var breakTypes = {
+        eyes:    { emoji:'👁',  title:'Rest your eyes',     sub:'Look 20 ft away for 20 seconds. Blink slowly.' },
+        water:   { emoji:'💧', title:'Drink some water',    sub:'Hydration keeps your focus sharp. Take a sip.' },
+        stretch: { emoji:'🙆', title:'Quick stretch',       sub:'Roll your neck, shrug your shoulders, open your chest.' },
+        walk:    { emoji:'🚶', title:'Short walk',          sub:'Even 2 minutes away from the screen helps enormously.' }
+    };
+    var activeTypes = ['eyes','water','stretch','walk'];
+
+    // ── Safe timer helpers ────────────────────────────────────────
+    // All scheduling goes through these so exactly ONE ticker and
+    // ONE focusTicker are alive at any time — no ghost intervals.
+    function startTicker() {
+        stopTicker();
+        ticker = window.setInterval(tick, 1000);
+    }
+    function stopTicker() {
+        if (ticker !== null) { window.clearInterval(ticker); ticker = null; }
+    }
+    function startFocusTicker() {
+        stopFocusTicker();
+        focusTicker = window.setInterval(function() {
+            if (running && !onBreak) { focusSecs++; updateStats(); }
+        }, 1000);
+    }
+    function stopFocusTicker() {
+        if (focusTicker !== null) { window.clearInterval(focusTicker); focusTicker = null; }
+    }
+
+    // ── Streak dots ───────────────────────────────────────────────
+    function renderStreak() {
+        var el = document.getElementById('streakDots');
+        var html = '';
+        for (var i = 0; i < 8; i++) {
+            var v = streakHistory[i];
+            var cls = v === undefined ? '' : v ? 'taken' : 'missed';
+            html += '<div class="s-dot ' + cls + '"></div>';
+        }
+        el.innerHTML = html;
+    }
+    renderStreak();
+
+    // ── Interval preset (renamed from setInterval to avoid shadowing native) ──
+    function pickPreset(min, el) {
+        intervalMin = min;
+        document.getElementById('customMin').value = '';
+        document.querySelectorAll('.int-pill').forEach(function(p){ p.classList.remove('active'); });
+        if (el) el.classList.add('active');
+        if (!running) resetRing();
+    }
+
+    function pickCustom(input) {
+        var v = parseInt(input.value, 10);
+        if (!isNaN(v) && v >= 1 && v <= 240) {
+            intervalMin = v;
+            document.querySelectorAll('.int-pill').forEach(function(p){ p.classList.remove('active'); });
+            if (!running) resetRing();
+        }
+    }
+
+    function resetRing() {
+        timerSecs = intervalMin * 60;
+        totalSecs = timerSecs;
+        updateRingDisplay();
+    }
+
+    // ── Break types ───────────────────────────────────────────────
+    function syncBreakTypes() {
+        activeTypes = [];
+        document.querySelectorAll('.bt-card').forEach(function(card) {
+            var cb  = card.querySelector('input[type=checkbox]');
+            var key = card.id.replace('bt-','');
+            if (cb.checked) { activeTypes.push(key); card.classList.add('checked'); }
+            else { card.classList.remove('checked'); }
+        });
+        if (activeTypes.length === 0) {
+            activeTypes = ['eyes'];
+            var el = document.getElementById('bt-eyes');
+            el.querySelector('input').checked = true;
+            el.classList.add('checked');
+        }
+    }
+
+    // ── Timer core ────────────────────────────────────────────────
+    function startTimer() {
+        if (running) return;
+        running   = true;
+        onBreak   = false;
+        timerSecs = intervalMin * 60;
+        totalSecs = timerSecs;
+
+        document.getElementById('btnStart').style.display = 'none';
+        document.getElementById('btnStop').style.display  = 'block';
+
+        setStatus('active', 'Focus session running');
+        startTicker();
+        startFocusTicker();
+    }
+
+    function stopTimer() {
+        running = false;
+        onBreak = false;
+        stopTicker();
+        stopFocusTicker();
+
+        document.getElementById('btnStart').style.display = 'block';
+        document.getElementById('btnStop').style.display  = 'none';
+        document.getElementById('btnSkip').style.display  = 'none';
+        document.getElementById('alertBox').classList.remove('visible');
+        document.getElementById('ringOuter').classList.remove('alerting');
+
+        setStatus('', 'Stopped');
+        timerSecs = intervalMin * 60;
+        totalSecs = timerSecs;
+        updateRingDisplay();
+    }
+
+    function tick() {
+        if (!running || onBreak) return;
+        timerSecs--;
+        updateRingDisplay();
+        updatePageTitle();
+        if (timerSecs <= 0) triggerBreak();
+    }
+
+    // ── Ring display ──────────────────────────────────────────────
+    function updateRingDisplay() {
+        var abs = Math.max(0, timerSecs);
+        var m = Math.floor(abs / 60);
+        var s = abs % 60;
+        document.getElementById('ringTime').textContent =
+            String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+        if (!running) {
+            document.getElementById('ringLabel').textContent = 'not started';
+            document.getElementById('ringFill').style.strokeDashoffset = 565;
+            document.getElementById('ringFill').className = 'ring-fill';
+            return;
+        }
+
+        document.getElementById('ringLabel').textContent = onBreak ? 'on break' : 'until break';
+        var frac   = Math.max(0, Math.min(1, timerSecs / totalSecs));
+        var offset = 565 - (565 * frac);
+        document.getElementById('ringFill').style.strokeDashoffset = offset;
+
+        var fill = document.getElementById('ringFill');
+        if (!onBreak && timerSecs <= 60) {
+            fill.className = 'ring-fill urgent';
+        } else if (onBreak) {
+            fill.className = 'ring-fill resting';
+        } else {
+            fill.className = 'ring-fill';
+        }
+    }
+
+    // ── Break trigger ─────────────────────────────────────────────
+    function triggerBreak() {
+        onBreak = true;
+        stopTicker(); // pause — restarts only when break is resolved
+
+        var key = activeTypes[Math.floor(Math.random() * activeTypes.length)];
+        var bt  = breakTypes[key];
+
+        document.getElementById('alertEmoji').textContent = bt.emoji;
+        document.getElementById('alertTitle').textContent = bt.title;
+        document.getElementById('alertSub').textContent   = bt.sub;
+        document.getElementById('alertBox').classList.add('visible');
+        document.getElementById('ringOuter').classList.add('alerting');
+        document.getElementById('btnSkip').style.display  = 'block';
+
+        setStatus('alerting', '⚠ Break time!');
+        playChime();
+    }
+
+    function dismissBreak() {
+        breaksTaken++;
+        cyclesDone++;
+        streakHistory.unshift(true);
+        if (streakHistory.length > 8) streakHistory.pop();
+
+        closeBreakUI();
+        onBreak   = false;
+        setStatus('active', 'Focus session running');
+        updateStats();
+        renderStreak();
+
+        timerSecs = intervalMin * 60;
+        totalSecs = timerSecs;
+        startTicker(); // safe: stopTicker was called in triggerBreak
+    }
+
+    function snooze() {
+        closeBreakUI();
+        onBreak   = false;
+        setStatus('active', 'Snoozed — 5 min');
+
+        timerSecs = 5 * 60;
+        totalSecs = timerSecs;
+        startTicker(); // safe: stopTicker was called in triggerBreak
+    }
+
+    function skipBreak() {
+        breaksSkipped++;
+        streakHistory.unshift(false);
+        if (streakHistory.length > 8) streakHistory.pop();
+
+        closeBreakUI();
+        onBreak   = false;
+        setStatus('active', 'Focus session running');
+        updateStats();
+        renderStreak();
+
+        timerSecs = intervalMin * 60;
+        totalSecs = timerSecs;
+        startTicker(); // safe: stopTicker was called in triggerBreak
+    }
+
+    function closeBreakUI() {
+        document.getElementById('alertBox').classList.remove('visible');
+        document.getElementById('ringOuter').classList.remove('alerting');
+        document.getElementById('btnSkip').style.display = 'none';
+    }
+
+    // ── Stats ─────────────────────────────────────────────────────
+    function updateStats() {
+        document.getElementById('statBreaks').textContent  = breaksTaken;
+        document.getElementById('statSkipped').textContent = breaksSkipped;
+        document.getElementById('statCycles').textContent  = cyclesDone;
+        var fm = Math.floor(focusSecs / 60);
+        var fh = Math.floor(fm / 60);
+        document.getElementById('statFocusTime').textContent =
+            fh > 0 ? fh + 'h' + (fm % 60) + 'm' : fm + 'm';
+    }
+
+    // ── Status pill ───────────────────────────────────────────────
+    function setStatus(type, text) {
+        var pill = document.getElementById('statusPill');
+        var dot  = document.getElementById('statusDot');
+        var txt  = document.getElementById('statusText');
+        pill.className = 'status-pill' + (type ? ' ' + type : '');
+        dot.className  = 'status-dot'  + (type === 'alerting' ? ' blink' : '');
+        txt.textContent = text;
+    }
+
+    // ── Sound (Web Audio API) ─────────────────────────────────────
+    function playChime() {
+        if (!document.getElementById('soundToggle').checked) return;
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [523, 659, 784].forEach(function(freq, i) {
+                var osc  = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                var t = ctx.currentTime + i * 0.18;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.18, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                osc.start(t);
+                osc.stop(t + 0.5);
+            });
+        } catch(e) {}
+    }
+
+    // ── Page title (foreground tab only) ─────────────────────────
+    function updatePageTitle() {
+        if (!running) { document.title = 'Break Reminder Timer | Rebrixe'; return; }
+        var m = Math.floor(Math.max(0, timerSecs) / 60);
+        var s = Math.max(0, timerSecs) % 60;
+        document.title = onBreak
+            ? '🟢 Break! — Rebrixe'
+            : '⏱ ' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + ' — Break Reminder';
+    }
+
+    // ── Init ──────────────────────────────────────────────────────
+    resetRing();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

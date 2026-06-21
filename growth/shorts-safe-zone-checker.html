@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youtube Shorts Safe-Zone Pro | Rebrixe</title>
+    <meta name="description" content="Check if your content is within the safe zone for various platforms with our Safe Zone Checker. Perfect for marketers, content creators, and social media managers looking to ensure their content meets platform guidelines and avoids penalties. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; }
+
+        /* ─── LAYOUT ─── */
+        .tool-inner { max-width: 960px; margin: 0 auto; }
+
+        .upload-row {
+            display: flex; gap: 12px; align-items: center;
+            max-width: 560px; margin: 0 auto 28px;
+        }
+
+        .uploader-zone {
+            flex: 1; border: 2px dashed #334155;
+            background: rgba(15,23,42,0.6); border-radius: 16px;
+            padding: 22px 20px; text-align: center;
+            cursor: pointer; transition: border-color 0.2s, background 0.2s;
+        }
+        .uploader-zone:hover, .uploader-zone.drag-over {
+            border-color: #ff0000; background: rgba(255,0,0,0.06);
+        }
+        .uploader-zone .upload-icon { font-size: 1.8rem; margin-bottom: 6px; }
+        .uploader-zone strong { display: block; font-size: 0.95rem; color: #e2e8f0; }
+        .uploader-zone span { font-size: 0.75rem; color: #64748b; }
+
+        /* ─── PLATFORM TABS ─── */
+        .platform-tabs {
+            display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .ptab {
+            padding: 7px 18px; border-radius: 20px; font-size: 0.8rem;
+            font-weight: 600; border: 1px solid #334155;
+            background: transparent; color: #94a3b8; cursor: pointer;
+            transition: all 0.2s; font-family: 'Inter', sans-serif;
+        }
+        .ptab:hover { border-color: #94a3b8; color: #e2e8f0; }
+        .ptab.active { background: #ff0000; border-color: #ff0000; color: white; }
+        .ptab[data-p="tiktok"].active { background: #010101; border-color: #69C9D0; color: #69C9D0; }
+        .ptab[data-p="reels"].active { background: linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); border-color: transparent; color: white; }
+
+        /* ─── TOGGLE CONTROLS ─── */
+        .controls-row {
+            display: flex; gap: 10px; justify-content: center;
+            flex-wrap: wrap; margin-bottom: 24px;
+        }
+        .toggle-chip {
+            display: flex; align-items: center; gap: 7px;
+            padding: 8px 16px; border-radius: 10px; font-size: 0.82rem;
+            font-weight: 600; border: 1px solid #334155;
+            background: var(--card, #0f172a); color: #94a3b8;
+            cursor: pointer; transition: all 0.2s; user-select: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .toggle-chip .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #334155; transition: background 0.2s;
+        }
+        .toggle-chip.on { border-color: #475569; color: #e2e8f0; }
+        .toggle-chip.on .dot { background: currentColor; }
+        .toggle-chip[data-layer="ui"].on { color: #60a5fa; }
+        .toggle-chip[data-layer="zones"].on { color: #ff0000; }
+        .toggle-chip[data-layer="grid"].on { color: #34d399; }
+        .toggle-chip[data-layer="safe"].on { color: #fbbf24; }
+
+        /* ─── WORKSPACE ─── */
+        .workspace {
+            display: flex; justify-content: center; align-items: flex-start;
+            gap: 32px; padding: 0 10px 10px;
+            flex-wrap: wrap;
+        }
+
+        .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+        /* 9:16 at 270px wide = 480px tall */
+        .phone-frame {
+            width: 270px; height: 480px;
+            background: #0a0a0a; border: 10px solid #1e293b;
+            border-radius: 42px; position: relative; overflow: hidden;
+            box-shadow: 0 0 0 1px #0f172a, 0 40px 80px rgba(0,0,0,0.7),
+                        inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+        /* Notch */
+        .phone-frame::before {
+            content: ''; position: absolute; top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 70px; height: 22px;
+            background: #1e293b; border-radius: 0 0 14px 14px;
+            z-index: 100;
+        }
+
+        #mediaRender, #videoRender {
+            width: 100%; height: 100%; object-fit: cover; position: absolute;
+            top: 0; left: 0; display: none;
+        }
+
+        /* ─── PLACEHOLDER ─── */
+        .phone-placeholder {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px;
+            background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+            z-index: 1;
+        }
+        .phone-placeholder .ph-icon { font-size: 2.2rem; opacity: 0.4; }
+        .phone-placeholder span { font-size: 0.7rem; color: #475569; text-align: center; padding: 0 20px; line-height: 1.5; }
+        .phone-placeholder.hidden { display: none; }
+
+        /* ─── SAFE ZONE OVERLAY (accurate YouTube Shorts layout) ─── */
+        /*
+          YouTube Shorts dead zones (approximate % of frame):
+          Top:    ~13% (header + notch)
+          Right:  ~22% (sidebar icons)
+          Bottom: ~22% (channel name, caption, audio)
+        */
+
+        .zone-overlay {
+            position: absolute; inset: 0; z-index: 6;
+            pointer-events: none; display: none;
+        }
+
+        /* Top dead zone */
+        .zone-top {
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 13%; background: rgba(255,0,0,0.25);
+            border-bottom: 1px dashed rgba(255,80,80,0.7);
+        }
+        /* Right dead zone */
+        .zone-right {
+            position: absolute; top: 13%; right: 0; bottom: 22%;
+            width: 22%; background: rgba(255,0,0,0.25);
+            border-left: 1px dashed rgba(255,80,80,0.7);
+        }
+        /* Bottom dead zone */
+        .zone-bottom {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 22%; background: rgba(255,0,0,0.25);
+            border-top: 1px dashed rgba(255,80,80,0.7);
+        }
+        /* Safe zone center box */
+        .zone-safe-box {
+            position: absolute;
+            top: 13%; left: 0; right: 22%; bottom: 22%;
+            border: 2px solid rgba(52,211,153,0.7);
+            background: rgba(52,211,153,0.04);
+        }
+        .zone-label {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            color: rgba(52,211,153,0.6); font-family: 'Outfit', sans-serif;
+            font-size: 0.55rem; font-weight: 800; letter-spacing: 2px;
+            text-align: center; white-space: nowrap;
+        }
+        /* Labels on dead zones */
+        .zone-top-label {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            font-size: 0.45rem; font-weight: 700; color: rgba(255,120,120,0.8);
+            font-family: 'Outfit', sans-serif; letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .zone-right-label {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%) rotate(90deg);
+            font-size: 0.45rem; font-weight: 700; color: rgba(255,120,120,0.8);
+            font-family: 'Outfit', sans-serif; letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .zone-bottom-label {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            font-size: 0.45rem; font-weight: 700; color: rgba(255,120,120,0.8);
+            font-family: 'Outfit', sans-serif; letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* ─── RULE-OF-THIRDS GRID ─── */
+        .grid-overlay {
+            position: absolute; inset: 0; z-index: 7; pointer-events: none; display: none;
+        }
+        .grid-line {
+            position: absolute; background: rgba(52,211,153,0.25);
+        }
+        .grid-line.h { left: 0; right: 0; height: 1px; }
+        .grid-line.v { top: 0; bottom: 0; width: 1px; }
+        .grid-line.h:nth-child(1) { top: 33.33%; }
+        .grid-line.h:nth-child(2) { top: 66.66%; }
+        .grid-line.v:nth-child(3) { left: 33.33%; }
+        .grid-line.v:nth-child(4) { left: 66.66%; }
+
+        /* ─── SAFE CONTENT BOX (visual guide) ─── */
+        .safe-content-overlay {
+            position: absolute; z-index: 8; pointer-events: none; display: none;
+            /* 78% wide, 65% tall, anchored top-left at (0%, 13%) */
+            top: 13%; left: 0; right: 22%; bottom: 22%;
+            outline: 2px solid rgba(251,191,36,0.8);
+            outline-offset: -2px;
+        }
+        .safe-content-overlay::before {
+            content: '✓ SAFE TO PLACE TEXT HERE';
+            position: absolute; bottom: calc(100% + 4px); left: 0;
+            font-size: 0.45rem; font-weight: 700; color: #fbbf24;
+            font-family: 'Outfit', sans-serif; letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* ─── YOUTUBE UI OVERLAY ─── */
+        .ui-mask {
+            position: absolute; inset: 0; pointer-events: none;
+            z-index: 10; color: white;
+            font-family: "YouTube Sans", "Roboto", sans-serif;
+        }
+
+        .yt-top {
+            position: absolute; top: 26px; left: 0; width: 100%;
+            display: flex; justify-content: space-between;
+            padding: 0 12px; align-items: center;
+        }
+        .yt-logo { font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; gap: 4px; }
+        .yt-red-dot { width: 10px; height: 10px; background: #ff0000; border-radius: 2px; }
+
+        .yt-search-icon, .yt-more-icon {
+            opacity: 0.9; font-size: 1rem;
+        }
+        .yt-top-right { display: flex; gap: 12px; }
+
+        .right-sidebar {
+            position: absolute; right: 5px; bottom: 68px;
+            display: flex; flex-direction: column; align-items: center; gap: 16px;
+        }
+        .icon-unit { text-align: center; font-size: 0.52rem; font-weight: 600; color: rgba(255,255,255,0.95); }
+        .yt-icon-svg {
+            width: 22px; height: 22px; margin: 0 auto 2px;
+            display: block;
+        }
+
+        .bottom-content { position: absolute; bottom: 10px; left: 10px; width: 74%; }
+        .yt-channel {
+            display: flex; align-items: center; gap: 7px;
+            font-weight: 600; font-size: 0.75rem; margin-bottom: 8px;
+        }
+        .yt-avatar {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: linear-gradient(135deg,#334155,#475569);
+            border: 1.5px solid rgba(255,255,255,0.3);
+            flex-shrink: 0;
+        }
+        .sub-btn {
+            background: white; color: black; border-radius: 14px;
+            padding: 3px 9px; font-size: 0.6rem; font-weight: 700;
+        }
+
+        .caption-line {
+            height: 5px; background: rgba(255,255,255,0.28);
+            border-radius: 8px; margin-bottom: 5px; border-radius: 4px;
+        }
+
+        .yt-audio-row {
+            display: flex; align-items: center; gap: 6px; margin-top: 4px;
+        }
+        .yt-disk {
+            width: 22px; height: 22px; border-radius: 3px;
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;
+        }
+        .yt-audio-text { font-size: 0.5rem; color: rgba(255,255,255,0.6); }
+
+        /* Progress bar */
+        .yt-progress {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+            background: rgba(255,255,255,0.15);
+        }
+        .yt-progress-fill {
+            height: 100%; width: 42%; background: #ff0000;
+        }
+
+        /* ─── SIDE INFO PANEL ─── */
+        .info-panel {
+            width: 240px; min-width: 200px;
+            display: flex; flex-direction: column; gap: 12px;
+            padding-top: 6px;
+        }
+
+        .info-card {
+            background: rgba(15,23,42,0.7); border: 1px solid #1e293b;
+            border-radius: 14px; padding: 14px 16px;
+        }
+        .info-card h4 {
+            font-family: 'Outfit', sans-serif; font-size: 0.8rem;
+            font-weight: 700; color: #e2e8f0; margin: 0 0 10px; letter-spacing: 0.5px;
+        }
+
+        .zone-stat {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; border-bottom: 1px solid rgba(30,41,59,0.8);
+            font-size: 0.72rem;
+        }
+        .zone-stat:last-child { border-bottom: none; }
+        .zone-stat .label { color: #64748b; }
+        .zone-stat .val { font-weight: 600; color: #e2e8f0; }
+        .zone-stat .pill {
+            font-size: 0.6rem; padding: 2px 7px; border-radius: 6px;
+            font-weight: 700;
+        }
+        .pill.dead { background: rgba(255,0,0,0.15); color: #f87171; }
+        .pill.safe { background: rgba(52,211,153,0.15); color: #34d399; }
+
+        .tip-item {
+            display: flex; gap: 8px; align-items: flex-start;
+            font-size: 0.7rem; color: #94a3b8; line-height: 1.5;
+            padding: 5px 0; border-bottom: 1px solid rgba(30,41,59,0.6);
+        }
+        .tip-item:last-child { border-bottom: none; }
+        .tip-dot { width: 5px; height: 5px; border-radius: 50%; background: #ff0000; margin-top: 5px; flex-shrink: 0; }
+
+        /* ─── DOWNLOAD BTN ─── */
+        .dl-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 10px; border-radius: 10px;
+            background: rgba(255,0,0,0.12); border: 1px solid rgba(255,0,0,0.3);
+            color: #f87171; font-size: 0.78rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
+        }
+        .dl-btn:hover { background: rgba(255,0,0,0.22); border-color: #f87171; color: white; }
+        .dl-btn:disabled { opacity: 0.35; cursor: default; }
+
+        /* ─── PHONE LABEL ─── */
+        .phone-label {
+            font-size: 0.65rem; color: #475569; font-family: 'Inter', sans-serif;
+            text-align: center;
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 680px) {
+            .info-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+            .info-card { flex: 1; min-width: 160px; }
+            .workspace { flex-direction: column; align-items: center; }
+            .platform-tabs { gap: 6px; }
+            .ptab { padding: 5px 12px; font-size: 0.72rem; }
+        }
+
+        /* Drag active */
+        body.dragging .uploader-zone { border-color: #ff0000; background: rgba(255,0,0,0.08); }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">Back to tools</a>
+
+        <section class="tool-card">
+            <div class="tool-inner">
+                <h1>YouTube Shorts Safe-Zone</h1>
+                <p>Preview exactly which parts of your Shorts frame are hidden by the YouTube UI — so your text, faces, and key content always land in the clear zone.</p>
+
+                <!-- Upload -->
+                <div
+                    class="uploader-zone"
+                    id="uploaderZone"
+                    onclick="document.getElementById('fileInput').click()"
+                >
+                    <div class="upload-icon">🎬</div>
+                    <strong id="statusText">Drop your Shorts frame here</strong>
+                    <span>Upload an image or video · 9:16 works best</span>
+                    <input type="file" id="fileInput" hidden accept="image/*,video/*" onchange="processFile(this)">
+                </div>
+
+                <!-- Platform Tabs -->
+                <div class="platform-tabs">
+                    <button class="ptab active" data-p="youtube" onclick="setPlatform('youtube',this)">▶ YouTube Shorts</button>
+                    <button class="ptab" data-p="tiktok" onclick="setPlatform('tiktok',this)">♪ TikTok</button>
+                    <button class="ptab" data-p="reels" onclick="setPlatform('reels',this)">◎ Instagram Reels</button>
+                </div>
+
+                <!-- Layer Toggles -->
+                <div class="controls-row">
+                    <button class="toggle-chip on" data-layer="ui" onclick="toggleChip(this,'ui-mask')">
+                        <span class="dot"></span> Platform UI
+                    </button>
+                    <button class="toggle-chip on" data-layer="zones" onclick="toggleChip(this,'zone-overlay')">
+                        <span class="dot"></span> Dead Zones
+                    </button>
+                    <button class="toggle-chip" data-layer="grid" onclick="toggleChip(this,'grid-overlay')">
+                        <span class="dot"></span> ⅓ Grid
+                    </button>
+                    <button class="toggle-chip" data-layer="safe" onclick="toggleChip(this,'safe-content-overlay')">
+                        <span class="dot"></span> Safe Box
+                    </button>
+                </div>
+
+                <!-- Workspace -->
+                <div class="workspace">
+                    <!-- Phone -->
+                    <div class="phone-wrap">
+                        <div class="phone-frame" id="phoneFrame">
+
+                            <!-- Placeholder -->
+                            <div class="phone-placeholder" id="phonePlaceholder">
+                                <div class="ph-icon">📱</div>
+                                <span>Upload a frame to see<br>where the safe zone is</span>
+                            </div>
+
+                            <!-- Media -->
+                            <img id="mediaRender" src="" alt="">
+                            <video id="videoRender" autoplay loop muted playsinline></video>
+
+                            <!-- Dead Zone Overlay (accurate layout) -->
+                            <div class="zone-overlay" id="zone-overlay">
+                                <div class="zone-top"><span class="zone-top-label">TOP BAR (DEAD)</span></div>
+                                <div class="zone-right"><span class="zone-right-label">SIDEBAR (DEAD)</span></div>
+                                <div class="zone-bottom"><span class="zone-bottom-label">CAPTION AREA (DEAD)</span></div>
+                                <div class="zone-safe-box"><span class="zone-label">SAFE ZONE</span></div>
+                            </div>
+
+                            <!-- Rule-of-thirds Grid -->
+                            <div class="grid-overlay" id="grid-overlay">
+                                <div class="grid-line h"></div>
+                                <div class="grid-line h"></div>
+                                <div class="grid-line v"></div>
+                                <div class="grid-line v"></div>
+                            </div>
+
+                            <!-- Safe Content Box -->
+                            <div class="safe-content-overlay" id="safe-content-overlay"></div>
+
+                            <!-- YouTube UI (default platform) -->
+                            <div class="ui-mask" id="ui-mask">
+                                <!-- Top bar -->
+                                <div class="yt-top">
+                                    <div class="yt-logo"><div class="yt-red-dot"></div><span>Shorts</span></div>
+                                    <div class="yt-top-right">
+                                        <span class="yt-search-icon">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 6.75 6.75a7.5 7.5 0 0 0 9.9 9.9z" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+                                        </span>
+                                        <span class="yt-more-icon">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Right sidebar -->
+                                <div class="right-sidebar" id="yt-sidebar">
+                                    <div class="icon-unit">
+                                        <svg class="yt-icon-svg" viewBox="0 0 24 24" fill="white"><path d="M1 17V9a4 4 0 0 1 4-4h.5L7 2h10l1.5 3H19a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4zM12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+                                        <div style="display:flex;flex-direction:column;align-items:center;">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg>
+                                            <span>24K</span>
+                                        </div>
+                                    </div>
+                                    <div class="icon-unit">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/></svg>
+                                        <span>Dislike</span>
+                                    </div>
+                                    <div class="icon-unit">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+                                        <span>842</span>
+                                    </div>
+                                    <div class="icon-unit">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                                        <span>Share</span>
+                                    </div>
+                                    <div class="icon-unit">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                                        <span>Remix</span>
+                                    </div>
+                                    <div class="yt-disk"></div>
+                                </div>
+
+                                <!-- Bottom content -->
+                                <div class="bottom-content">
+                                    <div class="yt-channel">
+                                        <div class="yt-avatar"></div>
+                                        <span>@RebrixeEngine</span>
+                                        <div class="sub-btn">Subscribe</div>
+                                    </div>
+                                    <div class="caption-line" style="width:90%"></div>
+                                    <div class="caption-line" style="width:65%"></div>
+                                    <div class="yt-audio-row">
+                                        <div class="yt-disk"></div>
+                                        <span class="yt-audio-text">Original Audio · @RebrixeEngine</span>
+                                    </div>
+                                </div>
+
+                                <!-- Progress -->
+                                <div class="yt-progress"><div class="yt-progress-fill"></div></div>
+                            </div>
+
+                        </div><!-- /phone-frame -->
+                        <div class="phone-label" id="phoneLabel">9:16 · 270 × 480 px preview</div>
+                    </div><!-- /phone-wrap -->
+
+                    <!-- Info Panel -->
+                    <div class="info-panel">
+
+                        <div class="info-card">
+                            <h4>ZONE BREAKDOWN</h4>
+                            <div class="zone-stat" id="statPlatform">
+                                <span class="label">Platform</span>
+                                <span class="val" id="statPlatformVal">YouTube Shorts</span>
+                            </div>
+                            <div class="zone-stat">
+                                <span class="label">Top bar</span>
+                                <span class="pill dead" id="zTop">13% height</span>
+                            </div>
+                            <div class="zone-stat">
+                                <span class="label">Right sidebar</span>
+                                <span class="pill dead" id="zRight">22% width</span>
+                            </div>
+                            <div class="zone-stat">
+                                <span class="label">Bottom area</span>
+                                <span class="pill dead" id="zBottom">22% height</span>
+                            </div>
+                            <div class="zone-stat">
+                                <span class="label">Safe zone</span>
+                                <span class="pill safe" id="zSafe">~65% of frame</span>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <h4>TIPS FOR THIS PLATFORM</h4>
+                            <div id="tipsContainer">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+
+                        <button class="dl-btn" id="dlBtn" onclick="downloadFrame()" disabled>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Save Preview as PNG
+                        </button>
+
+                    </div><!-- /info-panel -->
+                </div><!-- /workspace -->
+
+            </div><!-- /tool-inner -->
+        </section>
+    </div>
+
+    <footer style="margin-top: 120px; padding: 80px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3 style="color: white; font-family: 'Outfit'; margin-bottom: 10px;">Rebrixe Engine</h3>
+            <p style="font-size: 0.85rem; margin-bottom: 20px;">The Digital Identity & Growth Suite for 2026.</p>
+            <div style="height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin-bottom: 20px;"></div>
+            <p style="font-size: 0.75rem;">© 2026 Rebrixe Engine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+    // ─── STATE ───────────────────────────────────────────────
+    let currentPlatform = 'youtube';
+    let hasMedia = false;
+
+    // Layer visibility state (true = visible)
+    const layerState = {
+        'ui-mask': true,
+        'zone-overlay': true,
+        'grid-overlay': false,
+        'safe-content-overlay': false
+    };
+
+    // ─── PLATFORM DATA ───────────────────────────────────────
+    const platforms = {
+        youtube: {
+            name: 'YouTube Shorts',
+            top: '13%', right: '22%', bottom: '22%', safe: '~65%',
+            tips: [
+                'Keep faces & text out of the bottom 22% — that\'s the caption + subscribe area.',
+                'The right 22% is covered by like, comment & share icons. Never put a CTA there.',
+                'Your hook text should sit in the middle-left vertical third for max visibility.',
+                'Avoid the top 13% — the Shorts header and notch eat into that space.',
+                'Center-of-frame is always the safest bet for critical info like product shots.'
+            ]
+        },
+        tiktok: {
+            name: 'TikTok',
+            top: '8%', right: '20%', bottom: '25%', safe: '~62%',
+            tips: [
+                'TikTok\'s bottom zone is slightly taller — caption + sound overlay take ~25%.',
+                'Right sidebar (follow, like, comment, share) covers ~20% width.',
+                'The For You feed header sits at top-right — keep top 8% clear.',
+                'Hook text performs best in the upper-center area of the safe zone.',
+                'Duet/stitch UI can eat into left side — stay a touch right of center for solo posts.'
+            ]
+        },
+        reels: {
+            name: 'Instagram Reels',
+            top: '10%', right: '18%', bottom: '28%', safe: '~60%',
+            tips: [
+                'Reels has the tallest bottom dead zone (~28%) due to caption, audio, & action buttons.',
+                'The right sidebar is slightly thinner than TikTok but still ~18% of width.',
+                'Instagram often adds Boost/Sponsored overlays — keep commercial content high.',
+                'Unlike Shorts, Reels captions can expand — critical text should be high-center.',
+                'The Explore grid crops Reels to a square — ensure the safe zone content works there too.'
+            ]
+        }
+    };
+
+    // ─── PLATFORM SWITCH ─────────────────────────────────────
+    function setPlatform(p, btn) {
+        currentPlatform = p;
+
+        // Update tab states
+        document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+
+        const d = platforms[p];
+
+        // Update zone stats
+        document.getElementById('statPlatformVal').textContent = d.name;
+        document.getElementById('zTop').textContent = d.top + ' height';
+        document.getElementById('zRight').textContent = d.right + ' width';
+        document.getElementById('zBottom').textContent = d.bottom + ' height';
+        document.getElementById('zSafe').textContent = d.safe + ' of frame';
+
+        // Update UI overlay visibility & style for TikTok/Reels
+        updatePlatformUI(p);
+
+        // Update tips
+        renderTips(p);
+
+        // Update zone-overlay percentages via CSS vars on the zone elements
+        updateZoneOverlay(p);
+
+        // Update phone label
+        const labels = { youtube: '9:16 · Shorts format', tiktok: '9:16 · TikTok format', reels: '9:16 · Reels format' };
+        document.getElementById('phoneLabel').textContent = labels[p];
+    }
+
+    function updateZoneOverlay(p) {
+        const d = platforms[p];
+        const overlay = document.getElementById('zone-overlay');
+        const top = overlay.querySelector('.zone-top');
+        const right = overlay.querySelector('.zone-right');
+        const bottom = overlay.querySelector('.zone-bottom');
+        const safe = overlay.querySelector('.zone-safe-box');
+        const safeBox = document.getElementById('safe-content-overlay');
+
+        const t = d.top, r = d.right, b = d.bottom;
+
+        top.style.height = t;
+        right.style.width = r;
+        right.style.top = t;
+        right.style.bottom = b;
+        bottom.style.height = b;
+
+        safe.style.top = t;
+        safe.style.right = r;
+        safe.style.bottom = b;
+
+        safeBox.style.top = t;
+        safeBox.style.right = r;
+        safeBox.style.bottom = b;
+    }
+
+    function updatePlatformUI(p) {
+        const ui = document.getElementById('ui-mask');
+        // Swap colors for TikTok
+        const logo = ui.querySelector('.yt-logo');
+        const dot = ui.querySelector('.yt-red-dot');
+        const progressFill = ui.querySelector('.yt-progress-fill');
+
+        if (p === 'tiktok') {
+            logo.innerHTML = '<span style="font-size:1rem;font-weight:800;letter-spacing:-0.5px;">TikTok</span>';
+            progressFill.style.background = '#69C9D0';
+        } else if (p === 'reels') {
+            logo.innerHTML = '<span style="font-size:1rem;font-weight:800;background:linear-gradient(90deg,#f09433,#dc2743,#bc1888);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Reels</span>';
+            progressFill.style.background = 'linear-gradient(90deg,#f09433,#dc2743)';
+        } else {
+            logo.innerHTML = '<div class="yt-red-dot"></div><span>Shorts</span>';
+            progressFill.style.background = '#ff0000';
+        }
+    }
+
+    function renderTips(p) {
+        const tips = platforms[p].tips;
+        const container = document.getElementById('tipsContainer');
+        container.innerHTML = tips.map(t =>
+            `<div class="tip-item"><div class="tip-dot"></div><span>${t}</span></div>`
+        ).join('');
+    }
+
+    // ─── TOGGLE LAYERS ───────────────────────────────────────
+    function toggleChip(btn, layerId) {
+        const el = document.getElementById(layerId);
+        const isOn = !btn.classList.contains('on');
+
+        layerState[layerId] = isOn;
+        btn.classList.toggle('on');
+
+        if (isOn) {
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    // ─── FILE PROCESSING ─────────────────────────────────────
+    function processFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        loadMedia(file);
+    }
+
+    function loadMedia(file) {
+        const img = document.getElementById('mediaRender');
+        const vid = document.getElementById('videoRender');
+        const placeholder = document.getElementById('phonePlaceholder');
+        const status = document.getElementById('statusText');
+        const dlBtn = document.getElementById('dlBtn');
+
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+                img.style.display = 'block';
+                vid.style.display = 'none';
+                placeholder.classList.add('hidden');
+                hasMedia = true;
+                dlBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        } else if (file.type.startsWith('video/')) {
+            const url = URL.createObjectURL(file);
+            vid.src = url;
+            vid.style.display = 'block';
+            img.style.display = 'none';
+            placeholder.classList.add('hidden');
+            hasMedia = true;
+            // Video can't be downloaded as static PNG from canvas easily — disable download
+            dlBtn.disabled = true;
+            dlBtn.title = 'Download is available for images only';
+        }
+
+        status.textContent = '✓ Frame loaded — overlays active';
+        document.getElementById('uploaderZone').querySelector('span').textContent = 'Click to replace · drag a new file in';
+    }
+
+    // ─── DRAG & DROP ─────────────────────────────────────────
+    const zone = document.getElementById('uploaderZone');
+    ;['dragenter','dragover'].forEach(e => {
+        document.addEventListener(e, (ev) => { ev.preventDefault(); document.body.classList.add('dragging'); });
+        zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add('drag-over'); });
+    });
+    ;['dragleave','drop'].forEach(e => {
+        document.addEventListener(e, () => { document.body.classList.remove('dragging'); zone.classList.remove('drag-over'); });
+    });
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) loadMedia(file);
+    });
+
+    // ─── DOWNLOAD ────────────────────────────────────────────
+    async function downloadFrame() {
+        const phone = document.getElementById('phoneFrame');
+        const img = document.getElementById('mediaRender');
+        if (!img.src || img.style.display === 'none') return;
+
+        // We'll do a simple canvas composite
+        const W = 270, H = 480;
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+
+        // Draw base image
+        ctx.drawImage(img, 0, 0, W, H);
+
+        // Draw dead zones if active
+        if (layerState['zone-overlay']) {
+            const d = platforms[currentPlatform];
+            const topH = parseFloat(d.top) / 100 * H;
+            const rightW = parseFloat(d.right) / 100 * W;
+            const bottomH = parseFloat(d.bottom) / 100 * H;
+
+            ctx.fillStyle = 'rgba(255,0,0,0.25)';
+            ctx.fillRect(0, 0, W, topH);               // top
+            ctx.fillRect(W - rightW, topH, rightW, H - topH - bottomH); // right
+            ctx.fillRect(0, H - bottomH, W, bottomH);  // bottom
+
+            // Safe zone outline
+            ctx.strokeStyle = 'rgba(52,211,153,0.8)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, topH, W - rightW, H - topH - bottomH);
+        }
+
+        const name = `safezone-${currentPlatform}-preview.png`;
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = name;
+        a.click();
+    }
+
+    // ─── INIT ─────────────────────────────────────────────────
+    // Apply initial layer states to DOM
+    Object.entries(layerState).forEach(([id, visible]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? 'block' : 'none';
+    });
+
+    renderTips('youtube');
+    updateZoneOverlay('youtube');
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

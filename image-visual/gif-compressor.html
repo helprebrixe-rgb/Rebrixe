@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GIF Compressor — Reduce GIF File Size Free | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Compress GIF files by reducing colors and frame rate. See output size before downloading. Free, browser-only — your GIF never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; position: relative; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .gif-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+        .ctrl-group { display: flex; flex-direction: column; gap: 10px; }
+        .ctrl-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+
+        /* Slider */
+        .slider-wrap { display: flex; align-items: center; gap: 10px; }
+        .tool-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border-mid); outline: none; cursor: pointer; }
+        .tool-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 42px; text-align: right; white-space: nowrap; }
+
+        /* Color chips */
+        .color-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .chip { padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.73rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Savings estimator */
+        .savings-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 20px; margin-top: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .sav-block { display: flex; flex-direction: column; gap: 3px; }
+        .sav-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .sav-val { font-size: 1rem; font-weight: 800; color: var(--text); font-family: 'Fira Code', monospace; }
+        .sav-val.green { color: var(--success); }
+        .sav-val.yellow { color: var(--primary); }
+        .sav-sep { color: var(--border-mid); font-size: 1.2rem; padding: 0 4px; align-self: center; }
+        .sav-arrow { color: var(--text-dim); align-self: center; }
+        .savings-note { font-size: 0.72rem; color: var(--text-dim); margin-left: auto; line-height: 1.4; text-align: right; max-width: 180px; }
+        .savings-note strong { color: var(--text-sec); }
+
+        /* Progress */
+        .progress-wrap { display: none; margin-top: 16px; }
+        .progress-wrap.visible { display: block; }
+        .progress-bar-bg { height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 8px; }
+        .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.2s; }
+        .progress-text { font-size: 0.72rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+
+        /* Preview */
+        .preview-panel { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .preview-panel.visible { display: block; }
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .compare-box { display: flex; flex-direction: column; gap: 10px; }
+        .compare-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .compare-label span { margin-left: 6px; font-family: 'Fira Code', monospace; color: var(--text-sec); font-size: 0.72rem; text-transform: none; letter-spacing: 0; }
+        .gif-frame { border-radius: var(--radius-md); border: 1px solid var(--border-mid); overflow: hidden; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; display: flex; align-items: center; justify-content: center; min-height: 140px; }
+        .gif-frame img { max-width: 100%; max-height: 200px; display: block; }
+        .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .stat-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+        .sp-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; }
+        .sp-val { font-size: 0.9rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .sp-val.green { color: var(--success); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled .btn-main-inner { opacity: 0.5; cursor: not-allowed; }
+        .btn-download { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-download.visible { display: block; }
+        .btn-download:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .ctrl-grid { grid-template-columns: 1fr; gap: 18px; }
+            .compare-grid { grid-template-columns: 1fr; }
+            .result-stats { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-direction: column; }
+            .savings-note { max-width: 100%; text-align: left; margin-left: 0; margin-top: 6px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="compress-optimise.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">GIF Compressor</h1>
+                <p class="tool-page-sub">Reduce GIF file size by cutting colors and frame rate. See estimated savings before you download.</p>
+                <span class="privacy-badge">Processed in your browser — GIF never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept=".gif,image/gif">
+                <span class="drop-icon">🎞️</span>
+                <p class="drop-title">Drop your GIF here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> · GIF files only</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="gif-thumb" id="gifThumb" src="" alt="GIF preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="gifName">—</div>
+                        <div class="img-dims" id="gifDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Compression Settings</div>
+                    <div class="ctrl-grid">
+                        <div class="ctrl-group">
+                            <label>Frame Rate Reduction</label>
+                            <div class="slider-wrap">
+                                <input type="range" class="tool-slider" id="fpsSlider" min="1" max="100" value="100" oninput="onSettingChange()">
+                                <span class="slider-val" id="fpsVal">100% frames</span>
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); line-height:1.5;">Keep fewer frames to shrink animated GIFs the most. <code style="font-family:'Fira Code',monospace;font-size:0.7rem;background:var(--surface);padding:1px 5px;border-radius:4px;color:var(--accent);">50%</code> = every other frame.</div>
+                        </div>
+                        <div class="ctrl-group">
+                            <label>Color Palette</label>
+                            <div class="color-chips" id="colorChips">
+                                <button class="chip" data-colors="256" onclick="setColors(this)">256 colors</button>
+                                <button class="chip active" data-colors="128" onclick="setColors(this)">128 colors</button>
+                                <button class="chip" data-colors="64" onclick="setColors(this)">64 colors</button>
+                                <button class="chip" data-colors="32" onclick="setColors(this)">32 colors</button>
+                                <button class="chip" data-colors="16" onclick="setColors(this)">16 colors</button>
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); line-height:1.5;">Fewer colors = smaller file. 64 is a sweet spot for most GIFs without visible quality loss.</div>
+                        </div>
+                    </div>
+
+                    <!-- Savings estimator -->
+                    <div class="savings-bar" id="savingsBar">
+                        <div class="sav-block">
+                            <div class="sav-label">Original</div>
+                            <div class="sav-val" id="estOrig">—</div>
+                        </div>
+                        <div class="sav-arrow">→</div>
+                        <div class="sav-block">
+                            <div class="sav-label">Estimated Output</div>
+                            <div class="sav-val yellow" id="estOut">—</div>
+                        </div>
+                        <div class="sav-sep">|</div>
+                        <div class="sav-block">
+                            <div class="sav-label">Est. Savings</div>
+                            <div class="sav-val green" id="estSave">—</div>
+                        </div>
+                        <div class="savings-note" id="savingsNote">Adjust sliders to estimate output size before compressing.</div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnCompress" onclick="doCompress()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⚡</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Compress GIF</span>
+                        </div>
+                    </button>
+                    <button class="btn-download" id="btnDownload" onclick="doDownload()">⬇ Download Compressed GIF</button>
+                </div>
+
+                <!-- Progress -->
+                <div class="progress-wrap" id="progressWrap">
+                    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+                    <div class="progress-text" id="progressText">Processing frames…</div>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="section-label" style="margin-bottom:16px;">Before & After</div>
+                    <div class="compare-grid">
+                        <div class="compare-box">
+                            <div class="compare-label">Original <span id="origSizeLabel"></span></div>
+                            <div class="gif-frame" id="origFrame">
+                                <img id="origPreviewImg" src="" alt="Original GIF">
+                            </div>
+                        </div>
+                        <div class="compare-box">
+                            <div class="compare-label">Compressed <span id="compSizeLabel"></span></div>
+                            <div class="gif-frame" id="compFrame">
+                                <img id="compPreviewImg" src="" alt="Compressed GIF">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result-stats" id="resultStats"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Two levers, big results</h3>
+                        <p>GIF size is driven by two things: how many frames it has, and how many colors each frame uses. This tool lets you control both directly — no guesswork, no black-box settings.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>See savings first</h3>
+                        <p>The estimator shows you approximate output size as you drag the sliders — before you run the compression. No surprises. If it's not enough, dial it down further.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Frame rate reduction</h3>
+                        <p><code>50% frames</code> drops every other frame, halving animation data. Most GIFs still look smooth at 50–70%. Go lower for maximum compression on fast-moving GIFs.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs in your browser using the <code>Canvas API</code>. Your GIF never touches a server. Works offline once loaded. No account, no watermark, no limit.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <!-- omggif library for GIF decoding/encoding — loaded from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/omggif/1.0.10/omggif.min.js"></script>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origArrayBuffer = null;
+    let origFrames = [], gifW = 0, gifH = 0;
+    let colorCount = 128, fpsKeep = 1.0;
+    let resultBlob = null, resultFilename = '';
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.name.endsWith('.gif')) loadFile(f); else showToast('Please drop a .gif file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origArrayBuffer = e.target.result;
+            parseGIF(origArrayBuffer);
+            document.getElementById('gifThumb').src = URL.createObjectURL(file);
+            document.getElementById('gifName').textContent = file.name;
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+            document.getElementById('previewPanel').classList.remove('visible');
+            document.getElementById('btnDownload').classList.remove('visible');
+            resultBlob = null;
+            updateEstimate();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function parseGIF(buf) {
+        try {
+            const gr = new GifReader(new Uint8Array(buf));
+            gifW = gr.width; gifH = gr.height;
+            origFrames = [];
+            for (let i = 0; i < gr.numFrames(); i++) {
+                const info = gr.frameInfo(i);
+                const pixels = new Uint8ClampedArray(gifW * gifH * 4);
+                gr.decodeAndBlendFrame(i, pixels);
+                origFrames.push({ pixels: pixels.slice(), delay: info.delay, disposal: info.disposal });
+            }
+            document.getElementById('gifDims').textContent =
+                `${gifW} × ${gifH} px  ·  ${origFrames.length} frames  ·  ${fmtBytes(origFile.size)}`;
+            document.getElementById('origSizeLabel').textContent = fmtBytes(origFile.size);
+            document.getElementById('origPreviewImg').src = URL.createObjectURL(origFile);
+            document.getElementById('estOrig').textContent = fmtBytes(origFile.size);
+        } catch(err) {
+            showToast('Could not parse GIF. File may be corrupted.', 'error');
+        }
+    }
+
+    function resetTool() {
+        dz.style.display = ''; origFile = null; origArrayBuffer = null;
+        origFrames = []; gifW = 0; gifH = 0; resultBlob = null;
+        document.getElementById('toolPanel').classList.remove('visible');
+        document.getElementById('previewPanel').classList.remove('visible');
+        document.getElementById('btnDownload').classList.remove('visible');
+        fi.value = '';
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function setColors(btn) {
+        document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        colorCount = parseInt(btn.dataset.colors);
+        onSettingChange();
+    }
+
+    function onSettingChange() {
+        const v = parseInt(document.getElementById('fpsSlider').value);
+        fpsKeep = v / 100;
+        document.getElementById('fpsVal').textContent = v + '% frames';
+        updateEstimate();
+    }
+
+    function updateEstimate() {
+        if (!origFile || origFrames.length === 0) return;
+        // Estimation: size ≈ origSize * (fpsKeep) * (colorCount/256)^0.6
+        const factor = fpsKeep * Math.pow(colorCount / 256, 0.6);
+        const estBytes = Math.round(origFile.size * factor);
+        const savings = origFile.size - estBytes;
+        const pct = Math.round((savings / origFile.size) * 100);
+        document.getElementById('estOut').textContent = fmtBytes(estBytes);
+        document.getElementById('estSave').textContent = `~${pct}% smaller`;
+        document.getElementById('savingsNote').innerHTML = `<strong>${fmtBytes(savings)}</strong> estimated savings<br>based on your current settings`;
+    }
+
+    // ─── COMPRESS ──────────────────────────────────────────────────────────────
+    async function doCompress() {
+        if (!origFrames.length) { showToast('Upload a GIF first', 'error'); return; }
+
+        document.getElementById('progressWrap').classList.add('visible');
+        document.getElementById('btnCompress').disabled = true;
+        document.getElementById('btnDownload').classList.remove('visible');
+
+        await new Promise(r => setTimeout(r, 30)); // let UI update
+
+        try {
+            // 1. Pick frames to keep
+            const total = origFrames.length;
+            const keepEvery = Math.max(1, Math.round(1 / fpsKeep));
+            const keptFrames = origFrames.filter((_, i) => i % keepEvery === 0);
+            if (keptFrames.length === 0) keptFrames.push(origFrames[0]);
+
+            setProgress(10, `Selected ${keptFrames.length} of ${total} frames…`);
+
+            // 2. Encode output GIF
+            const bufSize = gifW * gifH * keptFrames.length * 5 + 1000000;
+            const outBuf = new Uint8Array(bufSize);
+            const gw = new GifWriter(outBuf, gifW, gifH, { loop: 0, palette: buildPalette(colorCount) });
+
+            for (let i = 0; i < keptFrames.length; i++) {
+                const frame = keptFrames[i];
+                const adjustedDelay = Math.round((frame.delay || 6) * keepEvery);
+                const indexed = quantizeFrame(frame.pixels, gifW, gifH, colorCount);
+                gw.addFrame(0, 0, gifW, gifH, indexed, {
+                    delay: adjustedDelay,
+                    disposal: 2,
+                    palette: null
+                });
+                setProgress(10 + Math.round((i / keptFrames.length) * 80), `Encoding frame ${i + 1}/${keptFrames.length}…`);
+                if (i % 5 === 0) await new Promise(r => setTimeout(r, 0)); // keep UI alive
+            }
+
+            const finalBuf = outBuf.slice(0, gw.end());
+            resultBlob = new Blob([finalBuf], { type: 'image/gif' });
+            const ext = 'gif';
+            const base = origFile.name.replace(/\.[^.]+$/, '');
+            resultFilename = `${base}_compressed.${ext}`;
+
+            setProgress(100, 'Done!');
+
+            // 3. Show preview
+            const resultURL = URL.createObjectURL(resultBlob);
+            document.getElementById('compPreviewImg').src = resultURL;
+            document.getElementById('compSizeLabel').textContent = fmtBytes(resultBlob.size);
+
+            const savings = origFile.size - resultBlob.size;
+            const pct = Math.round((savings / origFile.size) * 100);
+            document.getElementById('resultStats').innerHTML = `
+                <div class="stat-pill"><div class="sp-label">Output Size</div><div class="sp-val yellow">${fmtBytes(resultBlob.size)}</div></div>
+                <div class="stat-pill"><div class="sp-label">Saved</div><div class="sp-val green">${pct}% smaller</div></div>
+                <div class="stat-pill"><div class="sp-label">Frames</div><div class="sp-val">${keptFrames.length} / ${total}</div></div>
+                <div class="stat-pill"><div class="sp-label">Colors</div><div class="sp-val">${colorCount}</div></div>
+                <div class="stat-pill"><div class="sp-label">Dimensions</div><div class="sp-val">${gifW}×${gifH}</div></div>
+                <div class="stat-pill"><div class="sp-label">Saved bytes</div><div class="sp-val green">${fmtBytes(savings)}</div></div>
+            `;
+            document.getElementById('previewPanel').classList.add('visible');
+            document.getElementById('btnDownload').classList.add('visible');
+            document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast(`Compressed! ${pct}% smaller ✓`, 'success');
+
+        } catch(err) {
+            showToast('Compression failed. Try a different GIF.', 'error');
+            console.error(err);
+        }
+
+        setTimeout(() => document.getElementById('progressWrap').classList.remove('visible'), 1200);
+        document.getElementById('btnCompress').disabled = false;
+    }
+
+    function setProgress(pct, text) {
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent = text;
+    }
+
+    // Simple palette builder: evenly spaced RGB palette
+    function buildPalette(n) {
+        const pal = [];
+        const steps = Math.ceil(Math.cbrt(n));
+        for (let r = 0; r < steps && pal.length < n; r++)
+        for (let g = 0; g < steps && pal.length < n; g++)
+        for (let b = 0; b < steps && pal.length < n; b++) {
+            pal.push(
+                Math.round(r * 255 / (steps - 1 || 1)),
+                Math.round(g * 255 / (steps - 1 || 1)),
+                Math.round(b * 255 / (steps - 1 || 1))
+            );
+        }
+        // Pad to exact power of 2 if needed
+        while (pal.length < n * 3) pal.push(0, 0, 0);
+        return pal;
+    }
+
+    // Nearest-color quantization against palette
+    function quantizeFrame(pixels, w, h, n) {
+        const pal = buildPalette(n);
+        const indexed = new Uint8Array(w * h);
+        const palLen = pal.length / 3;
+        for (let i = 0; i < w * h; i++) {
+            const ri = pixels[i * 4], gi = pixels[i * 4 + 1], bi = pixels[i * 4 + 2];
+            let best = 0, bestDist = Infinity;
+            for (let j = 0; j < palLen; j++) {
+                const dr = ri - pal[j*3], dg = gi - pal[j*3+1], db = bi - pal[j*3+2];
+                const d = dr*dr + dg*dg + db*db;
+                if (d < bestDist) { bestDist = d; best = j; }
+            }
+            indexed[i] = best;
+        }
+        return indexed;
+    }
+
+    function doDownload() {
+        if (!resultBlob) return;
+        const url = URL.createObjectURL(resultBlob);
+        const a = document.createElement('a');
+        a.href = url; a.download = resultFilename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

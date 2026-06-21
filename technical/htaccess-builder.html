@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>.htaccess Builder — Force HTTPS, Custom 404, Blocklists | Rebrixe</title>
+    <meta name="description" content="Generate safe Apache .htaccess files with forced HTTPS, www redirect, custom error pages, IP/bot blocklists, hotlink protection, and cache headers. No server knowledge needed.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 22px;
+            align-items: start;
+            margin-bottom: 40px;
+        }
+        .panel {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+        }
+        .panel-head {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--primary, #00f2ff);
+        }
+        .panel-body { padding: 18px 20px; }
+
+        /* ── Section blocks ── */
+        .rule-block {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .rule-block.active { border-color: var(--primary, #00f2ff); }
+
+        .rule-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.3);
+            user-select: none;
+        }
+        .rule-head:hover { background: rgba(0,242,255,0.04); }
+
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background: #1e293b;
+            border-radius: 20px;
+            transition: 0.25s;
+            cursor: pointer;
+        }
+        .slider::before {
+            content: '';
+            position: absolute;
+            width: 14px; height: 14px;
+            left: 3px; top: 3px;
+            background: #475569;
+            border-radius: 50%;
+            transition: 0.25s;
+        }
+        input:checked + .slider { background: var(--primary, #00f2ff); }
+        input:checked + .slider::before { transform: translateX(16px); background: #000; }
+
+        .rule-label {
+            flex: 1;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .rule-badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 5px;
+            letter-spacing: 0.5px;
+        }
+        .badge-rec  { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .badge-opt  { background: rgba(0,242,255,0.1);   color: #00f2ff; border: 1px solid rgba(0,242,255,0.2); }
+        .badge-adv  { background: rgba(241,196,15,0.12); color: #f1c40f; border: 1px solid rgba(241,196,15,0.25); }
+
+        .rule-options {
+            padding: 14px 16px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+        .rule-options.open { display: block; }
+
+        label.field-label {
+            display: block;
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+            margin-bottom: 12px;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        textarea { min-height: 90px; resize: vertical; line-height: 1.6; font-size: 0.78rem; }
+
+        .field-hint {
+            font-size: 0.68rem;
+            color: #475569;
+            margin-top: -8px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        /* ── Radio group ── */
+        .radio-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .radio-opt {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            transition: 0.2s;
+            background: rgba(0,0,0,0.3);
+        }
+        .radio-opt input { accent-color: var(--primary); margin: 0; }
+        .radio-opt:has(input:checked) { border-color: var(--primary); color: #fff; background: rgba(0,242,255,0.07); }
+
+        /* ── Output ── */
+        .out-panel { position: sticky; top: 20px; }
+        .out-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71 !important; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+
+        .code-wrap {
+            padding: 20px;
+            max-height: 72vh;
+            overflow-y: auto;
+        }
+        #htOutput {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: #00f2ff;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.8;
+            margin: 0;
+        }
+
+        /* ── Rule counter ── */
+        .rule-count {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #475569;
+            padding: 0 20px 12px;
+        }
+        .rule-count span { color: var(--primary); }
+
+        /* ── Warnings ── */
+        .warn-strip {
+            margin: 0 20px 14px;
+            padding: 10px 14px;
+            background: rgba(241,196,15,0.08);
+            border: 1px solid rgba(241,196,15,0.25);
+            border-radius: 10px;
+            font-size: 0.72rem;
+            color: #f1c40f;
+            line-height: 1.5;
+            display: none;
+        }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 860px) {
+            .tool-grid { grid-template-columns: 1fr; }
+            .out-panel { position: static; }
+            .code-wrap { max-height: 50vh; }
+            .faq-grid  { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="server-wizards.html" class="back-btn">← Back to Dev Tools</a>
+    <h1 style="font-family:'Outfit',sans-serif;font-size:2.6rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(90deg,#00f2ff,#2ecc71);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 6px;text-align:center;">.htaccess Builder</h1>
+    <p style="opacity:0.55;font-weight:500;text-align:center;margin-bottom:28px;">Apache rules for HTTPS, custom errors, IP blocks & performance — without breaking your site.</p>
+
+    <div class="tool-grid">
+
+        <!-- ════ LEFT: Controls ════ -->
+        <div>
+
+            <!-- HTTPS & WWW -->
+            <div class="rule-block" id="blk-https">
+                <div class="rule-head" onclick="toggleOpts('https')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-https" onchange="regen();toggleActive('https')" checked><span class="slider"></span></label>
+                    <span class="rule-label">Force HTTPS</span>
+                    <span class="rule-badge badge-rec">RECOMMENDED</span>
+                </div>
+                <div class="rule-options open" id="opts-https">
+                    <label class="field-label">WWW Preference</label>
+                    <div class="radio-group">
+                        <label class="radio-opt"><input type="radio" name="www" value="none" checked onchange="regen()"> No change</label>
+                        <label class="radio-opt"><input type="radio" name="www" value="add"  onchange="regen()"> Force www</label>
+                        <label class="radio-opt"><input type="radio" name="www" value="rem"  onchange="regen()"> Remove www</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Error Pages -->
+            <div class="rule-block" id="blk-errors">
+                <div class="rule-head" onclick="toggleOpts('errors')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-errors" onchange="regen();toggleActive('errors')" checked><span class="slider"></span></label>
+                    <span class="rule-label">Custom Error Pages</span>
+                    <span class="rule-badge badge-rec">RECOMMENDED</span>
+                </div>
+                <div class="rule-options" id="opts-errors">
+                    <label class="field-label">404 Page Path</label>
+                    <input type="text" id="err404" placeholder="/404.html" value="/404.html" oninput="regen()">
+                    <label class="field-label">500 Page Path</label>
+                    <input type="text" id="err500" placeholder="/500.html" value="/500.html" oninput="regen()">
+                    <label class="field-label">403 Page Path <span style="font-weight:400;color:#475569;">(optional)</span></label>
+                    <input type="text" id="err403" placeholder="/403.html" oninput="regen()">
+                </div>
+            </div>
+
+            <!-- IP Blocklist -->
+            <div class="rule-block" id="blk-ipblock">
+                <div class="rule-head" onclick="toggleOpts('ipblock')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-ipblock" onchange="regen();toggleActive('ipblock')"><span class="slider"></span></label>
+                    <span class="rule-label">IP / Range Blocklist</span>
+                    <span class="rule-badge badge-opt">OPTIONAL</span>
+                </div>
+                <div class="rule-options" id="opts-ipblock">
+                    <label class="field-label">IPs to Block</label>
+                    <p class="field-hint">One per line. Supports single IPs and CIDR ranges (e.g. 192.168.1.0/24).</p>
+                    <textarea id="ipList" placeholder="192.168.1.100&#10;10.0.0.0/8&#10;203.0.113.42" oninput="regen()"></textarea>
+                </div>
+            </div>
+
+            <!-- Bot / Bad UA Blocklist -->
+            <div class="rule-block" id="blk-bots">
+                <div class="rule-head" onclick="toggleOpts('bots')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-bots" onchange="regen();toggleActive('bots')"><span class="slider"></span></label>
+                    <span class="rule-label">Block Bad Bots / Scrapers</span>
+                    <span class="rule-badge badge-opt">OPTIONAL</span>
+                </div>
+                <div class="rule-options" id="opts-bots">
+                    <label class="field-label">User-Agent Strings to Block</label>
+                    <p class="field-hint">Partial match works. One per line. Common scrapers pre-filled.</p>
+                    <textarea id="botList" oninput="regen()">AhrefsBot
+SemrushBot
+MJ12bot
+DotBot
+BLEXBot
+PetalBot</textarea>
+                </div>
+            </div>
+
+            <!-- Hotlink Protection -->
+            <div class="rule-block" id="blk-hotlink">
+                <div class="rule-head" onclick="toggleOpts('hotlink')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-hotlink" onchange="regen();toggleActive('hotlink')"><span class="slider"></span></label>
+                    <span class="rule-label">Hotlink Protection</span>
+                    <span class="rule-badge badge-opt">OPTIONAL</span>
+                </div>
+                <div class="rule-options" id="opts-hotlink">
+                    <label class="field-label">Your Domain</label>
+                    <input type="text" id="hlDomain" placeholder="yourdomain.com" oninput="regen()">
+                    <label class="field-label">Block image types</label>
+                    <div class="radio-group">
+                        <label class="radio-opt"><input type="radio" name="hltype" value="img" checked onchange="regen()"> Images only</label>
+                        <label class="radio-opt"><input type="radio" name="hltype" value="all" onchange="regen()"> Images + media</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Directory Listing Off -->
+            <div class="rule-block" id="blk-dirlisting">
+                <div class="rule-head" onclick="toggleOpts('dirlisting')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-dirlisting" onchange="regen();toggleActive('dirlisting')" checked><span class="slider"></span></label>
+                    <span class="rule-label">Disable Directory Listing</span>
+                    <span class="rule-badge badge-rec">RECOMMENDED</span>
+                </div>
+                <div class="rule-options" id="opts-dirlisting">
+                    <p style="font-size:0.75rem;color:#64748b;margin:0;line-height:1.6;">Prevents Apache from showing a file list when no index file exists. Recommended for all sites — exposes your file structure otherwise.</p>
+                </div>
+            </div>
+
+            <!-- Security Headers -->
+            <div class="rule-block" id="blk-headers">
+                <div class="rule-head" onclick="toggleOpts('headers')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-headers" onchange="regen();toggleActive('headers')"><span class="slider"></span></label>
+                    <span class="rule-label">Security Headers</span>
+                    <span class="rule-badge badge-adv">ADVANCED</span>
+                </div>
+                <div class="rule-options" id="opts-headers">
+                    <div style="display:flex;flex-direction:column;gap:8px;font-size:0.78rem;">
+                        <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="hdr-xss"     checked onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> X-XSS-Protection</label>
+                        <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="hdr-nosniff" checked onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> X-Content-Type-Options: nosniff</label>
+                        <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="hdr-frame"   checked onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> X-Frame-Options: SAMEORIGIN</label>
+                        <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="hdr-ref"     onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> Referrer-Policy: strict-origin-when-cross-origin</label>
+                        <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="hdr-hsts"    onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> HSTS (1 year — requires HTTPS enabled)</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cache Control -->
+            <div class="rule-block" id="blk-cache">
+                <div class="rule-head" onclick="toggleOpts('cache')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-cache" onchange="regen();toggleActive('cache')"><span class="slider"></span></label>
+                    <span class="rule-label">Browser Cache Headers</span>
+                    <span class="rule-badge badge-opt">OPTIONAL</span>
+                </div>
+                <div class="rule-options" id="opts-cache">
+                    <label class="field-label">Cache Duration</label>
+                    <select id="cacheDur" onchange="regen()">
+                        <option value="1 week">1 Week</option>
+                        <option value="1 month" selected>1 Month</option>
+                        <option value="1 year">1 Year</option>
+                    </select>
+                    <p class="field-hint" style="margin-top:-8px;">Applies to images, CSS, JS, fonts. Speeds up repeat visits significantly.</p>
+                </div>
+            </div>
+
+            <!-- Block .htaccess / sensitive files -->
+            <div class="rule-block" id="blk-protect">
+                <div class="rule-head" onclick="toggleOpts('protect')">
+                    <label class="toggle-switch"><input type="checkbox" id="en-protect" onchange="regen();toggleActive('protect')" checked><span class="slider"></span></label>
+                    <span class="rule-label">Protect Sensitive Files</span>
+                    <span class="rule-badge badge-rec">RECOMMENDED</span>
+                </div>
+                <div class="rule-options" id="opts-protect">
+                    <p style="font-size:0.75rem;color:#64748b;margin:0 0 10px;line-height:1.6;">Blocks direct access to <code style="color:#00f2ff;">.htaccess</code>, <code style="color:#00f2ff;">.env</code>, <code style="color:#00f2ff;">wp-config.php</code>, <code style="color:#00f2ff;">.git</code>, and backup files.</p>
+                    <label style="display:flex;align-items:center;gap:8px;color:#94a3b8;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="prot-wpconfig" checked onchange="regen()" style="accent-color:var(--primary);width:auto;margin:0;"> Include wp-config.php (WordPress)</label>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ════ RIGHT: Output ════ -->
+        <div class="panel out-panel">
+            <div class="panel-head">.htaccess Output</div>
+            <div class="out-toolbar">
+                <button class="btn btn-primary" id="copyBtn" onclick="copyCode()">COPY CODE</button>
+                <button class="btn btn-ghost" onclick="downloadFile()">DOWNLOAD .htaccess</button>
+            </div>
+            <div class="rule-count">Rules active: <span id="ruleCount">0</span> &nbsp;·&nbsp; Lines: <span id="lineCount">0</span></div>
+            <div class="warn-strip" id="warnStrip"></div>
+            <div class="code-wrap">
+                <code id="htOutput"></code>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SEO / FAQ -->
+    <article style="text-align:left;">
+        <h2 style="font-size:1.3rem;margin-bottom:6px;">Why .htaccess Rules Matter</h2>
+        <p style="font-size:0.85rem;color:#64748b;line-height:1.7;margin-bottom:4px;">Apache's <code style="color:#00f2ff;">.htaccess</code> is your site's silent gatekeeper. Wrong rules = broken site. Missing rules = open attack surface. This builder generates tested, safe output for every common use case.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>Where does the file go?</h3>
+                <p>Drop <code>.htaccess</code> in your site's root (public_html / www). One file covers your whole domain. Subdirectories can have their own overrides.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Will this break my site?</h3>
+                <p>Each rule block is isolated and safe. If something breaks, disable rules one by one. Always keep a backup of your existing <code>.htaccess</code> before replacing.</p>
+            </div>
+            <div class="faq-item">
+                <h3>HTTPS redirect not working?</h3>
+                <p>Ensure your SSL certificate is installed first. Then make sure <code>mod_rewrite</code> is enabled on your host. Most cPanel hosts have it on by default.</p>
+            </div>
+            <div class="faq-item">
+                <h3>HSTS — what's the risk?</h3>
+                <p>HSTS tells browsers to always use HTTPS for 1 year. Only enable it if your SSL is permanent. If you ever remove SSL, visitors will be locked out with no easy fix.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ── helpers ── */
+function v(id) { return document.getElementById(id); }
+function checked(id) { return v(id).checked; }
+function val(id) { return v(id).value.trim(); }
+function radio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
+
+function toggleOpts(key) {
+    const el = v('opts-' + key);
+    if (el) el.classList.toggle('open');
+}
+function toggleActive(key) {
+    const blk = v('blk-' + key);
+    if (blk) blk.classList.toggle('active', checked('en-' + key));
+}
+
+/* ── GENERATORS ── */
+function genHttps() {
+    const www = radio('www');
+    const lines = [
+        '# ── Force HTTPS ──────────────────────────────────────',
+        'RewriteEngine On',
+    ];
+    if (www === 'add') {
+        lines.push('RewriteCond %{HTTP_HOST} !^www\\. [NC]');
+        lines.push('RewriteRule ^ https://www.%{HTTP_HOST}%{REQUEST_URI} [R=301,L]');
+        lines.push('RewriteCond %{HTTPS} off');
+        lines.push('RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]');
+    } else if (www === 'rem') {
+        lines.push('RewriteCond %{HTTP_HOST} ^www\\.(.+)$ [NC]');
+        lines.push('RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]');
+        lines.push('RewriteCond %{HTTPS} off');
+        lines.push('RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]');
+    } else {
+        lines.push('RewriteCond %{HTTPS} off');
+        lines.push('RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]');
+    }
+    return lines.join('\n');
+}
+
+function genErrors() {
+    const p404 = val('err404') || '/404.html';
+    const p500 = val('err500') || '/500.html';
+    const p403 = val('err403');
+    const lines = [
+        '# ── Custom Error Pages ───────────────────────────────',
+        `ErrorDocument 404 ${p404}`,
+        `ErrorDocument 500 ${p500}`,
+        'ErrorDocument 503 /503.html',
+    ];
+    if (p403) lines.push(`ErrorDocument 403 ${p403}`);
+    return lines.join('\n');
+}
+
+function genIpBlock() {
+    const ips = v('ipList').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!ips.length) return '';
+    const lines = [
+        '# ── IP Blocklist ─────────────────────────────────────',
+        '<RequireAll>',
+        '  Require all granted',
+    ];
+    ips.forEach(ip => lines.push(`  Require not ip ${ip}`));
+    lines.push('</RequireAll>');
+    return lines.join('\n');
+}
+
+function genBots() {
+    const bots = v('botList').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!bots.length) return '';
+    const lines = [
+        '# ── Block Bad Bots ───────────────────────────────────',
+        'RewriteEngine On',
+        `RewriteCond %{HTTP_USER_AGENT} (${bots.map(b=>b.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')}) [NC]`,
+        'RewriteRule .* - [F,L]',
+    ];
+    return lines.join('\n');
+}
+
+function genHotlink() {
+    const domain = val('hlDomain') || 'yourdomain.com';
+    const type   = radio('hltype');
+    const exts   = type === 'all' ? 'jpg|jpeg|png|gif|webp|svg|mp4|webm|mp3|pdf' : 'jpg|jpeg|png|gif|webp|svg';
+    return [
+        '# ── Hotlink Protection ───────────────────────────────',
+        'RewriteEngine On',
+        `RewriteCond %{HTTP_REFERER} !^$`,
+        `RewriteCond %{HTTP_REFERER} !^https?://(www\\.)?${domain.replace(/\./g,'\\.')} [NC]`,
+        `RewriteRule \\.(${exts})$ - [F,NC,L]`,
+    ].join('\n');
+}
+
+function genDirListing() {
+    return [
+        '# ── Disable Directory Listing ────────────────────────',
+        'Options -Indexes',
+    ].join('\n');
+}
+
+function genHeaders() {
+    const lines = [
+        '# ── Security Headers ─────────────────────────────────',
+        '<IfModule mod_headers.c>',
+    ];
+    if (checked('hdr-xss'))     lines.push('  Header set X-XSS-Protection "1; mode=block"');
+    if (checked('hdr-nosniff')) lines.push('  Header set X-Content-Type-Options "nosniff"');
+    if (checked('hdr-frame'))   lines.push('  Header set X-Frame-Options "SAMEORIGIN"');
+    if (checked('hdr-ref'))     lines.push('  Header set Referrer-Policy "strict-origin-when-cross-origin"');
+    if (checked('hdr-hsts'))    lines.push('  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"');
+    lines.push('</IfModule>');
+    return lines.join('\n');
+}
+
+function genCache() {
+    const dur = v('cacheDur').value;
+    return [
+        '# ── Browser Cache ────────────────────────────────────',
+        '<IfModule mod_expires.c>',
+        '  ExpiresActive On',
+        `  ExpiresByType image/jpeg "access plus ${dur}"`,
+        `  ExpiresByType image/png  "access plus ${dur}"`,
+        `  ExpiresByType image/webp "access plus ${dur}"`,
+        `  ExpiresByType image/svg+xml "access plus ${dur}"`,
+        `  ExpiresByType text/css   "access plus ${dur}"`,
+        `  ExpiresByType application/javascript "access plus ${dur}"`,
+        `  ExpiresByType font/woff2 "access plus ${dur}"`,
+        '</IfModule>',
+    ].join('\n');
+}
+
+function genProtect() {
+    const wp = checked('prot-wpconfig');
+    const lines = [
+        '# ── Protect Sensitive Files ──────────────────────────',
+        '<FilesMatch "(\\.htaccess|\\.htpasswd|\\.env|\\.git|\\.gitignore|\\.DS_Store|.*\\.bak|.*\\.sql|.*\\.log)$">',
+        '  Require all denied',
+        '</FilesMatch>',
+    ];
+    if (wp) {
+        lines.push('');
+        lines.push('<Files wp-config.php>');
+        lines.push('  Require all denied');
+        lines.push('</Files>');
+    }
+    return lines.join('\n');
+}
+
+/* ── WARNINGS ── */
+function computeWarnings(sections) {
+    const warns = [];
+    if (checked('en-https') && checked('en-bots')) {
+        const bots = v('botList').value;
+        if (!bots.includes('RewriteEngine') && checked('en-https')) {
+            // Both use RewriteEngine — already handled in output (only one header)
+        }
+    }
+    if (checked('en-hotlink') && !val('hlDomain')) {
+        warns.push('⚠️ Hotlink protection needs your domain filled in — otherwise it blocks everything.');
+    }
+    if (checked('en-headers') && checked('hdr-hsts') && !checked('en-https')) {
+        warns.push('⚠️ HSTS is enabled but Force HTTPS is off. Enable HTTPS first — HSTS without it will break your site.');
+    }
+    if (checked('en-ipblock')) {
+        const ips = v('ipList').value.split('\n').filter(s=>s.trim());
+        if (!ips.length) warns.push('⚠️ IP Blocklist is enabled but no IPs are entered.');
+    }
+    return warns;
+}
+
+/* ── MAIN REGEN ── */
+function regen() {
+    const sections = [];
+    let activeRules = 0;
+    let rewriteAdded = false; // track RewriteEngine On — avoid duplicates
+
+    const add = (fn, key) => {
+        if (!checked('en-' + key)) return;
+        activeRules++;
+        let code = fn();
+        if (!code) return;
+        // Deduplicate RewriteEngine On
+        if (rewriteAdded) {
+            code = code.replace(/^RewriteEngine On\n/m, '');
+        } else if (/RewriteEngine On/.test(code)) {
+            rewriteAdded = true;
+        }
+        sections.push(code);
+    };
+
+    add(genHttps,      'https');
+    add(genErrors,     'errors');
+    add(genDirListing, 'dirlisting');
+    add(genProtect,    'protect');
+    add(genHeaders,    'headers');
+    add(genCache,      'cache');
+    add(genIpBlock,    'ipblock');
+    add(genBots,       'bots');
+    add(genHotlink,    'hotlink');
+
+    // Single RewriteEngine On at top if needed
+    let output = sections.join('\n\n');
+
+    // Warnings
+    const warns = computeWarnings(sections);
+    const ws = v('warnStrip');
+    if (warns.length) {
+        ws.style.display = 'block';
+        ws.innerHTML = warns.join('<br>');
+    } else {
+        ws.style.display = 'none';
+    }
+
+    // Counters
+    v('ruleCount').textContent = activeRules;
+    v('lineCount').textContent = output ? output.split('\n').length : 0;
+
+    v('htOutput').textContent = output || '# Enable at least one rule on the left →';
+}
+
+/* ── ACTIONS ── */
+async function copyCode() {
+    const btn = v('copyBtn');
+    await navigator.clipboard.writeText(v('htOutput').textContent);
+    btn.textContent = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.textContent = 'COPY CODE'; btn.classList.remove('success'); }, 1600);
+}
+
+function downloadFile() {
+    const blob = new Blob([v('htOutput').textContent], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '.htaccess';
+    a.click();
+}
+
+/* ── INIT: mark active blocks ── */
+['https','errors','dirlisting','protect'].forEach(k => {
+    v('blk-' + k)?.classList.add('active');
+});
+
+regen();
+</script>
+
+</body>
+</html>

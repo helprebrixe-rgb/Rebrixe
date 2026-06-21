@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinterest Ratio Validator | Rebrixe</title>
+    <meta name="description" content="Check if your asset meets the 2:3 Pinterest Algorithm standard with our Pinterest Ratio Validator. Perfect for marketers, content creators, and designers looking to optimize their pins for better engagement and visibility. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --p-red: #e60023;
+            --p-red-dim: rgba(230,0,35,0.12);
+            --border: #334155;
+            --border-soft: #1e293b;
+            --bg: #05070a;
+            --card: #0b1120;
+            --card2: #0f172a;
+            --muted: #64748b;
+            --text: #f1f5f9;
+            --green: #22c55e;
+            --amber: #f59e0b;
+            --red-warn: #ef4444;
+        }
+
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+        /* ── Layout ── */
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .page-header { text-align: center; margin-bottom: 48px; }
+        .page-header h1 { font-family: 'Outfit'; font-size: clamp(2rem, 5vw, 2.8rem); color: #fff; margin-bottom: 8px; }
+        .page-header p { color: var(--muted); font-size: 0.95rem; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+        /* ── Drop Zone ── */
+        .drop-zone {
+            width: 100%;
+            border: 2px dashed var(--border);
+            background: rgba(30,41,59,0.3);
+            border-radius: 24px;
+            padding: 64px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.25s, background 0.25s, transform 0.2s;
+            margin-bottom: 40px;
+            position: relative;
+            outline: none;
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--p-red);
+            background: var(--p-red-dim);
+            transform: scale(1.005);
+        }
+        .drop-zone .dz-icon { font-size: 3rem; margin-bottom: 14px; display: block; transition: transform 0.3s; }
+        .drop-zone:hover .dz-icon { transform: scale(1.15) rotate(-5deg); }
+        .drop-zone strong { display: block; font-family: 'Outfit'; font-size: 1.05rem; color: var(--text); margin-bottom: 6px; }
+        .drop-zone span { font-size: 0.8rem; color: var(--muted); }
+        .drop-zone input { display: none; }
+        .dz-hint { margin-top: 10px; font-size: 0.75rem; color: #475569; }
+
+        /* ── Analysis Grid ── */
+        .analysis-grid {
+            display: none;
+            gap: 28px;
+            margin-bottom: 48px;
+            animation: fadeUp 0.4s ease both;
+        }
+        .analysis-grid.visible { display: grid; grid-template-columns: 1fr 1fr; }
+        @media(max-width: 640px) { .analysis-grid.visible { grid-template-columns: 1fr; } }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Preview Pane ── */
+        .preview-pane {
+            background: #0a0f1a;
+            border: 1px solid var(--border-soft);
+            border-radius: 20px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .preview-inner {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .preview-pane img {
+            max-width: 100%;
+            max-height: 420px;
+            border-radius: 10px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Overlay guide */
+        .ratio-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px dashed rgba(230,0,35,0.7);
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 2;
+            display: none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.38);
+            transition: all 0.4s ease;
+        }
+        .overlay-label {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            color: var(--p-red);
+            white-space: nowrap;
+            background: rgba(5,7,10,0.9);
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        .preview-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .meta-badge {
+            background: var(--card2);
+            border: 1px solid var(--border-soft);
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .meta-badge span { color: var(--text); }
+
+        /* ── Stats Pane ── */
+        .stats-pane { display: flex; flex-direction: column; gap: 14px; }
+
+        .stat-card {
+            background: var(--card2);
+            border: 1px solid var(--border-soft);
+            padding: 16px 18px;
+            border-radius: 14px;
+            transition: border-color 0.3s;
+        }
+        .stat-card:hover { border-color: var(--border); }
+        .stat-card h3 {
+            font-family: 'Outfit';
+            font-size: 0.68rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+        .stat-val {
+            font-size: 1.45rem;
+            font-weight: 800;
+            font-family: 'Outfit';
+            transition: color 0.4s;
+        }
+        .stat-sub {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* Health bar */
+        .health-bar {
+            width: 100%;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .health-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.9s cubic-bezier(.22,.61,.36,1), background-color 0.4s;
+        }
+
+        /* Feedback card */
+        .feedback-card {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            line-height: 1.55;
+            border: 1px solid transparent;
+            transition: all 0.4s;
+        }
+        .feedback-card .fb-title {
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.88rem;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ── Recommended Specs Panel ── */
+        .specs-panel {
+            background: var(--card);
+            border: 1px solid var(--border-soft);
+            border-radius: 20px;
+            padding: 28px 32px;
+            display: none;
+            animation: fadeUp 0.4s 0.1s ease both;
+            margin-bottom: 40px;
+        }
+        .specs-panel.visible { display: block; }
+        .specs-panel h2 {
+            font-family: 'Outfit';
+            font-size: 1rem;
+            color: var(--text);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+        }
+        .spec-item {
+            background: var(--card2);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.2s;
+            position: relative;
+        }
+        .spec-item:hover { border-color: var(--p-red); transform: translateY(-2px); }
+        .spec-item.optimal { border-color: rgba(34,197,94,0.4); }
+        .spec-label { font-size: 0.68rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+        .spec-val { font-family: 'Outfit'; font-size: 1rem; font-weight: 800; color: var(--text); }
+        .spec-note { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+        .spec-copy-hint {
+            position: absolute;
+            top: 8px; right: 10px;
+            font-size: 0.6rem;
+            color: var(--muted);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .spec-item:hover .spec-copy-hint { opacity: 1; }
+
+        /* Copied toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 22px;
+            border-radius: 40px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ── Pinterest Tips Section ── */
+        .tips-section {
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid var(--border-soft);
+        }
+        .tips-section h2 {
+            font-family: 'Outfit';
+            font-size: 1.3rem;
+            color: var(--text);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .tip-card {
+            background: var(--card);
+            border: 1px solid var(--border-soft);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        .tip-card .tip-icon { font-size: 1.4rem; margin-bottom: 10px; display: block; }
+        .tip-card h3 { font-family: 'Outfit'; font-size: 0.9rem; color: var(--text); margin-bottom: 7px; }
+        .tip-card p { font-size: 0.79rem; color: var(--muted); line-height: 1.6; }
+
+        /* ── Ratio Bands Info ── */
+        .ratio-bands {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .ratio-band {
+            flex: 1;
+            min-width: 80px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+        .ratio-band .rb-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+        .ratio-band .rb-val { font-family: 'Outfit'; font-size: 0.9rem; font-weight: 800; }
+
+        /* ── Re-upload row ── */
+        .reupload-row { text-align: center; margin-top: 8px; }
+        .p-btn {
+            background: var(--p-red);
+            color: white;
+            border: none;
+            padding: 13px 28px;
+            border-radius: 30px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            display: inline-block;
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-family: 'Outfit';
+            letter-spacing: 0.02em;
+        }
+        .p-btn:hover { transform: scale(1.05); background: #c4001e; }
+        .p-btn.ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.8rem;
+            padding: 10px 20px;
+        }
+        .p-btn.ghost:hover { border-color: var(--p-red); color: var(--text); background: var(--p-red-dim); }
+
+        /* ── Score ring ── */
+        .score-ring-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .score-ring {
+            width: 56px;
+            height: 56px;
+            flex-shrink: 0;
+        }
+        .ring-bg { fill: none; stroke: #1e293b; stroke-width: 6; }
+        .ring-fill {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            stroke-dasharray: 138;
+            stroke-dashoffset: 138;
+            transition: stroke-dashoffset 1s cubic-bezier(.22,.61,.36,1), stroke 0.4s;
+        }
+        .ring-text {
+            font-family: 'Outfit';
+            font-size: 11px;
+            font-weight: 800;
+            fill: white;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .score-details { flex: 1; }
+
+        /* back btn */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.82rem;
+            margin-bottom: 32px;
+            transition: color 0.2s;
+        }
+        .back-btn:hover { color: var(--text); }
+        .back-btn::before { content: "←"; }
+
+        /* Subtle bg accent */
+        body::before {
+            content: "";
+            position: fixed;
+            top: -200px; right: -200px;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(230,0,35,0.04) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @media (max-width: 480px) {
+            .specs-grid { grid-template-columns: 1fr 1fr; }
+            .container { padding: 24px 16px 60px; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">Back to tools</a>
+
+        <header class="page-header">
+            <h1>📌 Pin Ratio Validator</h1>
+            <p>Instantly check if your graphic meets Pinterest's 2:3 algorithm standard — and get actionable fix specs.</p>
+        </header>
+
+        <!-- DROP ZONE -->
+        <div class="drop-zone" id="dropZone" tabindex="0"
+             onclick="document.getElementById('pinInput').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)"
+             onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('pinInput').click()">
+            <span class="dz-icon">🖼️</span>
+            <strong id="dzLabel">Drop your Pinterest graphic here</strong>
+            <span>or click to browse — JPG, PNG, WEBP supported</span>
+            <p class="dz-hint">Your image never leaves your browser. 100% local analysis.</p>
+            <input type="file" id="pinInput" accept="image/*" onchange="analyzePin(this.files[0])">
+        </div>
+
+        <!-- ANALYSIS GRID -->
+        <div class="analysis-grid" id="analysisGrid">
+
+            <!-- LEFT: Preview -->
+            <div class="preview-pane" id="previewPane">
+                <div class="preview-inner" id="previewInner">
+                    <img id="pinPreview" src="" alt="Uploaded pin preview">
+                    <div class="ratio-overlay" id="ratioOverlay">
+                        <div class="overlay-label">2:3 Ideal Zone</div>
+                    </div>
+                </div>
+                <div class="preview-meta">
+                    <div class="meta-badge">📐 <span id="metaDim">—</span></div>
+                    <div class="meta-badge">⚖️ <span id="metaRatio">—</span></div>
+                    <div class="meta-badge">💾 <span id="metaSize">—</span></div>
+                    <div class="meta-badge">🖼 <span id="metaFmt">—</span></div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Stats -->
+            <div class="stats-pane">
+
+                <!-- Score ring card -->
+                <div class="stat-card">
+                    <h3>Algo Health Score</h3>
+                    <div class="score-ring-wrap">
+                        <svg class="score-ring" viewBox="0 0 50 50">
+                            <circle class="ring-bg" cx="25" cy="25" r="22"/>
+                            <circle class="ring-fill" id="ringFill" cx="25" cy="25" r="22"/>
+                            <text class="ring-text" id="ringText" x="25" y="25">0%</text>
+                        </svg>
+                        <div class="score-details">
+                            <div class="stat-val" id="scoreVal" style="font-size:1.2rem;">Analyzing…</div>
+                            <div class="stat-sub" id="scoreSub">Upload an image to begin</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current ratio -->
+                <div class="stat-card">
+                    <h3>Detected Aspect Ratio</h3>
+                    <div class="stat-val" id="ratioVal">—</div>
+                    <div class="stat-sub" id="ratioSub">Pinterest ideal: 2:3 (0.667)</div>
+                    <div class="ratio-bands" id="ratioBands"></div>
+                </div>
+
+                <!-- Feedback -->
+                <div class="feedback-card" id="feedbackCard">
+                    <div class="fb-title" id="fbTitle">—</div>
+                    <div id="fbBody"></div>
+                </div>
+
+                <!-- Action -->
+                <div class="reupload-row">
+                    <button class="p-btn ghost" onclick="document.getElementById('pinInput').click()">↑ Check another image</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- RECOMMENDED SPECS PANEL -->
+        <div class="specs-panel" id="specsPanel">
+            <h2>📋 Pinterest-Ready Specs <span style="color:var(--muted);font-weight:400;font-size:0.8rem;margin-left:6px;">Click any spec to copy</span></h2>
+            <div class="specs-grid" id="specsGrid">
+                <!-- filled by JS -->
+            </div>
+        </div>
+
+        <!-- TIPS SECTION (always visible) -->
+        <div class="tips-section">
+            <h2>Pinterest Image Optimization Guide</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <span class="tip-icon">📐</span>
+                    <h3>The 2:3 Golden Ratio</h3>
+                    <p>Pinterest's algorithm strongly favors images with a 2:3 width-to-height ratio (e.g. 1000×1500px). This ratio fills the feed column perfectly without wasted whitespace, maximizing your visual real estate and click-through rate.</p>
+                </div>
+                <div class="tip-card">
+                    <span class="tip-icon">⚠️</span>
+                    <h3>Avoid "Giraffe Pins"</h3>
+                    <p>Images taller than 1:2.1 (e.g. 1000×2100px+) get hard-cropped in the feed and search results. Pinterest caps displayed height. Overly tall pins can hide your call-to-action and hurt saves. Stay within 1:2 at maximum.</p>
+                </div>
+                <div class="tip-card">
+                    <span class="tip-icon">🖼️</span>
+                    <h3>Resolution Sweet Spot</h3>
+                    <p>Use a minimum width of 1000px. The most common high-performing sizes are 1000×1500px and 735×1102px. Pinterest renders at 236px wide in grids, so higher resolution means sharper pins on retina displays.</p>
+                </div>
+                <div class="tip-card">
+                    <span class="tip-icon">💾</span>
+                    <h3>File Size & Format</h3>
+                    <p>Keep images under 20MB. Pinterest recommends JPEG for photos (smaller file size, faster load) and PNG for graphics with text or sharp edges (no compression artifacts). WEBP is also supported and often smallest.</p>
+                </div>
+                <div class="tip-card">
+                    <span class="tip-icon">📊</span>
+                    <h3>Wide Images Get Cropped</h3>
+                    <p>Images wider than 2:3 (landscape or square) are cropped in the main feed to show a portrait crop. If your key content is centered, it may survive — but widescreen graphics lose significant screen presence and engagement.</p>
+                </div>
+                <div class="tip-card">
+                    <span class="tip-icon">🎯</span>
+                    <h3>Story Pins & Video</h3>
+                    <p>For Story Pins and Video Pins, Pinterest uses a 9:16 ratio (portrait full-screen). Standard static Pins, Idea Pins, and shopping graphics all perform best at 2:3. Match your ratio to your pin type for maximum reach.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <footer style="margin-top:120px;padding:80px 20px;background:#05070a;border-top:1px solid #1e293b;text-align:center;color:#64748b;">
+        <div style="max-width:1200px;margin:0 auto;">
+            <h3 style="color:white;font-family:'Outfit';margin-bottom:10px;">Rebrixe Engine</h3>
+            <p style="font-size:0.85rem;">Pinterest SEO Toolset v2.0</p>
+        </div>
+    </footer>
+
+    <script>
+    // ── GCD helper for simplified ratio ─────────────────────────────────────
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+    function simplifyRatio(w, h) {
+        const d = gcd(w, h);
+        return `${w/d}:${h/d}`;
+    }
+
+    // ── Format file size ─────────────────────────────────────────────────────
+    function fmtSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
+        return (bytes/(1024*1024)).toFixed(1) + ' MB';
+    }
+
+    // ── Format type ──────────────────────────────────────────────────────────
+    function fmtType(mime) {
+        const map = { 'image/jpeg':'JPEG','image/jpg':'JPEG','image/png':'PNG','image/webp':'WEBP','image/gif':'GIF','image/bmp':'BMP' };
+        return map[mime] || mime.replace('image/','').toUpperCase();
+    }
+
+    // ── Drag & Drop ──────────────────────────────────────────────────────────
+    function handleDragOver(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.add('drag-over');
+    }
+    function handleDragLeave(e) {
+        document.getElementById('dropZone').classList.remove('drag-over');
+    }
+    function handleDrop(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) analyzePin(file);
+    }
+
+    // ── Core Scoring Logic ───────────────────────────────────────────────────
+    /**
+     * Pinterest ratio scoring:
+     * - 2:3 (0.667) = ideal = 100
+     * - Acceptable band: 2:3 to 1:2.1 (0.476 to 0.667) — the "tall" range Pinterest allows
+     * - Too wide (>0.667): penalised — gets cropped in feed
+     * - Too tall (<0.476): penalised — giraffe pin, gets cut off
+     * - Score is graduated within each zone using smooth falloff
+     */
+    function calcScore(w, h) {
+        const ratio = w / h;  // lower = taller
+        const IDEAL      = 2/3;   // 0.6667
+        const MIN_ACCEPT = 1/2.1; // 0.4762 — tallest Pinterest renders without cut
+
+        if (Math.abs(ratio - IDEAL) < 0.005) {
+            // Perfect
+            return { score: 100, zone: 'perfect', ratioNum: ratio };
+        }
+
+        if (ratio > IDEAL) {
+            // Too wide — every 0.1 above ideal is ~15 point penalty
+            const delta = ratio - IDEAL;
+            const score = Math.max(0, Math.round(100 - delta * 160));
+            return { score, zone: 'wide', ratioNum: ratio };
+        }
+
+        if (ratio >= MIN_ACCEPT) {
+            // Taller than ideal but within acceptable Pinterest range
+            // Give a mild penalty — still usable, just not perfect
+            const delta = IDEAL - ratio;
+            const range = IDEAL - MIN_ACCEPT;
+            const score = Math.round(100 - (delta / range) * 18); // max ~18pt deduct
+            return { score, zone: 'tall-ok', ratioNum: ratio };
+        }
+
+        // Too tall — giraffe pin
+        const delta = MIN_ACCEPT - ratio;
+        const score = Math.max(0, Math.round(82 - delta * 200));
+        return { score, zone: 'giraffe', ratioNum: ratio };
+    }
+
+    // ── Nearest recommended resize ───────────────────────────────────────────
+    function recommendedSizes(w, h) {
+        // Standard Pinterest sizes at 2:3
+        const standards = [
+            { label:'Standard Pin', w:1000, h:1500, note:'Best for most content' },
+            { label:'High-Res Pin', w:1200, h:1800, note:'Sharp on retina screens' },
+            { label:'Compact Pin',  w:735,  h:1102, note:'Lightweight / faster load' },
+            { label:'Square Pin',   w:1000, h:1000, note:'For profile thumbnails' },
+            { label:'Story Pin',    w:1080, h:1920, note:'9:16 for Idea Pins' },
+        ];
+        // Also compute "crop to 2:3 from current"
+        const cropW = Math.round(h * 2/3);
+        const cropH = Math.round(w * 3/2);
+        return { standards, cropW, cropH };
+    }
+
+    // ── Main Analyzer ────────────────────────────────────────────────────────
+    function analyzePin(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = function() {
+                const w = img.width, h = img.height;
+                const fileSize = file.size;
+                const fileType = fmtType(file.type);
+
+                // Show grid
+                document.getElementById('analysisGrid').classList.add('visible');
+                document.getElementById('specsPanel').classList.add('visible');
+                document.getElementById('dropZone').style.marginBottom = '0';
+
+                // Preview
+                document.getElementById('pinPreview').src = e.target.result;
+
+                // Meta badges
+                document.getElementById('metaDim').textContent = `${w} × ${h}px`;
+                document.getElementById('metaRatio').textContent = simplifyRatio(w, h);
+                document.getElementById('metaSize').textContent = fmtSize(fileSize);
+                document.getElementById('metaFmt').textContent = fileType;
+
+                // Score
+                const { score, zone, ratioNum } = calcScore(w, h);
+
+                // Ratio display — simplified + decimal
+                const simplified = simplifyRatio(w, h);
+                const decimal    = ratioNum.toFixed(3);
+                document.getElementById('ratioVal').textContent = `${simplified} (${decimal})`;
+
+                // Color
+                let color, colorRaw;
+                if (zone === 'perfect')   { color = 'var(--green)';    colorRaw = '#22c55e'; }
+                else if (zone === 'wide') { color = 'var(--amber)';    colorRaw = '#f59e0b'; }
+                else if (zone === 'tall-ok'){ color = '#38bdf8';       colorRaw = '#38bdf8'; }
+                else                      { color = 'var(--red-warn)'; colorRaw = '#ef4444'; }
+
+                // Score ring animate
+                const circumference = 138; // 2π×22
+                const offset = circumference - (score / 100) * circumference;
+                const ringFill = document.getElementById('ringFill');
+                ringFill.style.stroke = colorRaw;
+                // Force reflow then animate
+                ringFill.style.strokeDashoffset = circumference;
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        ringFill.style.strokeDashoffset = offset;
+                    });
+                });
+                document.getElementById('ringText').textContent = score + '%';
+
+                // Score label
+                const scoreEl = document.getElementById('scoreVal');
+                scoreEl.style.color = colorRaw;
+                let scoreLabel = '';
+                if (score === 100)     scoreLabel = '✅ Perfect';
+                else if (score >= 82)  scoreLabel = '🟡 Acceptable';
+                else if (score >= 60)  scoreLabel = '⚠️ Needs Work';
+                else                   scoreLabel = '🔴 Poor Fit';
+                scoreEl.textContent = scoreLabel;
+                document.getElementById('scoreSub').textContent = `Score: ${score} / 100`;
+
+                // Ratio bands
+                const bandsEl = document.getElementById('ratioBands');
+                const bands = [
+                    { label:'Too Wide', range:'> 0.75', bg:'rgba(245,158,11,0.12)', border:'rgba(245,158,11,0.3)', text:'#f59e0b', active: ratioNum > 0.75 },
+                    { label:'2:3 Ideal', range:'0.65–0.70', bg:'rgba(34,197,94,0.1)', border:'rgba(34,197,94,0.35)', text:'#22c55e', active: ratioNum >= 0.65 && ratioNum <= 0.70 },
+                    { label:'Tall ✓', range:'0.48–0.65', bg:'rgba(56,189,248,0.08)', border:'rgba(56,189,248,0.25)', text:'#38bdf8', active: ratioNum >= 0.48 && ratioNum < 0.65 },
+                    { label:'Giraffe', range:'< 0.48', bg:'rgba(239,68,68,0.1)', border:'rgba(239,68,68,0.3)', text:'#ef4444', active: ratioNum < 0.48 },
+                ];
+                bandsEl.innerHTML = bands.map(b => `
+                    <div class="ratio-band" style="background:${b.active ? b.bg : 'transparent'};border-color:${b.active ? b.border : 'var(--border-soft)'}">
+                        <div class="rb-label" style="color:${b.active ? b.text : 'var(--muted)'};">${b.label}</div>
+                        <div class="rb-val" style="color:${b.active ? b.text : '#334155'};">${b.range}</div>
+                    </div>
+                `).join('');
+
+                // Feedback
+                const fb = document.getElementById('feedbackCard');
+                const fbTitle = document.getElementById('fbTitle');
+                const fbBody  = document.getElementById('fbBody');
+
+                let fbTitleTxt, fbBodyTxt;
+                if (zone === 'perfect') {
+                    fbTitleTxt = '✅ Golden Ratio — Pinterest loves this!';
+                    fbBodyTxt  = `Your image is exactly 2:3 — the ratio Pinterest's algorithm rewards most. Expect full display with no cropping in feeds, search results, and profile boards. You're good to publish.`;
+                    fb.style.background = 'rgba(34,197,94,0.08)';
+                    fb.style.borderColor = 'rgba(34,197,94,0.25)';
+                    fb.style.color = '#dcfce7';
+                    fbTitle.style.color = '#22c55e';
+                } else if (zone === 'tall-ok') {
+                    fbTitleTxt = '🟦 Tall & Acceptable — Minor Optimization';
+                    fbBodyTxt  = `Your pin is taller than 2:3 but within Pinterest's accepted range. It won't get cut off in standard feed views. For best results, consider resizing to 2:3 (1000×1500px) to maximize algorithm preference, but this image is safe to publish.`;
+                    fb.style.background = 'rgba(56,189,248,0.07)';
+                    fb.style.borderColor = 'rgba(56,189,248,0.2)';
+                    fb.style.color = '#e0f2fe';
+                    fbTitle.style.color = '#38bdf8';
+                } else if (zone === 'wide') {
+                    fbTitleTxt = '⚠️ Too Wide — Feed Cropping Likely';
+                    fbBodyTxt  = `Your image is wider than the 2:3 ideal. Pinterest will crop it to show a portrait section in feeds and search, likely hiding important content. Resize to 1000×1500px or crop to 2:3 before publishing for full visibility.`;
+                    fb.style.background = 'rgba(245,158,11,0.08)';
+                    fb.style.borderColor = 'rgba(245,158,11,0.25)';
+                    fb.style.color = '#fef3c7';
+                    fbTitle.style.color = '#f59e0b';
+                } else {
+                    fbTitleTxt = '🦒 Giraffe Pin — Expect Hard Cropping';
+                    fbBodyTxt  = `Your image is too tall — Pinterest caps displayed height in feeds and will hard-crop the bottom of your image. This hides CTAs, logos, and key visuals. Resize to 1000×1500px or crop to a 2:3 or 1:2 ratio before uploading.`;
+                    fb.style.background = 'rgba(239,68,68,0.08)';
+                    fb.style.borderColor = 'rgba(239,68,68,0.25)';
+                    fb.style.color = '#fecaca';
+                    fbTitle.style.color = '#ef4444';
+                }
+                fbTitle.innerHTML = fbTitleTxt;
+                fbBody.textContent = fbBodyTxt;
+
+                // Specs Panel
+                const { standards, cropW, cropH } = recommendedSizes(w, h);
+                const specsGrid = document.getElementById('specsGrid');
+                let specsHTML = '';
+
+                // "Crop from current" spec
+                if (zone !== 'perfect') {
+                    if (zone === 'wide') {
+                        specsHTML += specCard(`Crop to 2:3 Width`, `${cropW} × ${h}px`, 'Crop sides to fix ratio', `${cropW}×${h}px`, false);
+                    } else {
+                        specsHTML += specCard(`Crop to 2:3 Height`, `${w} × ${cropH}px`, 'Crop top/bottom to fix ratio', `${w}×${cropH}px`, false);
+                    }
+                }
+                // Standard sizes
+                standards.forEach(s => {
+                    const isOpt = s.label === 'Standard Pin';
+                    specsHTML += specCard(s.label, `${s.w} × ${s.h}px`, s.note, `${s.w}×${s.h}px`, isOpt);
+                });
+
+                specsGrid.innerHTML = specsHTML;
+
+                // Overlay
+                updateOverlay(w, h);
+
+                document.getElementById('dzLabel').textContent = 'Drop another image or click to re-check';
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function specCard(label, val, note, copyVal, optimal) {
+        return `<div class="spec-item${optimal ? ' optimal' : ''}" onclick="copySpec('${copyVal}', this)">
+            <div class="spec-copy-hint">📋 copy</div>
+            <div class="spec-label">${label}${optimal ? ' ⭐' : ''}</div>
+            <div class="spec-val">${val}</div>
+            <div class="spec-note">${note}</div>
+        </div>`;
+    }
+
+    // ── Overlay: draw 2:3 ideal box over the preview ─────────────────────────
+    function updateOverlay(imgW, imgH) {
+        const img = document.getElementById('pinPreview');
+        const overlay = document.getElementById('ratioOverlay');
+        // Wait for image to paint
+        setTimeout(() => {
+            const renderedW = img.offsetWidth;
+            const renderedH = img.offsetHeight;
+            if (!renderedW || !renderedH) { overlay.style.display = 'none'; return; }
+
+            const imgRatio = imgW / imgH;
+            const IDEAL    = 2/3;
+
+            if (Math.abs(imgRatio - IDEAL) < 0.005) {
+                overlay.style.display = 'none'; // perfect — no overlay needed
+                return;
+            }
+
+            // Show the 2:3 zone inside the rendered image
+            let boxW, boxH;
+            if (imgRatio > IDEAL) {
+                // Too wide — show how tall the ideal crop would be
+                boxW = renderedW;
+                boxH = renderedW * (3/2);
+                if (boxH > renderedH) { boxH = renderedH; boxW = renderedH * (2/3); }
+            } else {
+                // Too tall — show how wide the ideal crop would be
+                boxH = renderedH;
+                boxW = renderedH * (2/3);
+                if (boxW > renderedW) { boxW = renderedW; boxH = renderedW * (3/2); }
+            }
+
+            overlay.style.display = 'block';
+            overlay.style.width  = boxW + 'px';
+            overlay.style.height = boxH + 'px';
+        }, 120);
+    }
+
+    // ── Copy to clipboard ─────────────────────────────────────────────────────
+    function copySpec(text, el) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied: ' + text);
+            el.style.borderColor = 'var(--p-red)';
+            setTimeout(() => el.style.borderColor = '', 1000);
+        }).catch(() => {
+            showToast('Could not copy — try manually');
+        });
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ── Paste support ─────────────────────────────────────────────────────────
+    document.addEventListener('paste', (e) => {
+        const items = Array.from(e.clipboardData.items);
+        const imgItem = items.find(i => i.type.startsWith('image/'));
+        if (imgItem) analyzePin(imgItem.getAsFile());
+    });
+
+    // ── Keyboard accessibility ────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+        const img = document.getElementById('pinPreview');
+        if (img.src && img.src !== window.location.href) {
+            updateOverlay(img.naturalWidth, img.naturalHeight);
+        }
+    });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

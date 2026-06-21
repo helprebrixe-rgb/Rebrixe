@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Date Format Converter | Rebrixe</title>
+    <meta name="description" content="Paste a column of dates in any format and convert them all at once. Perfect for data cleaning, spreadsheets, and database migrations.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 960px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* Format selectors */
+        .format-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .format-box { display: flex; flex-direction: column; gap: 8px; }
+        .fmt-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color .2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+        select:focus { border-color: var(--primary); }
+
+        .arrow-sep {
+            font-size: 1.5rem;
+            color: var(--border);
+            text-align: center;
+            padding-bottom: 14px;
+        }
+
+        /* Custom format input */
+        .custom-fmt-wrap {
+            display: none;
+            margin-top: 8px;
+        }
+        .custom-fmt-wrap input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 10px 14px;
+            font-family: 'Inter', monospace;
+            font-size: 0.85rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .custom-fmt-wrap input:focus { border-color: var(--primary); }
+        .fmt-hint { font-size: 0.7rem; color: #475569; margin-top: 5px; }
+
+        /* Options strip */
+        .options-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            align-items: center;
+        }
+        .opt-group { display: flex; align-items: center; gap: 8px; }
+        .opt-label { font-size: 0.78rem; color: #94a3b8; }
+        .switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b; border-radius: 999px;
+            cursor: pointer; transition: .3s;
+            border: 1px solid var(--border);
+        }
+        .slider:before {
+            content: ''; position: absolute;
+            width: 14px; height: 14px; left: 3px; top: 3px;
+            background: #64748b; border-radius: 50%; transition: .3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider:before { transform: translateX(16px); background: var(--primary); }
+        .opt-divider { width: 1px; height: 20px; background: var(--border); }
+
+        /* I/O panels */
+        .io-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .io-panel { display: flex; flex-direction: column; gap: 8px; }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+        }
+        .panel-meta { font-size: 0.72rem; color: #475569; }
+        textarea {
+            width: 100%;
+            min-height: 260px;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px;
+            font-family: 'Inter', monospace;
+            font-size: 0.88rem;
+            line-height: 1.7;
+            outline: none;
+            resize: vertical;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        textarea:focus { border-color: var(--primary); }
+        textarea::placeholder { color: #334155; }
+        #outputArea {
+            background: rgba(255,255,255,0.02);
+            color: #cbd5e1;
+            cursor: default;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .stat-chip {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .stat-chip span { font-family: 'Outfit'; font-weight: 800; color: #fff; }
+        .stat-chip.good span { color: #22c55e; }
+        .stat-chip.bad  span { color: #ef4444; }
+        .stat-chip.warn span { color: #f59e0b; }
+
+        /* Preview row */
+        .preview-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(34,197,94,0.05);
+            border: 1px solid rgba(34,197,94,0.2);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            flex-wrap: wrap;
+        }
+        .preview-bar.visible { display: flex; }
+        .preview-in  { color: #64748b; font-family: monospace; }
+        .preview-arr { color: #475569; }
+        .preview-out { color: #22c55e; font-family: monospace; font-weight: 600; }
+
+        /* Removed notice */
+        .removed-notice {
+            background: rgba(245,158,11,0.07);
+            border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            font-size: 0.76rem;
+            color: #92400e;
+            color: #fbbf24;
+            line-height: 1.6;
+        }
+        .removed-notice strong { color: #f59e0b; }
+
+        /* Action buttons */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        /* Quick presets */
+        .quick-label {
+            font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: #64748b; margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8; padding: 6px 13px;
+            border-radius: 999px; font-size: 0.72rem;
+            font-family: 'Outfit', sans-serif; font-weight: 700;
+            cursor: pointer; transition: .2s; white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; }
+
+        /* Format reference table */
+        .ref-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+            user-select: none;
+        }
+        .ref-toggle span { font-size: 0.78rem; color: #64748b; }
+        .ref-toggle .ref-arrow { transition: transform .25s; }
+        .ref-toggle.open .ref-arrow { transform: rotate(180deg); }
+        .ref-table-wrap {
+            display: none;
+            margin-top: 8px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .ref-table-wrap.visible { display: block; }
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .ref-table th { padding: 10px 14px; text-align: left; color: #475569; font-weight: 700; border-bottom: 1px solid var(--border); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; }
+        .ref-table td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #94a3b8; }
+        .ref-table td:first-child { font-family: monospace; color: var(--primary); }
+        .ref-table tr:last-child td { border-bottom: none; }
+
+        @media(max-width:640px){
+            .format-row { grid-template-columns: 1fr; }
+            .arrow-sep { transform: rotate(90deg); padding-bottom: 0; }
+            .io-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .options-strip { flex-direction: column; align-items: flex-start; }
+            .opt-divider { width: 100%; height: 1px; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-format-conversion.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Bulk Date Format Converter</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Paste a whole column of dates — convert every single one instantly. No formulas, no pain.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- RELIABILITY NOTICE -->
+                <div class="removed-notice">
+                    <strong>Reliability-first build:</strong> Auto-detect and text-month formats (e.g. "January 15") have been removed because they cannot parse reliably without ambiguity. Select your exact input format from the list for guaranteed correct output.
+                </div>
+
+                <!-- FORMAT SELECTORS -->
+                <div class="format-row">
+                    <div class="format-box">
+                        <span class="fmt-label">Input Format</span>
+                        <select id="inputFmt" onchange="onFmtChange('input')">
+                            <optgroup label="— Common —">
+                                <option value="YYYY-MM-DD">YYYY-MM-DD (ISO 8601)</option>
+                                <option value="DD/MM/YYYY">DD/MM/YYYY (UK / EU)</option>
+                                <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+                                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                                <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                                <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+                                <option value="YYYY/MM/DD">YYYY/MM/DD</option>
+                                <option value="YYYYMMDD">YYYYMMDD (no separator)</option>
+                            </optgroup>
+                            <optgroup label="— With Time —">
+                                <option value="YYYY-MM-DD HH:mm:ss">YYYY-MM-DD HH:mm:ss</option>
+                                <option value="YYYY-MM-DDTHH:mm:ss">YYYY-MM-DDTHH:mm:ss (ISO)</option>
+                                <option value="MM/DD/YYYY HH:mm">MM/DD/YYYY HH:mm</option>
+                                <option value="DD/MM/YYYY HH:mm">DD/MM/YYYY HH:mm</option>
+                                <option value="MM/DD/YYYY HH:mm:ss">MM/DD/YYYY HH:mm:ss</option>
+                                <option value="DD/MM/YYYY HH:mm:ss">DD/MM/YYYY HH:mm:ss</option>
+                            </optgroup>
+                            <optgroup label="— Numbers —">
+                                <option value="unix">Unix Timestamp (seconds)</option>
+                                <option value="excel">Excel Serial Number</option>
+                            </optgroup>
+                            <option value="custom">✏️ Custom…</option>
+                        </select>
+                        <div class="custom-fmt-wrap" id="inputCustomWrap">
+                            <input type="text" id="inputCustom" placeholder="e.g. DD/MM/YY" oninput="doConvert()">
+                            <div class="fmt-hint">Tokens: YYYY MM DD HH mm ss (all must be 2-digit padded)</div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-sep">→</div>
+
+                    <div class="format-box">
+                        <span class="fmt-label">Output Format</span>
+                        <select id="outputFmt" onchange="onFmtChange('output')">
+                            <optgroup label="— Common —">
+                                <option value="YYYY-MM-DD">YYYY-MM-DD (ISO 8601)</option>
+                                <option value="DD/MM/YYYY">DD/MM/YYYY (UK / EU)</option>
+                                <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+                                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                                <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                                <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+                                <option value="YYYY/MM/DD">YYYY/MM/DD</option>
+                                <option value="YYYYMMDD">YYYYMMDD (no separator)</option>
+                            </optgroup>
+                            <optgroup label="— With Time —">
+                                <option value="YYYY-MM-DD HH:mm:ss">YYYY-MM-DD HH:mm:ss</option>
+                                <option value="YYYY-MM-DDTHH:mm:ss">YYYY-MM-DDTHH:mm:ss (ISO)</option>
+                                <option value="MM/DD/YYYY HH:mm">MM/DD/YYYY HH:mm</option>
+                                <option value="DD/MM/YYYY HH:mm">DD/MM/YYYY HH:mm</option>
+                                <option value="MM/DD/YYYY HH:mm:ss">MM/DD/YYYY HH:mm:ss</option>
+                                <option value="DD/MM/YYYY HH:mm:ss">DD/MM/YYYY HH:mm:ss</option>
+                            </optgroup>
+                            <optgroup label="— Numbers —">
+                                <option value="unix">Unix Timestamp (seconds)</option>
+                                <option value="excel">Excel Serial Number</option>
+                            </optgroup>
+                            <option value="custom">✏️ Custom…</option>
+                        </select>
+                        <div class="custom-fmt-wrap" id="outputCustomWrap">
+                            <input type="text" id="outputCustom" placeholder="e.g. YYYY/MM/DD" oninput="doConvert()">
+                            <div class="fmt-hint">Tokens: YYYY MM DD HH mm ss (all must be 2-digit padded)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OPTIONS -->
+                <div class="options-strip">
+                    <div class="opt-group">
+                        <span class="opt-label">Skip empty lines</span>
+                        <label class="switch"><input type="checkbox" id="skipEmpty" checked onchange="doConvert()"><span class="slider"></span></label>
+                    </div>
+                    <div class="opt-divider"></div>
+                    <div class="opt-group">
+                        <span class="opt-label">Show errors inline</span>
+                        <label class="switch"><input type="checkbox" id="showErrors" checked onchange="doConvert()"><span class="slider"></span></label>
+                    </div>
+                    <div class="opt-divider"></div>
+                    <div class="opt-group">
+                        <span class="opt-label">Trim whitespace</span>
+                        <label class="switch"><input type="checkbox" id="trimWs" checked onchange="doConvert()"><span class="slider"></span></label>
+                    </div>
+                    <div class="opt-divider"></div>
+                    <div class="opt-group">
+                        <span class="opt-label">Comma-separated (CSV)</span>
+                        <label class="switch"><input type="checkbox" id="csvMode" onchange="doConvert()"><span class="slider"></span></label>
+                    </div>
+                </div>
+
+                <!-- QUICK PRESETS -->
+                <div class="quick-label">Sample Data</div>
+                <div class="quick-pills">
+                    <span class="pill" onclick="loadSample('iso_to_us')">ISO → US</span>
+                    <span class="pill" onclick="loadSample('us_to_iso')">US → ISO</span>
+                    <span class="pill" onclick="loadSample('uk_to_iso')">UK → ISO</span>
+                    <span class="pill" onclick="loadSample('iso_to_uk')">ISO → UK</span>
+                    <span class="pill" onclick="loadSample('unix_to_iso')">Unix → ISO</span>
+                    <span class="pill" onclick="loadSample('excel_to_iso')">Excel → ISO</span>
+                    <span class="pill" onclick="loadSample('iso_datetime')">ISO datetime → US</span>
+                </div>
+
+                <!-- LIVE PREVIEW -->
+                <div class="preview-bar" id="previewBar">
+                    <span style="font-size:0.7rem;color:#475569;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Preview</span>
+                    <span class="preview-in" id="previewIn"></span>
+                    <span class="preview-arr">→</span>
+                    <span class="preview-out" id="previewOut"></span>
+                </div>
+
+                <!-- STATS -->
+                <div class="stats-bar" id="statsBar" style="display:none;"></div>
+
+                <!-- I/O -->
+                <div class="io-grid">
+                    <div class="io-panel">
+                        <div class="panel-header">
+                            <span class="panel-label">Input Dates</span>
+                            <span class="panel-meta" id="inputCount">0 lines</span>
+                        </div>
+                        <textarea id="inputArea" placeholder="Paste dates here, one per line&#10;&#10;2024-01-15&#10;2024-03-22&#10;2024-11-08" oninput="doConvert()"></textarea>
+                    </div>
+                    <div class="io-panel">
+                        <div class="panel-header">
+                            <span class="panel-label">Converted Output</span>
+                            <span class="panel-meta" id="outputCount">0 lines</span>
+                        </div>
+                        <textarea id="outputArea" readonly placeholder="Converted dates appear here…"></textarea>
+                    </div>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="action-row" style="margin-bottom:12px;">
+                    <button class="btn-action primary" onclick="copyOutput()">Copy Output</button>
+                    <button class="btn-action" onclick="downloadTxt()">↓ Download .txt</button>
+                    <button class="btn-action" onclick="downloadCsv()">↓ Download .csv</button>
+                    <button class="btn-action" onclick="clearAll()">✕ Clear</button>
+                </div>
+
+                <!-- FORMAT REFERENCE -->
+                <div class="ref-toggle" id="refToggle" onclick="toggleRef()">
+                    <span>📖 Format token reference</span>
+                    <svg class="ref-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1l5 5 5-5" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <div class="ref-table-wrap" id="refTable">
+                    <table class="ref-table">
+                        <thead><tr><th>Token</th><th>Meaning</th><th>Example</th><th>Notes</th></tr></thead>
+                        <tbody>
+                            <tr><td>YYYY</td><td>4-digit year</td><td>2024</td><td>Always use 4-digit years</td></tr>
+                            <tr><td>MM</td><td>2-digit month (zero-padded)</td><td>01 – 12</td><td>Must be padded</td></tr>
+                            <tr><td>DD</td><td>2-digit day (zero-padded)</td><td>01 – 31</td><td>Must be padded</td></tr>
+                            <tr><td>HH</td><td>24h hours (zero-padded)</td><td>00 – 23</td><td>24-hour clock</td></tr>
+                            <tr><td>mm</td><td>Minutes (zero-padded)</td><td>00 – 59</td><td>Lowercase mm</td></tr>
+                            <tr><td>ss</td><td>Seconds (zero-padded)</td><td>00 – 59</td><td>Optional</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────
+    // CONSTANTS
+    // ─────────────────────────────────────────────────────────────
+    const pad2 = n => String(n).padStart(2, '0');
+
+    // Excel epoch: serial 1 = Jan 1 1900.
+    // Excel incorrectly treats 1900 as a leap year (serial 60 = fake Feb 29).
+    // We use Dec 30, 1899 as epoch which correctly handles all real dates.
+    function excelSerialToDate(serial) {
+        const s = Math.round(Number(serial));
+        if (!isFinite(s) || s < 1) return null;
+        const d = new Date(Date.UTC(1899, 11, 30));        // Dec 30, 1899 UTC
+        d.setUTCDate(d.getUTCDate() + s);
+        return d;
+    }
+
+    function dateToExcelSerial(d) {
+        const epoch = Date.UTC(1899, 11, 30);
+        return Math.round((d.getTime() - epoch) / 86400000);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PARSING
+    // Each parser returns a plain object { y, mo, d, h, mi, s }
+    // with 1-based month, or null on failure.
+    // We never rely on the JS Date constructor for parsing — it is
+    // locale- and browser-dependent.
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Parse a value using a strict, explicit format string.
+     * Supported tokens (all must be zero-padded in input):
+     *   YYYY MM DD HH mm ss
+     * Separators between tokens are detected from the format string.
+     *
+     * Returns { y, mo, d, h, mi, s } or null.
+     */
+    function parseWithFmt(raw, fmt) {
+        const s = raw.trim();
+        if (!s) return null;
+
+        if (fmt === 'unix') {
+            const n = Number(s);
+            if (!isFinite(n)) return null;
+            const d = new Date(n * 1000);
+            return {
+                y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1,
+                d: d.getUTCDate(), h: d.getUTCHours(),
+                mi: d.getUTCMinutes(), se: d.getUTCSeconds()
+            };
+        }
+
+        if (fmt === 'excel') {
+            const d = excelSerialToDate(s);
+            if (!d) return null;
+            return {
+                y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1,
+                d: d.getUTCDate(), h: 0, mi: 0, se: 0
+            };
+        }
+
+        // --- Structured tokenised parse ---
+        // Decompose the format into an ordered list of (token, position) pairs
+        // by scanning left-to-right. Anything not a token is a literal separator.
+
+        const TOKENS = ['YYYY', 'MM', 'DD', 'HH', 'mm', 'ss'];
+
+        // Build a regex from the format string
+        let regexStr = '^';
+        let tokenOrder = [];
+        let fi = 0;
+        while (fi < fmt.length) {
+            let matched = false;
+            for (const tok of TOKENS) {
+                if (fmt.startsWith(tok, fi)) {
+                    regexStr += '(\\d{' + tok.length + '})';
+                    tokenOrder.push(tok);
+                    fi += tok.length;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                // Literal separator — escape for regex
+                regexStr += fmt[fi].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                fi++;
+            }
+        }
+        regexStr += '$';
+
+        let re;
+        try { re = new RegExp(regexStr); }
+        catch (e) { return null; }
+
+        const m = s.match(re);
+        if (!m) return null;
+
+        const parts = {};
+        tokenOrder.forEach((tok, i) => { parts[tok] = parseInt(m[i + 1], 10); });
+
+        const y  = parts['YYYY'];
+        const mo = parts['MM'];
+        const dy = parts['DD'];
+        const h  = parts['HH'] !== undefined ? parts['HH'] : 0;
+        const mi = parts['mm'] !== undefined ? parts['mm'] : 0;
+        const se = parts['ss'] !== undefined ? parts['ss'] : 0;
+
+        if (!y || !mo || !dy) return null;
+
+        // Validate ranges
+        if (mo < 1 || mo > 12) return null;
+        if (dy < 1 || dy > 31) return null;
+        if (h  < 0 || h  > 23) return null;
+        if (mi < 0 || mi > 59) return null;
+        if (se < 0 || se > 59) return null;
+
+        // Validate day-in-month using a UTC Date round-trip
+        const check = new Date(Date.UTC(y, mo - 1, dy, h, mi, se));
+        if (
+            check.getUTCFullYear() !== y ||
+            check.getUTCMonth() + 1 !== mo ||
+            check.getUTCDate() !== dy
+        ) return null;
+
+        return { y, mo, d: dy, h, mi, se };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // FORMATTING
+    // Takes a plain parts object and a format string, returns string.
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Format a parts object { y, mo, d, h, mi, se } using a format string.
+     * Uses a two-pass replace strategy: first replace tokens with placeholders,
+     * then replace placeholders with values — completely avoids token collisions.
+     */
+    function formatDate(parts, fmt) {
+        if (!parts) return null;
+
+        if (fmt === 'unix') {
+            const d = new Date(Date.UTC(parts.y, parts.mo - 1, parts.d, parts.h || 0, parts.mi || 0, parts.se || 0));
+            return String(Math.floor(d.getTime() / 1000));
+        }
+        if (fmt === 'excel') {
+            const d = new Date(Date.UTC(parts.y, parts.mo - 1, parts.d));
+            return String(dateToExcelSerial(d));
+        }
+
+        // Two-pass: tokens → unique placeholders → values.
+        // This is the key fix: no token can accidentally be replaced by a previous substitution.
+        const replacements = {
+            'YYYY': String(parts.y),
+            'MM':   pad2(parts.mo),
+            'DD':   pad2(parts.d),
+            'HH':   pad2(parts.h  || 0),
+            'mm':   pad2(parts.mi || 0),
+            'ss':   pad2(parts.se || 0),
+        };
+
+        // Pass 1: replace each token with a unique placeholder
+        const TOKENS_LONGEST_FIRST = ['YYYY', 'MM', 'DD', 'HH', 'mm', 'ss'];
+        let result = fmt;
+        const placeholders = {};
+        TOKENS_LONGEST_FIRST.forEach((tok, i) => {
+            const ph = `\x00${i}\x00`;
+            placeholders[ph] = replacements[tok];
+            result = result.split(tok).join(ph);
+        });
+
+        // Pass 2: replace placeholders with actual values
+        for (const [ph, val] of Object.entries(placeholders)) {
+            result = result.split(ph).join(val);
+        }
+
+        return result;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MAIN CONVERT
+    // ─────────────────────────────────────────────────────────────
+    function doConvert() {
+        const raw     = document.getElementById('inputArea').value;
+        const iFmtSel = document.getElementById('inputFmt').value;
+        const oFmtSel = document.getElementById('outputFmt').value;
+
+        const iFmt = iFmtSel === 'custom'
+            ? document.getElementById('inputCustom').value.trim()
+            : iFmtSel;
+        const oFmt = oFmtSel === 'custom'
+            ? document.getElementById('outputCustom').value.trim()
+            : oFmtSel;
+
+        if (!iFmt || !oFmt) return;
+
+        const skipEmpty  = document.getElementById('skipEmpty').checked;
+        const showErrors = document.getElementById('showErrors').checked;
+        const trimWs     = document.getElementById('trimWs').checked;
+        const csvMode    = document.getElementById('csvMode').checked;
+
+        const lines = csvMode
+            ? raw.split(',').map(x => x.trim())
+            : raw.split('\n');
+
+        let outputLines = [];
+        let total = 0, ok = 0, failed = 0, empty = 0;
+
+        lines.forEach(line => {
+            const l = trimWs ? line.trim() : line;
+
+            if (!l) {
+                empty++;
+                if (!skipEmpty) outputLines.push('');
+                return;
+            }
+
+            total++;
+            const parsed = parseWithFmt(l, iFmt);
+
+            if (!parsed) {
+                failed++;
+                outputLines.push(showErrors ? `[PARSE ERROR: "${l}"]` : '');
+                return;
+            }
+
+            const out = formatDate(parsed, oFmt);
+            if (!out) {
+                failed++;
+                outputLines.push(showErrors ? `[FORMAT ERROR: "${l}"]` : '');
+            } else {
+                ok++;
+                outputLines.push(out);
+            }
+        });
+
+        const outText = csvMode ? outputLines.join(', ') : outputLines.join('\n');
+        document.getElementById('outputArea').value = outText;
+
+        // Counts
+        document.getElementById('inputCount').textContent  = `${total} date${total !== 1 ? 's' : ''}`;
+        document.getElementById('outputCount').textContent = `${ok} converted`;
+
+        // Stats bar
+        const statsBar = document.getElementById('statsBar');
+        if (total > 0) {
+            statsBar.style.display = 'flex';
+            statsBar.innerHTML = `
+                <div class="stat-chip good">Converted <span>${ok}</span></div>
+                ${failed ? `<div class="stat-chip bad">Failed <span>${failed}</span></div>` : ''}
+                ${empty  ? `<div class="stat-chip warn">Empty <span>${empty}</span></div>` : ''}
+                <div class="stat-chip">Total <span>${total + empty}</span> lines</div>
+            `;
+        } else {
+            statsBar.style.display = 'none';
+        }
+
+        // Live preview — first successful conversion
+        const previewBar = document.getElementById('previewBar');
+        const firstNonEmpty = lines.find(l => (trimWs ? l.trim() : l).length > 0);
+        if (firstNonEmpty && ok > 0) {
+            const l = trimWs ? firstNonEmpty.trim() : firstNonEmpty;
+            const p = parseWithFmt(l, iFmt);
+            if (p) {
+                document.getElementById('previewIn').textContent  = l;
+                document.getElementById('previewOut').textContent = formatDate(p, oFmt) || '';
+                previewBar.classList.add('visible');
+            } else {
+                previewBar.classList.remove('visible');
+            }
+        } else {
+            previewBar.classList.remove('visible');
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // FORMAT DROPDOWN CHANGE
+    // ─────────────────────────────────────────────────────────────
+    function onFmtChange(side) {
+        const selId   = side === 'input' ? 'inputFmt'       : 'outputFmt';
+        const wrapId  = side === 'input' ? 'inputCustomWrap': 'outputCustomWrap';
+        const val     = document.getElementById(selId).value;
+        document.getElementById(wrapId).style.display = val === 'custom' ? 'block' : 'none';
+        doConvert();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SAMPLE DATA
+    // All samples use unambiguous, explicitly-formatted dates.
+    // ─────────────────────────────────────────────────────────────
+    const SAMPLES = {
+        iso_to_us: {
+            input: '2024-01-15\n2024-03-22\n2024-11-08\n2025-06-01\n2023-12-31',
+            inFmt: 'YYYY-MM-DD', outFmt: 'MM/DD/YYYY'
+        },
+        us_to_iso: {
+            input: '01/15/2024\n03/22/2024\n11/08/2024\n06/01/2025\n12/31/2023',
+            inFmt: 'MM/DD/YYYY', outFmt: 'YYYY-MM-DD'
+        },
+        uk_to_iso: {
+            input: '15/01/2024\n22/03/2024\n08/11/2024\n01/06/2025\n31/12/2023',
+            inFmt: 'DD/MM/YYYY', outFmt: 'YYYY-MM-DD'
+        },
+        iso_to_uk: {
+            input: '2024-01-15\n2024-03-22\n2024-11-08\n2025-06-01\n2023-12-31',
+            inFmt: 'YYYY-MM-DD', outFmt: 'DD/MM/YYYY'
+        },
+        unix_to_iso: {
+            input: '1705276800\n1711065600\n1731024000\n1748736000\n1703980800',
+            inFmt: 'unix', outFmt: 'YYYY-MM-DD'
+        },
+        excel_to_iso: {
+            input: '45306\n45373\n45604\n45774\n44926',
+            inFmt: 'excel', outFmt: 'YYYY-MM-DD'
+        },
+        iso_datetime: {
+            input: '2024-01-15 09:30:00\n2024-03-22 14:45:00\n2024-11-08 00:00:00',
+            inFmt: 'YYYY-MM-DD HH:mm:ss', outFmt: 'MM/DD/YYYY HH:mm'
+        }
+    };
+
+    function loadSample(key) {
+        const s = SAMPLES[key];
+        if (!s) return;
+        document.getElementById('inputArea').value = s.input;
+        document.getElementById('inputFmt').value  = s.inFmt;
+        document.getElementById('outputFmt').value = s.outFmt;
+        onFmtChange('input');
+        onFmtChange('output');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // UTILITIES
+    // ─────────────────────────────────────────────────────────────
+    function copyOutput() {
+        const val = document.getElementById('outputArea').value;
+        if (!val) return;
+        navigator.clipboard.writeText(val).then(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => btn.textContent = orig, 2000);
+        });
+    }
+
+    function downloadTxt() {
+        const val = document.getElementById('outputArea').value;
+        if (!val) return;
+        triggerDownload(val, 'converted-dates.txt', 'text/plain');
+    }
+
+    function downloadCsv() {
+        const val = document.getElementById('outputArea').value;
+        if (!val) return;
+        const csv = val.split('\n').map(l => `"${l.replace(/"/g, '""')}"`).join('\n');
+        triggerDownload(csv, 'converted-dates.csv', 'text/csv');
+    }
+
+    function triggerDownload(content, filename, type) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([content], { type }));
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function clearAll() {
+        document.getElementById('inputArea').value  = '';
+        document.getElementById('outputArea').value = '';
+        document.getElementById('statsBar').style.display = 'none';
+        document.getElementById('previewBar').classList.remove('visible');
+        document.getElementById('inputCount').textContent  = '0 lines';
+        document.getElementById('outputCount').textContent = '0 lines';
+    }
+
+    function toggleRef() {
+        document.getElementById('refToggle').classList.toggle('open');
+        document.getElementById('refTable').classList.toggle('visible');
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

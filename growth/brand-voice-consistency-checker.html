@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Consistency Checker | Rebrixe</title>
+    <meta name="description" content="Check the consistency of your brand's voice across different communications. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────────── */
+        .checker-container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+        @media (max-width: 900px) { .analysis-grid { grid-template-columns: 1fr; } }
+
+        /* ── Panels ─────────────────────────────────────────────── */
+        .input-panel {
+            background: rgba(10,10,10,0.6);
+            border: 1px solid rgba(255,20,147,0.1);
+            border-radius: 30px;
+            padding: 40px;
+            backdrop-filter: blur(20px);
+        }
+
+        .result-panel {
+            display: none;
+            background: rgba(10,10,10,0.4);
+            border: 1px solid rgba(255,20,147,0.2);
+            border-radius: 30px;
+            padding: 40px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity:0; transform:scale(0.98); } to { opacity:1; transform:scale(1); } }
+
+        /* ── Textarea ───────────────────────────────────────────── */
+        .logic-textarea {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 15px;
+            color: #fff;
+            padding: 20px;
+            font-family: 'Inter';
+            font-size: 0.95rem;
+            outline: none;
+            resize: none;
+            margin-top: 10px;
+            transition: 0.3s;
+            box-sizing: border-box;
+        }
+        .logic-textarea:focus { border-color: #ff1493; }
+
+        /* ── Label ──────────────────────────────────────────────── */
+        .field-label {
+            font-size: 0.7rem;
+            font-weight: 900;
+            color: #ff1493;
+            letter-spacing: 1px;
+        }
+
+        /* ── Tag pills for detected traits ──────────────────────── */
+        .tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .tag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .tag-match {
+            background: rgba(0,255,128,0.1);
+            border: 1px solid rgba(0,255,128,0.4);
+            color: #00ff80;
+        }
+        .tag-mismatch {
+            background: rgba(255,20,147,0.1);
+            border: 1px solid rgba(255,20,147,0.4);
+            color: #ff1493;
+        }
+        .tag-neutral {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #94a3b8;
+        }
+
+        /* ── Score ring ─────────────────────────────────────────── */
+        .score-wrap {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+        }
+        .score-ring-svg { transform: rotate(-90deg); }
+        .score-ring-bg  { fill: none; stroke: rgba(255,20,147,0.1); stroke-width: 8; }
+        .score-ring-fg  {
+            fill: none;
+            stroke: #ff1493;
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 326;
+            stroke-dashoffset: 326;
+            transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
+            filter: drop-shadow(0 0 8px rgba(255,20,147,0.6));
+        }
+        .score-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 1.8rem;
+            color: #ff1493;
+            line-height: 1;
+        }
+        .score-label small {
+            font-size: 0.6rem;
+            color: #64748b;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* ── Dimension bars ─────────────────────────────────────── */
+        .dim-list { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+        .dim-row  { display: flex; align-items: center; gap: 12px; }
+        .dim-name {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 90px;
+            flex-shrink: 0;
+        }
+        .dim-bar-bg {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .dim-bar-fg {
+            height: 100%;
+            border-radius: 99px;
+            background: #ff1493;
+            box-shadow: 0 0 8px rgba(255,20,147,0.4);
+            width: 0%;
+            transition: width 1s cubic-bezier(.4,0,.2,1);
+        }
+        .dim-pct {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #ff1493;
+            width: 32px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── Verdict badge ──────────────────────────────────────── */
+        .verdict {
+            display: inline-block;
+            font-family: 'Outfit';
+            font-weight: 900;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 5px 14px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .verdict-strong { background: rgba(0,255,128,0.1); border:1px solid rgba(0,255,128,0.4); color:#00ff80; }
+        .verdict-weak   { background: rgba(255,60,0,0.1);  border:1px solid rgba(255,60,0,0.4);  color:#ff3c00; }
+        .verdict-mid    { background: rgba(255,200,0,0.1); border:1px solid rgba(255,200,0,0.4); color:#ffc800; }
+
+        /* ── Notes list ─────────────────────────────────────────── */
+        .note-item {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.88rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+        .note-icon { flex-shrink: 0; font-size: 1rem; margin-top: 1px; }
+
+        /* ── Rewritten block ────────────────────────────────────── */
+        .rewrite-block {
+            background: #000;
+            padding: 22px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,20,147,0.2);
+            margin-top: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            line-height: 1.7;
+            min-height: 60px;
+            position: relative;
+        }
+        .rewrite-block.loading::after {
+            content: '';
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #ff1493;
+            border-radius: 50%;
+            animation: blink 0.8s infinite;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        /* ── Prompt box ─────────────────────────────────────────── */
+        .prompt-output {
+            background: #000;
+            padding: 20px;
+            border-radius: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #666;
+            border: 1px solid rgba(255,20,147,0.1);
+            margin-top: 14px;
+            white-space: pre-wrap;
+        }
+
+        /* ── Buttons ────────────────────────────────────────────── */
+        .btn-analyze {
+            width: 100%;
+            background: rgba(255,20,147,0.1);
+            color: #ff1493;
+            border: 1px solid #ff1493;
+            padding: 20px;
+            border-radius: 15px;
+            font-family: 'Outfit';
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            margin-top: 25px;
+            transition: 0.3s;
+            font-size: 1rem;
+        }
+        .btn-analyze:hover:not(:disabled) { background: #ff1493; color: #000; box-shadow: 0 0 25px rgba(255,20,147,0.4); }
+        .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-copy-lux {
+            background: transparent;
+            border: 1px solid rgba(255,20,147,0.4);
+            color: #ff1493;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 900;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-copy-lux:hover { background: rgba(255,20,147,0.1); border-color: #ff1493; }
+
+        .btn-reset {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #64748b;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-left: 8px;
+            transition: 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-reset:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+        /* ── Loading shimmer ────────────────────────────────────── */
+        @keyframes shimmer {
+            0%   { background-position: -600px 0; }
+            100% { background-position:  600px 0; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,20,147,0) 0%, rgba(255,20,147,0.12) 50%, rgba(255,20,147,0) 100%);
+            background-size: 600px 100%;
+            animation: shimmer 1.4s infinite;
+        }
+
+        /* ── Divider ────────────────────────────────────────────── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin: 22px 0;
+        }
+
+        /* ── Word count hint ────────────────────────────────────── */
+        .wc-hint {
+            font-size: 0.68rem;
+            color: #475569;
+            text-align: right;
+            margin-top: 4px;
+            transition: color 0.2s;
+        }
+        .wc-hint.warn { color: #ff1493; }
+
+        /* ── Tabs ───────────────────────────────────────────────── */
+        .tab-bar { display: flex; gap: 6px; margin-bottom: 18px; }
+        .tab-btn {
+            font-size: 0.68rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            border-color: #ff1493;
+            color: #ff1493;
+            background: rgba(255,20,147,0.08);
+        }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* ── Scrollable result panel ────────────────────────────── */
+        @media (min-width: 901px) {
+            .result-panel {
+                max-height: calc(100vh - 200px);
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(255,20,147,0.3) transparent;
+            }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container checker-container">
+        <a href="prompt-engineering.html" class="back-btn">back to tools</a>
+
+        <header style="text-align:center; margin-top:40px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2.5rem,6vw,3.5rem);">Voice Checker</h1>
+            <p style="color:#64748b;">Multi-dimensional brand voice alignment audit.</p>
+        </header>
+
+        <div class="analysis-grid">
+
+            <!-- ── INPUT PANEL ──────────────────────────────────── -->
+            <div class="input-panel">
+
+                <span class="field-label">TARGET VOICE GUIDE</span>
+                <textarea id="voiceGuide" class="logic-textarea" rows="2"
+                    placeholder="e.g. Sarcastic, Gen Z, minimal, witty, no jargon…"
+                    oninput="suggestTraits(this.value)"></textarea>
+
+                <!-- Detected trait pills -->
+                <div id="traitPills" class="tag-row" style="min-height:28px;"></div>
+
+                <div style="margin-top:22px;">
+                    <span class="field-label">DRAFT CONTENT</span>
+                    <textarea id="sampleText" class="logic-textarea" rows="7"
+                        placeholder="Paste the content you want to audit…"
+                        oninput="updateWC()"></textarea>
+                    <div class="wc-hint" id="wcHint">0 words</div>
+                </div>
+
+                <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">
+                    Run Diagnostics ⚡
+                </button>
+
+                <!-- Quick-fill examples -->
+                <div style="margin-top:16px;">
+                    <span class="field-label" style="display:block; margin-bottom:8px;">TRY AN EXAMPLE</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <button class="btn-reset" onclick="loadExample('genz')">Gen Z Brand</button>
+                        <button class="btn-reset" onclick="loadExample('corporate')">Corporate Mismatch</button>
+                        <button class="btn-reset" onclick="loadExample('luxury')">Luxury Voice</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── RESULT PANEL ─────────────────────────────────── -->
+            <div class="result-panel" id="resultPanel">
+
+                <!-- Score ring + verdict -->
+                <div style="text-align:center; margin-bottom:24px;">
+                    <div class="score-wrap">
+                        <svg class="score-ring-svg" width="120" height="120" viewBox="0 0 120 120">
+                            <circle class="score-ring-bg" cx="60" cy="60" r="52"/>
+                            <circle class="score-ring-fg" id="ringFg" cx="60" cy="60" r="52"/>
+                        </svg>
+                        <div class="score-label">
+                            <span id="scoreVal">--</span>
+                            <small>SCORE</small>
+                        </div>
+                    </div>
+                    <div id="verdictBadge"></div>
+                    <p style="font-family:'Outfit'; font-weight:700; color:#fff; letter-spacing:2px; font-size:0.75rem; margin-top:6px;">ALIGNMENT INDEX</p>
+                </div>
+
+                <!-- Dimension bars -->
+                <div class="dim-list" id="dimList"></div>
+
+                <hr class="section-divider">
+
+                <!-- Trait match/mismatch -->
+                <span class="field-label">VOICE TRAITS DETECTED</span>
+                <div id="detectedTraits" class="tag-row" style="margin-bottom:20px; min-height:28px;"></div>
+
+                <!-- Tabbed output: Notes / Rewrite / Prompt -->
+                <div class="tab-bar">
+                    <button class="tab-btn active" onclick="switchTab('notes',this)">Analysis</button>
+                    <button class="tab-btn" onclick="switchTab('rewrite',this)">Rewritten ✨</button>
+                    <button class="tab-btn" onclick="switchTab('prompt',this)">AI Prompt</button>
+                </div>
+
+                <!-- Tab: Notes -->
+                <div class="tab-pane active" id="tab-notes">
+                    <div id="notesList"></div>
+                </div>
+
+                <!-- Tab: Rewrite -->
+                <div class="tab-pane" id="tab-rewrite">
+                    <span class="field-label">RE-ALIGNED VERSION</span>
+                    <div class="rewrite-block" id="rewriteBlock"></div>
+                    <button class="btn-copy-lux" onclick="copyEl('rewriteBlock', this)">Copy Rewrite</button>
+                </div>
+
+                <!-- Tab: Prompt -->
+                <div class="tab-pane" id="tab-prompt">
+                    <span class="field-label">COPY-READY AI PROMPT</span>
+                    <div class="prompt-output" id="promptResult"></div>
+                    <button class="btn-copy-lux" onclick="copyEl('promptResult', this)">Copy Prompt</button>
+                    <button class="btn-reset" onclick="resetAll()">New Check</button>
+                </div>
+
+            </div><!-- /result-panel -->
+        </div><!-- /analysis-grid -->
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       VOICE TRAIT DATABASE  (100–200 words per trait category)
+    ═══════════════════════════════════════════════════════════════ */
+    const TRAIT_DB = {
+        sarcastic: {
+            keywords:    ["seriously?","right?","sure","totally","absolutely","obviously","of course","wow","great","amazing","fantastic","good luck with that","you don't say","shocking","color me surprised","groundbreaking","genius","revolutionary","because that's normal","nothing to see here","perfectly fine","totally fine","not like anyone","sure thing","definitely not","wow thanks","solid plan","nailed it"],
+            punctuation: ["...","?","—"],
+            avgSentLen:  [5,20],
+            label:       "Sarcastic"
+        },
+        genz: {
+            keywords:    ["no cap","lowkey","highkey","slay","bussin","bet","understood the assignment","it's giving","main character","rent free","vibe check","periodt","understood","real talk","ick","rizz","understood the assignment","tbh","ngl","imo","fr","ok but","not me","literally","core","era","based","mid","hit different","understood","ok real","valid","snatched","ate"],
+            punctuation: ["…","lol","lmao","😭","💀","✨","🔥"],
+            avgSentLen:  [3,18],
+            label:       "Gen Z"
+        },
+        professional: {
+            keywords:    ["leverage","synergy","stakeholder","deliverable","bandwidth","align","circle back","deep dive","best practices","action items","value-add","key takeaways","moving forward","going forward","at the end of the day","touch base","roi","kpi","pursuant","herein","as per","please be advised","kindly","in accordance","we are pleased","we would like to","we trust","we look forward"],
+            punctuation: [],
+            avgSentLen:  [15,40],
+            label:       "Professional"
+        },
+        minimal: {
+            keywords:    [],
+            punctuation: ["."],
+            avgSentLen:  [3,12],
+            maxWords:    40,
+            label:       "Minimal"
+        },
+        luxury: {
+            keywords:    ["crafted","curated","artisan","bespoke","exclusive","handcrafted","premium","heritage","timeless","refined","distinguished","elevated","unparalleled","meticulous","exquisite","discerning","sophisticated","rare","heritage","legacy","masterful","extraordinary","impeccable","enduring","finesse","the finest","tailored","singular","devoted","craftsmanship","elevated","provenance","atelier"],
+            punctuation: [],
+            avgSentLen:  [12,35],
+            label:       "Luxury"
+        },
+        playful: {
+            keywords:    ["fun","awesome","yay","woohoo","tada","oops","ooh","ahh","woah","wait what","surprise","haha","hehe","oh snap","plot twist","spoiler","psst","hint hint","guess what","drumroll","secret","shh","wink","wink wink","just kidding","kidding not kidding","speaking of","anyway","so yeah","love it","omg","can we talk about","real question","hot take"],
+            punctuation: ["!","?","😄","🎉","🙌","🎊"],
+            avgSentLen:  [4,18],
+            label:       "Playful"
+        },
+        formal: {
+            keywords:    ["hereby","aforementioned","notwithstanding","whereas","pursuant","therein","hereinafter","per se","vis-à-vis","inter alia","de facto","ergo","thus","hence","therefore","furthermore","additionally","moreover","in conjunction","it is worth noting","one must","it should be noted","as noted","as stated","as outlined","accordingly","in summary","to summarize","in conclusion","the undersigned"],
+            punctuation: [],
+            avgSentLen:  [18,60],
+            label:       "Formal"
+        },
+        casual: {
+            keywords:    ["hey","hi","just","pretty","really","kinda","sorta","gonna","wanna","gotta","let's","you've","haven't","can't","won't","isn't","it's","that's","here's","there's","don't","what's","honestly","actually","basically","literally","anyway","so","well","ok","alright","cool","nice","great","awesome","yeah","nope","yep","sure","oh","ah","like","you know","right","look","listen"],
+            punctuation: ["!","?"],
+            avgSentLen:  [5,22],
+            label:       "Casual"
+        },
+        bold: {
+            keywords:    ["must","never","always","guaranteed","proven","powerful","unbeatable","unstoppable","dominate","crush","smash","destroy","win","kill it","game changer","next level","fire","epic","massive","huge","biggest","strongest","fastest","best","top","number one","world-class","industry-leading","record-breaking","breakthrough","revolutionary","transform","disrupt"],
+            punctuation: ["!","—"],
+            avgSentLen:  [4,16],
+            label:       "Bold"
+        },
+        empathetic: {
+            keywords:    ["we understand","we hear you","it's okay","you're not alone","we know how","we've been there","feel free","no judgment","at your own pace","your journey","we're with you","we support","you matter","your wellbeing","care","support","together","community","here for you","we got you","don't worry","breathe","take your time","it happens","valid","real","human","we see you","you deserve"],
+            punctuation: [],
+            avgSentLen:  [8,25],
+            label:       "Empathetic"
+        },
+        salesy: {
+            keywords:    ["buy now","limited time","act fast","don't miss","offer ends","click here","click link","shop now","order now","exclusive deal","best price","save big","discount","free shipping","bonus","add to cart","check out","grab yours","hurry","last chance","only left","while stocks last","flash sale","mega deal","super sale","biggest sale","don't wait","today only"],
+            punctuation: ["!"],
+            avgSentLen:  [4,15],
+            label:       "Salesy"
+        },
+        witty: {
+            keywords:    ["pun intended","no pun intended","speaking of","plot twist","fun fact","did you know","technically","at this point","hear us out","unpopular opinion","we said what we said","consider this","hot take","bold claim","honest question","genuine question","and yet","somehow","somehow still","life is","turns out","it appears","it would seem","surprisingly","unsurprisingly","fair warning","not to brag"],
+            punctuation: ["—","…","(",")", ";"],
+            avgSentLen:  [8,22],
+            label:       "Witty"
+        }
+    };
+
+    /* Clash pairs — if voice guide contains A but text heavily contains B, flag it */
+    const CLASHES = [
+        { a:"minimal",    b:"salesy",      note:"Hard-sell language clashes with a minimalist voice — strip the urgency triggers." },
+        { a:"luxury",     b:"salesy",      note:"Discount/urgency phrasing undercuts the premium positioning. Remove sales language entirely." },
+        { a:"formal",     b:"genz",        note:"Gen Z slang undermines the formal tone significantly." },
+        { a:"professional",b:"playful",    note:"Excessive playfulness dilutes the professional credibility." },
+        { a:"sarcastic",  b:"empathetic",  note:"Sarcasm and empathetic language send mixed emotional signals to the reader." },
+        { a:"casual",     b:"formal",      note:"Formal/legal phrasing feels out of place in a casual conversational tone." },
+        { a:"bold",       b:"empathetic",  note:"Aggressive 'crush it' language can alienate an audience expecting warmth." },
+        { a:"minimal",    b:"professional",note:"Corporate buzzwords bloat the copy — a minimal voice demands leaner language." },
+    ];
+
+    /* ═══════════════════════════════════════════════════════════════
+       REWRITE DATABASE — style-specific substitutions
+    ═══════════════════════════════════════════════════════════════ */
+    const REWRITE_RULES = {
+        genz:         { rx:/\bpurchase\b/gi, sub:"cop" },
+        luxury:       { rx:/\bbuy\b/gi, sub:"acquire" },
+        minimal:      { rx:/\bin order to\b/gi, sub:"to" },
+        professional: { rx:/\bget\b/gi, sub:"obtain" },
+    };
+
+    /* Opening starters per style */
+    const OPENERS = {
+        genz:         ["ok so real talk —","ngl this is giving","no cap —","lowkey obsessed with how"],
+        luxury:       ["Crafted for those who","A rare opportunity awaits —","Where heritage meets precision —","Exclusively curated —"],
+        sarcastic:    ["Oh sure, because","Wow, surprising absolutely nobody —","Because obviously","Because that's totally normal —"],
+        bold:         ["This changes everything.","No excuses. Just results.","The numbers don't lie —","Built to dominate —"],
+        playful:      ["Psst — here's a secret:","Ok ok ok hear us out —","Plot twist:","Fun fact that'll make your day:"],
+        professional: ["We are pleased to inform you that","As a valued stakeholder,","In alignment with best practices,","Pursuant to our commitment,"],
+        empathetic:   ["We hear you —","You're not alone in this.","We get it, and we're with you —","Because you deserve better —"],
+        casual:       ["Hey, so —","Look, honestly —","Here's the thing —","Ok real talk —"],
+        minimal:      ["","","",""],
+        formal:       ["Hereby,","Pursuant to the foregoing —","It is hereby noted that","Notwithstanding the above,"],
+        witty:        ["Hot take (and we stand by it):","Fun fact, no one asked for:","Unpopular opinion:","Plot twist no one saw coming:"],
+        luxury_alt:   ["Distinguished by","The art of","For the discerning few —","Meticulously engineered —"],
+    };
+
+    /* ═══════════════════════════════════════════════════════════════
+       EXAMPLE PRESETS
+    ═══════════════════════════════════════════════════════════════ */
+    const EXAMPLES = {
+        genz: {
+            guide: "Gen Z, casual, witty, no corporate jargon",
+            text:  "We are pleased to inform you that pursuant to your inquiry, our team has leveraged synergies to deliver a comprehensive solution. Please be advised that this exclusive offer is available for a limited time only. Kindly action the above at your earliest convenience."
+        },
+        corporate: {
+            guide: "Professional, formal, data-driven, authoritative",
+            text:  "no cap this product literally ate and left no crumbs lmao. bussin fr fr. understood the assignment. ok but slay?? the roi is giving main character energy ngl 💀"
+        },
+        luxury: {
+            guide: "Luxury, minimal, refined, aspirational",
+            text:  "BUY NOW!! Limited time only — 50% OFF!! Don't miss this mega deal, click link in bio!! Hurry before stocks run out!!! Best price guaranteed, shop now and save big 🔥🔥"
+        }
+    };
+
+    /* ═══════════════════════════════════════════════════════════════
+       UTILITY HELPERS
+    ═══════════════════════════════════════════════════════════════ */
+    function wordCount(str){ return str.trim().split(/\s+/).filter(Boolean).length; }
+    function avgSentenceLength(str){
+        const sents = str.split(/[.!?]+/).filter(s=>s.trim().length>3);
+        if(!sents.length) return 0;
+        return sents.reduce((a,s)=>a+wordCount(s),0)/sents.length;
+    }
+    function countMatches(text, keywords){
+        return keywords.filter(kw=>text.includes(kw.toLowerCase())).length;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TRAIT DETECTION — returns an array of {traitKey, score 0-1}
+    ═══════════════════════════════════════════════════════════════ */
+    function detectTraits(text){
+        const t = text.toLowerCase();
+        const results = [];
+        for(const [key, data] of Object.entries(TRAIT_DB)){
+            let score = 0;
+            if(data.keywords.length){
+                const hits = countMatches(t, data.keywords);
+                score += Math.min(hits / 4, 1) * 0.6;  // keyword weight
+            }
+            if(data.punctuation.length){
+                const pHits = data.punctuation.filter(p=>t.includes(p)).length;
+                score += Math.min(pHits / data.punctuation.length, 1) * 0.2;
+            }
+            const asl = avgSentenceLength(text);
+            if(data.avgSentLen){
+                const [lo,hi] = data.avgSentLen;
+                if(asl>=lo && asl<=hi) score += 0.2;
+            }
+            results.push({ key, score, label: data.label });
+        }
+        return results.sort((a,b)=>b.score-a.score);
+    }
+
+    /* Parse traits from voice guide string */
+    function parseGuideTraits(guide){
+        const g = guide.toLowerCase();
+        return Object.entries(TRAIT_DB)
+            .filter(([key, data])=> g.includes(key) || g.includes(data.label.toLowerCase()))
+            .map(([key])=>key);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCORING ENGINE
+    ═══════════════════════════════════════════════════════════════ */
+    function computeScore(guideTraits, detectedTraits, text, guide){
+        const t = text.toLowerCase();
+        const wc = wordCount(text);
+        const dims = { tone:85, vocabulary:85, structure:85, clarity:90 };
+        const notes = [];
+
+        /* 1. Trait alignment */
+        if(guideTraits.length){
+            const topDetected = detectedTraits.slice(0,4).map(d=>d.key);
+            const matched = guideTraits.filter(gt=>topDetected.includes(gt)).length;
+            const alignPct = matched / guideTraits.length;
+            dims.tone = Math.round(40 + alignPct * 55);
+            if(alignPct < 0.5) notes.push({ icon:"⚠️", text:`Only ${matched} of ${guideTraits.length} target voice traits detectable in the text. The copy reads differently than intended.` });
+        }
+
+        /* 2. Clash detection */
+        for(const clash of CLASHES){
+            const guideHas = guide.toLowerCase().includes(clash.a);
+            const textHits  = countMatches(t, TRAIT_DB[clash.b]?.keywords||[]);
+            if(guideHas && textHits >= 2){
+                dims.tone       = Math.max(dims.tone-20,  10);
+                dims.vocabulary = Math.max(dims.vocabulary-15,10);
+                notes.push({ icon:"❌", text: clash.note });
+            }
+        }
+
+        /* 3. Minimal word count check */
+        if(guide.toLowerCase().includes("minimal") && wc > 50){
+            dims.structure = Math.max(dims.structure - 20, 20);
+            notes.push({ icon:"⚠️", text:`Word count (${wc}) is too high for a minimalist voice. Aim for under 40–50 words.` });
+        }
+        if(guide.toLowerCase().includes("minimal") && wc > 80){
+            dims.structure = Math.max(dims.structure - 20, 10);
+        }
+
+        /* 4. Passive voice check */
+        const passiveMatches = (t.match(/\b(is|are|was|were|be|been|being)\s+\w+ed\b/g)||[]).length;
+        if(passiveMatches > 2){
+            dims.clarity = Math.max(dims.clarity - passiveMatches * 5, 30);
+            notes.push({ icon:"💡", text:`${passiveMatches} passive voice constructions detected. Active voice builds stronger brand presence.` });
+        }
+
+        /* 5. Repetition check */
+        const wds = t.split(/\s+/);
+        const freq = {};
+        wds.forEach(w=>{ if(w.length>4) freq[w]=(freq[w]||0)+1; });
+        const repeated = Object.entries(freq).filter(([,c])=>c>3).map(([w])=>w);
+        if(repeated.length > 2){
+            dims.vocabulary = Math.max(dims.vocabulary - repeated.length * 5, 20);
+            notes.push({ icon:"💡", text:`Overused words detected: "${repeated.slice(0,3).join('", "')}" — vocabulary variety strengthens brand recall.` });
+        }
+
+        /* 6. Jargon check for casual/gen-z */
+        if(guide.toLowerCase().includes("casual") || guide.toLowerCase().includes("gen z")){
+            const jargonHits = countMatches(t, TRAIT_DB.professional.keywords);
+            if(jargonHits >= 3){
+                dims.vocabulary = Math.max(dims.vocabulary - 25, 10);
+                notes.push({ icon:"❌", text:`Corporate jargon detected (${jargonHits} instances). A casual voice should feel human, not like a business memo.` });
+            }
+        }
+
+        /* 7. Sentence length check */
+        const asl = avgSentenceLength(text);
+        if(asl > 35){
+            dims.clarity = Math.max(dims.clarity - 20, 20);
+            notes.push({ icon:"💡", text:`Average sentence length is ${Math.round(asl)} words — very long. Shorter sentences improve readability and punch.` });
+        } else if(asl < 4 && wc > 10){
+            dims.structure = Math.max(dims.structure - 10, 30);
+            notes.push({ icon:"💡", text:`Sentences are extremely short (avg ${Math.round(asl)} words). Consider adding context for the reader.` });
+        }
+
+        /* 8. Spam/low-quality content */
+        if(wc < 8 || /([a-z])\1{4,}/.test(t)){
+            notes.push({ icon:"🚨", text:"Content appears too short or contains gibberish. Minimum ~15 words recommended for a meaningful voice audit." });
+            return { overall: 5, dims:{ tone:5, vocabulary:5, structure:5, clarity:5 }, notes };
+        }
+
+        /* 9. All clear */
+        if(notes.length === 0) notes.push({ icon:"✅", text:"Voice alignment looks strong. The content closely mirrors the intended tone and style guide." });
+
+        const overall = Math.round((dims.tone + dims.vocabulary + dims.structure + dims.clarity) / 4);
+        return { overall, dims, notes };
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       REWRITE ENGINE
+    ═══════════════════════════════════════════════════════════════ */
+    function generateRewrite(text, guide, guideTraits){
+        let out = text.trim();
+
+        /* Apply substitution rules for detected guide traits */
+        for(const t of guideTraits){
+            if(REWRITE_RULES[t]) out = out.replace(REWRITE_RULES[t].rx, REWRITE_RULES[t].sub);
+        }
+
+        /* Strip corporate jargon if guide says casual/genz */
+        if(guide.includes("casual") || guide.includes("gen z")){
+            out = out
+                .replace(/\bleverage\b/gi,"use")
+                .replace(/\bsynerg\w+\b/gi,"teamwork")
+                .replace(/\bpursuant to\b/gi,"for")
+                .replace(/\bkindle\b/gi,"please")
+                .replace(/\bkindly\b/gi,"just")
+                .replace(/\bplease be advised\b/gi,"heads up")
+                .replace(/\bwe are pleased to inform you\b/gi,"hey, good news")
+                .replace(/\bat your earliest convenience\b/gi,"whenever you can")
+                .replace(/\bin order to\b/gi,"to")
+                .replace(/\bhereby\b/gi,"")
+                .replace(/\bpursuant\b/gi,"under")
+                .replace(/\baction\b/gi,"do")
+                .replace(/\bdeliverable\b/gi,"thing to ship")
+                .replace(/\bbandwidth\b/gi,"time")
+                .replace(/\balign\b/gi,"agree")
+                .replace(/\bcircle back\b/gi,"follow up")
+                .replace(/\bdeep dive\b/gi,"look into")
+                .replace(/\bbest practices\b/gi,"smart moves");
+        }
+
+        /* Strip salesy language if guide says luxury/minimal */
+        if(guide.includes("luxury") || guide.includes("minimal") || guide.includes("premium")){
+            out = out
+                .replace(/!{2,}/g,".")
+                .replace(/buy now/gi,"discover")
+                .replace(/limited time only/gi,"")
+                .replace(/don't miss/gi,"")
+                .replace(/act fast/gi,"")
+                .replace(/shop now/gi,"explore")
+                .replace(/click (here|link)/gi,"")
+                .replace(/hurry/gi,"")
+                .replace(/mega deal/gi,"")
+                .replace(/\d+%\s+off/gi,"")
+                .replace(/save big/gi,"")
+                .replace(/\s{2,}/g," ")
+                .replace(/,\s*,/g,",")
+                .trim();
+        }
+
+        /* Prepend a style-appropriate opener if the guide has a matching trait */
+        const openerKey = guideTraits.find(t=>OPENERS[t]);
+        if(openerKey && out.length > 10){
+            const pool = OPENERS[openerKey];
+            const opener = pool[Math.floor(Math.random()*pool.length)];
+            if(opener) out = opener + " " + out;
+        }
+
+        /* Minimal: trim to first 2 sentences */
+        if(guide.includes("minimal")){
+            const sents = out.match(/[^.!?]+[.!?]+/g)||[out];
+            out = sents.slice(0,2).join(" ").trim();
+        }
+
+        return out.trim() || "(No significant rewrite needed — content is already well-aligned.)";
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RENDER HELPERS
+    ═══════════════════════════════════════════════════════════════ */
+    function renderDims(dims){
+        const entries = [
+            { label:"Tone",        key:"tone" },
+            { label:"Vocabulary",  key:"vocabulary" },
+            { label:"Structure",   key:"structure" },
+            { label:"Clarity",     key:"clarity" },
+        ];
+        const el = document.getElementById("dimList");
+        el.innerHTML = entries.map(e=>`
+            <div class="dim-row">
+                <span class="dim-name">${e.label}</span>
+                <div class="dim-bar-bg"><div class="dim-bar-fg" data-pct="${dims[e.key]}" style="width:0%"></div></div>
+                <span class="dim-pct">${dims[e.key]}%</span>
+            </div>`).join("");
+        /* Animate bars after paint */
+        setTimeout(()=>{
+            el.querySelectorAll(".dim-bar-fg").forEach(bar=>{
+                bar.style.width = bar.dataset.pct + "%";
+            });
+        },80);
+    }
+
+    function renderScore(score){
+        const el   = document.getElementById("scoreVal");
+        const ring = document.getElementById("ringFg");
+        const circ = 326; // 2*PI*52
+        el.innerText = score + "%";
+        setTimeout(()=>{
+            ring.style.strokeDashoffset = circ - (circ * score / 100);
+            if(score >= 70) ring.style.stroke = "#00ff80";
+            else if(score >= 45) ring.style.stroke = "#ffc800";
+            else ring.style.stroke = "#ff3c00";
+            el.style.color = ring.style.stroke;
+        },80);
+
+        /* Verdict badge */
+        const badge = document.getElementById("verdictBadge");
+        if(score >= 75){ badge.innerHTML = `<span class="verdict verdict-strong">Strong Alignment</span>`; }
+        else if(score >= 45){ badge.innerHTML = `<span class="verdict verdict-mid">Needs Refinement</span>`; }
+        else { badge.innerHTML = `<span class="verdict verdict-weak">Major Misalignment</span>`; }
+    }
+
+    function renderNotes(notes){
+        document.getElementById("notesList").innerHTML = notes.map(n=>`
+            <div class="note-item">
+                <span class="note-icon">${n.icon}</span>
+                <span>${n.text}</span>
+            </div>`).join("");
+    }
+
+    function renderDetectedTraits(detected, guideTraits){
+        const top = detected.slice(0,6);
+        document.getElementById("detectedTraits").innerHTML = top.map(d=>{
+            const isTarget  = guideTraits.includes(d.key);
+            const cls       = d.score > 0.25 ? (isTarget ? "tag-match" : "tag-neutral") : "tag-neutral";
+            return `<span class="tag ${cls}">${d.label}</span>`;
+        }).join("") || `<span class="tag tag-neutral">None detected</span>`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LIVE TRAIT PILLS (guide input)
+    ═══════════════════════════════════════════════════════════════ */
+    function suggestTraits(guide){
+        const detected = parseGuideTraits(guide);
+        const el = document.getElementById("traitPills");
+        el.innerHTML = detected.map(k=>`<span class="tag tag-match">${TRAIT_DB[k].label}</span>`).join("");
+    }
+
+    /* Word count */
+    function updateWC(){
+        const val  = document.getElementById("sampleText").value;
+        const wc   = wordCount(val);
+        const hint = document.getElementById("wcHint");
+        hint.innerText = `${wc} word${wc!==1?"s":""}`;
+        hint.className = "wc-hint" + (wc < 15 && wc > 0 ? " warn" : "");
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TAB SWITCHING
+    ═══════════════════════════════════════════════════════════════ */
+    function switchTab(id, btn){
+        document.querySelectorAll(".tab-pane").forEach(p=>p.classList.remove("active"));
+        document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+        document.getElementById("tab-"+id).classList.add("active");
+        btn.classList.add("active");
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MAIN ANALYSIS
+    ═══════════════════════════════════════════════════════════════ */
+    function runAnalysis(){
+        const guide = document.getElementById("voiceGuide").value.trim();
+        const text  = document.getElementById("sampleText").value.trim();
+        if(!guide || !text){ return; }
+
+        const btn = document.getElementById("analyzeBtn");
+        btn.disabled  = true;
+        btn.innerText = "Analyzing…";
+
+        setTimeout(()=>{
+            const guideTraits    = parseGuideTraits(guide);
+            const detectedTraits = detectTraits(text);
+            const { overall, dims, notes } = computeScore(guideTraits, detectedTraits, text, guide.toLowerCase());
+            const rewrite        = generateRewrite(text, guide.toLowerCase(), guideTraits);
+            const promptTxt      = `Act as a Brand Voice Editor.\n\nTarget Voice Guide:\n"${guide}"\n\nDraft Content:\n"${text}"\n\nTask:\nRewrite the draft to achieve 100% alignment with the target voice guide above.\nPreserve the core message but adjust tone, vocabulary, sentence length, and style accordingly.\nReturn only the rewritten version.`;
+
+            /* Render */
+            renderScore(overall);
+            renderDims(dims);
+            renderNotes(notes);
+            renderDetectedTraits(detectedTraits, guideTraits);
+            document.getElementById("rewriteBlock").innerText = rewrite;
+            document.getElementById("promptResult").innerText = promptTxt;
+
+            /* Show panel */
+            const panel = document.getElementById("resultPanel");
+            panel.style.display = "block";
+            panel.scrollIntoView({ behavior:"smooth", block:"start" });
+
+            btn.disabled  = false;
+            btn.innerText = "Run Diagnostics ⚡";
+        }, 900);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       COPY HELPER
+    ═══════════════════════════════════════════════════════════════ */
+    function copyEl(id, btn){
+        const text = document.getElementById(id).innerText;
+        navigator.clipboard.writeText(text);
+        const orig = btn.innerText;
+        btn.innerText = "COPIED!";
+        setTimeout(()=>{ btn.innerText = orig; }, 2000);
+    }
+    /* Legacy alias */
+    function copyPrompt(){ copyEl("promptResult", document.querySelector(".btn-copy-lux")); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET
+    ═══════════════════════════════════════════════════════════════ */
+    function resetAll(){
+        document.getElementById("voiceGuide").value = "";
+        document.getElementById("sampleText").value  = "";
+        document.getElementById("traitPills").innerHTML = "";
+        document.getElementById("wcHint").innerText = "0 words";
+        document.getElementById("resultPanel").style.display = "none";
+        document.getElementById("ringFg").style.strokeDashoffset = "326";
+        window.scrollTo({ top:0, behavior:"smooth" });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EXAMPLE LOADER
+    ═══════════════════════════════════════════════════════════════ */
+    function loadExample(key){
+        const ex = EXAMPLES[key];
+        if(!ex) return;
+        document.getElementById("voiceGuide").value = ex.guide;
+        document.getElementById("sampleText").value  = ex.text;
+        suggestTraits(ex.guide);
+        updateWC();
+    }
+
+    /* ── Keyboard shortcut: Cmd/Ctrl+Enter to run ─────────────── */
+    document.addEventListener("keydown", e=>{
+        if((e.metaKey||e.ctrlKey) && e.key==="Enter") runAnalysis();
+    });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

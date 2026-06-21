@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shift Start Time Planner | Rebrixe</title>
+    <meta name="description" content="Find the exact UTC time for your team's shift start across DST seasons. Plan standups, handoffs, and schedules for remote teams without timezone confusion.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* Input row */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .field-box { display: flex; flex-direction: column; gap: 8px; }
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+
+        select, input[type="time"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter';
+            font-size: 0.92rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+        select:focus, input[type="time"]:focus { border-color: var(--primary); }
+        select option { background: #0f172a; color: #fff; }
+
+        /* Team members row */
+        .team-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .team-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .tz-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex: 1;
+        }
+        .tz-pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 6px 13px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .tz-pill:hover { border-color: var(--primary); color: #fff; }
+        .tz-pill.active { background: rgba(120,129,132,0.15); border-color: var(--primary); color: var(--primary); }
+        .tz-pill.disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* Result panel */
+        .result-panel { display: none; margin-top: 4px; }
+        .result-panel.visible { display: block; }
+
+        /* UTC hero */
+        .utc-hero {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .utc-left {}
+        .utc-tag {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .utc-time {
+            font-family: 'Outfit';
+            font-size: clamp(2rem, 6vw, 3.2rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .utc-date-str {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 6px;
+        }
+        .utc-note {
+            background: rgba(255,200,60,0.07);
+            border: 1px solid rgba(251,191,36,0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.78rem;
+            color: #fbbf24;
+            max-width: 320px;
+            line-height: 1.5;
+        }
+        .utc-note.ok {
+            background: rgba(34,197,94,0.07);
+            border-color: rgba(34,197,94,0.2);
+            color: #4ade80;
+        }
+
+        /* Section label */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* DST status grid */
+        .season-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .season-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 12px;
+            text-align: center;
+            position: relative;
+            transition: border-color .2s;
+        }
+        .season-card.is-dst {
+            border-color: rgba(251,191,36,0.25);
+            background: rgba(251,191,36,0.03);
+        }
+        .season-card.active-now {
+            border-color: var(--primary);
+            background: rgba(120,129,132,0.08);
+        }
+        .season-icon { font-size: 1.4rem; margin-bottom: 6px; }
+        .season-name {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        .season-card.active-now .season-name { color: var(--primary); }
+        .season-utc {
+            font-family: 'Outfit';
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+        .season-card.is-dst .season-utc { color: #fbbf24; }
+        .season-card.active-now .season-utc { color: var(--primary); }
+        .season-offset {
+            font-size: 0.65rem;
+            color: #475569;
+            margin-top: 5px;
+        }
+        .dst-badge {
+            position: absolute;
+            top: 8px; right: 8px;
+            background: rgba(251,191,36,0.15);
+            border: 1px solid rgba(251,191,36,0.3);
+            color: #fbbf24;
+            font-size: 0.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 6px;
+            border-radius: 999px;
+        }
+        .current-badge {
+            position: absolute;
+            top: 8px; right: 8px;
+            background: rgba(120,129,132,0.15);
+            border: 1px solid rgba(139,152,158,0.3);
+            color: var(--primary);
+            font-size: 0.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 6px;
+            border-radius: 999px;
+        }
+
+        /* Team tz breakdown */
+        .team-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .team-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+        .tc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .tc-tz {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            font-family: 'Outfit';
+        }
+        .tc-offset-badge {
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 800;
+            font-family: 'Outfit';
+        }
+        .offset-same { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+        .offset-diff { background: rgba(99,102,241,0.1); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); }
+        .tc-local {
+            font-family: 'Outfit';
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .tc-name { font-size: 0.68rem; color: #475569; margin-top: 4px; }
+        .tc-dst-warn {
+            font-size: 0.65rem;
+            color: #fbbf24;
+            margin-top: 6px;
+        }
+
+        /* Warning / info strips */
+        .overlap-strip {
+            background: rgba(239,68,68,0.06);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            color: #f87171;
+            margin-bottom: 16px;
+        }
+        .overlap-strip strong { color: #fca5a5; }
+        .day-strip {
+            background: rgba(251,191,36,0.06);
+            border: 1px solid rgba(251,191,36,0.25);
+            color: #fbbf24;
+        }
+        .day-strip strong { color: #fde68a; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; margin-bottom: 6px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        .empty-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        /* Limitations box - always visible, never hidden from the user */
+        .limits-box {
+            margin-top: 28px;
+            border: 1px dashed var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            background: rgba(255,255,255,0.015);
+        }
+        .limits-box summary {
+            cursor: pointer;
+            font-family: 'Outfit';
+            font-weight: 800;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            outline: none;
+        }
+        .limits-box[open] summary { color: var(--primary); margin-bottom: 10px; }
+        .limits-box ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            line-height: 1.7;
+        }
+        .limits-box li { margin-bottom: 6px; }
+        .limits-box code {
+            background: rgba(255,255,255,0.06);
+            padding: 1px 6px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        @media(max-width: 640px) {
+            .input-grid { grid-template-columns: 1fr 1fr; }
+            .team-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .utc-hero { flex-direction: column; align-items: flex-start; }
+            .utc-note { max-width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Shift Start Time Planner</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Your team starts at 9am local — what UTC time is that, and how does it change with DST?</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- INPUTS -->
+                <div class="input-grid">
+                    <div class="field-box">
+                        <span class="field-label">Shift Start Time</span>
+                        <input type="time" id="shiftTime" value="09:00" oninput="calculate()">
+                    </div>
+                    <div class="field-box">
+                        <span class="field-label">Team's Timezone</span>
+                        <select id="tzSelect" onchange="calculate()"></select>
+                    </div>
+                    <div class="field-box">
+                        <span class="field-label">Shift Duration</span>
+                        <select id="shiftDuration" onchange="calculate()">
+                            <option value="0">No duration (start only)</option>
+                            <option value="4">4 hours</option>
+                            <option value="6">6 hours</option>
+                            <option value="8" selected>8 hours</option>
+                            <option value="10">10 hours</option>
+                            <option value="12">12 hours</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ADD TEAM MEMBER TIMEZONES -->
+                <div class="team-row">
+                    <span class="team-label">Show in (max 6):</span>
+                    <div class="tz-pills" id="tzPills">
+                        <span class="tz-pill" data-tz="America/New_York" onclick="toggleTzPill(this)">New York</span>
+                        <span class="tz-pill" data-tz="America/Los_Angeles" onclick="toggleTzPill(this)">LA</span>
+                        <span class="tz-pill" data-tz="Europe/London" onclick="toggleTzPill(this)">London</span>
+                        <span class="tz-pill" data-tz="Europe/Berlin" onclick="toggleTzPill(this)">Berlin</span>
+                        <span class="tz-pill" data-tz="Asia/Kolkata" onclick="toggleTzPill(this)">India</span>
+                        <span class="tz-pill" data-tz="Asia/Singapore" onclick="toggleTzPill(this)">Singapore</span>
+                        <span class="tz-pill" data-tz="Australia/Sydney" onclick="toggleTzPill(this)">Sydney</span>
+                        <span class="tz-pill" data-tz="Asia/Tokyo" onclick="toggleTzPill(this)">Tokyo</span>
+                    </div>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="resultPanel" class="result-panel">
+                    <!-- filled by JS -->
+                </div>
+                <div id="emptyHint" class="empty-hint">Pick a shift time and timezone above to see the breakdown ↑</div>
+
+                <!-- LIMITATIONS — always visible so nobody gets surprised -->
+                <details class="limits-box">
+                    <summary>ℹ️ How this tool works &amp; what it doesn't do</summary>
+                    <ul>
+                        <li>"Outside work hours" is a fixed assumption of <code>7:00 AM – 10:00 PM</code> local time for each team member. This is not adjustable per person.</li>
+                        <li>"Standard Time" vs "Daylight Saving Time" cards are calculated by comparing each timezone's UTC offset on <code>Jan 1</code> and <code>Jul 1</code> of the current year. This correctly handles both hemispheres, but a handful of timezones (e.g. parts of Brazil, some Pacific islands) change their DST rules from year to year by local legislation — this tool reflects the rule in effect for those two reference dates only.</li>
+                        <li>The "+1 day / -1 day" note shows that the UTC time falls on a different calendar day than the local date — it does not calculate or display the actual calendar date.</li>
+                        <li>The "Shift ends" calculation assumes the offset stays constant for the whole shift. If a DST transition happens mid-shift (twice a year, for a few hours), the end time shown may be off by 1 hour.</li>
+                        <li>Most DST transitions shift the clock by exactly 1 hour. A small number of regions use 30 or 45-minute shifts — those are calculated correctly here, but the "±1h" wording in team warnings is an approximation.</li>
+                        <li>The timezone dropdown lists ~38 common zones. If your timezone isn't listed, the tool tries to auto-detect and match it to the closest zone with the same current UTC offset — pick manually if that match looks wrong.</li>
+                        <li>Up to 6 team timezones can be compared at once.</li>
+                    </ul>
+                </details>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ── Timezone data ─────────────────────────────────────────────────────────
+    const TZ_LIST = [
+        // Americas
+        { label: "New York (ET)",        tz: "America/New_York" },
+        { label: "Chicago (CT)",         tz: "America/Chicago" },
+        { label: "Denver (MT)",          tz: "America/Denver" },
+        { label: "Los Angeles (PT)",     tz: "America/Los_Angeles" },
+        { label: "Phoenix (MST, no DST)",tz: "America/Phoenix" },
+        { label: "Toronto (ET)",         tz: "America/Toronto" },
+        { label: "Vancouver (PT)",       tz: "America/Vancouver" },
+        { label: "São Paulo (BRT)",      tz: "America/Sao_Paulo" },
+        { label: "Mexico City (CST)",    tz: "America/Mexico_City" },
+        // Europe
+        { label: "London (GMT/BST)",     tz: "Europe/London" },
+        { label: "Dublin (IST)",         tz: "Europe/Dublin" },
+        { label: "Paris / Berlin (CET)", tz: "Europe/Berlin" },
+        { label: "Amsterdam (CET)",      tz: "Europe/Amsterdam" },
+        { label: "Madrid (CET)",         tz: "Europe/Madrid" },
+        { label: "Rome (CET)",           tz: "Europe/Rome" },
+        { label: "Warsaw (CET)",         tz: "Europe/Warsaw" },
+        { label: "Athens (EET)",         tz: "Europe/Athens" },
+        { label: "Helsinki (EET)",       tz: "Europe/Helsinki" },
+        { label: "Istanbul (TRT)",       tz: "Europe/Istanbul" },
+        { label: "Moscow (MSK)",         tz: "Europe/Moscow" },
+        // Middle East & Africa
+        { label: "Dubai (GST)",          tz: "Asia/Dubai" },
+        { label: "Riyadh (AST)",         tz: "Asia/Riyadh" },
+        { label: "Cairo (EET)",          tz: "Africa/Cairo" },
+        { label: "Nairobi (EAT)",        tz: "Africa/Nairobi" },
+        { label: "Lagos (WAT)",          tz: "Africa/Lagos" },
+        // Asia
+        { label: "Karachi (PKT)",        tz: "Asia/Karachi" },
+        { label: "India (IST +5:30)",    tz: "Asia/Kolkata" },
+        { label: "Dhaka (BST +6)",       tz: "Asia/Dhaka" },
+        { label: "Bangkok (ICT +7)",     tz: "Asia/Bangkok" },
+        { label: "Singapore (SGT +8)",   tz: "Asia/Singapore" },
+        { label: "Hong Kong (HKT +8)",   tz: "Asia/Hong_Kong" },
+        { label: "Beijing / Shanghai",   tz: "Asia/Shanghai" },
+        { label: "Tokyo (JST +9)",       tz: "Asia/Tokyo" },
+        { label: "Seoul (KST +9)",       tz: "Asia/Seoul" },
+        // Pacific
+        { label: "Sydney (AEST/AEDT)",   tz: "Australia/Sydney" },
+        { label: "Melbourne (AEST/AEDT)",tz: "Australia/Melbourne" },
+        { label: "Auckland (NZST/NZDT)", tz: "Pacific/Auckland" },
+        { label: "Honolulu (HST, no DST)", tz: "Pacific/Honolulu" },
+    ];
+
+    // ── DST-aware offset helper ───────────────────────────────────────────────
+    // Returns UTC offset in minutes for a given tz at a specific instant.
+    function getOffsetMin(tz, date) {
+        try {
+            const utcStr = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(date);
+            const tzStr  = new Intl.DateTimeFormat('en-US', {
+                timeZone: tz,  hour: '2-digit', minute: '2-digit', hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(date);
+
+            const toObj = parts => parts.reduce((a,p) => { a[p.type]=parseInt(p.value)||0; return a; }, {});
+            const u = toObj(utcStr), l = toObj(tzStr);
+            const utcMs = Date.UTC(u.year, u.month-1, u.day, u.hour, u.minute);
+            const locMs = Date.UTC(l.year, l.month-1, l.day, l.hour, l.minute);
+            return Math.round((locMs - utcMs) / 60000);
+        } catch(e) {
+            return null; // signal failure instead of silently pretending it's UTC
+        }
+    }
+
+    // Convert local HH:MM to UTC HH:MM string given offset in minutes
+    function localToUtc(hhmm, offsetMin) {
+        const [h, m] = hhmm.split(':').map(Number);
+        const totalMin = h * 60 + m - offsetMin;
+        const wrapped = ((totalMin % 1440) + 1440) % 1440;
+        const utcH = Math.floor(wrapped / 60);
+        const utcM = wrapped % 60;
+        const dayShift = totalMin < 0 ? -1 : totalMin >= 1440 ? 1 : 0;
+        return {
+            time: `${String(utcH).padStart(2,'0')}:${String(utcM).padStart(2,'0')}`,
+            dayShift
+        };
+    }
+
+    // Convert UTC HH:MM string + offset back to local HH:MM
+    function utcToLocal(hhmm, offsetMin) {
+        const [h, m] = hhmm.split(':').map(Number);
+        const totalMin = h * 60 + m + offsetMin;
+        const wrapped = ((totalMin % 1440) + 1440) % 1440;
+        return `${String(Math.floor(wrapped/60)).padStart(2,'0')}:${String(wrapped%60).padStart(2,'0')}`;
+    }
+
+    // Format offset minutes to ±H or ±H:MM string
+    function fmtOffset(min) {
+        if (min === null) return '—';
+        const sign = min >= 0 ? '+' : '-';
+        const abs = Math.abs(min);
+        return `UTC${sign}${Math.floor(abs/60)}${abs%60 ? `:${String(abs%60).padStart(2,'0')}` : ''}`;
+    }
+
+    // ── Populate timezone dropdown ────────────────────────────────────────────
+    const sel = document.getElementById('tzSelect');
+    TZ_LIST.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.tz;
+        o.textContent = t.label;
+        sel.appendChild(o);
+    });
+
+    // Auto-detect user tz, with a best-effort offset-based fallback match
+    try {
+        const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let match = TZ_LIST.find(t => t.tz === detected);
+        if (!match && detected) {
+            const detectedOffset = getOffsetMin(detected, new Date());
+            if (detectedOffset !== null) {
+                match = TZ_LIST.find(t => getOffsetMin(t.tz, new Date()) === detectedOffset);
+            }
+        }
+        if (match) sel.value = match.tz;
+    } catch(e) {}
+
+    let activeTzPills = [];
+    const MAX_PILLS = 6;
+
+    function toggleTzPill(el) {
+        const tz = el.dataset.tz;
+        if (activeTzPills.includes(tz)) {
+            activeTzPills = activeTzPills.filter(t => t !== tz);
+            el.classList.remove('active');
+        } else {
+            if (activeTzPills.length >= MAX_PILLS) return;
+            activeTzPills.push(tz);
+            el.classList.add('active');
+        }
+        refreshPillState();
+        calculate();
+    }
+
+    function refreshPillState() {
+        const atCap = activeTzPills.length >= MAX_PILLS;
+        document.querySelectorAll('.tz-pill').forEach(p => {
+            const isActive = activeTzPills.includes(p.dataset.tz);
+            p.classList.toggle('disabled', atCap && !isActive);
+        });
+    }
+
+    // ── Core calculation ──────────────────────────────────────────────────────
+    function calculate() {
+        const timeVal = document.getElementById('shiftTime').value;
+        const tz      = document.getElementById('tzSelect').value;
+        const durH    = parseInt(document.getElementById('shiftDuration').value, 10);
+        const panel   = document.getElementById('resultPanel');
+        const hint    = document.getElementById('emptyHint');
+
+        if (!timeVal || !tz) { panel.classList.remove('visible'); hint.style.display = 'block'; return; }
+
+        const now  = new Date();
+        const year = now.getFullYear();
+
+        // Reference instants: Jan 1 and Jul 1 noon UTC of the current year.
+        // Using noon avoids any midnight-edge ambiguity around the date itself.
+        const refA = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+        const refB = new Date(Date.UTC(year, 6, 1, 12, 0, 0));
+
+        const offsetA   = getOffsetMin(tz, refA);
+        const offsetB   = getOffsetMin(tz, refB);
+        const nowOffset = getOffsetMin(tz, now);
+
+        if (offsetA === null || offsetB === null || nowOffset === null) {
+            panel.innerHTML = `<div class="overlap-strip">⚠️ This browser couldn't resolve that timezone. Please pick a different one from the list.</div>`;
+            panel.classList.add('visible');
+            hint.style.display = 'none';
+            return;
+        }
+
+        const hasDst        = offsetA !== offsetB;
+        const standardOffset = Math.min(offsetA, offsetB);
+        const dstOffset       = Math.max(offsetA, offsetB);
+        const isDstNow        = hasDst && nowOffset === dstOffset;
+
+        const utcNow = localToUtc(timeVal, nowOffset);
+
+        // ── DST status cards ──
+        let cardsHtml;
+        if (hasDst) {
+            const stdUtc = localToUtc(timeVal, standardOffset);
+            const dstUtc = localToUtc(timeVal, dstOffset);
+
+            const stdDayNote = stdUtc.dayShift === 1 ? '<br><small style="color:#f87171;font-size:0.58rem;">+1 day</small>'
+                              : stdUtc.dayShift === -1 ? '<br><small style="color:#f87171;font-size:0.58rem;">-1 day</small>' : '';
+            const dstDayNote = dstUtc.dayShift === 1 ? '<br><small style="color:#f87171;font-size:0.58rem;">+1 day</small>'
+                              : dstUtc.dayShift === -1 ? '<br><small style="color:#f87171;font-size:0.58rem;">-1 day</small>' : '';
+
+            cardsHtml = `
+                <div class="season-card${!isDstNow ? ' active-now' : ''}">
+                    ${!isDstNow ? '<span class="current-badge">NOW</span>' : ''}
+                    <div class="season-icon">🕐</div>
+                    <div class="season-name">Standard Time</div>
+                    <div class="season-utc">${stdUtc.time}${stdDayNote}</div>
+                    <div class="season-offset">${fmtOffset(standardOffset)}</div>
+                </div>
+                <div class="season-card is-dst${isDstNow ? ' active-now' : ''}">
+                    ${isDstNow ? '<span class="current-badge">NOW</span>' : '<span class="dst-badge">DST</span>'}
+                    <div class="season-icon">☀️</div>
+                    <div class="season-name">Daylight Saving Time</div>
+                    <div class="season-utc">${dstUtc.time}${dstDayNote}</div>
+                    <div class="season-offset">${fmtOffset(dstOffset)}</div>
+                </div>`;
+        } else {
+            const onlyUtc = localToUtc(timeVal, standardOffset);
+            const onlyDayNote = onlyUtc.dayShift === 1 ? '<br><small style="color:#f87171;font-size:0.58rem;">+1 day</small>'
+                              : onlyUtc.dayShift === -1 ? '<br><small style="color:#f87171;font-size:0.58rem;">-1 day</small>' : '';
+            cardsHtml = `
+                <div class="season-card active-now">
+                    <span class="current-badge">YEAR-ROUND</span>
+                    <div class="season-icon">🌐</div>
+                    <div class="season-name">No DST observed</div>
+                    <div class="season-utc">${onlyUtc.time}${onlyDayNote}</div>
+                    <div class="season-offset">${fmtOffset(standardOffset)}</div>
+                </div>`;
+        }
+
+        // ── Hero note ──
+        const dstNote = hasDst
+            ? `⚠️ This timezone observes DST. The UTC equivalent shifts by ${Math.abs(dstOffset - standardOffset) / 60}h between its Standard and Daylight Saving periods.`
+            : `✓ No DST in this timezone — the UTC equivalent stays constant year-round.`;
+        const noteClass = hasDst ? '' : 'ok';
+
+        // ── Shift end time ──
+        let endInfo = '';
+        if (durH > 0) {
+            const [sh, sm] = timeVal.split(':').map(Number);
+            const endTotalMin = sh * 60 + sm + durH * 60;
+            const endWrapped  = ((endTotalMin % 1440) + 1440) % 1440;
+            const endLocal    = `${String(Math.floor(endWrapped/60)).padStart(2,'0')}:${String(endWrapped%60).padStart(2,'0')}`;
+            const endUtc      = localToUtc(endLocal, nowOffset);
+            const crossesDay  = endTotalMin >= 1440;
+            endInfo = `<span style="color:#64748b;font-size:0.8rem;margin-top:6px;display:block;">Shift ends ${endLocal} local${crossesDay ? ' <span style="color:#f87171;">(next day)</span>' : ''} → <strong style="color:#fff;">${endUtc.time} UTC</strong>${endUtc.dayShift!==0 ? ` <span style="color:#f87171;">(${endUtc.dayShift>0?'+1':'-1'} day vs shift-start UTC date)</span>`:''}</span>`;
+        }
+
+        // ── Team timezone breakdown ──
+        let teamHTML = '';
+        let hasOutsideHours = false;
+        if (activeTzPills.length > 0) {
+            const teamCards = activeTzPills.map(ptz => {
+                const pOff = getOffsetMin(ptz, now);
+                if (pOff === null) return '';
+
+                const localTime = utcToLocal(utcNow.time, pOff);
+                const [localH] = localTime.split(':').map(Number);
+                const isOdd = localH < 7 || localH >= 22;
+                if (isOdd) hasOutsideHours = true;
+
+                const pOffsetA = getOffsetMin(ptz, refA);
+                const pOffsetB = getOffsetMin(ptz, refB);
+                const pHasDst  = pOffsetA !== null && pOffsetB !== null && pOffsetA !== pOffsetB;
+
+                const tzLabel = TZ_LIST.find(t => t.tz === ptz)?.label || ptz;
+                const badgeClass = (pOff === nowOffset) ? 'offset-same' : 'offset-diff';
+
+                return `<div class="team-card">
+                    <div class="tc-header">
+                        <span class="tc-tz">${tzLabel}</span>
+                        <span class="tc-offset-badge ${badgeClass}">${fmtOffset(pOff)}</span>
+                    </div>
+                    <div class="tc-local">${localTime}${isOdd ? ' 😴' : ''}</div>
+                    <div class="tc-name">${isOdd ? 'Outside work hours (7am–10pm)' : 'Local shift start'}</div>
+                    ${pHasDst ? `<div class="tc-dst-warn">⚠️ DST may shift this ±1h on certain dates</div>` : ''}
+                </div>`;
+            }).join('');
+            teamHTML = `<div class="section-label">Your Team's Local Time Right Now</div>
+                <div class="team-grid">${teamCards}</div>`;
+        }
+
+        // ── Warning strips ──
+        const overlapWarn = hasOutsideHours
+            ? `<div class="overlap-strip">⚡ <strong>Heads up:</strong> This shift start lands outside the 7am–10pm working-hours assumption for one or more team members. Consider adjusting the start time or checking with those folks.</div>`
+            : '';
+
+        const dayWarnHtml = utcNow.dayShift !== 0
+            ? `<div class="overlap-strip day-strip">📅 <strong>Day rollover:</strong> At ${tz.split('/').pop().replace('_',' ')}'s current offset, this UTC time falls on the ${utcNow.dayShift > 0 ? 'next' : 'previous'} calendar day relative to the local date you entered.</div>`
+            : '';
+
+        panel.innerHTML = `
+            <div class="utc-hero">
+                <div class="utc-left">
+                    <div class="utc-tag">UTC equivalent right now</div>
+                    <div class="utc-time">${utcNow.time} UTC</div>
+                    <div class="utc-date-str">${timeVal} local → ${utcNow.time} UTC &nbsp;·&nbsp; ${fmtOffset(nowOffset)} ${isDstNow ? '(DST active)' : (hasDst ? '(Standard Time)' : '')}</div>
+                    ${endInfo}
+                </div>
+                <div class="utc-note ${noteClass}">${dstNote}</div>
+            </div>
+
+            ${dayWarnHtml}
+            ${overlapWarn}
+
+            <div class="section-label">UTC Time — Standard vs Daylight Saving</div>
+            <div class="season-grid">${cardsHtml}</div>
+
+            ${teamHTML}
+
+            <div class="action-row">
+                <button class="btn-action primary" onclick="copyResult()">Copy UTC Times</button>
+                <button class="btn-action" onclick="resetTool()">✕ Reset</button>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    function resetTool() {
+        document.getElementById('shiftTime').value = '09:00';
+        document.getElementById('shiftDuration').value = '8';
+        activeTzPills = [];
+        document.querySelectorAll('.tz-pill').forEach(p => p.classList.remove('active', 'disabled'));
+        calculate();
+    }
+
+    function copyResult() {
+        const timeVal = document.getElementById('shiftTime').value;
+        const tz      = document.getElementById('tzSelect').value;
+        const label   = TZ_LIST.find(t => t.tz === tz)?.label || tz;
+        const year    = new Date().getFullYear();
+
+        const refA = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+        const refB = new Date(Date.UTC(year, 6, 1, 12, 0, 0));
+        const offsetA = getOffsetMin(tz, refA);
+        const offsetB = getOffsetMin(tz, refB);
+
+        const lines = [`Shift Start Time Planner — ${timeVal} in ${label}`, ''];
+
+        if (offsetA !== null && offsetB !== null && offsetA !== offsetB) {
+            const standardOffset = Math.min(offsetA, offsetB);
+            const dstOffset = Math.max(offsetA, offsetB);
+            const stdUtc = localToUtc(timeVal, standardOffset);
+            const dstUtc = localToUtc(timeVal, dstOffset);
+            lines.push(`  Standard Time: ${stdUtc.time} UTC  (${fmtOffset(standardOffset)})`);
+            lines.push(`  Daylight Saving Time: ${dstUtc.time} UTC  (${fmtOffset(dstOffset)})`);
+        } else if (offsetA !== null) {
+            const onlyUtc = localToUtc(timeVal, offsetA);
+            lines.push(`  Year-round (no DST): ${onlyUtc.time} UTC  (${fmtOffset(offsetA)})`);
+        }
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            if (!btn) return;
+            const original = btn.innerText;
+            btn.innerText = '✓ Copied!';
+            setTimeout(() => btn.innerText = original, 2000);
+        }).catch(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            if (btn) {
+                const original = btn.innerText;
+                btn.innerText = '⚠ Copy failed';
+                setTimeout(() => btn.innerText = original, 2000);
+            }
+        });
+    }
+
+    // Init
+    refreshPillState();
+    calculate();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On-Call Schedule Generator | Rebrixe</title>
+    <meta name="description" content="Generate fair rotating on-call schedules for your team. Customize shifts, avoid back-to-back duty, export to CSV or copy for Slack/Notion.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool wrapper ── */
+        .tool-wrap { max-width: 900px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Config grid ── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .cfg-box { display: flex; flex-direction: column; gap: 7px; }
+        .cfg-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .cfg-input {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 13px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .cfg-input:focus { border-color: var(--primary); }
+        .cfg-input.error { border-color: #ef4444; }
+        select.cfg-input { color-scheme: dark; cursor: pointer; }
+
+        /* ── People builder ── */
+        .people-wrap {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.015);
+        }
+        .people-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .people-list { display: flex; flex-direction: column; gap: 8px; }
+        .person-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            animation: fadeIn .2s ease;
+        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+        .person-input {
+            flex: 1;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 10px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+        }
+        .person-input:focus { border-color: var(--primary); }
+        .person-weight {
+            width: 70px;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: #94a3b8;
+            padding: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            outline: none;
+            box-sizing: border-box;
+            text-align: center;
+            transition: border-color .2s;
+        }
+        .person-weight:focus { border-color: var(--primary); }
+        .person-badge {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .btn-remove {
+            background: none;
+            border: 1px solid #1e293b;
+            color: #475569;
+            width: 30px; height: 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: border-color .2s, color .2s;
+        }
+        .btn-remove:hover { border-color: #ef4444; color: #ef4444; }
+        .btn-add {
+            background: rgba(255,255,255,0.04);
+            border: 1px dashed var(--border);
+            color: #64748b;
+            width: 100%;
+            padding: 9px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: border-color .2s, color .2s;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-add:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Options row ── */
+        .options-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+        .opt-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color .2s, color .2s, background .2s;
+        }
+        .opt-chip input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 14px; height: 14px;
+            cursor: pointer;
+        }
+        .opt-chip:has(input:checked) {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(120,129,132,0.08);
+        }
+
+        /* ── Error message ── */
+        .error-msg {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .error-msg.visible { display: block; }
+
+        /* ── Generate button ── */
+        .btn-generate {
+            width: 100%;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            color: #fff;
+            padding: 16px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s, letter-spacing .2s;
+            margin-bottom: 28px;
+            box-shadow: 0 6px 24px rgba(145,152,155,0.2);
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(145,152,155,0.3);
+            letter-spacing: 2.5px;
+        }
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Result area ── */
+        #resultArea { display: none; }
+        #resultArea.visible { display: block; }
+
+        /* Stats strip */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* Schedule table */
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 16px;
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 480px; }
+        thead tr { background: rgba(255,255,255,0.04); }
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 11px 16px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .td-slot { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; }
+        .td-dates { color: #64748b; font-size: 0.78rem; }
+        .person-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+        }
+        .person-tag.primary-tag {
+            background: rgba(120,129,132,0.2);
+            border: 1px solid rgba(120,129,132,0.4);
+            color: #fff;
+        }
+        .person-tag.backup-tag {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+        }
+
+        /* Fairness bar */
+        .fairness-wrap {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            background: rgba(255,255,255,0.015);
+        }
+        .fairness-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .fairness-row:last-child { margin-bottom: 0; }
+        .f-name {
+            font-size: 0.85rem;
+            color: #fff;
+            width: 120px;
+            flex-shrink: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .f-bar-wrap {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .f-bar {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #616768, #c0cbcc);
+            transition: width .5s ease;
+        }
+        .f-count {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: #64748b;
+            font-size: 0.8rem;
+            width: 60px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* Action buttons */
+        .action-row { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.copied { color: #4ade80; border-color: #4ade80; }
+
+        /* ── Responsive ── */
+        @media(max-width: 640px) {
+            .config-grid { grid-template-columns: 1fr 1fr; }
+            .stats-strip { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-direction: column; }
+            .person-badge { display: none; }
+            .tool-card { padding: 20px; }
+        }
+        @media(max-width: 400px) {
+            .config-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="calendar-schedule-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">On-Call Schedule Generator</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Fair rotating on-call for any team size — weekly, daily, or bi-weekly. No spreadsheet needed.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- ── CONFIG ── -->
+                <div class="section-label">Schedule Settings</div>
+                <div class="config-grid">
+                    <div class="cfg-box">
+                        <label class="cfg-label" for="numPeriods">Periods to Generate</label>
+                        <input class="cfg-input" type="number" id="numPeriods" value="8" min="1" max="104">
+                    </div>
+                    <div class="cfg-box">
+                        <label class="cfg-label" for="shiftType">Shift Type</label>
+                        <select class="cfg-input" id="shiftType">
+                            <option value="weekly">Weekly</option>
+                            <option value="daily">Daily</option>
+                            <option value="biweekly">Bi-Weekly</option>
+                        </select>
+                    </div>
+                    <div class="cfg-box">
+                        <label class="cfg-label" for="startDate">Start Date</label>
+                        <input class="cfg-input" type="date" id="startDate" style="color-scheme:dark;">
+                    </div>
+                </div>
+
+                <!-- ── PEOPLE ── -->
+                <div class="people-wrap">
+                    <div class="people-header">
+                        <div class="section-label" style="margin:0;">Team Members</div>
+                        <span style="font-size:0.72rem; color:#475569;">Weight = relative frequency (default 1)</span>
+                    </div>
+                    <div class="people-list" id="peopleList"></div>
+                    <button class="btn-add" onclick="addPerson()">+ Add Person</button>
+                </div>
+
+                <!-- ── OPTIONS ── -->
+                <div class="section-label">Options</div>
+                <div class="options-row">
+                    <label class="opt-chip">
+                        <input type="checkbox" id="optBackup" checked>
+                        Include Backup Person
+                    </label>
+                    <label class="opt-chip">
+                        <input type="checkbox" id="optNoBack2Back" checked>
+                        No Back-to-Back Duty
+                    </label>
+                    <label class="opt-chip">
+                        <input type="checkbox" id="optShuffle">
+                        Randomise Starting Order
+                    </label>
+                </div>
+
+                <!-- ── ERROR ── -->
+                <div class="error-msg" id="errorMsg"></div>
+
+                <button class="btn-generate" onclick="generate()">Generate Schedule</button>
+
+                <!-- ── RESULTS ── -->
+                <div id="resultArea">
+                    <div class="stats-strip" id="statsStrip"></div>
+
+                    <div class="section-label">Schedule</div>
+                    <div class="table-wrap">
+                        <table id="schedTable">
+                            <thead id="schedHead"></thead>
+                            <tbody id="schedBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="section-label">Fairness Breakdown</div>
+                    <div class="fairness-wrap" id="fairnessWrap"></div>
+
+                    <div class="action-row">
+                        <button class="btn-action" id="btnSlack"
+                            style="background:linear-gradient(135deg,#616768,#c0cbcc);border-color:transparent;"
+                            onclick="exportSlack()">Copy for Slack</button>
+                        <button class="btn-action" id="btnCSV" onclick="exportCSV()">Export CSV</button>
+                        <button class="btn-action" id="btnNotion" onclick="exportNotion()">Copy for Notion</button>
+                        <button class="btn-action" id="btnReset" onclick="resetAll()">✕ Reset</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       ON-CALL SCHEDULE GENERATOR — v2.0  (bulletproof rewrite)
+       Fixes: weighted pool desync, back-to-back logic, date timezone,
+              export button feedback, validation, handoff removal.
+    ═══════════════════════════════════════════════════════════════ */
+
+    // ── State ─────────────────────────────────────────────────────
+    let scheduleData  = [];   // final schedule rows
+    let lastPeople    = [];   // people snapshot used for last generate
+    let lastCounts    = {};   // primary shift counts
+
+    // ── Init ──────────────────────────────────────────────────────
+    (function init() {
+        // Snap start date to nearest upcoming Monday (local time, no timezone shift)
+        const today = localToday();
+        const dow   = today.getDay();                       // 0=Sun
+        const daysUntilMon = dow === 1 ? 0 : (8 - dow) % 7 || 7;
+        const nextMon = addDays(today, daysUntilMon);
+        document.getElementById('startDate').value = isoDate(nextMon);
+
+        ['Alice', 'Bob', 'Carlos', 'Dana', 'Eve'].forEach(n => addPerson(n));
+    })();
+
+    // ── Date helpers (all local-time, no UTC drift) ────────────────
+    function localToday() {
+        const d = new Date();
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function parseLocalDate(str) {
+        // 'YYYY-MM-DD' → local midnight (avoids UTC-to-local shift)
+        const [y, m, d] = str.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function addDays(date, n) {
+        const d = new Date(date);
+        d.setDate(d.getDate() + n);
+        return d;
+    }
+
+    function isoDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    }
+
+    function displayDate(d) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+
+    // ── People management ─────────────────────────────────────────
+    function addPerson(name = '') {
+        const list = document.getElementById('peopleList');
+        const row  = document.createElement('div');
+        row.className = 'person-row';
+        row.innerHTML = `
+            <input class="person-input" type="text"
+                   placeholder="Name or handle"
+                   value="${escapeAttr(name)}"
+                   maxlength="32"
+                   aria-label="Team member name">
+            <input class="person-weight" type="number"
+                   value="1" min="1" max="10"
+                   aria-label="Shift weight"
+                   title="Shift weight (higher = more shifts)">
+            <span class="person-badge" aria-hidden="true">weight</span>
+            <button class="btn-remove" onclick="removePerson(this)"
+                    aria-label="Remove person" title="Remove">×</button>
+        `;
+        list.appendChild(row);
+    }
+
+    function removePerson(btn) {
+        const list = document.getElementById('peopleList');
+        if (list.children.length <= 2) {
+            showError('You need at least 2 people to generate a schedule.');
+            return;
+        }
+        btn.closest('.person-row').remove();
+        clearError();
+    }
+
+    function getPeople() {
+        const rows   = document.querySelectorAll('.person-row');
+        const result = [];
+        rows.forEach(r => {
+            const name   = r.querySelector('.person-input').value.trim();
+            const weight = Math.max(1, Math.min(10, parseInt(r.querySelector('.person-weight').value) || 1));
+            if (name) result.push({ name, weight });
+        });
+        return result;
+    }
+
+    // ── Error display ─────────────────────────────────────────────
+    function showError(msg) {
+        const el = document.getElementById('errorMsg');
+        el.textContent = msg;
+        el.classList.add('visible');
+    }
+    function clearError() {
+        document.getElementById('errorMsg').classList.remove('visible');
+    }
+
+    // ── Validation ────────────────────────────────────────────────
+    function validate(people, numPeriods, startDateStr) {
+        if (people.length < 2)          return 'Add at least 2 people with names.';
+        if (!startDateStr)              return 'Please set a start date.';
+        if (isNaN(numPeriods) || numPeriods < 1)
+                                        return 'Periods must be at least 1.';
+        if (numPeriods > 104)           return 'Maximum 104 periods to keep the schedule readable.';
+        // Check for duplicate names
+        const names = people.map(p => p.name.toLowerCase());
+        if (new Set(names).size !== names.length)
+                                        return 'Each team member must have a unique name.';
+        return null; // valid
+    }
+
+    // ── Core: fair weighted round-robin pool ──────────────────────
+    /**
+     * Build a balanced weighted sequence for `totalSlots` picks.
+     *
+     * Strategy: true round-robin over an expanded pool.
+     * - Expand each person by their weight into a pool.
+     * - Optionally shuffle the pool once (for randomised starting order).
+     * - Cycle through the pool with a single pointer; never advance it
+     *   inside backup selection — backup uses its own independent pointer.
+     *
+     * This guarantees:
+     *   - Primary counts exactly match weights over full cycles.
+     *   - Backup never desynchronises the primary pointer.
+     *   - No-back-to-back works without breaking fairness.
+     */
+    function buildSequence(people, totalSlots, noBack2Back, wantBackup, doShuffle) {
+        // Expand pool by weight
+        let pool = [];
+        people.forEach(p => {
+            for (let w = 0; w < p.weight; w++) pool.push(p.name);
+        });
+        if (doShuffle) pool = fisherYates([...pool]);
+
+        const counts    = {};
+        people.forEach(p => { counts[p.name] = 0; });
+
+        const slots = [];
+        let primaryPtr = 0;
+        let backupPtr  = 1;   // starts offset; independent of primary
+
+        for (let i = 0; i < totalSlots; i++) {
+            // ── Pick primary ──
+            let primary = pool[primaryPtr % pool.length];
+
+            // No back-to-back: scan forward until we find a different person
+            // Hard limit: scan at most pool.length steps to avoid infinite loop
+            if (noBack2Back && i > 0 && people.length > 1) {
+                let safety = 0;
+                while (primary === slots[i - 1].primary && safety < pool.length) {
+                    primaryPtr++;
+                    safety++;
+                    primary = pool[primaryPtr % pool.length];
+                }
+            }
+            counts[primary]++;
+            primaryPtr++;
+
+            // ── Pick backup (independent pointer, never touches primaryPtr) ──
+            let backup = null;
+            if (wantBackup && people.length > 1) {
+                // Ensure backupPtr is always ahead of primaryPtr conceptually
+                // but fully independent — just needs to avoid same person as primary
+                let safety = 0;
+                backup = pool[backupPtr % pool.length];
+                while (backup === primary && safety < pool.length) {
+                    backupPtr++;
+                    safety++;
+                    backup = pool[backupPtr % pool.length];
+                }
+                backupPtr++;
+            }
+
+            slots.push({ primary, backup });
+        }
+
+        return { slots, counts };
+    }
+
+    function fisherYates(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // ── Main generate ─────────────────────────────────────────────
+    function generate() {
+        clearError();
+
+        const people       = getPeople();
+        const numPeriods   = parseInt(document.getElementById('numPeriods').value);
+        const shiftType    = document.getElementById('shiftType').value;
+        const startDateStr = document.getElementById('startDate').value;
+        const wantBackup   = document.getElementById('optBackup').checked;
+        const noBack2Back  = document.getElementById('optNoBack2Back').checked;
+        const doShuffle    = document.getElementById('optShuffle').checked;
+
+        const validErr = validate(people, numPeriods, startDateStr);
+        if (validErr) { showError(validErr); return; }
+
+        const startDate = parseLocalDate(startDateStr);
+        const shiftDays = { weekly: 7, daily: 1, biweekly: 14 }[shiftType];
+        const totalSlots = numPeriods;
+
+        const { slots, counts } = buildSequence(people, totalSlots, noBack2Back, wantBackup, doShuffle);
+
+        // Build display rows
+        scheduleData = slots.map((s, i) => {
+            const slotStart = addDays(startDate, i * shiftDays);
+            const slotEnd   = addDays(slotStart, shiftDays - 1);
+
+            const slotLabel = {
+                daily:    `Day ${i + 1}`,
+                biweekly: `Sprint ${i + 1}`,
+                weekly:   `Week ${i + 1}`,
+            }[shiftType];
+
+            return {
+                slot:      i + 1,
+                label:     slotLabel,
+                startDate: slotStart,
+                endDate:   slotEnd,
+                primary:   s.primary,
+                backup:    s.backup,
+            };
+        });
+
+        lastPeople = people;
+        lastCounts = counts;
+
+        renderResults(people, counts, shiftType, wantBackup);
+    }
+
+    // ── Render ────────────────────────────────────────────────────
+    function renderResults(people, counts, shiftType, wantBackup) {
+        document.getElementById('resultArea').classList.add('visible');
+
+        // ── Stats ──
+        const total     = scheduleData.length;
+        const vals      = Object.values(counts);
+        const maxShifts = Math.max(...vals);
+        const minShifts = Math.min(...vals);
+        // Fairness: 100% if perfectly even; lower the bigger the gap relative to max
+        const fairScore = maxShifts === minShifts
+            ? '100%'
+            : Math.round((1 - (maxShifts - minShifts) / maxShifts) * 100) + '%';
+        const slotLabel = { daily: 'Days', biweekly: 'Sprints', weekly: 'Weeks' }[shiftType];
+
+        document.getElementById('statsStrip').innerHTML = `
+            <div class="stat-cell">
+                <div class="stat-num">${people.length}</div>
+                <div class="stat-lbl">People</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-num">${total}</div>
+                <div class="stat-lbl">${slotLabel} Covered</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-num">${fairScore}</div>
+                <div class="stat-lbl">Fairness Score</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-num">${maxShifts - minShifts}</div>
+                <div class="stat-lbl">Max Shift Gap</div>
+            </div>
+        `;
+
+        // ── Table ──
+        document.getElementById('schedHead').innerHTML = `
+            <tr>
+                <th>${slotLabel.slice(0, -1)}</th>
+                <th>Dates</th>
+                <th>Primary On-Call</th>
+                ${wantBackup ? '<th>Backup</th>' : ''}
+            </tr>`;
+
+        document.getElementById('schedBody').innerHTML = scheduleData.map(s => `
+            <tr>
+                <td class="td-slot">${escapeHTML(s.label)}</td>
+                <td class="td-dates">${displayDate(s.startDate)} – ${displayDate(s.endDate)}</td>
+                <td><span class="person-tag primary-tag">${escapeHTML(s.primary)}</span></td>
+                ${wantBackup ? `<td><span class="person-tag backup-tag">${escapeHTML(s.backup || '—')}</span></td>` : ''}
+            </tr>`
+        ).join('');
+
+        // ── Fairness bars ──
+        document.getElementById('fairnessWrap').innerHTML = people.map(p => `
+            <div class="fairness-row">
+                <div class="f-name" title="${escapeAttr(p.name)}">${escapeHTML(p.name)}</div>
+                <div class="f-bar-wrap">
+                    <div class="f-bar" style="width:${Math.round((counts[p.name] || 0) / maxShifts * 100)}%"></div>
+                </div>
+                <div class="f-count">${counts[p.name] || 0} shift${counts[p.name] !== 1 ? 's' : ''}</div>
+            </div>`
+        ).join('');
+
+        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Exports ───────────────────────────────────────────────────
+    function exportSlack() {
+        if (!scheduleData.length) return;
+        const wantBackup = document.getElementById('optBackup').checked;
+        const lines = ['*🚨 On-Call Schedule*', ''];
+        scheduleData.forEach(s => {
+            let line = `*${s.label}* (${displayDate(s.startDate)} – ${displayDate(s.endDate)}): @${s.primary}`;
+            if (wantBackup && s.backup) line += `  _(backup: @${s.backup})_`;
+            lines.push(line);
+        });
+        copyToClipboard(lines.join('\n'), 'btnSlack', 'Copied!');
+    }
+
+    function exportCSV() {
+        if (!scheduleData.length) return;
+        const wantBackup = document.getElementById('optBackup').checked;
+        const cols = ['Slot', 'Start Date', 'End Date', 'Primary'];
+        if (wantBackup) cols.push('Backup');
+        const rows = scheduleData.map(s => {
+            const base = [s.label, isoDate(s.startDate), isoDate(s.endDate), s.primary];
+            if (wantBackup) base.push(s.backup || '');
+            return base.map(csvCell).join(',');
+        });
+        const csvContent = [cols.join(','), ...rows].join('\n');
+
+        try {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = Object.assign(document.createElement('a'), {
+                href:     url,
+                download: 'oncall-schedule.csv',
+            });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            flashButton('btnCSV', 'Downloaded!');
+        } catch (e) {
+            showError('CSV download failed. Try copying for Slack or Notion instead.');
+        }
+    }
+
+    function exportNotion() {
+        if (!scheduleData.length) return;
+        const wantBackup = document.getElementById('optBackup').checked;
+        const header = wantBackup
+            ? '| Slot | Dates | Primary | Backup |\n|------|-------|---------|--------|'
+            : '| Slot | Dates | Primary |\n|------|-------|---------|';
+        const rows = scheduleData.map(s => {
+            const dates = `${displayDate(s.startDate)} – ${displayDate(s.endDate)}`;
+            const base  = `| ${s.label} | ${dates} | ${s.primary} |`;
+            return wantBackup ? `${base} ${s.backup || '—'} |` : base;
+        });
+        copyToClipboard([header, ...rows].join('\n'), 'btnNotion', 'Copied!');
+    }
+
+    // ── Clipboard helper ──────────────────────────────────────────
+    function copyToClipboard(text, btnId, successLabel) {
+        if (!navigator.clipboard) {
+            // Fallback for HTTP or older browsers
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                flashButton(btnId, successLabel);
+            } catch (e) {
+                showError('Could not copy to clipboard. Please copy the text manually.');
+            }
+            return;
+        }
+        navigator.clipboard.writeText(text)
+            .then(() => flashButton(btnId, successLabel))
+            .catch(() => showError('Clipboard access denied. Please copy manually.'));
+    }
+
+    function flashButton(btnId, label) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        const orig = btn.textContent;
+        btn.textContent = '✓ ' + label;
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove('copied');
+        }, 2000);
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────
+    function resetAll() {
+        scheduleData = [];
+        lastPeople   = [];
+        lastCounts   = {};
+        document.getElementById('resultArea').classList.remove('visible');
+        clearError();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Safety: escape helpers ────────────────────────────────────
+    function escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function escapeAttr(str) {
+        return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function csvCell(val) {
+        const s = String(val);
+        return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

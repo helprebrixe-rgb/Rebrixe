@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GIF Speed Changer — Change GIF Playback Speed Online | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Change GIF playback speed online. Make GIFs faster or slower (0.25x to 4x). Reverse, loop control, live preview. Free, browser-only — nothing uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; }
+
+        /* Speed presets */
+        .preset-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+        .preset-chip { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .preset-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .preset-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Speed slider */
+        .speed-block { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+        .speed-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .speed-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .speed-val-wrap { display: flex; align-items: baseline; gap: 4px; }
+        .speed-val { font-size: 1.4rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; line-height: 1; }
+        .speed-unit { font-size: 0.72rem; color: var(--text-dim); font-weight: 700; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 10px rgba(255,214,0,0.45); }
+
+        /* Options row */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .opt-group { display: flex; flex-direction: column; gap: 8px; }
+        .opt-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .tog-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .tog-btn.danger.active { background: rgba(255,68,68,0.08); border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #procMsg { flex: 1; }
+        .proc-bar-wrap { height: 3px; background: rgba(255,214,0,0.1); border-radius: 99px; margin-top: 6px; }
+        .proc-bar { height: 3px; background: var(--primary); border-radius: 99px; width: 0%; transition: width 0.2s; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled { pointer-events: none; }
+        .btn-main:disabled .btn-main-inner { opacity: 0.4; }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Preview panel */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .preview-panel.visible { display: block; }
+        .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .preview-box { display: flex; flex-direction: column; gap: 10px; }
+        .preview-tag { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .preview-img-wrap { background: #000; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 260px; }
+        .preview-img-wrap img { max-width: 100%; max-height: 260px; object-fit: contain; display: block; }
+        .preview-tag.after { color: var(--primary); }
+
+        /* Stats row */
+        .stats-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .preview-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="gif-animation.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">GIF Speed Changer</h1>
+                <p class="tool-page-sub">Make GIFs faster or slower — 0.25× to 4×. Reverse, loop control, live before/after preview.</p>
+                <span class="privacy-badge">Processed in your browser — GIF never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/gif">
+                <span class="drop-icon">🎞️</span>
+                <p class="drop-title">Drop a GIF here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <div class="section-label">Speed Presets</div>
+                    <div class="preset-row" id="presetRow">
+                        <button class="preset-chip" data-speed="0.25" onclick="applyPreset(this)">0.25× Slow-mo</button>
+                        <button class="preset-chip" data-speed="0.5" onclick="applyPreset(this)">0.5× Half</button>
+                        <button class="preset-chip active" data-speed="1" onclick="applyPreset(this)">1× Original</button>
+                        <button class="preset-chip" data-speed="1.5" onclick="applyPreset(this)">1.5× Fast</button>
+                        <button class="preset-chip" data-speed="2" onclick="applyPreset(this)">2× Double</button>
+                        <button class="preset-chip" data-speed="4" onclick="applyPreset(this)">4× Max</button>
+                    </div>
+
+                    <!-- Speed slider -->
+                    <div class="speed-block">
+                        <div class="speed-header">
+                            <div>
+                                <div class="speed-label">Custom Speed Multiplier</div>
+                            </div>
+                            <div class="speed-val-wrap">
+                                <span class="speed-val" id="valSpeed">1.0</span>
+                                <span class="speed-unit">×</span>
+                            </div>
+                        </div>
+                        <input type="range" class="ctrl-slider" id="sliderSpeed" min="25" max="400" value="100" oninput="onSpeedSlide()">
+                    </div>
+
+                    <!-- Options -->
+                    <div class="options-grid">
+                        <div class="opt-group">
+                            <div class="opt-label">Loop Count</div>
+                            <div class="tog-row">
+                                <button class="tog-btn active" data-loop="0" onclick="setLoop(this)">∞ Infinite</button>
+                                <button class="tog-btn" data-loop="1" onclick="setLoop(this)">1×</button>
+                                <button class="tog-btn" data-loop="2" onclick="setLoop(this)">2×</button>
+                                <button class="tog-btn" data-loop="3" onclick="setLoop(this)">3×</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <div class="opt-label">Playback</div>
+                            <div class="tog-row">
+                                <button class="tog-btn active" id="btnReverse" onclick="toggleReverse(this)">▶ Forward</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <div style="flex:1">
+                        <span id="procMsg">Rewriting GIF frames…</span>
+                        <div class="proc-bar-wrap"><div class="proc-bar" id="procBar"></div></div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnApply" onclick="doApply()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">⚡</span>
+                            <span style="font-weight:800;font-size:0.95rem">Apply Speed</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download GIF</button>
+                </div>
+
+                <!-- Preview panel -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="section-label" style="margin-bottom:14px;">Before / After Preview</div>
+                    <div class="preview-grid">
+                        <div class="preview-box">
+                            <span class="preview-tag">Original</span>
+                            <div class="preview-img-wrap">
+                                <img id="previewOrig" src="" alt="Original GIF">
+                            </div>
+                        </div>
+                        <div class="preview-box">
+                            <span class="preview-tag after">Modified <span id="previewSpeedLabel"></span></span>
+                            <div class="preview-img-wrap">
+                                <img id="previewResult" src="" alt="Modified GIF">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Frame delay rewriting</h3>
+                        <p>GIF speed is controlled by per-frame delay values (in 1/100s units). This tool parses every frame's delay and multiplies it by <code>1 / speed</code>, then rebuilds the GIF binary in your browser — no server, no upload.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Why <code>0.25×</code> to <code>4×</code>?</h3>
+                        <p>Below 0.25× most GIF viewers hit their minimum frame delay floor (~2cs) and ignore it. Above 4× you lose readable motion. This range covers 99% of real use cases.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Reverse playback</h3>
+                        <p>Frames are re-ordered in reverse before the delay is rewritten. Works on any GIF regardless of how many frames it has — great for boomerang-style effects.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs in your browser using pure JavaScript. Your GIF never touches a server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let origFile = null, origBytes = null, origURL = null;
+let resultBytes = null, resultFilename = '';
+let loopCount = 0;       // 0 = infinite
+let isReverse = false;
+
+// ─── DROP ZONE ──────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'image/gif') loadFile(f);
+    else showToast('Please drop a GIF file', 'error');
+});
+dz.addEventListener('click', () => fi.click());
+fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+function loadFile(file) {
+    origFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+        origBytes = new Uint8Array(e.target.result);
+        origURL = URL.createObjectURL(file);
+        document.getElementById('imgThumb').src = origURL;
+        document.getElementById('imgName').textContent = file.name;
+
+        // Quick parse to get frame count & duration
+        const info = parseGifInfo(origBytes);
+        document.getElementById('imgDims').textContent =
+            `${info.width} × ${info.height} px  ·  ${info.frames} frames  ·  ${fmtBytes(file.size)}`;
+
+        document.getElementById('previewOrig').src = origURL;
+        dz.style.display = 'none';
+        document.getElementById('toolPanel').classList.add('visible');
+        document.getElementById('previewPanel').classList.remove('visible');
+        document.getElementById('btnDownload').style.display = 'none';
+        resultBytes = null;
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function resetTool() {
+    dz.style.display = '';
+    document.getElementById('toolPanel').classList.remove('visible');
+    fi.value = ''; origFile = null; origBytes = null;
+    if (origURL) { URL.revokeObjectURL(origURL); origURL = null; }
+    resultBytes = null;
+}
+
+// ─── CONTROLS ───────────────────────────────────────────────────────────────
+function onSpeedSlide() {
+    const v = parseInt(document.getElementById('sliderSpeed').value);
+    document.getElementById('valSpeed').textContent = (v / 100).toFixed(2).replace(/\.?0+$/, '') || '1';
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+}
+
+function applyPreset(btn) {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const spd = parseFloat(btn.dataset.speed);
+    document.getElementById('sliderSpeed').value = Math.round(spd * 100);
+    document.getElementById('valSpeed').textContent = spd;
+}
+
+function setLoop(btn) {
+    document.querySelectorAll('[data-loop]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loopCount = parseInt(btn.dataset.loop);
+}
+
+function toggleReverse(btn) {
+    isReverse = !isReverse;
+    btn.classList.toggle('danger', isReverse);
+    btn.classList.toggle('active', true);
+    btn.textContent = isReverse ? '◀ Reversed' : '▶ Forward';
+}
+
+// ─── GIF PARSER ─────────────────────────────────────────────────────────────
+function parseGifInfo(bytes) {
+    const w = bytes[6] | (bytes[7] << 8);
+    const h = bytes[8] | (bytes[9] << 8);
+    let frames = 0, totalDelay = 0;
+    let i = 13;
+    const hasGCT = (bytes[10] & 0x80) !== 0;
+    if (hasGCT) i += 3 * (1 << ((bytes[10] & 0x07) + 1));
+
+    while (i < bytes.length) {
+        if (bytes[i] === 0x3B) break; // trailer
+        if (bytes[i] === 0x21) { // extension
+            if (bytes[i+1] === 0xF9) { // GCE
+                const delay = bytes[i+4] | (bytes[i+5] << 8);
+                totalDelay += delay;
+            }
+            i += 2;
+            while (bytes[i] !== 0x00) i += bytes[i] + 1;
+            i++;
+        } else if (bytes[i] === 0x2C) { // image descriptor
+            frames++;
+            i += 9;
+            const hasLCT = (bytes[i-1] & 0x80) !== 0; // check interlace flag byte
+            // actually last byte of descriptor is packed field
+            const packed = bytes[i - 1];
+            if (hasLCT) i += 3 * (1 << ((packed & 0x07) + 1));
+            i++; // lzw min code size
+            while (bytes[i] !== 0x00) i += bytes[i] + 1;
+            i++;
+        } else i++;
+    }
+    return { width: w, height: h, frames, totalDelay: totalDelay / 100 };
+}
+
+// ─── FULL GIF REWRITER ──────────────────────────────────────────────────────
+// Returns a new Uint8Array with modified delays, loop count, and optional reverse
+function rewriteGif(bytes, speedMult, loopVal, reverse) {
+    // Parse all blocks into segments
+    const segments = []; // { type, data, delay? }
+
+    // Header: bytes 0-5
+    // Logical screen descriptor: bytes 6-12
+    let headerEnd = 13;
+    const hasGCT = (bytes[10] & 0x80) !== 0;
+    if (hasGCT) headerEnd += 3 * (1 << ((bytes[10] & 0x07) + 1));
+    const header = bytes.slice(0, headerEnd);
+
+    let i = headerEnd;
+    const frames = []; // each: { gce: Uint8Array|null, img: Uint8Array }
+    let pendingGCE = null;
+    let netscapeBlock = null; // we'll write our own
+
+    while (i < bytes.length) {
+        if (bytes[i] === 0x3B) break;
+
+        if (bytes[i] === 0x21) {
+            const label = bytes[i + 1];
+            const blockStart = i;
+
+            if (label === 0xFF) {
+                // Application extension — check if Netscape
+                i += 2;
+                const blockSize = bytes[i]; i++;
+                const appId = String.fromCharCode(...bytes.slice(i, i + blockSize));
+                i += blockSize;
+                // skip sub-blocks
+                while (bytes[i] !== 0x00) i += bytes[i] + 1;
+                i++;
+                if (appId.includes('NETSCAPE')) {
+                    netscapeBlock = blockStart; // skip original, we'll add ours
+                } else {
+                    segments.push({ type: 'raw', data: bytes.slice(blockStart, i) });
+                }
+            } else if (label === 0xF9) {
+                // Graphic control extension
+                i += 2; // 0x21, 0xF9
+                const bsize = bytes[i]; i++;
+                const packed = bytes[i]; i++;
+                const delayLow = bytes[i]; i++;
+                const delayHigh = bytes[i]; i++;
+                const transparent = bytes[i]; i++;
+                i++; // block terminator 0x00
+                pendingGCE = { packed, delay: delayLow | (delayHigh << 8), transparent };
+            } else {
+                // Other extension — copy raw
+                i += 2;
+                while (bytes[i] !== 0x00) i += bytes[i] + 1;
+                i++;
+                segments.push({ type: 'raw', data: bytes.slice(blockStart, i) });
+            }
+        } else if (bytes[i] === 0x2C) {
+            // Image descriptor
+            const imgStart = i;
+            i += 10; // 0x2C + 8 bytes descriptor
+            const packed = bytes[i - 1];
+            const hasLCT = (packed & 0x80) !== 0;
+            if (hasLCT) i += 3 * (1 << ((packed & 0x07) + 1));
+            i++; // LZW min code size
+            while (bytes[i] !== 0x00) i += bytes[i] + 1;
+            i++;
+            frames.push({ gce: pendingGCE, imgData: bytes.slice(imgStart, i) });
+            pendingGCE = null;
+        } else {
+            i++;
+        }
+    }
+
+    // Reverse frames if requested
+    if (reverse) frames.reverse();
+
+    // Build output
+    const parts = [];
+
+    // Header
+    parts.push(header);
+
+    // Netscape loop extension
+    const loopBlock = buildNetscapeBlock(loopVal);
+    parts.push(loopBlock);
+
+    // Other raw segments (comments etc)
+    segments.forEach(s => parts.push(s.data));
+
+    // Frames with modified delay
+    frames.forEach(frame => {
+        const gce = frame.gce || { packed: 0, delay: 10, transparent: 0 };
+        let newDelay = Math.round(gce.delay / speedMult);
+        if (newDelay < 2) newDelay = 2; // browsers min ~2cs
+        parts.push(buildGCE(gce.packed, newDelay, gce.transparent));
+        parts.push(frame.imgData);
+    });
+
+    // Trailer
+    parts.push(new Uint8Array([0x3B]));
+
+    // Concat
+    const totalLen = parts.reduce((s, p) => s + p.length, 0);
+    const out = new Uint8Array(totalLen);
+    let offset = 0;
+    parts.forEach(p => { out.set(p, offset); offset += p.length; });
+    return out;
+}
+
+function buildNetscapeBlock(loopVal) {
+    // loopVal 0 = infinite
+    const lo = loopVal & 0xFF, hi = (loopVal >> 8) & 0xFF;
+    return new Uint8Array([
+        0x21, 0xFF, 0x0B,
+        0x4E, 0x45, 0x54, 0x53, 0x43, 0x41, 0x50, 0x45, 0x32, 0x2E, 0x30, // NETSCAPE2.0
+        0x03, 0x01, lo, hi, 0x00
+    ]);
+}
+
+function buildGCE(packed, delay, transparent) {
+    return new Uint8Array([
+        0x21, 0xF9, 0x04,
+        packed,
+        delay & 0xFF, (delay >> 8) & 0xFF,
+        transparent,
+        0x00
+    ]);
+}
+
+// ─── APPLY ──────────────────────────────────────────────────────────────────
+function doApply() {
+    if (!origBytes) { showToast('Upload a GIF first', 'error'); return; }
+
+    const speed = parseInt(document.getElementById('sliderSpeed').value) / 100;
+    if (speed === 0) { showToast('Speed must be above 0', 'error'); return; }
+
+    const proc = document.getElementById('processing');
+    const bar = document.getElementById('procBar');
+    const msg = document.getElementById('procMsg');
+    proc.classList.add('visible');
+    bar.style.width = '20%';
+    msg.textContent = 'Parsing GIF frames…';
+
+    document.getElementById('btnApply').disabled = true;
+
+    // Use setTimeout to allow UI paint
+    setTimeout(() => {
+        bar.style.width = '60%';
+        msg.textContent = 'Rewriting frame delays…';
+        setTimeout(() => {
+            try {
+                const output = rewriteGif(origBytes, speed, loopCount, isReverse);
+                bar.style.width = '90%';
+                msg.textContent = 'Building preview…';
+
+                setTimeout(() => {
+                    resultBytes = output;
+                    const blob = new Blob([output], { type: 'image/gif' });
+                    const url = URL.createObjectURL(blob);
+
+                    document.getElementById('previewResult').src = url;
+                    const spd = speed.toFixed(2).replace(/\.?0+$/, '');
+                    document.getElementById('previewSpeedLabel').textContent = `(${spd}×${isReverse ? ' reversed' : ''})`;
+
+                    const base = origFile.name.replace(/\.gif$/i, '');
+                    resultFilename = `${base}_${spd}x.gif`;
+
+                    const info = parseGifInfo(origBytes);
+                    const origDur = info.totalDelay;
+                    const newDur = Math.round(origDur / speed * 10) / 10;
+
+                    document.getElementById('statsRow').innerHTML = `
+                        <div class="stat-pill"><div class="stat-label">Frames</div><div class="stat-val green">${info.frames}</div></div>
+                        <div class="stat-pill"><div class="stat-label">Original Duration</div><div class="stat-val">${origDur.toFixed(1)}s</div></div>
+                        <div class="stat-pill"><div class="stat-label">New Duration</div><div class="stat-val green">${newDur.toFixed(1)}s</div></div>
+                        <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(output.length)}</div></div>
+                        <div class="stat-pill"><div class="stat-label">Speed</div><div class="stat-val">${spd}×</div></div>
+                    `;
+
+                    proc.classList.remove('visible');
+                    bar.style.width = '0%';
+                    document.getElementById('btnApply').disabled = false;
+                    document.getElementById('btnDownload').style.display = 'block';
+                    document.getElementById('previewPanel').classList.add('visible');
+                    document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    showToast('Done! ✓ Preview playing', 'success');
+                }, 40);
+            } catch(err) {
+                proc.classList.remove('visible');
+                document.getElementById('btnApply').disabled = false;
+                showToast('Error processing GIF — try another file', 'error');
+                console.error(err);
+            }
+        }, 40);
+    }, 30);
+}
+
+// ─── DOWNLOAD ───────────────────────────────────────────────────────────────
+function doDownload() {
+    if (!resultBytes) return;
+    const blob = new Blob([resultBytes], { type: 'image/gif' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = resultFilename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Downloaded!', 'success');
+}
+
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

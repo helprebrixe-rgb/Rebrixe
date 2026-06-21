@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Exposure & Gamma Corrector — Tone Curve Adjustment | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Adjust gamma, exposure, highlights, shadows, midtones and white balance on any image. Advanced tone curve correction, free and browser-only — your image never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Workspace */
+        .workspace { display: grid; grid-template-columns: 1fr 320px; gap: 16px; margin-bottom: 16px; align-items: start; }
+        @media (max-width: 720px) { .workspace { grid-template-columns: 1fr; } }
+
+        /* Canvas area */
+        .canvas-wrap {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 16px; position: relative; min-height: 300px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .canvas-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+        .preview-canvas-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .canvas-side { display: flex; flex-direction: column; gap: 5px; }
+        .canvas-tag { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); text-align: center; }
+        .canvas-box {
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 14px 14px;
+            border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center; min-height: 180px;
+        }
+        .canvas-box canvas, .canvas-box img { max-width: 100%; max-height: 260px; display: block; object-fit: contain; }
+
+        /* Histogram */
+        .histogram-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
+        .histogram-canvas { width: 100%; height: 56px; display: block; border-radius: 4px; }
+
+        /* Controls panel */
+        .controls-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 4px; }
+        .section-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 10px; margin-top: 6px; }
+        .section-label:first-child { margin-top: 0; }
+
+        /* Sliders */
+        .ctrl-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .ctrl-row:last-of-type { border-bottom: none; }
+        .ctrl-head { display: flex; justify-content: space-between; align-items: center; }
+        .ctrl-name { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); }
+        .ctrl-val { font-size: 0.72rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 44px; text-align: right; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 99px; outline: none; cursor: pointer; background: var(--border-mid); }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 6px rgba(255,214,0,0.4); }
+
+        /* Divider */
+        .ctrl-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+        /* Presets row */
+        .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .preset-pill { padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.18s; font-family: 'Outfit', sans-serif; }
+        .preset-pill:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Buttons */
+        .action-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .btn-main { flex: 2; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 20px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(255,180,0,0.3); }
+        .btn-main:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary { flex: 1; min-width: 110px; padding: 13px 16px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-1px); }
+        .btn-ghost { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-ghost:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Format row */
+        .fmt-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+        .fmt-label { font-size: 0.65rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; }
+        .fmt-btn { padding: 5px 11px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .fmt-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 11px 20px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Exposure & Gamma Corrector</h1>
+                <p class="tool-page-sub">Gamma · Highlights · Shadows · Midtones · White Balance — proper tone curve control</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🌓</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Quick Presets -->
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
+                    <div class="section-label" style="margin-bottom:10px;">Quick Presets</div>
+                    <div class="preset-row" id="presetRow"></div>
+                </div>
+
+                <!-- Workspace -->
+                <div class="workspace">
+
+                    <!-- Canvas -->
+                    <div class="canvas-wrap">
+                        <div class="canvas-label">Preview</div>
+                        <div class="preview-canvas-row">
+                            <div class="canvas-side">
+                                <div class="canvas-tag">Original</div>
+                                <div class="canvas-box"><canvas id="origCanvas"></canvas></div>
+                            </div>
+                            <div class="canvas-side">
+                                <div class="canvas-tag">Adjusted</div>
+                                <div class="canvas-box"><canvas id="outCanvas"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="histogram-wrap">
+                            <div style="font-size:0.6rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px;">Output Histogram</div>
+                            <canvas class="histogram-canvas" id="histCanvas"></canvas>
+                        </div>
+
+                        <!-- Format + Download -->
+                        <div class="fmt-row">
+                            <span class="fmt-label">Export as</span>
+                            <button class="fmt-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                            <button class="fmt-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                            <button class="fmt-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        </div>
+                        <div class="action-row">
+                            <button class="btn-main" id="btnApply" onclick="applyAndExport()">
+                                <div class="btn-main-inner"><span>⬇</span><span>Download Result</span></div>
+                            </button>
+                            <button class="btn-ghost" onclick="resetSliders()">Reset All</button>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="controls-panel">
+                        <div class="section-label">Tone</div>
+
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Exposure</span><span class="ctrl-val" id="vExposure">0.00</span></div>
+                            <input type="range" class="ctrl-slider" id="sExposure" min="-2" max="2" step="0.01" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Gamma</span><span class="ctrl-val" id="vGamma">1.00</span></div>
+                            <input type="range" class="ctrl-slider" id="sGamma" min="0.1" max="3.0" step="0.01" value="1" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Contrast</span><span class="ctrl-val" id="vContrast">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sContrast" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+
+                        <div class="ctrl-divider"></div>
+                        <div class="section-label">Highlights & Shadows</div>
+
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Highlights</span><span class="ctrl-val" id="vHighlights">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sHighlights" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Shadows</span><span class="ctrl-val" id="vShadows">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sShadows" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Midtones (Lift)</span><span class="ctrl-val" id="vMidtones">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sMidtones" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Whites</span><span class="ctrl-val" id="vWhites">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sWhites" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Blacks</span><span class="ctrl-val" id="vBlacks">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sBlacks" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+
+                        <div class="ctrl-divider"></div>
+                        <div class="section-label">Color & White Balance</div>
+
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Temperature (K)</span><span class="ctrl-val" id="vTemp">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sTemp" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Tint (G↔M)</span><span class="ctrl-val" id="vTint">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sTint" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Saturation</span><span class="ctrl-val" id="vSat">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sSat" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                        <div class="ctrl-row">
+                            <div class="ctrl-head"><span class="ctrl-name">Vibrance</span><span class="ctrl-val" id="vVibrance">0</span></div>
+                            <input type="range" class="ctrl-slider" id="sVibrance" min="-100" max="100" step="1" value="0" oninput="onSlider()">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">What does each control do?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Gamma vs Exposure</h3>
+                        <p><code>Gamma</code> applies a non-linear power curve — it lifts midtones without blowing highlights. <code>Exposure</code> is a linear multiplier, like adjusting the camera's EV stop. Use gamma for natural-looking corrections.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Highlights & Shadows</h3>
+                        <p>These target only the brightest and darkest zones of the image. Pull <code>Highlights</code> down to recover overexposed skies. Push <code>Shadows</code> up to reveal details hidden in dark areas.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Whites & Blacks</h3>
+                        <p><code>Whites</code> clips the very top of the tonal range — essentially sets the white point. <code>Blacks</code> crushes or lifts the floor. Together they control overall dynamic range and punch.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>White Balance</h3>
+                        <p><code>Temperature</code> shifts the image warm (orange) or cool (blue) — useful when the camera's WB was wrong. <code>Tint</code> corrects green/magenta cast from mixed lighting like fluorescent bulbs.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Vibrance vs Saturation</h3>
+                        <p><code>Vibrance</code> intelligently boosts muted colours while protecting already-saturated ones and skin tones. <code>Saturation</code> boosts everything equally — use it carefully to avoid cartoon-like results.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% Private</h3>
+                        <p>All processing happens inside your browser using the <code>Canvas API</code> with a per-channel lookup table for speed. Your image never leaves your device and works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null, lut = null;
+    let outputFmt = 'jpeg';
+    let rafId = null;
+
+    const SLIDER_IDS = ['Exposure','Gamma','Contrast','Highlights','Shadows','Midtones','Whites','Blacks','Temp','Tint','Sat','Vibrance'];
+    const DEFAULTS = { Exposure:0, Gamma:1, Contrast:0, Highlights:0, Shadows:0, Midtones:0, Whites:0, Blacks:0, Temp:0, Tint:0, Sat:0, Vibrance:0 };
+
+    // ── Quick Presets ──────────────────────────────────────────────────────────
+    const PRESETS = [
+        { name:'Vivid',      vals:{ Exposure:0.2, Gamma:0.9, Contrast:20, Highlights:-10, Shadows:10, Sat:25, Vibrance:20 } },
+        { name:'Cinematic',  vals:{ Exposure:-0.1, Gamma:1.1, Contrast:30, Shadows:-15, Blacks:-20, Temp:-10, Sat:-10 } },
+        { name:'Airy',       vals:{ Exposure:0.4, Gamma:0.85, Highlights:-20, Shadows:30, Blacks:20, Sat:-5 } },
+        { name:'Dark & Moody', vals:{ Exposure:-0.3, Gamma:1.2, Contrast:25, Blacks:-30, Sat:-15, Temp:-15 } },
+        { name:'Warm Film',  vals:{ Exposure:0.1, Gamma:0.95, Temp:40, Tint:5, Sat:10, Vibrance:15 } },
+        { name:'Faded',      vals:{ Exposure:0.15, Gamma:0.9, Blacks:25, Sat:-20, Contrast:-15 } },
+    ];
+
+    const presetRow = document.getElementById('presetRow');
+    PRESETS.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-pill';
+        btn.textContent = p.name;
+        btn.onclick = () => applyPreset(p.vals);
+        presetRow.appendChild(btn);
+    });
+
+    function applyPreset(vals) {
+        resetSliders(false);
+        Object.entries(vals).forEach(([k, v]) => {
+            const el = document.getElementById('s' + k);
+            if (el) el.value = v;
+        });
+        onSlider();
+    }
+
+    // ── Drop zone ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file','error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                resetSliders(false);
+                drawOrig();
+                onSlider();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = ''; document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origImg = null; origFile = null; lut = null;
+    }
+
+    // ── Draw original ──────────────────────────────────────────────────────────
+    function drawOrig() {
+        const cv = document.getElementById('origCanvas');
+        const maxD = 400;
+        const scale = Math.min(1, maxD / Math.max(origImg.naturalWidth, origImg.naturalHeight));
+        cv.width  = Math.round(origImg.naturalWidth  * scale);
+        cv.height = Math.round(origImg.naturalHeight * scale);
+        cv.getContext('2d').drawImage(origImg, 0, 0, cv.width, cv.height);
+    }
+
+    // ── Slider change ──────────────────────────────────────────────────────────
+    function onSlider() {
+        // Update labels
+        const vals = getVals();
+        document.getElementById('vExposure').textContent  = vals.exposure.toFixed(2);
+        document.getElementById('vGamma').textContent     = vals.gamma.toFixed(2);
+        document.getElementById('vContrast').textContent  = vals.contrast;
+        document.getElementById('vHighlights').textContent= vals.highlights;
+        document.getElementById('vShadows').textContent   = vals.shadows;
+        document.getElementById('vMidtones').textContent  = vals.midtones;
+        document.getElementById('vWhites').textContent    = vals.whites;
+        document.getElementById('vBlacks').textContent    = vals.blacks;
+        document.getElementById('vTemp').textContent      = vals.temp;
+        document.getElementById('vTint').textContent      = vals.tint;
+        document.getElementById('vSat').textContent       = vals.sat;
+        document.getElementById('vVibrance').textContent  = vals.vibrance;
+
+        if (!origImg) return;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => { buildLUT(vals); renderPreview(); });
+    }
+
+    function getVals() {
+        return {
+            exposure:   parseFloat(document.getElementById('sExposure').value),
+            gamma:      parseFloat(document.getElementById('sGamma').value),
+            contrast:   parseInt(document.getElementById('sContrast').value),
+            highlights: parseInt(document.getElementById('sHighlights').value),
+            shadows:    parseInt(document.getElementById('sShadows').value),
+            midtones:   parseInt(document.getElementById('sMidtones').value),
+            whites:     parseInt(document.getElementById('sWhites').value),
+            blacks:     parseInt(document.getElementById('sBlacks').value),
+            temp:       parseInt(document.getElementById('sTemp').value),
+            tint:       parseInt(document.getElementById('sTint').value),
+            sat:        parseInt(document.getElementById('sSat').value),
+            vibrance:   parseInt(document.getElementById('sVibrance').value),
+        };
+    }
+
+    // ── LUT build (per-channel, 256 entries) ──────────────────────────────────
+    function buildLUT(v) {
+        lut = { r: new Uint8Array(256), g: new Uint8Array(256), b: new Uint8Array(256) };
+        // Precompute neutral LUT then apply transforms
+        for (let i = 0; i < 256; i++) {
+            let t = i / 255;
+
+            // 1. Exposure (linear EV)
+            t = t * Math.pow(2, v.exposure);
+
+            // 2. Gamma (power curve)
+            t = Math.pow(Math.max(0, t), 1 / v.gamma);
+
+            // 3. Contrast (S-curve around 0.5)
+            if (v.contrast !== 0) {
+                const f = v.contrast / 100;
+                t = (t - 0.5) * (1 + f) + 0.5 + (f > 0 ? 0 : 0);
+                // Soft S-curve
+                const cf = f * 1.2;
+                t = (t - 0.5) * (1 + cf) + 0.5;
+            }
+
+            // 4. Highlights (target bright zone, t > 0.6)
+            if (v.highlights !== 0) {
+                const zone = Math.max(0, (t - 0.6) / 0.4);
+                t += (v.highlights / 100) * zone * 0.4;
+            }
+
+            // 5. Shadows (target dark zone, t < 0.4)
+            if (v.shadows !== 0) {
+                const zone = Math.max(0, (0.4 - t) / 0.4);
+                t += (v.shadows / 100) * zone * 0.4;
+            }
+
+            // 6. Midtones (target mid zone bell)
+            if (v.midtones !== 0) {
+                const zone = Math.exp(-Math.pow((t - 0.5) / 0.25, 2));
+                t += (v.midtones / 100) * zone * 0.3;
+            }
+
+            // 7. Whites (clip top)
+            if (v.whites !== 0) {
+                const zone = Math.max(0, t - 0.8) / 0.2;
+                t += (v.whites / 100) * zone * 0.2;
+            }
+
+            // 8. Blacks (clip bottom)
+            if (v.blacks !== 0) {
+                const zone = Math.max(0, 0.2 - t) / 0.2;
+                t -= (v.blacks / 100) * zone * 0.2;
+            }
+
+            t = Math.max(0, Math.min(1, t));
+            lut.r[i] = lut.g[i] = lut.b[i] = Math.round(t * 255);
+        }
+
+        // White Balance & Tint — per channel offsets applied multiplicatively
+        if (v.temp !== 0 || v.tint !== 0) {
+            for (let i = 0; i < 256; i++) {
+                let r = lut.r[i] / 255, g = lut.g[i] / 255, b = lut.b[i] / 255;
+                // Temp: warm = boost R, reduce B; cool = boost B, reduce R
+                r *= 1 + v.temp / 300;
+                b *= 1 - v.temp / 300;
+                // Tint: green = boost G, reduce M channels; magenta opposite
+                g *= 1 + v.tint / 300;
+                r *= 1 - v.tint / 600;
+                b *= 1 - v.tint / 600;
+                lut.r[i] = clamp255(r * 255);
+                lut.g[i] = clamp255(g * 255);
+                lut.b[i] = clamp255(b * 255);
+            }
+        }
+    }
+
+    function clamp255(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+    // ── Render preview canvas ──────────────────────────────────────────────────
+    function renderPreview() {
+        const src = document.getElementById('origCanvas');
+        const out = document.getElementById('outCanvas');
+        out.width  = src.width;
+        out.height = src.height;
+        const ctx = out.getContext('2d');
+        ctx.drawImage(src, 0, 0);
+        const idata = ctx.getImageData(0, 0, out.width, out.height);
+        const d = idata.data;
+        const v = getVals();
+        const satF = v.sat / 100;
+        const vibF = v.vibrance / 100;
+
+        for (let i = 0; i < d.length; i += 4) {
+            let r = lut.r[d[i]], g = lut.g[d[i+1]], b = lut.b[d[i+2]];
+
+            // Saturation
+            if (satF !== 0) {
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = clamp255(lum + (r - lum) * (1 + satF));
+                g = clamp255(lum + (g - lum) * (1 + satF));
+                b = clamp255(lum + (b - lum) * (1 + satF));
+            }
+
+            // Vibrance — protect high-sat pixels
+            if (vibF !== 0) {
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const sat = max === 0 ? 0 : (max - min) / max;
+                const boost = vibF * (1 - sat);
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = clamp255(lum + (r - lum) * (1 + boost));
+                g = clamp255(lum + (g - lum) * (1 + boost));
+                b = clamp255(lum + (b - lum) * (1 + boost));
+            }
+
+            d[i] = r; d[i+1] = g; d[i+2] = b;
+        }
+
+        ctx.putImageData(idata, 0, 0);
+        drawHistogram(idata.data);
+    }
+
+    // ── Histogram ─────────────────────────────────────────────────────────────
+    function drawHistogram(data) {
+        const hc = document.getElementById('histCanvas');
+        hc.width = hc.offsetWidth * devicePixelRatio || 260;
+        hc.height = 56 * devicePixelRatio;
+        const ctx = hc.getContext('2d');
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+        const W = hc.offsetWidth || 260, H = 56;
+        const bins = { r: new Uint32Array(256), g: new Uint32Array(256), b: new Uint32Array(256) };
+        for (let i = 0; i < data.length; i += 4) {
+            bins.r[data[i]]++; bins.g[data[i+1]]++; bins.b[data[i+2]]++;
+        }
+        const peak = Math.max(...bins.r, ...bins.g, ...bins.b) || 1;
+        ctx.clearRect(0, 0, W, H);
+        [['r','255,80,80'],['g','80,200,80'],['b','80,120,255']].forEach(([ch, col]) => {
+            ctx.beginPath();
+            ctx.globalAlpha = 0.55;
+            for (let x = 0; x < 256; x++) {
+                const px = (x / 255) * W;
+                const py = H - (bins[ch][x] / peak) * H;
+                x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+            ctx.fillStyle = `rgb(${col})`; ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+    }
+
+    // ── Export ─────────────────────────────────────────────────────────────────
+    function applyAndExport() {
+        if (!origImg || !lut) { showToast('Upload an image first','error'); return; }
+        const v = getVals();
+        const satF = v.sat / 100, vibF = v.vibrance / 100;
+        const canvas = document.createElement('canvas');
+        canvas.width = origImg.naturalWidth; canvas.height = origImg.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(origImg, 0, 0);
+        const idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = idata.data;
+        for (let i = 0; i < d.length; i += 4) {
+            let r = lut.r[d[i]], g = lut.g[d[i+1]], b = lut.b[d[i+2]];
+            if (satF !== 0) {
+                const lum = 0.299*r + 0.587*g + 0.114*b;
+                r = clamp255(lum + (r-lum)*(1+satF));
+                g = clamp255(lum + (g-lum)*(1+satF));
+                b = clamp255(lum + (b-lum)*(1+satF));
+            }
+            if (vibF !== 0) {
+                const max = Math.max(r,g,b), min = Math.min(r,g,b);
+                const sat = max===0?0:(max-min)/max;
+                const boost = vibF*(1-sat);
+                const lum = 0.299*r+0.587*g+0.114*b;
+                r = clamp255(lum+(r-lum)*(1+boost));
+                g = clamp255(lum+(g-lum)*(1+boost));
+                b = clamp255(lum+(b-lum)*(1+boost));
+            }
+            d[i]=r; d[i+1]=g; d[i+2]=b;
+        }
+        ctx.putImageData(idata, 0, 0);
+        const mime = outputFmt==='png'?'image/png':outputFmt==='webp'?'image/webp':'image/jpeg';
+        const ext  = outputFmt==='jpeg'?'jpg':outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const url  = canvas.toDataURL(mime, outputFmt==='png'?undefined:0.93);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${base}_corrected.${ext}`; a.click();
+        showToast('Downloaded! ✓','success');
+    }
+
+    // ── Utils ──────────────────────────────────────────────────────────────────
+    function resetSliders(redraw = true) {
+        SLIDER_IDS.forEach(k => {
+            const el = document.getElementById('s'+k);
+            if (el) el.value = DEFAULTS[k];
+        });
+        if (redraw) onSlider();
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); outputFmt = btn.dataset.fmt;
+    }
+
+    function fmtBytes(b) {
+        if (b < 1024) return b+' B';
+        if (b < 1048576) return (b/1024).toFixed(1)+' KB';
+        return (b/1048576).toFixed(2)+' MB';
+    }
+
+    function showToast(msg, type='') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast '+type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

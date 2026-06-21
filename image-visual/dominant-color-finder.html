@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dominant Colour Finder — Extract Top Colors From Any Image | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Find the dominant colours in any image instantly. Visual palette, HEX/RGB/HSL codes, percentage breakdown. Free, browser-only — image never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); white-space: nowrap; }
+        .count-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; flex: 1; }
+        .count-chip { padding: 7px 13px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .count-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .count-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .divider-v { width: 1px; height: 30px; background: var(--border); flex-shrink: 0; }
+        .fmt-row { display: flex; gap: 6px; align-items: center; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Action */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Results */
+        .results-panel { display: none; }
+        .results-panel.visible { display: block; }
+
+        /* Dominant big swatch */
+        .dominant-hero { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; }
+        .dominant-swatch { height: 100px; width: 100%; transition: background 0.4s; }
+        .dominant-meta { background: var(--card); padding: 16px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .dominant-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 3px; }
+        .dominant-name { font-size: 1rem; font-weight: 800; color: var(--text); }
+        .dominant-pct { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); }
+        .codes-row { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+        .code-pill { display: flex; flex-direction: column; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: border-color 0.18s; min-width: 90px; }
+        .code-pill:hover { border-color: var(--primary-border); }
+        .code-pill .cp-label { font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 3px; }
+        .code-pill .cp-val { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .code-pill .cp-hint { font-size: 0.58rem; color: var(--text-dim); margin-top: 2px; }
+
+        /* Palette grid */
+        .palette-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .palette-bar { display: flex; height: 48px; border-radius: 10px; overflow: hidden; margin-bottom: 18px; }
+        .palette-bar-seg { flex: 0 0 auto; transition: flex 0.4s; cursor: pointer; }
+        .palette-bar-seg:hover { filter: brightness(1.15); }
+
+        .swatches-list { display: flex; flex-direction: column; gap: 10px; }
+        .swatch-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); transition: border-color 0.18s; cursor: pointer; }
+        .swatch-row:hover { border-color: var(--border-mid); }
+        .swatch-row.highlighted { border-color: var(--primary-border); background: var(--primary-dim); }
+        .swatch-box { width: 36px; height: 36px; border-radius: 7px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+        .swatch-info { flex: 1; min-width: 0; }
+        .swatch-name { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+        .swatch-codes { font-size: 0.7rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .swatch-pct-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 60px; }
+        .swatch-pct-num { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .swatch-bar { width: 60px; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .swatch-bar-fill { height: 100%; border-radius: 99px; background: var(--primary); transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+
+        /* Export / copy row */
+        .export-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-secondary { padding: 11px 18px; border-radius: 12px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+        .btn-ghost { padding: 11px 18px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-ghost:hover { border-color: var(--border-mid); color: var(--text); transform: translateY(-2px); }
+
+        /* eCommerce tag badge */
+        .tag-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 16px; }
+        .tag-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .tag-badge { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; background: rgba(255,214,0,0.1); border: 1px solid var(--primary-border); color: var(--primary); padding: 3px 10px; border-radius: 99px; }
+        .tag-list { display: flex; gap: 7px; flex-wrap: wrap; }
+        .color-tag { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: 0.75rem; font-weight: 700; color: var(--text-sec); cursor: pointer; transition: all 0.18s; }
+        .color-tag:hover { border-color: var(--border-mid); color: var(--text); }
+        .color-tag .ct-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .tag-copy-btn { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; margin-left: auto; }
+        .tag-copy-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .codes-row { margin-left: 0; }
+            .export-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="color-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Dominant Colour Finder</h1>
+                <p class="tool-page-sub">Extract the most dominant colours from any image — HEX, RGB, HSL, percentage breakdown & eCommerce colour tags.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop an image to extract colours</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <span class="section-label">Colours</span>
+                    <div class="count-row" id="countRow">
+                        <button class="count-chip" data-n="1" onclick="setCount(this)">Top 1</button>
+                        <button class="count-chip" data-n="3" onclick="setCount(this)">Top 3</button>
+                        <button class="count-chip active" data-n="6" onclick="setCount(this)">Top 6</button>
+                        <button class="count-chip" data-n="10" onclick="setCount(this)">Top 10</button>
+                        <button class="count-chip" data-n="16" onclick="setCount(this)">Top 16</button>
+                    </div>
+                    <div class="divider-v"></div>
+                    <span class="section-label">Show as</span>
+                    <div class="fmt-row">
+                        <button class="tog-btn active" data-fmt="hex" onclick="setFmt(this)">HEX</button>
+                        <button class="tog-btn" data-fmt="rgb" onclick="setFmt(this)">RGB</button>
+                        <button class="tog-btn" data-fmt="hsl" onclick="setFmt(this)">HSL</button>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span>Clustering colours with k-means…</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnAnalyse" onclick="doAnalyse()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Extract Colours</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div class="results-panel" id="resultsPanel">
+
+                    <!-- Dominant hero -->
+                    <div class="dominant-hero">
+                        <div class="dominant-swatch" id="dominantSwatch"></div>
+                        <div class="dominant-meta">
+                            <div>
+                                <div class="dominant-label">Most Dominant</div>
+                                <div class="dominant-name" id="dominantName">—</div>
+                                <div class="dominant-pct" id="dominantPct">—</div>
+                            </div>
+                            <div class="codes-row" id="dominantCodes"></div>
+                        </div>
+                    </div>
+
+                    <!-- Palette bar + swatch list -->
+                    <div class="palette-card">
+                        <div class="section-label" style="margin-bottom:12px;">Colour Distribution</div>
+                        <div class="palette-bar" id="paletteBar"></div>
+                        <div class="swatches-list" id="swatchList"></div>
+                    </div>
+
+                    <!-- eCommerce tags -->
+                    <div class="tag-section" id="tagSection">
+                        <div class="tag-section-head">
+                            <span class="section-label">Colour Tags</span>
+                            <span class="tag-badge">eCommerce / Auto-tag</span>
+                            <button class="tag-copy-btn" onclick="copyTags()">Copy All Tags</button>
+                        </div>
+                        <div class="tag-list" id="tagList"></div>
+                    </div>
+
+                    <!-- Export row -->
+                    <div class="export-row">
+                        <button class="btn-secondary" onclick="copyPalette()">⎘ Copy Palette</button>
+                        <button class="btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
+                        <button class="btn-ghost" onclick="exportJSON()">↓ Export JSON</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>K-means colour clustering</h3>
+                        <p>Pixels are sampled and grouped into clusters. The centre of each cluster is the representative colour — the same method used by design tools and image editing software.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Percentage = actual pixel coverage</h3>
+                        <p>Each colour's share is calculated from real pixel counts, not guesses. The bar and percentages reflect exactly how much of your image each colour covers.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>eCommerce colour tags</h3>
+                        <p>Every extracted colour is mapped to its nearest natural name (<code>Crimson Red</code>, <code>Navy Blue</code>, etc.) — ready to copy as product tags for Shopify, WooCommerce, or any catalogue.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>All processing runs in your browser via the <code>Canvas API</code>. Your images never touch a server. Works fully offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ────────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let palette = [];   // [{r,g,b,pct}]
+    let numColours = 6, displayFmt = 'hex';
+
+    // ── DROP ZONE ────────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultsPanel').classList.remove('visible');
+                palette = [];
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; palette = [];
+    }
+
+    // ── CONTROLS ─────────────────────────────────────────────────────────────────
+    function setCount(btn) {
+        document.querySelectorAll('.count-chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        numColours = parseInt(btn.dataset.n);
+    }
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        displayFmt = btn.dataset.fmt;
+        if (palette.length) renderResults();
+    }
+
+    // ── COLOUR UTILITIES ─────────────────────────────────────────────────────────
+    function toHex(r, g, b) {
+        return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('').toUpperCase();
+    }
+    function toRGB(r, g, b) { return `rgb(${r}, ${g}, ${b})`; }
+    function toHSL(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r,g,b), min = Math.min(r,g,b);
+        let h, s, l = (max+min)/2;
+        if (max === min) { h = s = 0; }
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+            switch(max) {
+                case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+                case g: h = ((b-r)/d + 2)/6; break;
+                case b: h = ((r-g)/d + 4)/6; break;
+            }
+        }
+        return `hsl(${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%)`;
+    }
+    function fmtCode(r, g, b) {
+        if (displayFmt === 'rgb') return toRGB(r,g,b);
+        if (displayFmt === 'hsl') return toHSL(r,g,b);
+        return toHex(r,g,b);
+    }
+    function allCodes(r, g, b) {
+        return { hex: toHex(r,g,b), rgb: toRGB(r,g,b), hsl: toHSL(r,g,b) };
+    }
+    function luma(r, g, b) { return 0.299*r + 0.587*g + 0.114*b; }
+
+    // Nearest colour name from a compact lookup table
+    const COLOUR_NAMES = [
+        [[255,0,0],'Red'],[[220,20,60],'Crimson Red'],[[178,34,34],'Firebrick'],[[139,0,0],'Dark Red'],
+        [[255,69,0],'Red Orange'],[[255,99,71],'Tomato'],[[255,127,80],'Coral'],[[255,160,122],'Salmon'],
+        [[255,165,0],'Orange'],[[255,140,0],'Dark Orange'],[[255,215,0],'Gold'],[[255,255,0],'Yellow'],
+        [[240,230,140],'Khaki'],[[154,205,50],'Yellow Green'],[[0,128,0],'Green'],[[0,255,0],'Lime'],
+        [[34,139,34],'Forest Green'],[[0,100,0],'Dark Green'],[[144,238,144],'Light Green'],
+        [[0,255,127],'Spring Green'],[[64,224,208],'Turquoise'],[[0,206,209],'Dark Turquoise'],
+        [[0,128,128],'Teal'],[[0,0,255],'Blue'],[[0,0,139],'Dark Blue'],[[0,0,205],'Medium Blue'],
+        [[173,216,230],'Light Blue'],[[135,206,235],'Sky Blue'],[[30,144,255],'Dodger Blue'],
+        [[0,191,255],'Deep Sky Blue'],[[100,149,237],'Cornflower Blue'],[[70,130,180],'Steel Blue'],
+        [[0,0,128],'Navy Blue'],[[72,61,139],'Dark Slate Blue'],[[106,90,205],'Slate Blue'],
+        [[138,43,226],'Blue Violet'],[[148,0,211],'Dark Violet'],[[128,0,128],'Purple'],
+        [[255,0,255],'Magenta'],[[255,20,147],'Deep Pink'],[[255,105,180],'Hot Pink'],
+        [[255,182,193],'Light Pink'],[[255,192,203],'Pink'],[[210,180,140],'Tan'],
+        [[160,82,45],'Sienna'],[[139,69,19],'Saddle Brown'],[[101,67,33],'Dark Brown'],
+        [[165,42,42],'Brown'],[[205,133,63],'Peru'],[[222,184,135],'Burlywood'],
+        [[245,222,179],'Wheat'],[[255,248,220],'Cornsilk'],[[255,255,255],'White'],
+        [[211,211,211],'Light Gray'],[[169,169,169],'Dark Gray'],[[128,128,128],'Gray'],
+        [[64,64,64],'Dim Gray'],[[0,0,0],'Black'],[[255,250,250],'Snow'],
+        [[245,245,220],'Beige'],[[253,245,230],'Old Lace'],[[240,255,255],'Azure'],
+        [[192,192,192],'Silver'],[[47,79,79],'Dark Slate Gray']
+    ];
+    function nearestName(r, g, b) {
+        let best = COLOUR_NAMES[0][1], bestD = Infinity;
+        for (const [[cr,cg,cb], name] of COLOUR_NAMES) {
+            const d = (r-cr)**2 + (g-cg)**2 + (b-cb)**2;
+            if (d < bestD) { bestD = d; best = name; }
+        }
+        return best;
+    }
+
+    // ── K-MEANS ──────────────────────────────────────────────────────────────────
+    function kMeans(pixels, k, maxIter = 20) {
+        // Init: pick k spread-out pixels as centroids
+        const n = pixels.length;
+        let centroids = [];
+        // KMeans++ style init
+        centroids.push(pixels[Math.floor(Math.random() * n)].slice());
+        for (let ci = 1; ci < k; ci++) {
+            const dists = pixels.map(p => {
+                let minD = Infinity;
+                for (const c of centroids) {
+                    const d = (p[0]-c[0])**2 + (p[1]-c[1])**2 + (p[2]-c[2])**2;
+                    if (d < minD) minD = d;
+                }
+                return minD;
+            });
+            const total = dists.reduce((a,b) => a+b, 0);
+            let rnd = Math.random() * total, acc = 0;
+            for (let i = 0; i < n; i++) {
+                acc += dists[i];
+                if (acc >= rnd) { centroids.push(pixels[i].slice()); break; }
+            }
+            if (centroids.length < ci+1) centroids.push(pixels[n-1].slice());
+        }
+
+        let assignments = new Int32Array(n);
+        for (let iter = 0; iter < maxIter; iter++) {
+            let changed = false;
+            // Assign
+            for (let i = 0; i < n; i++) {
+                const [r,g,b] = pixels[i];
+                let best = 0, bestD = Infinity;
+                for (let ci = 0; ci < k; ci++) {
+                    const [cr,cg,cb] = centroids[ci];
+                    const d = (r-cr)**2 + (g-cg)**2 + (b-cb)**2;
+                    if (d < bestD) { bestD = d; best = ci; }
+                }
+                if (assignments[i] !== best) { assignments[i] = best; changed = true; }
+            }
+            if (!changed) break;
+            // Update centroids
+            const sums = Array.from({length: k}, () => [0,0,0,0]);
+            for (let i = 0; i < n; i++) {
+                const ci = assignments[i];
+                sums[ci][0] += pixels[i][0];
+                sums[ci][1] += pixels[i][1];
+                sums[ci][2] += pixels[i][2];
+                sums[ci][3]++;
+            }
+            for (let ci = 0; ci < k; ci++) {
+                if (sums[ci][3] > 0) {
+                    centroids[ci] = [
+                        Math.round(sums[ci][0]/sums[ci][3]),
+                        Math.round(sums[ci][1]/sums[ci][3]),
+                        Math.round(sums[ci][2]/sums[ci][3])
+                    ];
+                }
+            }
+        }
+        // Count pixels per cluster
+        const counts = new Int32Array(k);
+        for (let i = 0; i < n; i++) counts[assignments[i]]++;
+        return centroids.map((c,i) => ({ r:c[0], g:c[1], b:c[2], count:counts[i] }))
+                        .sort((a,b) => b.count - a.count);
+    }
+
+    // ── MAIN ANALYSE ─────────────────────────────────────────────────────────────
+    function doAnalyse() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        document.getElementById('processing').classList.add('visible');
+        document.getElementById('resultsPanel').classList.remove('visible');
+
+        setTimeout(() => {
+            // Sample image at reduced size for performance (max 200px wide)
+            const MAX = 200;
+            const scale = Math.min(1, MAX / Math.max(origImg.naturalWidth, origImg.naturalHeight));
+            const sw = Math.round(origImg.naturalWidth * scale);
+            const sh = Math.round(origImg.naturalHeight * scale);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = sw; canvas.height = sh;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(origImg, 0, 0, sw, sh);
+            const data = ctx.getImageData(0, 0, sw, sh).data;
+
+            // Collect opaque pixels, subsampled
+            const pixels = [];
+            const step = Math.max(1, Math.round((sw * sh) / 4000)); // ~4000 samples
+            for (let i = 0; i < data.length; i += 4 * step) {
+                if (data[i+3] > 128) pixels.push([data[i], data[i+1], data[i+2]]);
+            }
+
+            const k = Math.min(numColours, pixels.length);
+            const clusters = kMeans(pixels, k);
+            const total = clusters.reduce((s, c) => s + c.count, 0);
+            palette = clusters.map(c => ({
+                r: c.r, g: c.g, b: c.b,
+                pct: Math.round(c.count / total * 1000) / 10
+            }));
+
+            document.getElementById('processing').classList.remove('visible');
+            renderResults();
+            document.getElementById('resultsPanel').classList.add('visible');
+            document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast(`${palette.length} colours extracted ✓`, 'success');
+        }, 30);
+    }
+
+    // ── RENDER RESULTS ───────────────────────────────────────────────────────────
+    function renderResults() {
+        if (!palette.length) return;
+        const dom = palette[0];
+        const domHex = toHex(dom.r, dom.g, dom.b);
+
+        // Dominant hero
+        document.getElementById('dominantSwatch').style.background = domHex;
+        document.getElementById('dominantName').textContent = nearestName(dom.r, dom.g, dom.b);
+        document.getElementById('dominantPct').textContent = `${dom.pct}% of image pixels`;
+
+        const codes = allCodes(dom.r, dom.g, dom.b);
+        document.getElementById('dominantCodes').innerHTML = Object.entries(codes).map(([k,v]) =>
+            `<div class="code-pill" onclick="copyText('${v}','${k.toUpperCase()} copied')">
+                <span class="cp-label">${k.toUpperCase()}</span>
+                <span class="cp-val">${v}</span>
+                <span class="cp-hint">click to copy</span>
+             </div>`
+        ).join('');
+
+        // Palette bar
+        document.getElementById('paletteBar').innerHTML = palette.map(c =>
+            `<div class="palette-bar-seg" style="flex:${c.pct};background:${toHex(c.r,c.g,c.b)}" title="${toHex(c.r,c.g,c.b)} — ${c.pct}%"></div>`
+        ).join('');
+
+        // Swatches list
+        document.getElementById('swatchList').innerHTML = palette.map((c, i) => {
+            const hex = toHex(c.r, c.g, c.b);
+            const code = fmtCode(c.r, c.g, c.b);
+            const allC = allCodes(c.r, c.g, c.b);
+            return `<div class="swatch-row${i===0?' highlighted':''}" onclick="copyText('${code}','Copied ${displayFmt.toUpperCase()}')">
+                <div class="swatch-box" style="background:${hex}"></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">${nearestName(c.r, c.g, c.b)}</div>
+                    <div class="swatch-codes">${allC.hex} · ${allC.rgb} · ${allC.hsl}</div>
+                </div>
+                <div class="swatch-pct-wrap">
+                    <span class="swatch-pct-num">${c.pct}%</span>
+                    <div class="swatch-bar"><div class="swatch-bar-fill" style="width:${c.pct}%"></div></div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // eCommerce tags: deduplicated colour names
+        const seen = new Set();
+        const tags = [];
+        for (const c of palette) {
+            const name = nearestName(c.r, c.g, c.b);
+            if (!seen.has(name)) { seen.add(name); tags.push({name, hex: toHex(c.r,c.g,c.b)}); }
+        }
+        document.getElementById('tagList').innerHTML = tags.map(t =>
+            `<span class="color-tag" onclick="copyText('${t.name}','Tag copied')">
+                <span class="ct-dot" style="background:${t.hex}"></span>${t.name}
+             </span>`
+        ).join('');
+    }
+
+    // ── EXPORT HELPERS ───────────────────────────────────────────────────────────
+    function copyPalette() {
+        const lines = palette.map(c => `${fmtCode(c.r,c.g,c.b)}  ${c.pct}%`).join('\n');
+        copyText(lines, 'Palette copied');
+    }
+    function copyTags() {
+        const seen = new Set();
+        const tags = [];
+        for (const c of palette) { const n = nearestName(c.r,c.g,c.b); if (!seen.has(n)) { seen.add(n); tags.push(n); } }
+        copyText(tags.join(', '), 'All tags copied');
+    }
+    function exportCSV() {
+        const rows = ['Rank,HEX,RGB,HSL,Percentage,Name'];
+        palette.forEach((c,i) => {
+            const {hex,rgb,hsl} = allCodes(c.r,c.g,c.b);
+            rows.push(`${i+1},${hex},"${rgb}","${hsl}",${c.pct}%,${nearestName(c.r,c.g,c.b)}`);
+        });
+        dl(rows.join('\n'), 'text/csv', 'palette.csv');
+    }
+    function exportJSON() {
+        const out = palette.map((c,i) => {
+            const {hex,rgb,hsl} = allCodes(c.r,c.g,c.b);
+            return { rank: i+1, hex, rgb, hsl, percentage: c.pct, name: nearestName(c.r,c.g,c.b) };
+        });
+        dl(JSON.stringify(out, null, 2), 'application/json', 'palette.json');
+    }
+    function dl(content, type, filename) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([content], {type}));
+        a.download = filename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ────────────────────────────────────────────────────────────────────
+    function copyText(txt, msg) {
+        navigator.clipboard.writeText(txt).then(() => showToast(msg || 'Copied!', 'success'));
+    }
+    function fmtBytes(b) {
+        if (b < 1024) return b+' B';
+        if (b < 1048576) return (b/1024).toFixed(1)+' KB';
+        return (b/1048576).toFixed(2)+' MB';
+    }
+    function showToast(msg, type='') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast '+type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

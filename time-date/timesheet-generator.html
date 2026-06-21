@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet Generator | Rebrixe</title>
+    <meta name="description" content="Free weekly timesheet generator with projects, tasks, and hours. Generate, print, or export a formatted timesheet instantly — no signup needed.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap { max-width: 960px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Limitations / notice boxes ── */
+        .limit-notice {
+            background: rgba(255,196,0,0.04);
+            border: 1px solid rgba(255,196,0,0.18);
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            line-height: 1.65;
+            margin-bottom: 20px;
+        }
+        .limit-notice strong { color: #fcd34d; }
+        .limit-notice ul { margin: 6px 0 0 18px; padding: 0; }
+        .limit-notice li { margin-bottom: 3px; }
+
+        .storage-notice {
+            display: none;
+            background: rgba(239,68,68,0.05);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 14px;
+            padding: 12px 18px;
+            font-size: 0.78rem;
+            color: #fca5a5;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        /* ── Config Bar ── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .cfg-box { display: flex; flex-direction: column; gap: 7px; }
+        .cfg-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .cfg-input {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 11px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color .2s;
+            width: 100%;
+            box-sizing: border-box;
+            color-scheme: dark;
+        }
+        .cfg-input:focus { border-color: var(--primary); }
+
+        /* ── Totals summary bar ── */
+        .totals-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+        .total-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            text-align: center;
+        }
+        .total-cell.hot { border-color: var(--primary); background: rgba(120,129,132,0.08); }
+        .total-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .total-cell.hot .total-num { color: var(--primary); }
+        .total-lbl {
+            font-size: 0.58rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Week nav ── */
+        .week-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .week-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+        .week-nav-btns { display: flex; gap: 8px; }
+        .nav-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .nav-btn:hover { border-color: var(--primary); color: #fff; }
+        .nav-btn.today-btn { color: var(--primary); border-color: rgba(139,158,168,0.3); }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        /* ── Day blocks ── */
+        .days-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+        .day-block {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+            transition: border-color .2s;
+        }
+        .day-block:focus-within { border-color: rgba(139,158,168,0.35); }
+
+        .day-header {
+            display: grid;
+            grid-template-columns: 100px 1fr auto auto;
+            gap: 0;
+            align-items: stretch;
+            border-bottom: 1px solid var(--border);
+            min-height: 44px;
+        }
+        .day-name {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.78rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            border-right: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            min-width: 100px;
+        }
+        .day-name.weekend { color: #475569; }
+        .day-date-lbl {
+            font-size: 0.6rem;
+            color: #475569;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            display: block;
+            margin-top: 1px;
+        }
+        .day-total-badge {
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border-left: 1px solid var(--border);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.8rem;
+            color: #64748b;
+            white-space: nowrap;
+            background: rgba(255,255,255,0.01);
+        }
+        .day-total-badge.has-hours { color: var(--primary); }
+        .add-entry-btn {
+            background: none;
+            border: none;
+            border-left: 1px solid var(--border);
+            color: #475569;
+            padding: 0 14px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: .2s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .add-entry-btn:hover { color: var(--primary); background: rgba(255,255,255,0.02); }
+
+        /* entries inside a day */
+        .entries-wrap { padding: 0; }
+
+        .entry-row {
+            display: grid;
+            grid-template-columns: 1fr 1.4fr 72px 36px;
+            gap: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            min-height: 40px;
+            align-items: stretch;
+        }
+        .entry-row:last-child { border-bottom: none; }
+
+        .entry-input {
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(255,255,255,0.04);
+            color: #cbd5e1;
+            padding: 8px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            transition: background .15s;
+        }
+        .entry-input:focus { background: rgba(255,255,255,0.03); color: #fff; }
+        .entry-input::placeholder { color: #334155; }
+
+        .entry-hours {
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(255,255,255,0.04);
+            color: #fff;
+            padding: 8px 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.88rem;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            transition: background .15s;
+            -moz-appearance: textfield;
+        }
+        .entry-hours::-webkit-outer-spin-button,
+        .entry-hours::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .entry-hours:focus { background: rgba(255,255,255,0.03); }
+
+        .del-btn {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: .2s;
+            padding: 0;
+        }
+        .del-btn:hover { color: #ef4444; background: rgba(239,68,68,0.06); }
+
+        /* empty day hint */
+        .empty-day {
+            padding: 10px 16px;
+            font-size: 0.76rem;
+            color: #334155;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── Notes area ── */
+        .notes-input {
+            width: 100%;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: #94a3b8;
+            padding: 14px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            resize: vertical;
+            min-height: 68px;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            margin-bottom: 20px;
+        }
+        .notes-input:focus { border-color: var(--primary); color: #fff; }
+        .notes-input::placeholder { color: #334155; }
+
+        /* ── Action row ── */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-action {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        /* ── Print output ── */
+        .print-preview {
+            display: none;
+            margin-top: 24px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .print-preview.visible { display: block; }
+        .print-header {
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .print-company { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.1rem; color: #fff; letter-spacing: -0.5px; }
+        .print-meta { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
+        .print-period { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.85rem; color: var(--primary); text-align: right; }
+
+        .print-table { width: 100%; border-collapse: collapse; }
+        .print-table th {
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.01);
+        }
+        .print-table th:last-child { text-align: right; }
+        .print-table td {
+            padding: 10px 16px;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: top;
+        }
+        .print-table td:last-child { text-align: right; font-family: 'Outfit', sans-serif; font-weight: 700; color: #fff; }
+        .print-table tr.day-row td { color: #fff; font-weight: 600; background: rgba(255,255,255,0.02); }
+        .print-table tr.day-row td:first-child { font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .print-table tr.subtotal-row td { color: #64748b; font-size: 0.75rem; padding: 6px 16px 10px; border-bottom: 1px solid var(--border); }
+        .print-table tr.grand-row td { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 0.95rem; color: var(--primary); padding: 16px 16px; border-bottom: none; }
+        .print-notes { padding: 16px 24px; border-top: 1px solid var(--border); font-size: 0.78rem; color: #64748b; }
+        .print-notes strong { color: #94a3b8; }
+        .print-sig { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 20px 24px; border-top: 1px solid var(--border); }
+        .sig-line { border-top: 1px solid #334155; padding-top: 8px; font-size: 0.68rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ── Responsive ── */
+        @media(max-width:680px) {
+            .config-grid { grid-template-columns: 1fr 1fr; }
+            .totals-bar { grid-template-columns: 1fr 1fr; }
+            .day-header { grid-template-columns: 80px 1fr auto auto; }
+            .entry-row { grid-template-columns: 1fr 1fr 60px 36px; }
+            .action-row { gap: 8px; }
+        }
+        @media(max-width:420px) {
+            .config-grid { grid-template-columns: 1fr; }
+            .day-header { grid-template-columns: 70px 1fr auto auto; }
+        }
+
+        /* ── Print media ── */
+        @media print {
+            body * { visibility: hidden; }
+            .print-preview, .print-preview * { visibility: visible; }
+            .print-preview {
+                position: fixed; inset: 0;
+                border: none; border-radius: 0;
+                background: #fff; color: #000;
+                margin: 0; padding: 20px;
+            }
+            .print-company, .print-table td, .print-table th,
+            .print-period, .print-meta, .print-notes,
+            .print-table tr.grand-row td { color: #000 !important; }
+            .print-table { border: 1px solid #ccc; }
+            .print-table th, .print-table td { border-bottom: 1px solid #eee; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.4rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Timesheet Generator</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Log hours by project &amp; task for any week — then print or copy a clean formatted timesheet.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- LIMITATIONS NOTICE -->
+                <div class="limit-notice">
+                    <strong>Good to know before you use this tool:</strong>
+                    <ul>
+                        <li>The week always runs <strong>Monday → Sunday</strong> and cannot be changed.</li>
+                        <li>Hours per entry are clamped to a range of <strong>0–24</strong>. If you enter more than 24, it's automatically reduced to 24.</li>
+                        <li>The tool does <strong>not</strong> check that the total hours across multiple entries on the same day stay under 24 — that's left to you.</li>
+                        <li>The currency selector only changes the <strong>symbol shown</strong> — it does not convert amounts between currencies.</li>
+                        <li>Your data is saved <strong>only in this browser</strong> (via local storage), per device. It is not synced to an account, the cloud, or other devices/browsers, and clearing your browser data will erase it.</li>
+                        <li>"Print" opens your browser's print dialog — actual print/PDF appearance depends on your browser and printer settings.</li>
+                    </ul>
+                </div>
+
+                <!-- STORAGE WARNING (shown only if local storage is unavailable) -->
+                <div class="storage-notice" id="storageNotice">
+                    ⚠ This browser/session doesn't allow local storage (e.g. private/incognito mode or storage is blocked). Your entries will <strong>not</strong> be saved — switching weeks, navigating away, or refreshing the page will lose your data. Generate, print, or copy your timesheet before leaving this page.
+                </div>
+
+                <!-- CONFIG -->
+                <div class="section-label">Timesheet Info</div>
+                <div class="config-grid">
+                    <div class="cfg-box">
+                        <span class="cfg-label">Your Name</span>
+                        <input class="cfg-input" id="cfgName" type="text" placeholder="Jane Smith" oninput="saveGlobalConfig()">
+                    </div>
+                    <div class="cfg-box">
+                        <span class="cfg-label">Company / Client</span>
+                        <input class="cfg-input" id="cfgCompany" type="text" placeholder="Acme Corp" oninput="saveGlobalConfig()">
+                    </div>
+                    <div class="cfg-box">
+                        <span class="cfg-label">Hourly Rate (optional)</span>
+                        <input class="cfg-input" id="cfgRate" type="number" min="0" step="0.01" placeholder="0.00" oninput="refreshTotals(); saveGlobalConfig();">
+                    </div>
+                    <div class="cfg-box">
+                        <span class="cfg-label">Currency</span>
+                        <select class="cfg-input" id="cfgCurrency" onchange="refreshTotals(); saveGlobalConfig();">
+                            <option value="$">$ USD</option>
+                            <option value="€">€ EUR</option>
+                            <option value="£">£ GBP</option>
+                            <option value="₹">₹ INR</option>
+                            <option value="¥">¥ JPY</option>
+                            <option value="A$">A$ AUD</option>
+                            <option value="C$">C$ CAD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- WEEK NAV -->
+                <div class="week-nav">
+                    <div class="week-title" id="weekLabel">—</div>
+                    <div class="week-nav-btns">
+                        <button class="nav-btn" type="button" onclick="shiftWeek(-1)">← Prev</button>
+                        <button class="nav-btn today-btn" type="button" onclick="jumpToday()">This Week</button>
+                        <button class="nav-btn" type="button" onclick="shiftWeek(1)">Next →</button>
+                    </div>
+                </div>
+
+                <!-- TOTALS BAR -->
+                <div class="totals-bar" id="totalsBar">
+                    <div class="total-cell hot">
+                        <div class="total-num" id="totHours">0</div>
+                        <div class="total-lbl">Total Hours</div>
+                    </div>
+                    <div class="total-cell">
+                        <div class="total-num" id="totDays">0</div>
+                        <div class="total-lbl">Days Logged</div>
+                    </div>
+                    <div class="total-cell">
+                        <div class="total-num" id="totEntries">0</div>
+                        <div class="total-lbl">Tasks Logged</div>
+                    </div>
+                    <div class="total-cell" id="earningsCell">
+                        <div class="total-num" id="totEarnings">—</div>
+                        <div class="total-lbl">Estimated Pay</div>
+                    </div>
+                </div>
+
+                <!-- DAY BLOCKS -->
+                <div class="section-label">Daily Entries</div>
+                <div class="days-wrap" id="daysWrap"></div>
+
+                <!-- NOTES -->
+                <div class="section-label">Notes / Comments (saved per week)</div>
+                <textarea class="notes-input" id="cfgNotes" placeholder="Overtime approved by manager · public holiday adjustment · etc." rows="3" oninput="saveWeekData()"></textarea>
+
+                <!-- ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action primary" type="button" onclick="generateSheet()">Generate</button>
+                    <button class="btn-action" type="button" onclick="clearAll()">✕ Clear</button>
+                    <button class="btn-action" type="button" onclick="copyText(this)">Copy Text</button>
+                    <button class="btn-action" type="button" onclick="printSheet()">🖨 Print</button>
+                </div>
+
+            </div>
+
+            <!-- PRINT PREVIEW -->
+            <div class="print-preview" id="printPreview"></div>
+
+        </div><!-- .tool-wrap -->
+    </div><!-- .container -->
+
+    <footer></footer>
+
+    <script>
+    'use strict';
+
+    // ── Constants & state ────────────────────────────────────────
+    const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    let weekOffset = 0; // 0 = current week (relative to today)
+
+    // ── Storage availability check ──────────────────────────────
+    let storageAvailable = true;
+    try {
+        const testKey = '__ts_storage_test__';
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+    } catch (e) {
+        storageAvailable = false;
+    }
+
+    // ── Date helpers ──────────────────────────────────────────────
+    // Returns Monday of the target week, as a local Date at midnight.
+    function getWeekStart(offset) {
+        const now = new Date();
+        const day = now.getDay(); // 0 = Sunday ... 6 = Saturday
+        const diffToMon = (day === 0 ? -6 : 1 - day);
+        const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        mon.setDate(mon.getDate() + diffToMon + offset * 7);
+        return mon;
+    }
+
+    function fmtDate(d) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+    function fmtDateShort(d) {
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    // Local (timezone-safe) date key, e.g. "2026-06-15" — never uses toISOString(),
+    // which would shift dates for positive UTC-offset timezones.
+    function dateKey(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+    function weekStorageKey(offset) {
+        return 'timesheet_week_' + dateKey(getWeekStart(offset));
+    }
+
+    // ── Hours helper: clamps to a sane 0–24 range ───────────────────
+    function getEntryHours(input) {
+        let v = parseFloat(input.value);
+        if (isNaN(v) || v < 0) v = 0;
+        if (v > 24) v = 24;
+        return v;
+    }
+    // Compact display: "7" instead of "7.00", "7.25" instead of "7.2500"
+    function fmtHours(n) {
+        return (Math.round(n * 100) / 100).toString();
+    }
+
+    // ── Local storage: global config (name/company/rate/currency) ──
+    function loadGlobalConfig() {
+        if (!storageAvailable) return;
+        try {
+            const raw = localStorage.getItem('timesheet_config');
+            if (!raw) return;
+            const cfg = JSON.parse(raw);
+            if (typeof cfg.name === 'string') document.getElementById('cfgName').value = cfg.name;
+            if (typeof cfg.company === 'string') document.getElementById('cfgCompany').value = cfg.company;
+            if (typeof cfg.rate === 'string' || typeof cfg.rate === 'number') document.getElementById('cfgRate').value = cfg.rate;
+            if (typeof cfg.currency === 'string') document.getElementById('cfgCurrency').value = cfg.currency;
+        } catch (e) { /* ignore corrupt data */ }
+    }
+    function saveGlobalConfig() {
+        if (!storageAvailable) return;
+        const cfg = {
+            name: document.getElementById('cfgName').value,
+            company: document.getElementById('cfgCompany').value,
+            rate: document.getElementById('cfgRate').value,
+            currency: document.getElementById('cfgCurrency').value
+        };
+        try { localStorage.setItem('timesheet_config', JSON.stringify(cfg)); } catch (e) { /* ignore quota errors */ }
+    }
+
+    // ── Local storage: per-week data (entries + notes) ──────────────
+    function loadWeekData(offset) {
+        if (!storageAvailable) return null;
+        try {
+            const raw = localStorage.getItem(weekStorageKey(offset));
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    }
+    function saveWeekData() {
+        if (!storageAvailable) return;
+        const data = { notes: document.getElementById('cfgNotes').value, days: [] };
+        DAYS.forEach((_, i) => {
+            const rows = document.querySelectorAll(`#entries_${i} .entry-row`);
+            const entries = [];
+            rows.forEach(r => {
+                entries.push({
+                    project: r.querySelectorAll('.entry-input')[0].value,
+                    task: r.querySelectorAll('.entry-input')[1].value,
+                    hours: r.querySelector('.entry-hours').value
+                });
+            });
+            data.days.push(entries);
+        });
+        try { localStorage.setItem(weekStorageKey(weekOffset), JSON.stringify(data)); } catch (e) { /* ignore quota errors */ }
+    }
+
+    // ── Build day blocks for the current week ────────────────────────
+    function buildDays() {
+        const wrap = document.getElementById('daysWrap');
+        wrap.innerHTML = '';
+        const mon = getWeekStart(weekOffset);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        document.getElementById('weekLabel').textContent = `Week of ${fmtDate(mon)} – ${fmtDate(sun)}`;
+
+        DAYS.forEach((dayName, i) => {
+            const d = new Date(mon); d.setDate(mon.getDate() + i);
+            const isWeekend = i >= 5;
+            const block = document.createElement('div');
+            block.className = 'day-block';
+
+            block.innerHTML = `
+                <div class="day-header">
+                    <div class="day-name${isWeekend ? ' weekend' : ''}">
+                        ${dayName.slice(0, 3)}
+                        <span class="day-date-lbl">${fmtDate(d)}</span>
+                    </div>
+                    <div style="flex:1"></div>
+                    <div class="day-total-badge" id="dayTotal_${i}">0h</div>
+                    <button class="add-entry-btn" type="button" data-day="${i}" title="Add entry" aria-label="Add entry for ${dayName}">＋</button>
+                </div>
+                <div class="entries-wrap" id="entries_${i}">
+                    <div class="empty-day" id="emptyHint_${i}">No entries — click + to add</div>
+                </div>`;
+            wrap.appendChild(block);
+        });
+
+        // Wire up add-entry buttons (no inline handlers needed)
+        wrap.querySelectorAll('.add-entry-btn').forEach(btn => {
+            btn.addEventListener('click', () => addEntry(parseInt(btn.dataset.day, 10)));
+        });
+
+        // Restore saved data for this week, if any
+        const saved = loadWeekData(weekOffset);
+        document.getElementById('cfgNotes').value = (saved && typeof saved.notes === 'string') ? saved.notes : '';
+
+        if (saved && Array.isArray(saved.days)) {
+            saved.days.forEach((entries, i) => {
+                if (!Array.isArray(entries)) return;
+                entries.forEach(e => addEntry(i, e.project || '', e.task || '', e.hours || '', false));
+            });
+        } else if (weekOffset === 0 && isFirstEverVisit()) {
+            // Friendly sample data, shown only on a brand-new visit with nothing saved yet.
+            addEntry(0, 'Project Alpha', 'Design review', '3', false);
+            addEntry(0, 'Project Beta', 'Client call', '1.5', false);
+            addEntry(1, 'Project Alpha', 'Development', '6', false);
+            saveWeekData();
+        }
+
+        refreshTotals();
+    }
+
+    // Detect a brand-new visitor (used only to seed the one-time sample entries)
+    let _firstVisitChecked = false;
+    let _firstVisitResult = false;
+    function isFirstEverVisit() {
+        if (_firstVisitChecked) return _firstVisitResult;
+        _firstVisitChecked = true;
+        if (!storageAvailable) { _firstVisitResult = true; return true; }
+        try {
+            if (localStorage.getItem('timesheet_visited')) {
+                _firstVisitResult = false;
+            } else {
+                localStorage.setItem('timesheet_visited', '1');
+                _firstVisitResult = true;
+            }
+        } catch (e) { _firstVisitResult = true; }
+        return _firstVisitResult;
+    }
+
+    // ── Entry management ──────────────────────────────────────────
+    // save=true means "this was just added interactively by the user"
+    function addEntry(dayIdx, project = '', task = '', hours = '', save = true) {
+        const wrapEl = document.getElementById(`entries_${dayIdx}`);
+        const hint = document.getElementById(`emptyHint_${dayIdx}`);
+        if (hint) hint.remove();
+
+        const row = document.createElement('div');
+        row.className = 'entry-row';
+
+        const projInput = document.createElement('input');
+        projInput.className = 'entry-input';
+        projInput.type = 'text';
+        projInput.placeholder = 'Project name';
+        projInput.value = project;
+        projInput.setAttribute('aria-label', `${DAYS[dayIdx]} project name`);
+        projInput.addEventListener('input', () => saveWeekData());
+
+        const taskInput = document.createElement('input');
+        taskInput.className = 'entry-input';
+        taskInput.type = 'text';
+        taskInput.placeholder = 'Task description';
+        taskInput.value = task;
+        taskInput.setAttribute('aria-label', `${DAYS[dayIdx]} task description`);
+        taskInput.addEventListener('input', () => saveWeekData());
+
+        const hoursInput = document.createElement('input');
+        hoursInput.className = 'entry-hours';
+        hoursInput.type = 'number';
+        hoursInput.min = '0';
+        hoursInput.max = '24';
+        hoursInput.step = '0.25';
+        hoursInput.placeholder = '0';
+        hoursInput.value = hours;
+        hoursInput.setAttribute('aria-label', `${DAYS[dayIdx]} hours`);
+        hoursInput.addEventListener('input', () => { refreshTotals(); saveWeekData(); });
+        hoursInput.addEventListener('blur', () => {
+            // Normalize the displayed value into the valid 0-24 range on blur,
+            // without disrupting the user while they're still typing.
+            if (hoursInput.value !== '') {
+                hoursInput.value = getEntryHours(hoursInput);
+            }
+            refreshTotals();
+            saveWeekData();
+        });
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.type = 'button';
+        delBtn.title = 'Remove entry';
+        delBtn.setAttribute('aria-label', `Remove ${DAYS[dayIdx]} entry`);
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', () => delEntry(row, dayIdx));
+
+        row.append(projInput, taskInput, hoursInput, delBtn);
+        wrapEl.appendChild(row);
+
+        if (save) {
+            projInput.focus();
+            refreshTotals();
+            saveWeekData();
+        }
+    }
+
+    function delEntry(row, dayIdx) {
+        row.remove();
+        const wrapEl = document.getElementById(`entries_${dayIdx}`);
+        if (!wrapEl.querySelector('.entry-row')) {
+            const hint = document.createElement('div');
+            hint.className = 'empty-day';
+            hint.id = `emptyHint_${dayIdx}`;
+            hint.textContent = 'No entries — click + to add';
+            wrapEl.appendChild(hint);
+        }
+        refreshTotals();
+        saveWeekData();
+    }
+
+    // ── Totals ────────────────────────────────────────────────────
+    function refreshTotals() {
+        let totalHours = 0, daysLogged = 0, totalEntries = 0;
+
+        DAYS.forEach((_, i) => {
+            const rows = document.querySelectorAll(`#entries_${i} .entry-row`);
+            let dayH = 0;
+            rows.forEach(r => {
+                dayH += getEntryHours(r.querySelector('.entry-hours'));
+                totalEntries++;
+            });
+            totalHours += dayH;
+            if (dayH > 0) daysLogged++;
+            const badge = document.getElementById(`dayTotal_${i}`);
+            if (badge) {
+                badge.textContent = dayH > 0 ? `${fmtHours(dayH)}h` : '0h';
+                badge.className = `day-total-badge${dayH > 0 ? ' has-hours' : ''}`;
+            }
+        });
+
+        document.getElementById('totHours').textContent = fmtHours(totalHours);
+        document.getElementById('totDays').textContent = daysLogged;
+        document.getElementById('totEntries').textContent = totalEntries;
+
+        let rate = parseFloat(document.getElementById('cfgRate').value);
+        if (isNaN(rate) || rate < 0) rate = 0;
+        const cur = document.getElementById('cfgCurrency').value;
+
+        if (rate > 0) {
+            const earnings = (totalHours * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('totEarnings').textContent = `${cur}${earnings}`;
+            document.getElementById('earningsCell').classList.add('hot');
+        } else {
+            document.getElementById('totEarnings').textContent = '—';
+            document.getElementById('earningsCell').classList.remove('hot');
+        }
+    }
+
+    // ── Week navigation ───────────────────────────────────────────
+    function shiftWeek(dir) {
+        saveWeekData();
+        weekOffset += dir;
+        buildDays();
+        document.getElementById('printPreview').classList.remove('visible');
+    }
+    function jumpToday() {
+        saveWeekData();
+        weekOffset = 0;
+        buildDays();
+        document.getElementById('printPreview').classList.remove('visible');
+    }
+
+    // ── Generate printable timesheet (built with safe DOM APIs — no innerHTML
+    //    of user-supplied text, so project/task/notes can never inject markup) ──
+    function generateSheet() {
+        const name = document.getElementById('cfgName').value.trim() || 'Employee';
+        const company = document.getElementById('cfgCompany').value.trim() || 'Company';
+        let rate = parseFloat(document.getElementById('cfgRate').value);
+        if (isNaN(rate) || rate < 0) rate = 0;
+        const cur = document.getElementById('cfgCurrency').value;
+        const notes = document.getElementById('cfgNotes').value.trim();
+        const mon = getWeekStart(weekOffset);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+
+        const preview = document.getElementById('printPreview');
+        preview.innerHTML = '';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'print-header';
+
+        const left = document.createElement('div');
+        const compEl = document.createElement('div');
+        compEl.className = 'print-company';
+        compEl.textContent = company;
+
+        const empEl = document.createElement('div');
+        empEl.className = 'print-meta';
+        empEl.append('Employee: ');
+        const strongEl = document.createElement('strong');
+        strongEl.style.color = '#94a3b8';
+        strongEl.textContent = name;
+        empEl.append(strongEl);
+
+        left.append(compEl, empEl);
+        if (rate > 0) {
+            const rateEl = document.createElement('div');
+            rateEl.className = 'print-meta';
+            rateEl.textContent = `Rate: ${cur}${rate.toFixed(2)}/hr`;
+            left.append(rateEl);
+        }
+
+        const right = document.createElement('div');
+        right.className = 'print-period';
+        right.append('Timesheet', document.createElement('br'), `${fmtDateShort(mon)} – ${fmtDateShort(sun)}`);
+
+        header.append(left, right);
+        preview.append(header);
+
+        // Table
+        const table = document.createElement('table');
+        table.className = 'print-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Project', 'Task', '', `Hours${rate > 0 ? ' / Amount' : ''}`].forEach((label, idx) => {
+            const th = document.createElement('th');
+            th.textContent = label;
+            headRow.append(th);
+        });
+        thead.append(headRow);
+        table.append(thead);
+
+        const tbody = document.createElement('tbody');
+        let grandTotal = 0, anyEntries = false;
+
+        DAYS.forEach((dayName, i) => {
+            const d = new Date(mon); d.setDate(mon.getDate() + i);
+            const rows = document.querySelectorAll(`#entries_${i} .entry-row`);
+            if (!rows.length) return;
+            anyEntries = true;
+
+            let dayTotal = 0;
+            const entryRows = [];
+            rows.forEach(r => {
+                const project = r.querySelectorAll('.entry-input')[0].value.trim() || '—';
+                const task = r.querySelectorAll('.entry-input')[1].value.trim() || '—';
+                const hrs = getEntryHours(r.querySelector('.entry-hours'));
+                dayTotal += hrs;
+
+                const tr = document.createElement('tr');
+                const tdProj = document.createElement('td');
+                tdProj.style.paddingLeft = '28px';
+                tdProj.style.color = '#94a3b8';
+                tdProj.textContent = project;
+                const tdTask = document.createElement('td');
+                tdTask.textContent = task;
+                const tdBlank = document.createElement('td');
+                const tdHours = document.createElement('td');
+                tdHours.textContent = hrs.toFixed(2);
+                tr.append(tdProj, tdTask, tdBlank, tdHours);
+                entryRows.push(tr);
+            });
+
+            grandTotal += dayTotal;
+
+            const dayRow = document.createElement('tr');
+            dayRow.className = 'day-row';
+            const dayCell = document.createElement('td');
+            dayCell.colSpan = 2;
+            dayCell.append(`${dayName} `);
+            const span = document.createElement('span');
+            span.style.fontWeight = '400';
+            span.style.fontSize = '0.72rem';
+            span.style.opacity = '.6';
+            span.textContent = fmtDate(d);
+            dayCell.append(span);
+            const dayBlank = document.createElement('td');
+            const dayTotalCell = document.createElement('td');
+            const earning = rate > 0 ? ` · ${cur}${(dayTotal * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+            dayTotalCell.textContent = `${dayTotal.toFixed(2)}h${earning}`;
+            dayRow.append(dayCell, dayBlank, dayTotalCell);
+
+            tbody.append(dayRow);
+            entryRows.forEach(tr => tbody.append(tr));
+
+            const subtotalRow = document.createElement('tr');
+            subtotalRow.className = 'subtotal-row';
+            const subtotalCell = document.createElement('td');
+            subtotalCell.colSpan = 4;
+            subtotalRow.append(subtotalCell);
+            tbody.append(subtotalRow);
+        });
+
+        if (!anyEntries) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.style.padding = '24px 16px';
+            td.style.color = '#475569';
+            td.style.textAlign = 'center';
+            td.textContent = 'No entries this week.';
+            tr.append(td);
+            tbody.append(tr);
+        }
+
+        const grandRow = document.createElement('tr');
+        grandRow.className = 'grand-row';
+        const gTd1 = document.createElement('td');
+        gTd1.colSpan = 2;
+        gTd1.textContent = 'TOTAL HOURS';
+        const gTd2 = document.createElement('td');
+        const gTd3 = document.createElement('td');
+        const grandEarning = rate > 0 ? ` · ${cur}${(grandTotal * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+        gTd3.textContent = `${grandTotal.toFixed(2)}h${grandEarning}`;
+        grandRow.append(gTd1, gTd2, gTd3);
+        tbody.append(grandRow);
+
+        table.append(tbody);
+        preview.append(table);
+
+        if (notes) {
+            const notesEl = document.createElement('div');
+            notesEl.className = 'print-notes';
+            const strong = document.createElement('strong');
+            strong.textContent = 'Notes: ';
+            notesEl.append(strong, notes);
+            preview.append(notesEl);
+        }
+
+        const sig = document.createElement('div');
+        sig.className = 'print-sig';
+        const sig1 = document.createElement('div');
+        const sigLine1 = document.createElement('div');
+        sigLine1.className = 'sig-line';
+        sigLine1.textContent = 'Employee Signature & Date';
+        sig1.append(sigLine1);
+        const sig2 = document.createElement('div');
+        const sigLine2 = document.createElement('div');
+        sigLine2.className = 'sig-line';
+        sigLine2.textContent = 'Approved By & Date';
+        sig2.append(sigLine2);
+        sig.append(sig1, sig2);
+        preview.append(sig);
+
+        preview.classList.add('visible');
+        preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Print: always regenerate first so the preview is never stale/empty ──
+    function printSheet() {
+        generateSheet();
+        setTimeout(() => window.print(), 80);
+    }
+
+    // ── Clear current week only (entries + notes); config is untouched ──
+    function clearAll() {
+        if (!confirm('Clear all entries and notes for THIS WEEK? This cannot be undone.')) return;
+        if (storageAvailable) {
+            try { localStorage.removeItem(weekStorageKey(weekOffset)); } catch (e) { /* ignore */ }
+        }
+        buildDays();
+        document.getElementById('printPreview').classList.remove('visible');
+    }
+
+    // ── Copy plain text summary ──────────────────────────────────
+    function copyText(btn) {
+        const name = document.getElementById('cfgName').value.trim() || 'Employee';
+        const company = document.getElementById('cfgCompany').value.trim() || 'Company';
+        let rate = parseFloat(document.getElementById('cfgRate').value);
+        if (isNaN(rate) || rate < 0) rate = 0;
+        const cur = document.getElementById('cfgCurrency').value;
+        const mon = getWeekStart(weekOffset);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const notes = document.getElementById('cfgNotes').value.trim();
+
+        const lines = [
+            'TIMESHEET',
+            `Company: ${company}  |  Employee: ${name}`,
+            `Period: ${fmtDateShort(mon)} – ${fmtDateShort(sun)}`,
+            ''
+        ];
+
+        let grand = 0, any = false;
+        DAYS.forEach((dayName, i) => {
+            const d = new Date(mon); d.setDate(mon.getDate() + i);
+            const rows = document.querySelectorAll(`#entries_${i} .entry-row`);
+            if (!rows.length) return;
+            any = true;
+            let dayH = 0;
+            lines.push(`${dayName.toUpperCase()} (${fmtDate(d)})`);
+            rows.forEach(r => {
+                const proj = r.querySelectorAll('.entry-input')[0].value.trim() || '—';
+                const task = r.querySelectorAll('.entry-input')[1].value.trim() || '—';
+                const h = getEntryHours(r.querySelector('.entry-hours'));
+                dayH += h;
+                lines.push(`  ${proj} · ${task} · ${h.toFixed(2)}h`);
+            });
+            grand += dayH;
+            lines.push(`  Subtotal: ${dayH.toFixed(2)}h${rate > 0 ? ` · ${cur}${(dayH * rate).toFixed(2)}` : ''}`);
+            lines.push('');
+        });
+
+        if (!any) {
+            lines.push('No entries this week.', '');
+        }
+
+        lines.push(`TOTAL: ${grand.toFixed(2)}h${rate > 0 ? ` · ${cur}${(grand * rate).toFixed(2)}` : ''}`);
+        if (notes) lines.push('', `Notes: ${notes}`);
+
+        const text = lines.join('\n');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text)
+                .then(() => flashBtn(btn, '✓ Copied!'))
+                .catch(() => fallbackCopy(text, btn));
+        } else {
+            fallbackCopy(text, btn);
+        }
+    }
+
+    function fallbackCopy(text, btn) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            const ok = document.execCommand('copy');
+            flashBtn(btn, ok ? '✓ Copied!' : '✕ Copy failed');
+        } catch (e) {
+            flashBtn(btn, '✕ Copy failed');
+        }
+        document.body.removeChild(ta);
+    }
+
+    function flashBtn(btn, msg) {
+        const orig = btn.textContent;
+        btn.textContent = msg;
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────
+    loadGlobalConfig();
+    buildDays();
+    if (!storageAvailable) {
+        document.getElementById('storageNotice').style.display = 'block';
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

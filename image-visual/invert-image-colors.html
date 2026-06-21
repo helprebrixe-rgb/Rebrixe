@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Invert Image Colours — Negative, Channel Swap & Contrast Test | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Invert image colours instantly — full negative, selective RGB channel inversion, brightness-only mode. Free, browser-only, no upload. Perfect for designers, devs & accessibility testing.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600; --accent: #FFB700; --success: #AAFF00;
+            --error: #FF4444; --text: #F0EDD6; --text-sec: #B8B49A;
+            --text-dim: #6B6855; --bg: #0C0B07; --surface: #141310;
+            --card: #1A1812; --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10); --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25); --radius-sm: 10px;
+            --radius-md: 14px; --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Mode selector */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 0; }
+        .mode-card {
+            padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; text-align: left;
+        }
+        .mode-card:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .mode-card.selected { border-color: var(--primary); background: var(--primary-dim); }
+        .mode-icon { font-size: 1.2rem; display: block; margin-bottom: 6px; }
+        .mode-name { font-size: 0.8rem; font-weight: 700; color: var(--text-sec); margin-bottom: 3px; transition: color 0.18s; }
+        .mode-card:hover .mode-name, .mode-card.selected .mode-name { color: var(--primary); }
+        .mode-desc { font-size: 0.68rem; color: var(--text-dim); line-height: 1.4; }
+
+        /* Channel selectors (for selective mode) */
+        .channel-row { display: flex; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center; }
+        .ch-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-right: 4px; flex-shrink: 0; }
+        .ch-btn { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: all 0.18s; letter-spacing: 0.5px; }
+        .ch-btn[data-ch="R"] { color: #ff5555; }
+        .ch-btn[data-ch="R"].active { background: rgba(255,85,85,0.12); border-color: rgba(255,85,85,0.4); }
+        .ch-btn[data-ch="G"] { color: #55ff88; }
+        .ch-btn[data-ch="G"].active { background: rgba(85,255,136,0.1); border-color: rgba(85,255,136,0.35); }
+        .ch-btn[data-ch="B"] { color: #5599ff; }
+        .ch-btn[data-ch="B"].active { background: rgba(85,153,255,0.12); border-color: rgba(85,153,255,0.4); }
+        .ch-btn:not(.active) { color: var(--text-dim); }
+
+        /* Split preview */
+        .preview-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .preview-section.visible { display: block; }
+        .preview-controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+        .preview-mode-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .preview-mode-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Split slider canvas wrapper */
+        .split-wrap { position: relative; border-radius: var(--radius-md); overflow: hidden; cursor: ew-resize; border: 1px solid var(--border-mid); user-select: none; }
+        .split-wrap canvas { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; }
+        .split-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary); pointer-events: none; box-shadow: 0 0 12px rgba(255,214,0,0.5); }
+        .split-handle { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #000; font-weight: 800; box-shadow: 0 4px 16px rgba(255,214,0,0.4); pointer-events: none; }
+        .side-label { position: absolute; top: 10px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; padding: 3px 8px; border-radius: 4px; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+        .side-label.orig { left: 10px; color: var(--text-sec); }
+        .side-label.inv { right: 10px; color: var(--primary); }
+
+        /* Side by side */
+        .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .sbs-box { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; }
+        .sbs-box img { width: 100%; height: 200px; object-fit: contain; display: block; }
+        .sbs-label { font-size: 0.65rem; font-weight: 700; text-align: center; color: var(--text-dim); padding: 6px; text-transform: uppercase; letter-spacing: 0.7px; }
+
+        /* Stats row */
+        .stats-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 100px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-pill-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-pill-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 140px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+        .btn-copy { flex: 0 0 auto; padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-copy.visible { display: block; }
+        .btn-copy:hover { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Format row */
+        .fmt-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+        .fmt-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-right: 4px; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .mode-grid { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-direction: column; }
+            .side-by-side { grid-template-columns: 1fr; }
+            .btn-main, .btn-secondary { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Invert Colours</h1>
+                <p class="tool-page-sub">Full negative, channel-selective RGB swap, or brightness-only inversion — with live split preview.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Mode selection -->
+                <div class="section-card">
+                    <div class="section-label">Inversion Mode</div>
+                    <div class="mode-grid" id="modeGrid">
+                        <div class="mode-card selected" data-mode="full" onclick="selectMode(this)">
+                            <span class="mode-icon">🔄</span>
+                            <div class="mode-name">Full Invert</div>
+                            <div class="mode-desc">Flips all RGB channels. Classic negative effect.</div>
+                        </div>
+                        <div class="mode-card" data-mode="channels" onclick="selectMode(this)">
+                            <span class="mode-icon">🎛️</span>
+                            <div class="mode-name">Channel Select</div>
+                            <div class="mode-desc">Pick which channels to invert — R, G, B independently.</div>
+                        </div>
+                        <div class="mode-card" data-mode="brightness" onclick="selectMode(this)">
+                            <span class="mode-icon">💡</span>
+                            <div class="mode-name">Brightness Only</div>
+                            <div class="mode-desc">Inverts luminance, preserves hue. Great for contrast checks.</div>
+                        </div>
+                        <div class="mode-card" data-mode="hue" onclick="selectMode(this)">
+                            <span class="mode-icon">🌈</span>
+                            <div class="mode-name">Hue Rotate 180°</div>
+                            <div class="mode-desc">Opposite hues, same brightness. Psychedelic colour swap.</div>
+                        </div>
+                    </div>
+
+                    <!-- Channel picker (shown only in channel mode) -->
+                    <div class="channel-row" id="channelRow" style="display:none;">
+                        <span class="ch-label">Invert:</span>
+                        <button class="ch-btn active" data-ch="R" onclick="toggleCh(this)">R</button>
+                        <button class="ch-btn active" data-ch="G" onclick="toggleCh(this)">G</button>
+                        <button class="ch-btn active" data-ch="B" onclick="toggleCh(this)">B</button>
+                        <span style="font-size:0.7rem; color:var(--text-dim); margin-left:6px;">Toggle channels to invert selectively</span>
+                    </div>
+
+                    <!-- Format row -->
+                    <div class="fmt-row">
+                        <span class="fmt-label">Export as:</span>
+                        <button class="tog-btn active" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        <button class="tog-btn" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doInvert()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">🔄</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Invert Image</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                    <button class="btn-copy" id="btnCopy" onclick="doCopy()" title="Copy to clipboard">📋 Copy</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-section" id="previewSection">
+                    <div class="section-label" style="margin-bottom:12px;">Result Preview</div>
+                    <div class="preview-controls">
+                        <button class="preview-mode-btn active" data-pv="split" onclick="setPreviewMode(this)">Split Slider</button>
+                        <button class="preview-mode-btn" data-pv="side" onclick="setPreviewMode(this)">Side by Side</button>
+                        <button class="preview-mode-btn" data-pv="result" onclick="setPreviewMode(this)">Result Only</button>
+                    </div>
+
+                    <!-- Split slider view -->
+                    <div id="pvSplit">
+                        <div class="split-wrap" id="splitWrap">
+                            <canvas id="splitCanvas"></canvas>
+                            <div class="split-divider" id="splitDiv"></div>
+                            <div class="split-handle" id="splitHandle">◀▶</div>
+                            <span class="side-label orig">Original</span>
+                            <span class="side-label inv">Inverted</span>
+                        </div>
+                        <p style="font-size:0.7rem; color:var(--text-dim); margin-top:8px; text-align:center;">Drag the divider to compare ↔</p>
+                    </div>
+
+                    <!-- Side by side -->
+                    <div id="pvSide" style="display:none;">
+                        <div class="side-by-side">
+                            <div>
+                                <div class="sbs-box"><img id="sbsOrig" src="" alt="Original"></div>
+                                <div class="sbs-label">Original</div>
+                            </div>
+                            <div>
+                                <div class="sbs-box"><img id="sbsInv" src="" alt="Inverted"></div>
+                                <div class="sbs-label" style="color:var(--primary);">Inverted</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result only -->
+                    <div id="pvResult" style="display:none;">
+                        <div class="sbs-box" style="max-height:420px; overflow:hidden;">
+                            <img id="pvResultImg" src="" alt="Result" style="width:100%; max-height:420px; object-fit:contain;">
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">When do you actually need this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Accessibility contrast testing</h3>
+                        <p>Designers invert UI screenshots to instantly spot low-contrast text and elements — simulates certain vision conditions without extra software.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Negative film scanning</h3>
+                        <p>Digitised film negatives need a full invert to become positives. Upload, hit invert, download — no Photoshop needed.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Selective channel swap</h3>
+                        <p>Inverting only the <code>Red</code> channel turns a warm photo cool. Inverting only <code>Blue</code> creates a vintage warm shift. Powerful for quick colour grading experiments.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Brightness-only invert</h3>
+                        <p>Flips dark/light without touching hue — useful for checking if a colour palette works on both dark and light backgrounds simultaneously.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ──────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null, origDataURL = null;
+    let invertedDataURL = null, resultFilename = '';
+    let mode = 'full', outputFmt = 'png';
+    let channels = { R: true, G: true, B: true };
+    let splitPos = 0.5, isDragging = false;
+    let pvMode = 'split';
+    let origCanvas = null, invCanvas = null;
+
+    // ─── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('previewSection').classList.remove('visible');
+                invertedDataURL = null;
+                document.getElementById('btnDownload').classList.remove('visible');
+                document.getElementById('btnCopy').classList.remove('visible');
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; invertedDataURL = null;
+    }
+
+    // ─── CONTROLS ───────────────────────────────────────────────────────────────
+    function selectMode(el) {
+        document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        mode = el.dataset.mode;
+        document.getElementById('channelRow').style.display = mode === 'channels' ? 'flex' : 'none';
+    }
+
+    function toggleCh(btn) {
+        btn.classList.toggle('active');
+        channels[btn.dataset.ch] = btn.classList.contains('active');
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+
+    // ─── INVERT ENGINE ──────────────────────────────────────────────────────────
+    function doInvert() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+
+        // Build original canvas
+        origCanvas = document.createElement('canvas');
+        origCanvas.width = sw; origCanvas.height = sh;
+        const octx = origCanvas.getContext('2d');
+        octx.drawImage(origImg, 0, 0);
+        const origData = octx.getImageData(0, 0, sw, sh);
+
+        // Build inverted canvas
+        invCanvas = document.createElement('canvas');
+        invCanvas.width = sw; invCanvas.height = sh;
+        const ictx = invCanvas.getContext('2d');
+        ictx.drawImage(origImg, 0, 0);
+        const d = ictx.getImageData(0, 0, sw, sh);
+        const px = d.data;
+
+        if (mode === 'full') {
+            for (let i = 0; i < px.length; i += 4) { px[i] = 255 - px[i]; px[i+1] = 255 - px[i+1]; px[i+2] = 255 - px[i+2]; }
+        } else if (mode === 'channels') {
+            for (let i = 0; i < px.length; i += 4) {
+                if (channels.R) px[i]   = 255 - px[i];
+                if (channels.G) px[i+1] = 255 - px[i+1];
+                if (channels.B) px[i+2] = 255 - px[i+2];
+            }
+        } else if (mode === 'brightness') {
+            // Convert to HSL, invert L, convert back
+            for (let i = 0; i < px.length; i += 4) {
+                const [h, s, l] = rgbToHsl(px[i], px[i+1], px[i+2]);
+                const [r, g, b] = hslToRgb(h, s, 1 - l);
+                px[i] = r; px[i+1] = g; px[i+2] = b;
+            }
+        } else if (mode === 'hue') {
+            for (let i = 0; i < px.length; i += 4) {
+                const [h, s, l] = rgbToHsl(px[i], px[i+1], px[i+2]);
+                const [r, g, b] = hslToRgb((h + 0.5) % 1, s, l);
+                px[i] = r; px[i+1] = g; px[i+2] = b;
+            }
+        }
+
+        ictx.putImageData(d, 0, 0);
+
+        const mime = outputFmt === 'png' ? 'image/png' : outputFmt === 'webp' ? 'image/webp' : 'image/jpeg';
+        invertedDataURL = invCanvas.toDataURL(mime, outputFmt === 'png' ? undefined : 0.93);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_inverted.${ext}`;
+
+        // Stats
+        const resultBytes = Math.round(invertedDataURL.split(',')[1].length * 0.75);
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-pill"><div class="stat-pill-label">Dimensions</div><div class="stat-pill-val">${sw} × ${sh}</div></div>
+            <div class="stat-pill"><div class="stat-pill-label">Mode</div><div class="stat-pill-val" style="font-size:0.72rem;">${modeName(mode)}</div></div>
+            <div class="stat-pill"><div class="stat-pill-label">Format</div><div class="stat-pill-val">${outputFmt.toUpperCase()}</div></div>
+            <div class="stat-pill"><div class="stat-pill-label">File Size</div><div class="stat-pill-val">${fmtBytes(resultBytes)}</div></div>
+        `;
+
+        // Show preview
+        document.getElementById('previewSection').classList.add('visible');
+        document.getElementById('btnDownload').classList.add('visible');
+        document.getElementById('btnCopy').classList.add('visible');
+
+        // Side by side
+        document.getElementById('sbsOrig').src = origDataURL;
+        document.getElementById('sbsInv').src = invertedDataURL;
+        document.getElementById('pvResultImg').src = invertedDataURL;
+
+        // Build split canvas
+        buildSplitCanvas();
+        document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Inverted! ✓', 'success');
+    }
+
+    function modeName(m) {
+        return { full:'Full Invert', channels:'Channel Select', brightness:'Brightness Only', hue:'Hue Rotate 180°' }[m] || m;
+    }
+
+    // ─── SPLIT PREVIEW ──────────────────────────────────────────────────────────
+    function buildSplitCanvas() {
+        if (!origCanvas || !invCanvas) return;
+        const sw = origCanvas.width, sh = origCanvas.height;
+        const wrap = document.getElementById('splitWrap');
+        const displayW = wrap.clientWidth || 760;
+        const scale = displayW / sw;
+        const dh = Math.round(sh * scale);
+
+        const canvas = document.getElementById('splitCanvas');
+        canvas.width = displayW; canvas.height = dh;
+        const ctx = canvas.getContext('2d');
+        drawSplit(ctx, displayW, dh);
+
+        const div = document.getElementById('splitDiv');
+        const handle = document.getElementById('splitHandle');
+        div.style.left = (splitPos * 100) + '%';
+        handle.style.left = (splitPos * 100) + '%';
+    }
+
+    function drawSplit(ctx, w, h) {
+        const splitX = Math.round(splitPos * w);
+        ctx.drawImage(origCanvas, 0, 0, w, h);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(splitX, 0, w - splitX, h); ctx.clip();
+        ctx.drawImage(invCanvas, 0, 0, w, h);
+        ctx.restore();
+    }
+
+    // Split drag
+    const sw2 = document.getElementById('splitWrap');
+    function getSplitX(e) {
+        const r = sw2.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    }
+    sw2.addEventListener('mousedown', e => { isDragging = true; splitPos = getSplitX(e); updateSplit(); });
+    sw2.addEventListener('touchstart', e => { isDragging = true; splitPos = getSplitX(e); updateSplit(); }, { passive: true });
+    window.addEventListener('mousemove', e => { if (isDragging) { splitPos = getSplitX(e); updateSplit(); } });
+    window.addEventListener('touchmove', e => { if (isDragging) { splitPos = getSplitX(e); updateSplit(); } }, { passive: true });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    function updateSplit() {
+        const canvas = document.getElementById('splitCanvas');
+        const ctx = canvas.getContext('2d');
+        drawSplit(ctx, canvas.width, canvas.height);
+        document.getElementById('splitDiv').style.left = (splitPos * 100) + '%';
+        document.getElementById('splitHandle').style.left = (splitPos * 100) + '%';
+    }
+
+    // ─── PREVIEW MODES ──────────────────────────────────────────────────────────
+    function setPreviewMode(btn) {
+        document.querySelectorAll('.preview-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        pvMode = btn.dataset.pv;
+        document.getElementById('pvSplit').style.display = pvMode === 'split' ? '' : 'none';
+        document.getElementById('pvSide').style.display = pvMode === 'side' ? '' : 'none';
+        document.getElementById('pvResult').style.display = pvMode === 'result' ? '' : 'none';
+        if (pvMode === 'split') buildSplitCanvas();
+    }
+
+    // ─── DOWNLOAD / COPY ────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!invertedDataURL) return;
+        const a = document.createElement('a'); a.href = invertedDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    async function doCopy() {
+        if (!invertedDataURL) return;
+        try {
+            const res = await fetch(invertedDataURL);
+            const blob = await res.blob();
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+            showToast('Copied to clipboard!', 'success');
+        } catch { showToast('Copy not supported in this browser', 'error'); }
+    }
+
+    // ─── COLOUR UTILS ───────────────────────────────────────────────────────────
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) { h = s = 0; }
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+        }
+        return [h, s, l];
+    }
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) { r = g = b = l; }
+        else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            const hue2rgb = (p, q, t) => { if (t < 0) t++; if (t > 1) t--; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; };
+            r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    // ─── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SemVer Calculator | Semantic Versioning Compatibility Checker | Rebrixe</title>
+    <meta name="description" content="Instantly validate semantic version upgrades, check breaking changes, compare version ranges, and understand SemVer compatibility rules. Free, fast, no signup.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool-specific only ── */
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        .mode-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin: 22px 0 28px;
+        }
+        .mode-btn {
+            padding: 9px 22px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .mode-btn.active { background: #a78bfa; color: #000; }
+
+        .card {
+            background: rgba(15,23,42,0.6);
+            padding: 26px;
+            border-radius: 22px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            color: white;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        input:focus, select:focus { border-color: #a78bfa; }
+        select { font-family: 'Inter', sans-serif; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+
+        /* ── Result badge ── */
+        .result-block {
+            border-radius: 16px;
+            padding: 22px 24px;
+            margin-top: 4px;
+            border: 1px solid var(--border);
+            transition: 0.3s;
+        }
+        .result-block.compatible   { background: rgba(34,197,94,0.08);  border-color: rgba(34,197,94,0.35); }
+        .result-block.breaking     { background: rgba(239,68,68,0.08);   border-color: rgba(239,68,68,0.35); }
+        .result-block.minor-change { background: rgba(251,191,36,0.08);  border-color: rgba(251,191,36,0.35); }
+        .result-block.empty        { background: rgba(255,255,255,0.03); }
+
+        .result-verdict {
+            font-size: 1.45rem;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            margin: 0 0 6px;
+        }
+        .compatible   .result-verdict { color: #22c55e; }
+        .breaking     .result-verdict { color: #ef4444; }
+        .minor-change .result-verdict { color: #fbbf24; }
+
+        .result-desc {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            line-height: 1.65;
+            margin: 0;
+        }
+
+        /* ── Version parts breakdown ── */
+        .parts-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .part-box {
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .part-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .part-val   { font-size: 1.1rem; font-family: 'Fira Code', monospace; font-weight: 700; }
+        .part-up    { color: #22c55e; }
+        .part-same  { color: #64748b; }
+        .part-down  { color: #ef4444; }
+        .part-name  { font-size: 0.62rem; color: #475569; margin-top: 3px; }
+
+        /* ── Range checker ── */
+        .range-result {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            font-family: 'Fira Code', monospace;
+            margin-top: 10px;
+        }
+        .range-yes { background: rgba(34,197,94,0.12);  color: #22c55e;  border: 1px solid rgba(34,197,94,0.3); }
+        .range-no  { background: rgba(239,68,68,0.12);  color: #ef4444;  border: 1px solid rgba(239,68,68,0.3); }
+
+        /* ── Tags row ── */
+        .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .tag {
+            font-size: 0.68rem; font-weight: 700; padding: 4px 10px;
+            border-radius: 6px; letter-spacing: 0.3px;
+        }
+        .tag-info  { background: rgba(56,189,248,0.12); color: #38bdf8; border: 1px solid rgba(56,189,248,0.25); }
+        .tag-warn  { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .tag-ok    { background: rgba(34,197,94,0.12);  color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+        .tag-err   { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+
+        .btn {
+            padding: 10px 20px; border-radius: 10px; border: none;
+            font-family: 'Inter', sans-serif; font-size: 0.75rem;
+            font-weight: 800; cursor: pointer; transition: 0.2s; letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #a78bfa; color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn:hover   { opacity: 0.82; }
+        .btn.success { background: #22c55e; color: #fff; }
+
+        .action-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+        /* ── Bump tool ── */
+        .bump-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+        .bump-btn {
+            padding: 12px 8px; border-radius: 12px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04); color: #e2e8f0;
+            font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 700;
+            cursor: pointer; transition: 0.2s; text-align: center;
+        }
+        .bump-btn:hover { border-color: #a78bfa; background: rgba(167,139,250,0.1); }
+        .bump-btn .bump-type { font-size: 0.6rem; color: #64748b; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bump-result-ver {
+            font-family: 'Fira Code', monospace; font-size: 1.6rem; font-weight: 700;
+            color: #a78bfa; text-align: center; padding: 18px;
+            background: rgba(167,139,250,0.06); border-radius: 12px;
+            border: 1px solid rgba(167,139,250,0.2); margin-top: 4px; letter-spacing: 1px;
+        }
+
+        /* ── Format hint ── */
+        .hint-bar {
+            font-size: 0.72rem; color: #64748b; margin-top: 16px; line-height: 1.65;
+            padding: 11px 13px; background: rgba(255,255,255,0.03);
+            border-radius: 10px; border-left: 3px solid #a78bfa;
+        }
+        .hint-bar code { color: #a78bfa; background: rgba(167,139,250,0.1); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── SEO / FAQ ── */
+        .seo-content { text-align: left; margin-top: 48px; }
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .faq-item { background: rgba(15,23,42,0.5); padding: 18px; border-radius: 16px; border: 1px solid var(--border); }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.93rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: #a78bfa; background: rgba(167,139,250,0.1); padding: 1px 5px; border-radius: 4px; }
+
+        #modeRange, #modeBump { display: none; }
+
+        @media (max-width: 720px) {
+            .grid-2, .faq-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="server-wizards.html" class="back-btn">← Back to Tools</a>
+    <h1 class="tool-title">SemVer Calculator</h1>
+    <p style="opacity:0.55; font-weight:500; text-align:center;">Validate version upgrades, check breaking changes, bump versions & parse ranges.</p>
+
+    <div style="text-align:center;">
+        <div class="mode-toggle">
+            <button class="mode-btn active" onclick="switchMode('compare')">⚡ Compare</button>
+            <button class="mode-btn" onclick="switchMode('range')">🔍 Range Check</button>
+            <button class="mode-btn" onclick="switchMode('bump')">🚀 Bump</button>
+        </div>
+    </div>
+
+    <!-- ════════════ COMPARE MODE ════════════ -->
+    <div id="modeCompare">
+        <div class="grid-2">
+            <div class="card">
+                <label>Current Version</label>
+                <input type="text" id="verA" placeholder="1.4.2" oninput="runCompare()">
+
+                <label>New / Target Version</label>
+                <input type="text" id="verB" placeholder="2.0.0" oninput="runCompare()">
+
+                <div id="tagsA" class="tag-row"></div>
+            </div>
+
+            <div class="card">
+                <label>Result</label>
+                <div class="result-block empty" id="compareResult">
+                    <p class="result-desc" style="color:#475569;">Enter two versions to compare →</p>
+                </div>
+
+                <div class="parts-row" id="partsRow" style="display:none;"></div>
+
+                <div class="action-row">
+                    <button class="btn btn-ghost" id="copyCompareBtn" onclick="copyCompare()">COPY SUMMARY</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="hint-bar">
+            <strong style="color:#94a3b8;">SemVer format:</strong> <code>MAJOR.MINOR.PATCH</code> — optionally with pre-release <code>1.0.0-alpha.1</code> or build metadata <code>1.0.0+build.42</code>. A <strong>MAJOR</strong> bump = breaking changes. <strong>MINOR</strong> = new features, backward-compatible. <strong>PATCH</strong> = bug fixes only.
+        </div>
+    </div>
+
+    <!-- ════════════ RANGE CHECK MODE ════════════ -->
+    <div id="modeRange">
+        <div class="grid-2">
+            <div class="card">
+                <label>Version to Test</label>
+                <input type="text" id="rangeVer" placeholder="1.5.3" oninput="runRange()">
+
+                <label>Range Expression</label>
+                <input type="text" id="rangeExpr" placeholder="^1.4.0 or >=1.0.0 <2.0.0" oninput="runRange()">
+
+                <div class="hint-bar" style="margin-top:0;">
+                    Supported: <code>^1.2.3</code> <code>~1.2.3</code> <code>&gt;=1.0.0</code> <code>&lt;2.0.0</code> <code>1.2.x</code> <code>*</code> <code>1.2.3 - 2.0.0</code>. Combine with spaces (AND) or <code>||</code> (OR).
+                </div>
+            </div>
+
+            <div class="card">
+                <label>Range Result</label>
+                <div id="rangeResult" style="padding-top:4px; color:#475569; font-size:0.83rem;">Enter version and range →</div>
+
+                <div id="rangeBreakdown" class="hint-bar" style="margin-top:16px; display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════ BUMP MODE ════════════ -->
+    <div id="modeBump">
+        <div class="grid-2">
+            <div class="card">
+                <label>Current Version</label>
+                <input type="text" id="bumpInput" placeholder="1.4.2" oninput="runBump()">
+
+                <label>Pre-release Identifier (optional)</label>
+                <input type="text" id="preId" placeholder="alpha / beta / rc" oninput="runBump()" style="margin-bottom:8px;">
+
+                <div class="bump-grid" id="bumpBtns">
+                    <div class="bump-btn" onclick="selectBump('major')">
+                        <div>Major</div><div class="bump-type">Breaking change</div>
+                    </div>
+                    <div class="bump-btn" onclick="selectBump('minor')">
+                        <div>Minor</div><div class="bump-type">New feature</div>
+                    </div>
+                    <div class="bump-btn" onclick="selectBump('patch')">
+                        <div>Patch</div><div class="bump-type">Bug fix</div>
+                    </div>
+                    <div class="bump-btn" onclick="selectBump('premajor')">
+                        <div>Pre-Major</div><div class="bump-type">Next major pre</div>
+                    </div>
+                    <div class="bump-btn" onclick="selectBump('preminor')">
+                        <div>Pre-Minor</div><div class="bump-type">Next minor pre</div>
+                    </div>
+                    <div class="bump-btn" onclick="selectBump('prepatch')">
+                        <div>Pre-Patch</div><div class="bump-type">Next patch pre</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <label>Bumped Version</label>
+                <div class="bump-result-ver" id="bumpResult">—</div>
+
+                <div class="tag-row" id="bumpTags" style="margin-top:16px;"></div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" onclick="copyBump()">COPY VERSION</button>
+                    <button class="btn btn-ghost" onclick="useBumped()">USE IN COMPARE →</button>
+                </div>
+
+                <div class="hint-bar" style="margin-top:16px;">
+                    After bumping, click <strong style="color:#94a3b8;">USE IN COMPARE</strong> to instantly check compatibility of the new version against the old one.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════ SEO CONTENT ════════════ -->
+    <article class="seo-content">
+        <h2>How Semantic Versioning Works</h2>
+        <p>SemVer (Semantic Versioning) is the standard for communicating change intent in software libraries and APIs. Every version string carries a contract with your users.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>What is a breaking change?</h3>
+                <p>Any MAJOR version bump (<code>1.x.x → 2.0.0</code>) signals that existing code may break. APIs may have been removed, renamed, or behaviorally changed. Always read the changelog before upgrading.</p>
+            </div>
+            <div class="faq-item">
+                <h3>When is it safe to auto-upgrade?</h3>
+                <p>PATCH upgrades (<code>1.2.3 → 1.2.4</code>) are always safe — bugs fixed, no API changes. MINOR upgrades (<code>1.2.x → 1.3.0</code>) add features but stay backward-compatible. MAJOR = manual review required.</p>
+            </div>
+            <div class="faq-item">
+                <h3>What does ^ mean in package.json?</h3>
+                <p>Caret (<code>^1.2.3</code>) allows MINOR and PATCH upgrades — anything from <code>1.2.3</code> to <code>&lt;2.0.0</code>. Tilde (<code>~1.2.3</code>) allows only PATCH upgrades — <code>1.2.3</code> to <code>&lt;1.3.0</code>.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Pre-release versions</h3>
+                <p>Tags like <code>1.0.0-alpha.1</code>, <code>-beta.2</code>, <code>-rc.1</code> are lower precedence than the release version. They signal instability. Never use pre-release in production without testing.</p>
+            </div>
+            <div class="faq-item">
+                <h3>0.x.x versions — the wild west</h3>
+                <p>When MAJOR is 0, anything goes — APIs are considered unstable. A <code>0.1.0 → 0.2.0</code> bump can contain breaking changes. Treat every change as potentially breaking during initial development.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Build metadata</h3>
+                <p>The <code>+build.42</code> suffix is ignored for precedence comparisons. Two versions identical except for metadata are considered equal in SemVer. Useful for CI/CD pipelines to track builds.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+<script>
+/* ── Parse SemVer ── */
+function parseSemVer(v) {
+    if (!v) return null;
+    v = v.trim().replace(/^v/i, '');
+    // Strip build metadata for comparison
+    const buildSplit = v.split('+');
+    const build = buildSplit[1] || null;
+    const withoutBuild = buildSplit[0];
+    // Split pre-release
+    const preSplit = withoutBuild.split('-');
+    const pre = preSplit.slice(1).join('-') || null;
+    const nums = preSplit[0].split('.');
+    if (nums.length !== 3) return null;
+    const [major, minor, patch] = nums.map(Number);
+    if ([major, minor, patch].some(n => isNaN(n) || n < 0)) return null;
+    return { major, minor, patch, pre, build, raw: v };
+}
+
+function isValid(v) { return parseSemVer(v) !== null; }
+
+/* ── Compare precedence ── */
+// returns -1, 0, 1
+function cmp(a, b) {
+    for (const k of ['major', 'minor', 'patch']) {
+        if (a[k] > b[k]) return 1;
+        if (a[k] < b[k]) return -1;
+    }
+    // pre-release: no pre > has pre
+    if (!a.pre && b.pre) return 1;
+    if (a.pre && !b.pre) return -1;
+    if (a.pre && b.pre && a.pre !== b.pre) return a.pre < b.pre ? -1 : 1;
+    return 0;
+}
+
+/* ── COMPARE MODE ── */
+let lastCompare = '';
+function runCompare() {
+    const rawA = document.getElementById('verA').value;
+    const rawB = document.getElementById('verB').value;
+    const a = parseSemVer(rawA);
+    const b = parseSemVer(rawB);
+    const res = document.getElementById('compareResult');
+    const partsRow = document.getElementById('partsRow');
+    const tagsA = document.getElementById('tagsA');
+
+    // Tag validation
+    tagsA.innerHTML = '';
+    if (rawA && !a) tagsA.innerHTML += '<span class="tag tag-err">Invalid version A</span>';
+    if (rawB && !b) tagsA.innerHTML += '<span class="tag tag-err">Invalid version B</span>';
+    if (a) tagsA.innerHTML += `<span class="tag tag-info">v${a.raw}</span>`;
+    if (a && a.pre) tagsA.innerHTML += `<span class="tag tag-warn">Pre-release: ${a.pre}</span>`;
+    if (b && b.pre) tagsA.innerHTML += `<span class="tag tag-warn">Pre-release target: ${b.pre}</span>`;
+    if (a && a.major === 0) tagsA.innerHTML += `<span class="tag tag-warn">Unstable (0.x.x)</span>`;
+
+    if (!a || !b) {
+        res.className = 'result-block empty';
+        res.innerHTML = '<p class="result-desc" style="color:#475569;">Enter two valid versions →</p>';
+        partsRow.style.display = 'none';
+        lastCompare = '';
+        return;
+    }
+
+    const diff = cmp(b, a);
+    let verdict, desc, cls;
+
+    if (diff === 0) {
+        verdict = '✓ Same Version'; cls = 'compatible';
+        desc = `<code>${a.raw}</code> and <code>${b.raw}</code> are identical in precedence. No change needed.`;
+    } else if (b.major > a.major) {
+        verdict = '🔴 BREAKING CHANGE'; cls = 'breaking';
+        const delta = b.major - a.major;
+        desc = `Major version jumped by <strong>${delta}</strong> (${a.major} → ${b.major}). This upgrade <strong>may break existing code</strong>. APIs could be removed, renamed, or changed. Review the changelog before upgrading.`;
+    } else if (b.major < a.major) {
+        verdict = '⬇ Downgrade (Breaking Risk)'; cls = 'breaking';
+        desc = `You're downgrading by ${a.major - b.major} major version${a.major - b.major > 1 ? 's' : ''}. Downgrading can reintroduce bugs or remove features your code depends on.`;
+    } else if (b.minor > a.minor) {
+        verdict = '🟡 Minor Upgrade — Safe'; cls = 'minor-change';
+        const delta = b.minor - a.minor;
+        desc = `Minor version bumped by <strong>${delta}</strong>. New features added, but <strong>backward-compatible</strong>. Your existing code should continue to work. Recommended to test, but generally safe to upgrade.`;
+    } else if (b.minor < a.minor) {
+        verdict = '⬇ Minor Downgrade'; cls = 'minor-change';
+        desc = `Downgrading ${a.minor - b.minor} minor version${a.minor - b.minor > 1 ? 's' : ''}. Features you use may no longer exist. Check your usage before downgrading.`;
+    } else if (b.patch > a.patch) {
+        verdict = '🟢 Patch — Safe to Upgrade'; cls = 'compatible';
+        const delta = b.patch - a.patch;
+        desc = `Only patch versions changed (${delta} patch${delta > 1 ? 'es' : ''}). Bug fixes only — <strong>no API changes</strong>. Safe to upgrade without code changes.`;
+    } else {
+        verdict = '⬇ Patch Downgrade'; cls = 'minor-change';
+        desc = `You're rolling back ${a.patch - b.patch} patch${a.patch - b.patch > 1 ? 'es' : ''}. Previously fixed bugs may return. Only do this to isolate a regression.`;
+    }
+
+    res.className = `result-block ${cls}`;
+    res.innerHTML = `<p class="result-verdict">${verdict}</p><p class="result-desc">${desc}</p>`;
+
+    // Parts breakdown
+    partsRow.style.display = 'grid';
+    const parts = ['major', 'minor', 'patch'];
+    const pLabels = ['MAJOR', 'MINOR', 'PATCH'];
+    const pNames = ['Breaking', 'Features', 'Bug Fixes'];
+    partsRow.innerHTML = parts.map((p, i) => {
+        const va = a[p], vb = b[p];
+        const dir = vb > va ? 'up' : vb < va ? 'down' : 'same';
+        const dirCls = dir === 'up' ? 'part-up' : dir === 'down' ? 'part-down' : 'part-same';
+        const arrow = dir === 'up' ? ' ↑' : dir === 'down' ? ' ↓' : '';
+        return `<div class="part-box">
+            <div class="part-label">${pLabels[i]}</div>
+            <div class="part-val ${dirCls}">${va} → ${vb}${arrow}</div>
+            <div class="part-name">${pNames[i]}</div>
+        </div>`;
+    }).join('');
+
+    lastCompare = `SemVer Comparison: ${a.raw} → ${b.raw}\nResult: ${verdict.replace(/[^\w\s→()\-\.]/g, '').trim()}\n${desc.replace(/<[^>]+>/g, '')}`;
+}
+
+async function copyCompare() {
+    if (!lastCompare) return;
+    const btn = document.getElementById('copyCompareBtn');
+    await navigator.clipboard.writeText(lastCompare);
+    btn.innerText = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.innerText = 'COPY SUMMARY'; btn.classList.remove('success'); }, 1600);
+}
+
+/* ── RANGE CHECK MODE ── */
+function parseRange(expr) {
+    // Returns array of condition sets (AND within set, OR between sets)
+    return expr.trim().split(/\s*\|\|\s*/).map(part => {
+        return part.trim().split(/\s+/).map(tok => parseCond(tok));
+    });
+}
+
+function parseCond(tok) {
+    tok = tok.trim();
+    if (tok === '*' || tok === '') return () => true;
+
+    // Hyphen range (handled at OR level, not here — but let's be safe)
+    // Caret
+    if (tok.startsWith('^')) {
+        const v = parseSemVer(tok.slice(1));
+        if (!v) return () => false;
+        return (t) => {
+            if (v.major !== 0) return cmp(t, v) >= 0 && t.major === v.major;
+            if (v.minor !== 0) return cmp(t, v) >= 0 && t.major === 0 && t.minor === v.minor;
+            return cmp(t, v) >= 0 && t.major === 0 && t.minor === 0 && t.patch === v.patch;
+        };
+    }
+    // Tilde
+    if (tok.startsWith('~')) {
+        const v = parseSemVer(tok.slice(1));
+        if (!v) return () => false;
+        return (t) => cmp(t, v) >= 0 && t.major === v.major && t.minor === v.minor;
+    }
+    // Comparators
+    const m = tok.match(/^(>=|<=|>|<|=|!=)(.+)$/);
+    if (m) {
+        const [, op, verStr] = m;
+        const v = parseSemVer(verStr.replace(/\.x$/i, '.0'));
+        if (!v) return () => false;
+        return (t) => {
+            const c = cmp(t, v);
+            if (op === '>=') return c >= 0;
+            if (op === '<=') return c <= 0;
+            if (op === '>')  return c > 0;
+            if (op === '<')  return c < 0;
+            if (op === '=')  return c === 0;
+            if (op === '!=') return c !== 0;
+            return false;
+        };
+    }
+    // Wildcard x
+    if (/\.x$/i.test(tok)) {
+        const parts = tok.split('.');
+        const major = parseInt(parts[0]);
+        if (parts[1] === 'x' || parts[1] === 'X' || parts[1] === '*') {
+            return (t) => t.major === major;
+        }
+        const minor = parseInt(parts[1]);
+        return (t) => t.major === major && t.minor === minor;
+    }
+    // Exact version
+    const v = parseSemVer(tok);
+    if (v) return (t) => cmp(t, v) === 0;
+    return () => false;
+}
+
+function satisfies(ver, rangeStr) {
+    // Handle hyphen range
+    const hyphen = rangeStr.match(/^(.+)\s+-\s+(.+)$/);
+    if (hyphen) {
+        const lo = parseSemVer(hyphen[1].trim());
+        const hi = parseSemVer(hyphen[2].trim());
+        if (!lo || !hi) return false;
+        return cmp(ver, lo) >= 0 && cmp(ver, hi) <= 0;
+    }
+    const sets = parseRange(rangeStr);
+    return sets.some(set => set.every(fn => fn(ver)));
+}
+
+function runRange() {
+    const verStr  = document.getElementById('rangeVer').value;
+    const exprStr = document.getElementById('rangeExpr').value;
+    const el      = document.getElementById('rangeResult');
+    const breakdown = document.getElementById('rangeBreakdown');
+
+    const ver  = parseSemVer(verStr);
+    const expr = exprStr.trim();
+
+    if (!ver && verStr) { el.innerHTML = '<span class="tag tag-err">Invalid version</span>'; breakdown.style.display = 'none'; return; }
+    if (!expr || !ver)  { el.innerHTML = '<span style="color:#475569; font-size:0.83rem;">Enter version and range →</span>'; breakdown.style.display = 'none'; return; }
+
+    let matched = false;
+    try { matched = satisfies(ver, expr); } catch(e) {}
+
+    el.innerHTML = matched
+        ? `<div class="range-result range-yes">✓ ${verStr} satisfies ${expr}</div>`
+        : `<div class="range-result range-no">✗ ${verStr} does NOT satisfy ${expr}</div>`;
+
+    // Breakdown explanation
+    let bText = '';
+    if (expr.startsWith('^')) {
+        const v = parseSemVer(expr.slice(1));
+        if (v) bText = `Caret: allows <code>^${v.major}.${v.minor}.${v.patch}</code> → versions ≥ ${v.raw} and &lt; ${v.major + 1}.0.0`;
+    } else if (expr.startsWith('~')) {
+        const v = parseSemVer(expr.slice(1));
+        if (v) bText = `Tilde: allows patch-level changes → ≥ ${v.raw} and &lt; ${v.major}.${v.minor + 1}.0`;
+    } else if (expr === '*') {
+        bText = 'Wildcard — matches any version.';
+    } else if (expr.includes('||')) {
+        bText = `OR range — version must satisfy at least one of the conditions separated by <code>||</code>.`;
+    } else if (expr.includes(' - ')) {
+        bText = `Hyphen range — version must be between the two bounds (inclusive).`;
+    }
+    if (bText) { breakdown.innerHTML = bText; breakdown.style.display = 'block'; }
+    else breakdown.style.display = 'none';
+}
+
+/* ── BUMP MODE ── */
+let selectedBump = 'patch';
+
+function selectBump(type) {
+    selectedBump = type;
+    document.querySelectorAll('.bump-btn').forEach(b => b.style.borderColor = '');
+    const btns = document.querySelectorAll('.bump-btn');
+    const map = ['major','minor','patch','premajor','preminor','prepatch'];
+    const idx = map.indexOf(type);
+    if (idx >= 0) { btns[idx].style.borderColor = '#a78bfa'; btns[idx].style.background = 'rgba(167,139,250,0.12)'; }
+    runBump();
+}
+
+function runBump() {
+    const raw = document.getElementById('bumpInput').value;
+    const pre = document.getElementById('preId').value.trim() || 'alpha';
+    const v   = parseSemVer(raw);
+    const el  = document.getElementById('bumpResult');
+    const tags = document.getElementById('bumpTags');
+
+    if (!v) {
+        el.innerText = '—';
+        tags.innerHTML = raw ? '<span class="tag tag-err">Invalid version</span>' : '';
+        return;
+    }
+
+    let { major, minor, patch } = v;
+    let preStr = '';
+
+    switch (selectedBump) {
+        case 'major':    major++;  minor = 0; patch = 0; break;
+        case 'minor':              minor++;   patch = 0; break;
+        case 'patch':                         patch++;   break;
+        case 'premajor': major++;  minor = 0; patch = 0; preStr = `-${pre}.0`; break;
+        case 'preminor':           minor++;   patch = 0; preStr = `-${pre}.0`; break;
+        case 'prepatch':                      patch++;   preStr = `-${pre}.0`; break;
+    }
+
+    const bumped = `${major}.${minor}.${patch}${preStr}`;
+    el.innerText = bumped;
+
+    tags.innerHTML = `<span class="tag tag-info">${v.raw} → ${bumped}</span>`;
+    if (selectedBump.startsWith('pre')) tags.innerHTML += `<span class="tag tag-warn">Pre-release — not for production</span>`;
+    if (major > 0 && selectedBump === 'major') tags.innerHTML += `<span class="tag tag-err">Breaking change — update dependents</span>`;
+    if (selectedBump === 'minor') tags.innerHTML += `<span class="tag tag-ok">Backward-compatible</span>`;
+    if (selectedBump === 'patch') tags.innerHTML += `<span class="tag tag-ok">Safe — bug fixes only</span>`;
+}
+
+async function copyBump() {
+    const txt = document.getElementById('bumpResult').innerText;
+    if (txt === '—') return;
+    await navigator.clipboard.writeText(txt);
+}
+
+function useBumped() {
+    const bumped = document.getElementById('bumpResult').innerText;
+    const orig   = document.getElementById('bumpInput').value;
+    if (bumped === '—') return;
+    switchMode('compare');
+    document.getElementById('verA').value = orig;
+    document.getElementById('verB').value = bumped;
+    runCompare();
+}
+
+/* ── MODE SWITCH ── */
+function switchMode(mode) {
+    ['compare','range','bump'].forEach(m => {
+        document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1)).style.display = m === mode ? 'block' : 'none';
+    });
+    document.querySelectorAll('.mode-btn').forEach((b,i) => {
+        b.classList.toggle('active', ['compare','range','bump'][i] === mode);
+    });
+}
+
+/* ── INIT ── */
+selectBump('patch');
+runCompare();
+</script>
+</body>
+</html>

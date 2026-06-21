@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Heading Hierarchy Analyzer | H1–H6 SEO Structure Checker | Rebrixe</title>
+    <meta name="description" content="Paste any HTML and instantly check if your H1–H6 heading structure is semantically correct for Google. Catches skipped levels, multiple H1s, missing headings, and more.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Page header ── */
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Cards ── */
+        .config-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+            min-width: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            color: white;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.82rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+            resize: vertical;
+        }
+        textarea:focus, input:focus { border-color: var(--primary); }
+        #htmlInput { min-height: 280px; line-height: 1.65; }
+
+        /* ── Grid ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin: 0 0 40px;
+            width: 100%;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover { opacity: 0.85; }
+        .action-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+        /* ── Score badge ── */
+        .score-ring {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 16px 20px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .score-circle {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 900;
+            font-family: 'Outfit', sans-serif;
+            flex-shrink: 0;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .score-circle.good  { border-color: #2ecc71; color: #2ecc71; background: rgba(46,204,113,0.1); }
+        .score-circle.warn  { border-color: #f1c40f; color: #f1c40f; background: rgba(241,196,15,0.1); }
+        .score-circle.bad   { border-color: #e74c3c; color: #e74c3c; background: rgba(231,76,60,0.1); }
+        .score-circle.empty { border-color: #475569; color: #475569; background: transparent; }
+        .score-label { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+        .score-label strong { display: block; font-size: 0.9rem; color: #e2e8f0; margin-bottom: 2px; }
+
+        /* ── Issue list ── */
+        .issues-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .issue-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }
+        .issue-item.err  { background: rgba(231,76,60,0.1);  border: 1px solid rgba(231,76,60,0.25);  color: #e2e8f0; }
+        .issue-item.warn { background: rgba(241,196,15,0.1); border: 1px solid rgba(241,196,15,0.25); color: #e2e8f0; }
+        .issue-item.ok   { background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.25); color: #e2e8f0; }
+        .issue-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+        .issue-text strong { display: block; font-weight: 700; margin-bottom: 2px; }
+        .issue-text span   { color: #94a3b8; font-size: 0.73rem; }
+
+        /* ── Heading tree ── */
+        .tree-wrap {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.78rem;
+            line-height: 1.8;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .tree-node { display: flex; align-items: baseline; gap: 6px; }
+        .tree-node .tag  { font-weight: 700; flex-shrink: 0; }
+        .tree-node .text { color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .tree-node .flag { font-size: 0.65rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: auto; flex-shrink: 0; }
+        .flag-skip  { background: rgba(231,76,60,0.2);  color: #e74c3c; }
+        .flag-multi { background: rgba(241,196,15,0.2); color: #f1c40f; }
+        .flag-empty { background: rgba(100,116,139,0.2);color: #64748b; }
+        .h1-color { color: #00f2ff; }
+        .h2-color { color: #2ecc71; }
+        .h3-color { color: #f39c12; }
+        .h4-color { color: #9b59b6; }
+        .h5-color { color: #e74c3c; }
+        .h6-color { color: #95a5a6; }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .stat-pill {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .stat-pill .num { font-size: 1.2rem; font-weight: 900; font-family: 'Outfit', sans-serif; }
+        .stat-pill .lbl { font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+        /* ── Empty state ── */
+        .empty-state { text-align: center; padding: 40px 20px; color: #475569; font-size: 0.82rem; line-height: 1.8; }
+        .empty-state .icon { font-size: 2.2rem; margin-bottom: 10px; }
+
+        /* ── Format hint ── */
+        .format-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border-left: 3px solid var(--primary, #00f2ff);
+        }
+
+        /* ── URL input area ── */
+        .url-row { display: flex; gap: 10px; margin-bottom: 18px; }
+        .url-row input { margin: 0; flex: 1; font-family: 'Inter', sans-serif; }
+
+        /* ── Tabs ── */
+        .tab-row {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin-bottom: 18px;
+        }
+        .tab-btn {
+            padding: 7px 18px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .tab-btn.active { background: var(--primary, #00f2ff); color: #000; }
+
+        /* ── FAQ ── */
+        .seo-content { text-align: left; }
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+        .faq-item { background: rgba(15,23,42,0.5); padding: 20px; border-radius: 16px; border: 1px solid var(--border); }
+        .faq-item h3 { margin: 0 0 8px; font-size: 0.95rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+            .brand-title { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="seo-validation.html" class="back-btn">← Back to Tools</a>
+        <h1 class="brand-title" style="text-align:center;">Heading Hierarchy Analyzer</h1>
+        <p style="opacity:0.6; font-weight:500; text-align:center;">Catch broken H1–H6 structure before Google does. Paste HTML → get a full semantic audit.</p>
+
+        <div class="workspace-grid">
+
+            <!-- LEFT: Input -->
+            <div class="config-card">
+                <div class="tab-row">
+                    <button class="tab-btn active" onclick="switchTab('paste')">📋 Paste HTML</button>
+                    <button class="tab-btn" onclick="switchTab('url')">🔗 From URL</button>
+                </div>
+
+                <div id="tabPaste">
+                    <label>HTML Code</label>
+                    <textarea id="htmlInput" placeholder="Paste any HTML block, full page, or just the body content here…&#10;&#10;&lt;h1&gt;My Page Title&lt;/h1&gt;&#10;&lt;h2&gt;Section One&lt;/h2&gt;&#10;&lt;h4&gt;This will be flagged!&lt;/h4&gt;" oninput="analyze()"></textarea>
+                </div>
+
+                <div id="tabUrl" style="display:none;">
+                    <label>Page URL</label>
+                    <div class="url-row">
+                        <input type="text" id="urlInput" placeholder="https://yoursite.com/page">
+                        <button class="btn btn-primary" onclick="fetchUrl()">FETCH</button>
+                    </div>
+                    <p style="font-size:0.72rem; color:#64748b; margin:0 0 14px;">Fetches via allorigins proxy — works for public pages.</p>
+                    <label>HTML Code (auto-filled)</label>
+                    <textarea id="htmlInput2" placeholder="HTML will appear here after fetch…" oninput="analyze()" style="min-height:200px;"></textarea>
+                </div>
+
+                <div class="format-hint">
+                    <strong>What gets checked:</strong> skipped heading levels, multiple H1s, empty headings, H1 missing entirely, headings inside hidden elements, keyword stuffing signals, and heading count balance.
+                </div>
+            </div>
+
+            <!-- RIGHT: Results -->
+            <div class="config-card">
+                <label>SEO Structure Score</label>
+
+                <!-- Score -->
+                <div class="score-ring" id="scoreRing">
+                    <div class="score-circle empty" id="scoreCircle">–</div>
+                    <div class="score-label">
+                        <strong id="scoreTitle">Paste HTML to analyze</strong>
+                        <span id="scoreDesc">Your heading hierarchy result will appear here.</span>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-row" id="statsRow">
+                    <div class="stat-pill"><div class="num h1-color" id="cnt1">–</div><div class="lbl">H1</div></div>
+                    <div class="stat-pill"><div class="num h2-color" id="cnt2">–</div><div class="lbl">H2</div></div>
+                    <div class="stat-pill"><div class="num h3-color" id="cnt3">–</div><div class="lbl">H3</div></div>
+                    <div class="stat-pill"><div class="num h4-color" id="cnt4">–</div><div class="lbl">H4</div></div>
+                    <div class="stat-pill"><div class="num h5-color" id="cnt5">–</div><div class="lbl">H5</div></div>
+                    <div class="stat-pill"><div class="num h6-color" id="cnt6">–</div><div class="lbl">H6</div></div>
+                </div>
+
+                <!-- Issues -->
+                <label>Issues & Checks</label>
+                <div class="issues-wrap" id="issuesList">
+                    <div class="empty-state"><div class="icon">🔍</div>Results appear after you paste HTML</div>
+                </div>
+
+                <!-- Tree -->
+                <label>Heading Tree</label>
+                <div class="tree-wrap" id="headingTree">
+                    <div class="empty-state" style="padding:20px 10px;">Structure map will render here</div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyReport()">COPY REPORT</button>
+                    <button class="btn btn-ghost" onclick="clearAll()">CLEAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO Content -->
+        <article class="seo-content">
+            <h2>Why Heading Hierarchy Matters for SEO</h2>
+            <p>Google uses heading tags as structural signals to understand your page's topic and content relationships. A broken hierarchy doesn't just confuse crawlers — it hurts rankings and accessibility.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>One H1, Always</h3>
+                    <p>Every page should have exactly one <code>&lt;h1&gt;</code>. It's your primary topic signal. Multiple H1s split authority and confuse Google about your page's main subject.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Never Skip Levels</h3>
+                    <p>Going from <code>&lt;h2&gt;</code> directly to <code>&lt;h4&gt;</code> breaks semantic structure. Google and screen readers both rely on this nesting — skips signal lazy or broken markup.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Empty Headings Kill Rankings</h3>
+                    <p>An empty <code>&lt;h2&gt;&lt;/h2&gt;</code> is a wasted signal and a crawl budget leak. They tell Google there's structure but no content — a red flag for thin pages.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Headings ≠ Styling</h3>
+                    <p>Never use <code>&lt;h3&gt;</code> just to make text bigger. Use CSS for styling. Heading tags are semantic signals — misusing them misleads crawlers and hurts page clarity.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>H1 Should Match Title Tag</h3>
+                    <p>Your H1 and <code>&lt;title&gt;</code> don't have to be identical, but they should be closely aligned. Major mismatch signals inconsistency and can dilute topical relevance.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Keyword Balance</h3>
+                    <p>Stuffing the same phrase into every heading is a spam signal. Headings should reflect genuine content sections — vary naturally and use semantic synonyms.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ── Tab switch ── */
+    function switchTab(tab) {
+        document.getElementById('tabPaste').style.display = tab === 'paste' ? 'block' : 'none';
+        document.getElementById('tabUrl').style.display   = tab === 'url'   ? 'block' : 'none';
+        document.querySelectorAll('.tab-btn').forEach((b, i) => {
+            b.classList.toggle('active', (i===0 && tab==='paste') || (i===1 && tab==='url'));
+        });
+    }
+
+    /* ── URL fetch via allorigins ── */
+    async function fetchUrl() {
+        const url = document.getElementById('urlInput').value.trim();
+        if (!url.startsWith('http')) { alert('Enter a full URL (https://...)'); return; }
+        const btn = document.querySelector('#tabUrl .btn-primary');
+        btn.textContent = 'FETCHING…'; btn.disabled = true;
+        try {
+            const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const res = await fetch(proxy);
+            const data = await res.json();
+            document.getElementById('htmlInput2').value = data.contents || '';
+            analyze();
+        } catch(e) {
+            alert('Could not fetch URL. Try pasting the HTML directly.');
+        }
+        btn.textContent = 'FETCH'; btn.disabled = false;
+    }
+
+    /* ── Get active HTML ── */
+    function getHTML() {
+        const tab = document.querySelector('.tab-btn.active').textContent.includes('URL') ? 'url' : 'paste';
+        return tab === 'url'
+            ? document.getElementById('htmlInput2').value
+            : document.getElementById('htmlInput').value;
+    }
+
+    /* ── Core Analyzer ── */
+    function analyze() {
+        const raw = getHTML().trim();
+        if (!raw) { reset(); return; }
+
+        // Parse headings with a temporary DOM element
+        const div = document.createElement('div');
+        div.innerHTML = raw;
+
+        // Remove script/style/noscript content
+        div.querySelectorAll('script, style, noscript, [hidden], [style*="display:none"], [aria-hidden="true"]').forEach(el => el.remove());
+
+        const nodes = div.querySelectorAll('h1,h2,h3,h4,h5,h6');
+        const headings = Array.from(nodes).map(el => ({
+            level: parseInt(el.tagName[1]),
+            text: el.innerText || el.textContent || '',
+            tag: el.tagName.toLowerCase()
+        }));
+
+        if (headings.length === 0) {
+            showNoHeadings(); return;
+        }
+
+        // Counts
+        const counts = [0,0,0,0,0,0];
+        headings.forEach(h => counts[h.level - 1]++);
+        ['cnt1','cnt2','cnt3','cnt4','cnt5','cnt6'].forEach((id, i) => {
+            document.getElementById(id).textContent = counts[i];
+        });
+
+        // ── Run checks ──
+        const issues = [];
+        let score = 100;
+
+        // 1. Missing H1
+        if (counts[0] === 0) {
+            issues.push({ type: 'err', title: 'No H1 found', desc: 'Every page needs exactly one H1 as the primary topic signal for Google.' });
+            score -= 30;
+        }
+
+        // 2. Multiple H1s
+        if (counts[0] > 1) {
+            issues.push({ type: 'err', title: `${counts[0]} H1 tags detected`, desc: `Only one H1 is allowed per page. Having ${counts[0]} splits topic authority and confuses crawlers.` });
+            score -= 25;
+        }
+
+        // 3. Skipped levels
+        const skips = [];
+        let prev = headings[0].level;
+        for (let i = 1; i < headings.length; i++) {
+            const cur = headings[i].level;
+            if (cur > prev + 1) {
+                skips.push(`H${prev} → H${cur}`);
+                score -= 10;
+            }
+            prev = cur;
+        }
+        if (skips.length) {
+            issues.push({ type: 'err', title: `Skipped heading levels (${skips.length})`, desc: `Jumps found: ${[...new Set(skips)].join(', ')}. These break semantic nesting Google relies on.` });
+        }
+
+        // 4. Empty headings
+        const empties = headings.filter(h => !h.text.trim());
+        if (empties.length) {
+            issues.push({ type: 'warn', title: `${empties.length} empty heading${empties.length>1?'s':''}`, desc: 'Empty heading tags waste crawl signals and indicate thin or broken markup.' });
+            score -= empties.length * 8;
+        }
+
+        // 5. First heading not H1
+        if (headings[0].level !== 1) {
+            issues.push({ type: 'warn', title: `Page starts with H${headings[0].level}, not H1`, desc: 'The first heading should be H1. Starting lower breaks the document outline.' });
+            score -= 15;
+        }
+
+        // 6. Keyword repetition check (simple)
+        const h1Texts = headings.filter(h => h.level === 1).map(h => h.text.toLowerCase().trim());
+        const dupH1 = h1Texts.length > 0 && headings.filter(h => h.text.toLowerCase().trim() === h1Texts[0] && h.level !== 1).length > 2;
+        if (dupH1) {
+            issues.push({ type: 'warn', title: 'Heading text repeated across levels', desc: 'Same wording appears in multiple heading levels — signals keyword stuffing to Google.' });
+            score -= 10;
+        }
+
+        // 7. Very long headings
+        const longH = headings.filter(h => h.text.trim().length > 120);
+        if (longH.length) {
+            issues.push({ type: 'warn', title: `${longH.length} heading${longH.length>1?'s':''} over 120 chars`, desc: 'Unusually long headings may be treated as body text by crawlers. Keep them concise.' });
+            score -= 5;
+        }
+
+        // 8. H1 missing keyword (simple word count signal — no false positives, just advice)
+        if (counts[0] === 1 && headings.find(h=>h.level===1)?.text.trim().split(/\s+/).length < 2) {
+            issues.push({ type: 'warn', title: 'H1 is a single word', desc: 'Single-word H1s rarely capture enough topical context. Consider a short descriptive phrase.' });
+            score -= 5;
+        }
+
+        // All good checks
+        if (counts[0] === 1) issues.push({ type: 'ok', title: 'Single H1 ✓', desc: 'Exactly one H1 — correct for SEO.' });
+        if (!skips.length && headings.length > 1) issues.push({ type: 'ok', title: 'No level skips ✓', desc: 'Heading nesting flows correctly throughout the page.' });
+        if (!empties.length) issues.push({ type: 'ok', title: 'No empty headings ✓', desc: 'All heading tags contain visible text.' });
+
+        score = Math.max(0, Math.min(100, score));
+
+        // ── Render score ──
+        const circle = document.getElementById('scoreCircle');
+        const title  = document.getElementById('scoreTitle');
+        const desc   = document.getElementById('scoreDesc');
+        circle.textContent = score;
+        circle.className = 'score-circle ' + (score >= 80 ? 'good' : score >= 50 ? 'warn' : 'bad');
+        title.textContent = score >= 80 ? 'Strong Hierarchy' : score >= 50 ? 'Needs Attention' : 'Broken Structure';
+        desc.textContent  = `${headings.length} heading${headings.length>1?'s':''} analyzed · ${issues.filter(i=>i.type==='err').length} error${issues.filter(i=>i.type==='err').length!==1?'s':''}, ${issues.filter(i=>i.type==='warn').length} warning${issues.filter(i=>i.type==='warn').length!==1?'s':''}`;
+
+        // ── Render issues ──
+        const il = document.getElementById('issuesList');
+        il.innerHTML = issues.map(i => `
+            <div class="issue-item ${i.type}">
+                <span class="issue-icon">${i.type==='err'?'✗':i.type==='warn'?'⚠':'✓'}</span>
+                <div class="issue-text"><strong>${i.title}</strong><span>${i.desc}</span></div>
+            </div>`).join('');
+
+        // ── Render tree ──
+        renderTree(headings);
+    }
+
+    function renderTree(headings) {
+        const colors = ['h1-color','h2-color','h3-color','h4-color','h5-color','h6-color'];
+        let prev = 0;
+
+        const html = headings.map((h, idx) => {
+            const indent = (h.level - 1) * 16;
+            const col   = colors[h.level - 1];
+            const text  = h.text.trim() || '(empty)';
+            const trunc = text.length > 60 ? text.slice(0, 57) + '…' : text;
+
+            let flag = '';
+            if (!h.text.trim()) flag = '<span class="flag flag-empty">EMPTY</span>';
+            else if (idx > 0 && h.level > prev + 1) flag = `<span class="flag flag-skip">SKIP ↑</span>`;
+            else if (h.level === 1 && idx > 0) flag = `<span class="flag flag-multi">MULTI H1</span>`;
+
+            prev = h.level;
+            return `<div class="tree-node" style="padding-left:${indent}px">
+                <span class="tag ${col}">&lt;${h.tag}&gt;</span>
+                <span class="text">${trunc}</span>
+                ${flag}
+            </div>`;
+        }).join('');
+
+        document.getElementById('headingTree').innerHTML = html || '<div class="empty-state">No headings found</div>';
+    }
+
+    function showNoHeadings() {
+        document.getElementById('scoreCircle').className = 'score-circle bad';
+        document.getElementById('scoreCircle').textContent = '0';
+        document.getElementById('scoreTitle').textContent = 'No Headings Found';
+        document.getElementById('scoreDesc').textContent = 'Zero heading tags detected in this HTML.';
+        ['cnt1','cnt2','cnt3','cnt4','cnt5','cnt6'].forEach(id => { document.getElementById(id).textContent = '0'; });
+        document.getElementById('issuesList').innerHTML = `
+            <div class="issue-item err">
+                <span class="issue-icon">✗</span>
+                <div class="issue-text"><strong>No heading tags found</strong><span>This HTML contains no H1–H6 tags. Every page needs at least one H1.</span></div>
+            </div>`;
+        document.getElementById('headingTree').innerHTML = '<div class="empty-state" style="padding:20px 10px;">No headings to display</div>';
+    }
+
+    function reset() {
+        document.getElementById('scoreCircle').className = 'score-circle empty';
+        document.getElementById('scoreCircle').textContent = '–';
+        document.getElementById('scoreTitle').textContent = 'Paste HTML to analyze';
+        document.getElementById('scoreDesc').textContent = 'Your heading hierarchy result will appear here.';
+        ['cnt1','cnt2','cnt3','cnt4','cnt5','cnt6'].forEach(id => { document.getElementById(id).textContent = '–'; });
+        document.getElementById('issuesList').innerHTML = '<div class="empty-state"><div class="icon">🔍</div>Results appear after you paste HTML</div>';
+        document.getElementById('headingTree').innerHTML = '<div class="empty-state" style="padding:20px 10px;">Structure map will render here</div>';
+    }
+
+    /* ── Copy report ── */
+    async function copyReport() {
+        const btn = document.getElementById('copyBtn');
+        const score  = document.getElementById('scoreCircle').textContent;
+        const title  = document.getElementById('scoreTitle').textContent;
+        const desc   = document.getElementById('scoreDesc').textContent;
+        const issues = Array.from(document.querySelectorAll('.issue-item')).map(el => {
+            const icon = el.classList.contains('err') ? '✗' : el.classList.contains('warn') ? '⚠' : '✓';
+            const strong = el.querySelector('strong')?.textContent || '';
+            const span   = el.querySelector('span:last-child')?.textContent || '';
+            return `${icon} ${strong} — ${span}`;
+        }).join('\n');
+
+        const treeLines = Array.from(document.querySelectorAll('.tree-node')).map(n => {
+            const tag  = n.querySelector('.tag')?.textContent || '';
+            const text = n.querySelector('.text')?.textContent || '';
+            const indent = Math.round(parseInt(n.style.paddingLeft || '0') / 16);
+            return '  '.repeat(indent) + tag + ' ' + text;
+        }).join('\n');
+
+        const report = `HEADING HIERARCHY REPORT — Rebrixe\nScore: ${score}/100 — ${title}\n${desc}\n\nISSUES:\n${issues}\n\nHEADING TREE:\n${treeLines}`;
+
+        await navigator.clipboard.writeText(report);
+        btn.textContent = '✓ COPIED';
+        btn.classList.add('success');
+        setTimeout(() => { btn.textContent = 'COPY REPORT'; btn.classList.remove('success'); }, 1600);
+    }
+
+    function clearAll() {
+        document.getElementById('htmlInput').value = '';
+        document.getElementById('htmlInput2').value = '';
+        document.getElementById('urlInput').value = '';
+        reset();
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pay Per Hour Calculator | Rebrixe</title>
+    <meta name="description" content="Calculate gross and net pay from hours worked and hourly rate. Includes tax, overtime, break deductions, and weekly/monthly/annual projections.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+
+        /* ─── Layout ─────────────────────────────── */
+        .tool-wrap {
+            max-width: 820px;
+            margin: 40px auto;
+        }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ─── Section label ───────────────────────── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* ─── Input grids ─────────────────────────── */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .input-box {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .input-label .hint {
+            color: #475569;
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 0.65rem;
+        }
+
+        .field {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            /* hide native number spinners */
+            -moz-appearance: textfield;
+        }
+        .field::-webkit-outer-spin-button,
+        .field::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .field:focus  { border-color: var(--primary); }
+        .field::placeholder { color: #334155; }
+        .field.error  { border-color: #f87171; }
+
+        select.field {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+        }
+
+        .field-error-msg {
+            font-size: 0.65rem;
+            color: #f87171;
+            display: none;
+            margin-top: -4px;
+        }
+        .field-error-msg.visible { display: block; }
+
+        /* ─── Toggle rows ────────────────────────── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            padding: 13px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .toggle-label { font-size: 0.84rem; color: #94a3b8; flex: 1; }
+        .toggle-label strong { color: #fff; }
+
+        /* switch */
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: 0.3s;
+            border: 1px solid var(--border);
+        }
+        .slider::before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider::before { transform: translateX(20px); background: var(--primary); }
+
+        /* collapsible extra fields */
+        .extra-fields {
+            display: none;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .extra-fields.two-col { grid-template-columns: 1fr 1fr; }
+        .extra-fields.one-col { grid-template-columns: 1fr; }
+        .extra-fields.open { display: grid; }
+
+        /* ─── Currency pills ─────────────────────── */
+        .currency-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .cur-pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            user-select: none;
+        }
+        .cur-pill:hover { border-color: var(--primary); color: #fff; }
+        .cur-pill[aria-pressed="true"] {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(139,148,152,0.08);
+        }
+
+        /* ─── Divider ────────────────────────────── */
+        .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+
+        /* ─── Result panel ───────────────────────── */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        /* hero pay cards */
+        .pay-hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .pay-card {
+            border-radius: 18px;
+            padding: 22px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pay-card.gross {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+        }
+        .pay-card.net {
+            background: rgba(120,129,132,0.1);
+            border: 1px solid rgba(139,158,168,0.35);
+        }
+        .pay-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .pay-card-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        .pay-card.net .pay-card-label { color: var(--primary); opacity: 0.8; }
+        .pay-amount {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1.5px;
+            line-height: 1;
+        }
+        .pay-card.net .pay-amount { color: var(--primary); }
+        .pay-sub { font-size: 0.72rem; color: #475569; margin-top: 6px; }
+
+        /* stats strip */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #cbd5e1;
+        }
+        .stat-label {
+            font-size: 0.6rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        /* projections */
+        .proj-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .proj-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+        .proj-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #fff;
+        }
+        .proj-label {
+            font-size: 0.6rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .proj-sub { font-size: 0.65rem; color: #334155; margin-top: 2px; }
+
+        /* breakdown list */
+        .breakdown-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .breakdown-row:last-child { border-bottom: none; }
+        .breakdown-row.subtotal {
+            border-top: 1px solid var(--border);
+            border-bottom: none;
+            padding-top: 14px;
+        }
+        .br-key { font-size: 0.8rem; color: #64748b; }
+        .br-key.strong { color: #94a3b8; font-weight: 600; }
+        .br-key.white  { color: #fff;    font-weight: 600; }
+        .br-val { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.88rem; color: #fff; }
+        .br-val.deduct    { color: #f87171; }
+        .br-val.highlight { color: var(--primary); font-size: 1rem; }
+
+        /* action buttons */
+        .action-row { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        /* empty hint */
+        .empty-hint {
+            text-align: center;
+            padding: 28px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        /* ─── Responsive ─────────────────────────── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 22px 16px; }
+            .input-grid { grid-template-columns: 1fr; }
+            .pay-hero { grid-template-columns: 1fr; }
+            .stats-grid,
+            .proj-grid { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-direction: column; }
+        }
+
+    </style>
+</head>
+<body data-theme="finance">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Pay Per Hour Calculator
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Gross pay, net pay, overtime, break deductions &amp; income projections — all in one.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- CURRENCY ─────────────────────────── -->
+                <div class="section-label">Currency</div>
+                <div class="currency-row" role="group" aria-label="Currency selector">
+                    <button class="cur-pill" data-sym="$"   aria-pressed="true"  onclick="setCur(this)">$ USD</button>
+                    <button class="cur-pill" data-sym="£"   aria-pressed="false" onclick="setCur(this)">£ GBP</button>
+                    <button class="cur-pill" data-sym="€"   aria-pressed="false" onclick="setCur(this)">€ EUR</button>
+                    <button class="cur-pill" data-sym="₹"   aria-pressed="false" onclick="setCur(this)">₹ INR</button>
+                    <button class="cur-pill" data-sym="CA$" aria-pressed="false" onclick="setCur(this)">CA$ CAD</button>
+                    <button class="cur-pill" data-sym="A$"  aria-pressed="false" onclick="setCur(this)">A$ AUD</button>
+                </div>
+
+                <!-- CORE INPUTS ───────────────────────── -->
+                <div class="section-label">Core Details</div>
+                <div class="input-grid" style="margin-bottom:14px;">
+                    <div class="input-box">
+                        <label class="input-label" for="hours">
+                            Hours Worked
+                        </label>
+                        <input class="field" type="number" id="hours"
+                               min="0.01" max="24" step="0.5"
+                               placeholder="e.g. 8"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="hours-err">Enter a value between 0.01 and 24.</span>
+                    </div>
+                    <div class="input-box">
+                        <label class="input-label" for="rate">
+                            Hourly Rate <span class="hint">(per hour)</span>
+                        </label>
+                        <input class="field" type="number" id="rate"
+                               min="0.01" step="0.01"
+                               placeholder="e.g. 25.00"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="rate-err">Enter a rate greater than 0.</span>
+                    </div>
+                </div>
+
+                <hr class="divider" style="margin:16px 0;">
+
+                <!-- BREAK TOGGLE ──────────────────────── -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Deduct Breaks</strong> — subtract unpaid break time from hours
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="breakToggle" onchange="openSection('breakFields', this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="extra-fields two-col" id="breakFields">
+                    <div class="input-box">
+                        <label class="input-label" for="breakMins">
+                            Break Duration <span class="hint">(minutes)</span>
+                        </label>
+                        <input class="field" type="number" id="breakMins"
+                               min="1" max="1439" step="5"
+                               placeholder="e.g. 30"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="breakMins-err">Enter minutes greater than 0.</span>
+                    </div>
+                    <div class="input-box">
+                        <label class="input-label" for="breakCount">
+                            Number of Breaks
+                        </label>
+                        <input class="field" type="number" id="breakCount"
+                               min="1" max="20" step="1"
+                               value="1"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="breakCount-err">Enter a whole number ≥ 1.</span>
+                    </div>
+                </div>
+
+                <!-- OVERTIME TOGGLE ───────────────────── -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Overtime</strong> — calculate overtime pay beyond a threshold
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="otToggle" onchange="openSection('otFields', this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="extra-fields two-col" id="otFields">
+                    <div class="input-box">
+                        <label class="input-label" for="otThreshold">
+                            Overtime After <span class="hint">(hours)</span>
+                        </label>
+                        <input class="field" type="number" id="otThreshold"
+                               min="0.5" max="23.5" step="0.5"
+                               value="8"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="otThreshold-err">Enter a threshold between 0.5 and 23.5.</span>
+                    </div>
+                    <div class="input-box">
+                        <label class="input-label" for="otMultiplier">
+                            OT Rate Multiplier
+                        </label>
+                        <select class="field" id="otMultiplier" onchange="calculate()">
+                            <option value="1.5">1.5× (Time &amp; a Half)</option>
+                            <option value="2">2× (Double Time)</option>
+                            <option value="1.25">1.25× (Quarter Over)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- TAX TOGGLE ────────────────────────── -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Tax Deduction</strong> — estimate take-home after tax
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="taxToggle" onchange="openSection('taxFields', this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="extra-fields one-col" id="taxFields">
+                    <div class="input-box">
+                        <label class="input-label" for="taxRate">
+                            Tax Rate <span class="hint">(%)</span>
+                        </label>
+                        <input class="field" type="number" id="taxRate"
+                               min="0" max="99" step="0.5"
+                               placeholder="e.g. 20"
+                               autocomplete="off"
+                               oninput="calculate()">
+                        <span class="field-error-msg" id="taxRate-err">Enter a percentage between 0 and 99.</span>
+                    </div>
+                </div>
+
+                <!-- PROJECTIONS TOGGLE ────────────────── -->
+                <div class="toggle-row" style="margin-bottom:24px;">
+                    <div class="toggle-label">
+                        <strong>Income Projections</strong> — weekly, monthly &amp; annual estimates
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="projToggle" onchange="calculate()" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- RESULTS ───────────────────────────── -->
+                <div id="resultPanel" class="result-panel" role="region" aria-live="polite" aria-label="Results"></div>
+                <div id="emptyHint" class="empty-hint">
+                    Enter hours worked and your hourly rate above to see your pay breakdown ↑
+                </div>
+
+            </div><!-- /.tool-card -->
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════════ */
+    var curSym = '$';
+
+    /* ═══════════════════════════════════════════════
+       CURRENCY
+    ═══════════════════════════════════════════════ */
+    function setCur(btn) {
+        document.querySelectorAll('.cur-pill').forEach(function(p) {
+            p.setAttribute('aria-pressed', 'false');
+        });
+        btn.setAttribute('aria-pressed', 'true');
+        curSym = btn.dataset.sym;
+        calculate();
+    }
+
+    /* ═══════════════════════════════════════════════
+       TOGGLE SECTIONS
+    ═══════════════════════════════════════════════ */
+    function openSection(fieldId, checkbox) {
+        var el = document.getElementById(fieldId);
+        if (checkbox.checked) {
+            el.classList.add('open');
+        } else {
+            el.classList.remove('open');
+            /* clear errors in hidden section */
+            el.querySelectorAll('.field').forEach(function(f) {
+                f.classList.remove('error');
+            });
+            el.querySelectorAll('.field-error-msg').forEach(function(m) {
+                m.classList.remove('visible');
+            });
+        }
+        calculate();
+    }
+
+    /* ═══════════════════════════════════════════════
+       FORMATTING
+    ═══════════════════════════════════════════════ */
+    function fmt(n) {
+        /* Guards against NaN / Infinity before formatting */
+        if (!isFinite(n)) return curSym + '0.00';
+        return curSym + n.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    /* ═══════════════════════════════════════════════
+       VALIDATION HELPERS
+    ═══════════════════════════════════════════════ */
+    function getNum(id, min, max) {
+        /* Returns { value, valid } */
+        var el    = document.getElementById(id);
+        var errEl = document.getElementById(id + '-err');
+        var raw   = el.value.trim();
+        var val   = parseFloat(raw);
+        var valid = raw !== '' && isFinite(val) && val >= min && (max === undefined || val <= max);
+
+        el.classList.toggle('error', !valid);
+        if (errEl) errEl.classList.toggle('visible', !valid);
+        return { value: valid ? val : NaN, valid: valid };
+    }
+
+    function clearValidation(id) {
+        var el    = document.getElementById(id);
+        var errEl = document.getElementById(id + '-err');
+        if (el)    el.classList.remove('error');
+        if (errEl) errEl.classList.remove('visible');
+    }
+
+    /* ═══════════════════════════════════════════════
+       MAIN CALCULATE
+    ═══════════════════════════════════════════════ */
+    function calculate() {
+        var panel    = document.getElementById('resultPanel');
+        var hint     = document.getElementById('emptyHint');
+
+        /* ── Core inputs ── */
+        var hRes = getNum('hours', 0.01, 24);
+        var rRes = getNum('rate',  0.01);
+
+        if (!hRes.valid || !rRes.valid) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            return;
+        }
+
+        var hoursRaw = hRes.value;
+        var rate     = rRes.value;
+
+        /* ── Break deduction ── */
+        var breakDeductHours = 0;
+        var breakOn = document.getElementById('breakToggle').checked;
+
+        if (breakOn) {
+            var bmRes = getNum('breakMins',  1, 1439);
+            var bcRes = getNum('breakCount', 1, 20);
+
+            if (!bmRes.valid || !bcRes.valid) {
+                panel.classList.remove('visible');
+                hint.style.display = 'block';
+                return;
+            }
+            breakDeductHours = (bmRes.value * bcRes.value) / 60;
+        } else {
+            clearValidation('breakMins');
+            clearValidation('breakCount');
+        }
+
+        /* Guard: breaks cannot exceed total hours */
+        if (breakDeductHours >= hoursRaw) {
+            /* Show a clear message but don't crash */
+            panel.innerHTML = '<div class="empty-hint" style="color:#f87171;">Break time equals or exceeds total hours worked. Please reduce break duration or count.</div>';
+            panel.classList.add('visible');
+            hint.style.display = 'none';
+            return;
+        }
+
+        var paidHours = hoursRaw - breakDeductHours;
+
+        /* ── Overtime ── */
+        var regularHours = paidHours;
+        var otHours      = 0;
+        var regularPay   = 0;
+        var otPay        = 0;
+        var otOn = document.getElementById('otToggle').checked;
+
+        if (otOn) {
+            var otThRes = getNum('otThreshold', 0.5, 23.5);
+            if (!otThRes.valid) {
+                panel.classList.remove('visible');
+                hint.style.display = 'block';
+                return;
+            }
+            var threshold   = otThRes.value;
+            var multiplier  = parseFloat(document.getElementById('otMultiplier').value);
+
+            if (paidHours > threshold) {
+                otHours      = paidHours - threshold;
+                regularHours = threshold;
+                regularPay   = regularHours * rate;
+                otPay        = otHours * rate * multiplier;
+            } else {
+                regularPay = paidHours * rate;
+            }
+        } else {
+            clearValidation('otThreshold');
+            regularPay = paidHours * rate;
+        }
+
+        var grossPay = regularPay + otPay;
+
+        /* ── Tax ── */
+        var taxAmount = 0;
+        var netPay    = grossPay;
+        var taxRateVal = 0;
+        var taxOn = document.getElementById('taxToggle').checked;
+
+        if (taxOn) {
+            var taxRes = getNum('taxRate', 0, 99);
+            if (!taxRes.valid) {
+                panel.classList.remove('visible');
+                hint.style.display = 'block';
+                return;
+            }
+            taxRateVal = taxRes.value;
+            taxAmount  = grossPay * (taxRateVal / 100);
+            netPay     = grossPay - taxAmount;
+        } else {
+            clearValidation('taxRate');
+        }
+
+        /* ── Projections ── */
+        var showProj     = document.getElementById('projToggle').checked;
+        /* Assumes entered hours = one working day */
+        var weeklyGross  = grossPay * 5;
+        var monthlyGross = grossPay * 21.75;   /* avg trading days/month */
+        var annualGross  = grossPay * 261;     /* avg trading days/year  */
+        var weeklyNet    = netPay * 5;
+        var monthlyNet   = netPay * 21.75;
+        var annualNet    = netPay * 261;
+
+        /* ── Effective rate (gross / paid hours) ── */
+        var effectiveRate = (paidHours > 0) ? (grossPay / paidHours) : 0;
+
+        /* ── Build HTML ── */
+
+        /* Hero cards */
+        var netLabel  = taxOn ? 'Net Pay (Take-Home)' : 'Net Pay';
+        var netSubtxt = taxOn
+            ? ('After ' + fmt(taxAmount) + ' tax deducted')
+            : 'Enable tax toggle for deductions';
+
+        var html = '';
+        html += '<div class="pay-hero">';
+        html +=   '<div class="pay-card gross">';
+        html +=     '<div class="pay-card-label">Gross Pay</div>';
+        html +=     '<div class="pay-amount">' + fmt(grossPay) + '</div>';
+        html +=     '<div class="pay-sub">' + paidHours.toFixed(2) + ' paid hrs @ ' + curSym + rate.toFixed(2) + '/hr</div>';
+        html +=   '</div>';
+        html +=   '<div class="pay-card net">';
+        html +=     '<div class="pay-card-label">' + netLabel + '</div>';
+        html +=     '<div class="pay-amount">' + fmt(taxOn ? netPay : grossPay) + '</div>';
+        html +=     '<div class="pay-sub">' + netSubtxt + '</div>';
+        html +=   '</div>';
+        html += '</div>';
+
+        /* Stats strip */
+        html += '<div class="stats-grid">';
+        html +=   '<div class="stat-cell"><div class="stat-num">' + paidHours.toFixed(2) + '</div><div class="stat-label">Paid Hours</div></div>';
+        html +=   '<div class="stat-cell"><div class="stat-num">' + fmt(effectiveRate) + '</div><div class="stat-label">Effective Rate/hr</div></div>';
+        html +=   '<div class="stat-cell"><div class="stat-num">' + (otOn && otHours > 0 ? otHours.toFixed(2) : '—') + '</div><div class="stat-label">Overtime Hours</div></div>';
+        html += '</div>';
+
+        /* Breakdown */
+        html += '<div class="section-label">Detailed Breakdown</div>';
+        html += '<div class="breakdown-wrap">';
+
+        if (breakDeductHours > 0) {
+            html += breakdownRow('⏱ Total Hours Entered', hoursRaw.toFixed(2) + ' hrs', '');
+            html += breakdownRow('☕ Break Deduction', '− ' + breakDeductHours.toFixed(2) + ' hrs', 'deduct');
+        }
+
+        if (otOn && otHours > 0) {
+            var otRateDisplay = (rate * parseFloat(document.getElementById('otMultiplier').value)).toFixed(2);
+            html += breakdownRow('📋 Regular Pay (' + regularHours.toFixed(2) + ' hrs × ' + curSym + rate.toFixed(2) + ')', fmt(regularPay), '');
+            html += breakdownRow('🔥 Overtime Pay (' + otHours.toFixed(2) + ' hrs × ' + curSym + otRateDisplay + ')', fmt(otPay), '');
+        } else {
+            html += breakdownRow('📋 Regular Pay (' + paidHours.toFixed(2) + ' hrs × ' + curSym + rate.toFixed(2) + ')', fmt(regularPay), '');
+        }
+
+        html += breakdownRow('Gross Pay', fmt(grossPay), '', 'subtotal', 'strong');
+
+        if (taxOn) {
+            html += breakdownRow('🧾 Tax (' + taxRateVal + '%)', '− ' + fmt(taxAmount), 'deduct');
+            html += breakdownRow('Net Take-Home', fmt(netPay), 'highlight', '', 'white');
+        }
+
+        html += '</div>';
+
+        /* Projections */
+        if (showProj) {
+            html += '<div class="section-label" style="margin-top:16px;">If you work these hours every workday</div>';
+            html += '<div class="proj-grid">';
+            html +=   projCell('Weekly Gross',  weeklyGross,  weeklyNet,  taxOn);
+            html +=   projCell('Monthly Gross', monthlyGross, monthlyNet, taxOn);
+            html +=   projCell('Annual Gross',  annualGross,  annualNet,  taxOn);
+            html += '</div>';
+        }
+
+        /* Actions */
+        html += '<div class="action-row">';
+        html +=   '<button class="btn-action primary" id="copyBtn" onclick="copyResult()">Copy Result</button>';
+        html +=   '<button class="btn-action" onclick="resetAll()">✕ Reset</button>';
+        html += '</div>';
+
+        panel.innerHTML = html;
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    /* ═══════════════════════════════════════════════
+       TEMPLATE HELPERS
+    ═══════════════════════════════════════════════ */
+    function breakdownRow(key, val, valClass, rowClass, keyClass) {
+        var rc = rowClass ? ' ' + rowClass : '';
+        var kc = keyClass ? ' ' + keyClass : '';
+        var vc = valClass ? ' ' + valClass : '';
+        return '<div class="breakdown-row' + rc + '">'
+             + '<span class="br-key' + kc + '">' + escHtml(key) + '</span>'
+             + '<span class="br-val' + vc + '">' + escHtml(val) + '</span>'
+             + '</div>';
+    }
+
+    function projCell(label, gross, net, taxOn) {
+        var sub = taxOn ? (fmt(net) + ' net') : '—';
+        return '<div class="proj-cell">'
+             + '<div class="proj-num">' + fmt(gross) + '</div>'
+             + '<div class="proj-label">' + label + '</div>'
+             + '<div class="proj-sub">' + sub + '</div>'
+             + '</div>';
+    }
+
+    function escHtml(str) {
+        /* Escape any values we put into innerHTML to prevent XSS */
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESET
+    ═══════════════════════════════════════════════ */
+    function resetAll() {
+        /* Numeric inputs */
+        ['hours', 'rate', 'breakMins', 'taxRate'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.value = ''; el.classList.remove('error'); }
+        });
+        /* Restore defaults */
+        document.getElementById('breakCount').value   = '1';
+        document.getElementById('otThreshold').value  = '8';
+        document.getElementById('breakCount').classList.remove('error');
+        document.getElementById('otThreshold').classList.remove('error');
+
+        /* Toggles */
+        ['breakToggle', 'otToggle', 'taxToggle'].forEach(function(id) {
+            document.getElementById(id).checked = false;
+        });
+        document.getElementById('projToggle').checked = true;
+
+        /* Collapsible sections */
+        ['breakFields', 'otFields', 'taxFields'].forEach(function(id) {
+            document.getElementById(id).classList.remove('open');
+        });
+
+        /* Clear all error messages */
+        document.querySelectorAll('.field-error-msg').forEach(function(m) {
+            m.classList.remove('visible');
+        });
+
+        /* Hide results */
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('resultPanel').innerHTML = '';
+        document.getElementById('emptyHint').style.display = 'block';
+    }
+
+    /* ═══════════════════════════════════════════════
+       COPY RESULT
+    ═══════════════════════════════════════════════ */
+    function copyResult() {
+        var hours = document.getElementById('hours').value;
+        var rate  = document.getElementById('rate').value;
+
+        var lines = ['Pay Calculation — ' + hours + ' hrs @ ' + curSym + rate + '/hr', ''];
+
+        document.querySelectorAll('.breakdown-row').forEach(function(row) {
+            var key = row.querySelector('.br-key');
+            var val = row.querySelector('.br-val');
+            if (key && val) {
+                lines.push(key.innerText.trim() + ': ' + val.innerText.trim());
+            }
+        });
+
+        if (document.querySelector('.proj-grid')) {
+            lines.push('');
+            lines.push('— Projections (workdays basis) —');
+            document.querySelectorAll('.proj-cell').forEach(function(cell) {
+                var lbl = cell.querySelector('.proj-label');
+                var num = cell.querySelector('.proj-num');
+                var sub = cell.querySelector('.proj-sub');
+                if (lbl && num) {
+                    var line = lbl.innerText.trim() + ': ' + num.innerText.trim();
+                    if (sub && sub.innerText.trim() !== '—') line += ' (' + sub.innerText.trim() + ')';
+                    lines.push(line);
+                }
+            });
+        }
+
+        var text = lines.join('\n').trim();
+
+        /* Clipboard API with graceful fallback */
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function() {
+                flashCopyBtn();
+            }).catch(function() {
+                fallbackCopy(text);
+            });
+        } else {
+            fallbackCopy(text);
+        }
+    }
+
+    function flashCopyBtn() {
+        var btn = document.getElementById('copyBtn');
+        if (!btn) return;
+        btn.textContent = '✓ Copied!';
+        setTimeout(function() { btn.textContent = 'Copy Result'; }, 2000);
+    }
+
+    function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            flashCopyBtn();
+        } catch(e) {
+            /* silently fail — don't crash */
+        }
+        document.body.removeChild(ta);
+    }
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

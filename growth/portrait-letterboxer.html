@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portrait Letterboxer | Rebrixe</title>
+    <meta name="description" content="Add cinematic letterbox bars to your portrait videos with our Portrait Letterboxer. Perfect for content creators, filmmakers, and social media users looking to give their videos a professional, widescreen look. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* Rebrixe CORE RESET */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent: #ff007f; --border: #334155; --bg: #05070a; }
+
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 20px; }
+
+        /* LAYOUT */
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 28px;
+            margin-top: 20px;
+            align-items: start;
+        }
+
+        /* ===== PREVIEW STAGE ===== */
+        .preview-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .preview-stage {
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            position: relative;
+            overflow: hidden;
+            width: 280px;
+            height: calc(280px * 16 / 9);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .preview-stage:hover { border-color: var(--accent); }
+        .preview-stage.has-image { cursor: default; }
+
+        /* BG blur layer */
+        #bgBlur {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            display: none;
+            transform: scale(1.15);
+        }
+
+        /* Tint overlay */
+        #tintOverlay {
+            position: absolute; inset: 0;
+            background: #000;
+            opacity: 0.4;
+            z-index: 2;
+            display: none;
+        }
+
+        /* Main square image */
+        #mainAsset {
+            position: absolute;
+            left: 0; right: 0;
+            width: 100%;
+            z-index: 5;
+            display: none;
+            /* top is set by JS based on vPad */
+        }
+
+        /* Drop zone */
+        #dropZone {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 12px; z-index: 10;
+            border-radius: 18px;
+            transition: background 0.2s;
+        }
+        #dropZone.drag-over { background: rgba(255,0,127,0.12); }
+
+        .upload-icon {
+            width: 48px; height: 48px;
+            background: rgba(255,0,127,0.12);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            border: 1px dashed rgba(255,0,127,0.4);
+        }
+        .drop-label { font-size: 0.7rem; color: #475569; text-align: center; padding: 0 20px; line-height: 1.5; }
+        .btn-upload {
+            background: var(--accent); color: white; border: none;
+            padding: 9px 22px; border-radius: 10px; font-weight: 700;
+            font-size: 0.82rem; cursor: pointer; transition: opacity 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-upload:hover { opacity: 0.85; }
+
+        /* Aspect ratio badge */
+        .badge {
+            position: absolute; top: 10px; left: 10px; z-index: 20;
+            background: rgba(0,0,0,0.6); border: 1px solid var(--border);
+            color: #94a3b8; font-size: 0.6rem; font-weight: 600;
+            padding: 3px 8px; border-radius: 6px; display: none;
+            letter-spacing: 0.05em; text-transform: uppercase;
+        }
+
+        /* Re-upload button */
+        #reUploadBtn {
+            position: absolute; bottom: 10px; right: 10px; z-index: 20;
+            background: rgba(0,0,0,0.65); border: 1px solid var(--border);
+            color: #94a3b8; font-size: 0.65rem; font-weight: 600;
+            padding: 5px 10px; border-radius: 8px; cursor: pointer;
+            display: none; transition: border-color 0.2s, color 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        #reUploadBtn:hover { border-color: var(--accent); color: white; }
+
+        /* Warning bar */
+        #aspectWarn {
+            background: rgba(255,140,0,0.15);
+            border: 1px solid rgba(255,140,0,0.3);
+            color: #ffa040; font-size: 0.7rem;
+            padding: 8px 14px; border-radius: 8px; text-align: center;
+            display: none; width: 100%; max-width: 280px;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+        .control-card {
+            background: #0f172a; border: 1px solid var(--border);
+            padding: 18px; border-radius: 14px;
+        }
+        .control-card h3 {
+            font-family: 'Outfit'; font-size: 0.65rem; color: #64748b;
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px;
+        }
+
+        /* Sliders */
+        .slider-row { margin-bottom: 14px; }
+        .slider-row:last-child { margin-bottom: 0; }
+        .slider-label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.72rem; color: #94a3b8; margin-bottom: 6px;
+        }
+        .slider-val {
+            font-size: 0.68rem; color: var(--accent); font-weight: 700;
+            background: rgba(255,0,127,0.1); padding: 2px 7px; border-radius: 5px;
+            min-width: 36px; text-align: center;
+        }
+        input[type="range"] {
+            width: 100%; height: 4px; accent-color: var(--accent);
+            cursor: pointer; border-radius: 2px;
+        }
+
+        /* Position selector */
+        .pos-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px; margin-top: 4px;
+        }
+        .pos-btn {
+            background: #1e293b; border: 1px solid var(--border);
+            color: #64748b; font-size: 0.65rem; font-weight: 600;
+            padding: 7px 4px; border-radius: 8px; cursor: pointer;
+            text-align: center; transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+        .pos-btn:hover { border-color: #475569; color: #94a3b8; }
+        .pos-btn.active { background: rgba(255,0,127,0.15); border-color: var(--accent); color: white; }
+
+        /* Format selector */
+        .format-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 6px; margin-top: 4px;
+        }
+        .fmt-btn {
+            background: #1e293b; border: 1px solid var(--border);
+            color: #64748b; font-size: 0.68rem; font-weight: 600;
+            padding: 8px; border-radius: 8px; cursor: pointer;
+            text-align: center; transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+        .fmt-btn:hover { border-color: #475569; color: #94a3b8; }
+        .fmt-btn.active { background: rgba(255,0,127,0.15); border-color: var(--accent); color: white; }
+        .fmt-btn span { display: block; font-size: 0.55rem; color: #475569; margin-top: 2px; font-weight: 400; }
+        .fmt-btn.active span { color: rgba(255,0,127,0.6); }
+
+        /* Export section */
+        .btn-main {
+            background: var(--accent); color: white; border: none;
+            padding: 13px; border-radius: 12px; font-weight: 700;
+            width: 100%; cursor: pointer; transition: opacity 0.2s;
+            font-size: 0.88rem; font-family: 'Inter', sans-serif;
+        }
+        .btn-main:hover { opacity: 0.85; }
+        .btn-main:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Export progress */
+        #exportStatus {
+            font-size: 0.68rem; color: #475569;
+            text-align: center; margin-top: 8px; min-height: 18px;
+            transition: color 0.3s;
+        }
+        #exportStatus.success { color: #22c55e; }
+        #exportStatus.working { color: var(--accent); }
+
+        .res-note {
+            font-size: 0.62rem; color: #334155;
+            text-align: center; margin-top: 6px;
+        }
+
+        /* Dimensions preview */
+        .dim-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.68rem; color: #475569; margin-top: 10px;
+            padding-top: 10px; border-top: 1px solid #1e293b;
+        }
+        .dim-val { color: #64748b; font-weight: 600; }
+
+        /* Hidden canvas */
+        #canvasExport { display: none; }
+
+        /* ===== MOBILE ===== */
+        @media (max-width: 820px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+            .preview-wrap {
+                order: 1;
+            }
+            .sidebar {
+                order: 2;
+            }
+            .preview-stage {
+                width: min(260px, 70vw);
+                height: calc(min(260px, 70vw) * 16 / 9);
+            }
+            #aspectWarn { max-width: min(260px, 70vw); }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">← Back to tools</a>
+
+        <header style="text-align: center; margin-bottom: 24px;">
+            <h1 style="font-family: 'Outfit'; font-size: 2.2rem;">Portrait Letterboxer</h1>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 6px;">Convert square or landscape images to 9:16 viral portrait format — instantly.</p>
+        </header>
+
+        <div class="layout-grid">
+
+            <!-- LEFT: Preview -->
+            <div class="preview-wrap">
+                <div class="preview-stage" id="stage" onclick="handleStageClick()">
+
+                    <!-- Background blurred layer -->
+                    <img id="bgBlur" src="" alt="">
+
+                    <!-- Tint overlay -->
+                    <div id="tintOverlay"></div>
+
+                    <!-- Main image -->
+                    <img id="mainAsset" src="" alt="Uploaded image">
+
+                    <!-- Aspect ratio badge -->
+                    <div class="badge" id="ratioBadge">9:16</div>
+
+                    <!-- Re-upload -->
+                    <button id="reUploadBtn" onclick="triggerReUpload(event)" title="Upload a different image">↑ Replace</button>
+
+                    <!-- Drop zone -->
+                    <div id="dropZone">
+                        <div class="upload-icon">⬆</div>
+                        <button class="btn-upload" onclick="event.stopPropagation(); document.getElementById('fileIn').click()">Choose Image</button>
+                        <p class="drop-label">Or drag & drop here<br>Works with any image — square, landscape, portrait</p>
+                    </div>
+
+                </div>
+
+                <!-- Aspect ratio warning (outside stage, below) -->
+                <div id="aspectWarn">⚠ Image isn't square — letterboxing applied automatically</div>
+            </div>
+
+            <!-- RIGHT: Controls -->
+            <div class="sidebar">
+
+                <div class="control-card">
+                    <h3>Background Style</h3>
+
+                    <div class="slider-row">
+                        <div class="slider-label">
+                            <span>Background Blur</span>
+                            <span class="slider-val" id="blurVal">30px</span>
+                        </div>
+                        <input type="range" id="blurRange" min="0" max="80" value="30" oninput="updatePreview()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label">
+                            <span>Overlay Darkness</span>
+                            <span class="slider-val" id="tintVal">40%</span>
+                        </div>
+                        <input type="range" id="tintRange" min="0" max="90" value="40" oninput="updatePreview()">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-label">
+                            <span>Image Scale</span>
+                            <span class="slider-val" id="scaleVal">100%</span>
+                        </div>
+                        <input type="range" id="scaleRange" min="60" max="100" value="100" oninput="updatePreview()">
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <h3>Vertical Position</h3>
+                    <div class="pos-grid">
+                        <button class="pos-btn" data-pos="top" onclick="setPosition('top')">Top</button>
+                        <button class="pos-btn active" data-pos="center" onclick="setPosition('center')">Center</button>
+                        <button class="pos-btn" data-pos="bottom" onclick="setPosition('bottom')">Bottom</button>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <h3>Export Format</h3>
+                    <div class="format-grid">
+                        <button class="fmt-btn active" data-fmt="png" onclick="setFormat('png')">
+                            PNG
+                            <span>Lossless quality</span>
+                        </button>
+                        <button class="fmt-btn" data-fmt="jpg" onclick="setFormat('jpg')">
+                            JPG
+                            <span>Smaller file size</span>
+                        </button>
+                    </div>
+                    <div class="dim-row">
+                        <span>Output resolution</span>
+                        <span class="dim-val" id="resDim">1080 × 1920</span>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <h3>Export</h3>
+                    <button class="btn-main" id="dlBtn" onclick="exportPortrait()" disabled>Download 9:16 Image</button>
+                    <div id="exportStatus">Upload an image to begin</div>
+                    <p class="res-note">Processed at full HD — 1080 × 1920px</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvasExport"></canvas>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileIn" hidden accept="image/*" onchange="processAsset(this)">
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>Rebrixe</h3>
+                <p>The web's fastest utility engine. Built for performance and creators.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Platform</h4>
+                <ul>
+                    <li><a href="/contact.html">Contact Support</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Get in Touch</h4>
+                <p style="color: #94a3b8; font-size: 0.9rem;">
+                    <a href="mailto:growthdriven024@gmail.com" style="color:var(--primary); text-decoration:none; font-weight:700;">growthdriven024@gmail.com</a>
+                </p>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 60px; color: #334155; font-size: 0.75rem; border-top: 1px solid #0f172a; padding-top: 30px;">
+            © 2026 Rebrixe Engine. All processing is 100% Client-Side.
+        </div>
+    </footer>
+
+    <script>
+    // =========================================================
+    //  STATE
+    // =========================================================
+    let loadedImage = null;      // HTMLImageElement after load
+    let imgDataURL = null;       // base64 string
+    let vPosition = 'center';   // top | center | bottom
+    let exportFmt = 'png';      // png | jpg
+
+    // Canvas dimensions (HD)
+    const CANVAS_W = 1080;
+    const CANVAS_H = 1920;
+
+    // DOM refs
+    const stage      = document.getElementById('stage');
+    const bgBlur     = document.getElementById('bgBlur');
+    const tintOverlay= document.getElementById('tintOverlay');
+    const mainAsset  = document.getElementById('mainAsset');
+    const dropZone   = document.getElementById('dropZone');
+    const dlBtn      = document.getElementById('dlBtn');
+    const ratioBadge = document.getElementById('ratioBadge');
+    const reUploadBtn= document.getElementById('reUploadBtn');
+    const aspectWarn = document.getElementById('aspectWarn');
+    const exportStatus = document.getElementById('exportStatus');
+
+    // =========================================================
+    //  DRAG & DROP on stage
+    // =========================================================
+    stage.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    stage.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    stage.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) loadFile(file);
+    });
+
+    function handleStageClick() {
+        if (!loadedImage) document.getElementById('fileIn').click();
+    }
+
+    function triggerReUpload(e) {
+        e.stopPropagation();
+        document.getElementById('fileIn').click();
+    }
+
+    // =========================================================
+    //  FILE INPUT
+    // =========================================================
+    function processAsset(input) {
+        const file = input.files[0];
+        if (!file) return;
+        loadFile(file);
+        // reset so same file can be re-selected
+        input.value = '';
+    }
+
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imgDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                loadedImage = img;
+                applyToPreview();
+                checkAspectRatio(img);
+                enableControls();
+            };
+            img.src = imgDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // =========================================================
+    //  APPLY IMAGE TO PREVIEW
+    // =========================================================
+    function applyToPreview() {
+        bgBlur.src = imgDataURL;
+        mainAsset.src = imgDataURL;
+        bgBlur.style.display = 'block';
+        tintOverlay.style.display = 'block';
+        mainAsset.style.display = 'block';
+        ratioBadge.style.display = 'block';
+        reUploadBtn.style.display = 'block';
+        dropZone.style.display = 'none';
+        stage.classList.add('has-image');
+        updatePreview();
+    }
+
+    function enableControls() {
+        dlBtn.disabled = false;
+        exportStatus.textContent = 'Ready to export';
+        exportStatus.className = '';
+    }
+
+    // =========================================================
+    //  CHECK ASPECT RATIO — warn if not square
+    // =========================================================
+    function checkAspectRatio(img) {
+        const ratio = img.width / img.height;
+        const isSquare = ratio >= 0.9 && ratio <= 1.1;
+        aspectWarn.style.display = isSquare ? 'none' : 'block';
+    }
+
+    // =========================================================
+    //  LIVE PREVIEW UPDATE
+    // =========================================================
+    function updatePreview() {
+        const blur  = document.getElementById('blurRange').value;
+        const tint  = document.getElementById('tintRange').value / 100;
+        const scale = document.getElementById('scaleRange').value / 100;
+
+        // Update value labels
+        document.getElementById('blurVal').textContent  = blur + 'px';
+        document.getElementById('tintVal').textContent  = document.getElementById('tintRange').value + '%';
+        document.getElementById('scaleVal').textContent = document.getElementById('scaleRange').value + '%';
+
+        // Background blur
+        bgBlur.style.filter = `blur(${blur}px)`;
+
+        // Tint overlay
+        tintOverlay.style.opacity = tint;
+
+        // Main image: scale + position
+        const scaledWidth = 100 * scale;
+        mainAsset.style.width = scaledWidth + '%';
+        mainAsset.style.left  = ((100 - scaledWidth) / 2) + '%';
+
+        // The stage is 9:16 = 280 x 498px (approx)
+        // Image when scale=100% takes full width = square.
+        // Letterbox bars = (stageH - imageH) / 2
+        const stageEl = document.getElementById('stage');
+        const stageH  = stageEl.offsetHeight;
+        const stageW  = stageEl.offsetWidth;
+        const imgRenderedH = stageW * scale; // square image: height = scaled width
+
+        let topOffset;
+        if (vPosition === 'top') {
+            topOffset = 0;
+        } else if (vPosition === 'bottom') {
+            topOffset = stageH - imgRenderedH;
+        } else {
+            topOffset = (stageH - imgRenderedH) / 2;
+        }
+        mainAsset.style.top = Math.max(0, topOffset) + 'px';
+        mainAsset.style.transform = 'none';
+    }
+
+    // =========================================================
+    //  POSITION SELECTOR
+    // =========================================================
+    function setPosition(pos) {
+        vPosition = pos;
+        document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-pos="${pos}"]`).classList.add('active');
+        updatePreview();
+    }
+
+    // =========================================================
+    //  FORMAT SELECTOR
+    // =========================================================
+    function setFormat(fmt) {
+        exportFmt = fmt;
+        document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-fmt="${fmt}"]`).classList.add('active');
+        // Update resolution display
+        document.getElementById('resDim').textContent = '1080 × 1920';
+    }
+
+    // =========================================================
+    //  EXPORT — pixel-perfect canvas render matching preview
+    // =========================================================
+    function exportPortrait() {
+        if (!loadedImage) return;
+
+        dlBtn.disabled = true;
+        exportStatus.textContent = 'Rendering…';
+        exportStatus.className = 'working';
+
+        // Small delay to allow UI update before heavy canvas work
+        setTimeout(() => {
+            try {
+                const canvas = document.getElementById('canvasExport');
+                const ctx = canvas.getContext('2d');
+                canvas.width  = CANVAS_W;
+                canvas.height = CANVAS_H;
+
+                const blurPx  = parseInt(document.getElementById('blurRange').value);
+                const tintPct = parseInt(document.getElementById('tintRange').value) / 100;
+                const scalePct= parseInt(document.getElementById('scaleRange').value) / 100;
+
+                // ---- 1. Draw background (cover fill + blur) ----
+                ctx.save();
+                ctx.filter = `blur(${blurPx * 4}px)`; // scale blur to HD canvas
+
+                // Cover-fill: find dimensions to cover 1080x1920 from source image
+                const srcW = loadedImage.width;
+                const srcH = loadedImage.height;
+                const coverScale = Math.max(CANVAS_W / srcW, CANVAS_H / srcH);
+                const bgW = srcW * coverScale;
+                const bgH = srcH * coverScale;
+                const bgX = (CANVAS_W - bgW) / 2;
+                const bgY = (CANVAS_H - bgH) / 2;
+
+                ctx.drawImage(loadedImage, bgX, bgY, bgW, bgH);
+                ctx.restore();
+
+                // ---- 2. Tint overlay ----
+                ctx.save();
+                ctx.globalAlpha = tintPct;
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+                ctx.restore();
+
+                // ---- 3. Draw main image (square-ish, scaled, positioned) ----
+                ctx.save();
+
+                // At scale=100%, image fills full canvas width (1080px)
+                // height = srcH/srcW * scaledWidth (maintain aspect ratio)
+                const imgW = CANVAS_W * scalePct;
+                const imgH = (srcH / srcW) * imgW;
+                const imgX = (CANVAS_W - imgW) / 2;
+
+                let imgY;
+                if (vPosition === 'top') {
+                    imgY = 0;
+                } else if (vPosition === 'bottom') {
+                    imgY = CANVAS_H - imgH;
+                } else {
+                    imgY = (CANVAS_H - imgH) / 2;
+                }
+
+                ctx.drawImage(loadedImage, imgX, imgY, imgW, imgH);
+                ctx.restore();
+
+                // ---- 4. Export ----
+                const mime     = exportFmt === 'jpg' ? 'image/jpeg' : 'image/png';
+                const quality  = exportFmt === 'jpg' ? 0.92 : undefined;
+                const dataURL  = quality !== undefined
+                    ? canvas.toDataURL(mime, quality)
+                    : canvas.toDataURL(mime);
+
+                const link = document.createElement('a');
+                link.download = `Rebrixe_portrait_${Date.now()}.${exportFmt}`;
+                link.href = dataURL;
+                link.click();
+
+                exportStatus.textContent = '✓ Downloaded successfully!';
+                exportStatus.className = 'success';
+                setTimeout(() => {
+                    exportStatus.textContent = 'Ready to export';
+                    exportStatus.className = '';
+                }, 3000);
+
+            } catch (err) {
+                exportStatus.textContent = '✗ Export failed — try again';
+                exportStatus.className = '';
+                console.error(err);
+            }
+
+            dlBtn.disabled = false;
+        }, 50);
+    }
+
+    // =========================================================
+    //  INIT — run updatePreview when images fully loaded
+    // =========================================================
+    window.addEventListener('resize', () => {
+        if (loadedImage) updatePreview();
+    });
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

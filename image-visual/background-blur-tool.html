@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Background Blur Tool — Paint to Keep Sharp | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Blur image backgrounds manually. Paint over your subject to keep it sharp — blur the rest. No AI, no upload, full control. Free browser-only tool.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 18px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Mode banner */
+        .mode-banner {
+            display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+            background: var(--primary-dim); border: 1px solid var(--primary-border);
+            border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.78rem; font-weight: 700; color: var(--primary);
+        }
+        .mode-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.3); } }
+
+        /* Canvas workspace */
+        .canvas-wrap {
+            position: relative; border-radius: var(--radius-lg); overflow: hidden;
+            border: 1px solid var(--border-mid); margin-bottom: 16px;
+            background: repeating-conic-gradient(#1e1c14 0% 25%, #141210 0% 50%) 0 0 / 16px 16px;
+            line-height: 0;
+        }
+        #workCanvas {
+            display: block; width: 100%; height: auto; max-height: 500px;
+            object-fit: contain; cursor: crosshair; touch-action: none;
+        }
+        .canvas-wrap.erase-mode #workCanvas { cursor: cell; }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 16px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 12px; display: block; }
+
+        /* Toolbar */
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .tool-btn {
+            display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+            border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface);
+            color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700;
+            cursor: pointer; transition: all 0.18s; white-space: nowrap;
+        }
+        .tool-btn:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .tool-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tool-btn.danger { border-color: rgba(255,68,68,0.2); color: rgba(255,68,68,0.7); }
+        .tool-btn.danger:hover { border-color: rgba(255,68,68,0.5); color: var(--error); background: rgba(255,68,68,0.06); }
+        .tool-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+
+        /* Slider rows */
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .slider-group { display: flex; flex-direction: column; gap: 8px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .slider-hint { font-size: 0.62rem; color: var(--text-dim); }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+
+        /* Output row */
+        .output-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); align-items: center; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Blur intensity presets */
+        .preset-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .preset-chip { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .preset-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .preset-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Actions */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; white-space: nowrap; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result preview */
+        .result-panel { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+        .result-panel.visible { display: block; }
+        .result-canvas-wrap { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); margin-bottom: 14px; line-height: 0; background: repeating-conic-gradient(#1e1c14 0% 25%, #141210 0% 50%) 0 0 / 16px 16px; }
+        #resultCanvas { display: block; width: 100%; height: auto; max-height: 460px; object-fit: contain; }
+
+        /* Stats */
+        .stats-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Mask coverage bar */
+        .coverage-bar { margin-top: 10px; }
+        .coverage-label { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-dim); font-weight: 700; margin-bottom: 5px; }
+        .coverage-track { height: 5px; background: var(--surface); border-radius: 99px; overflow: hidden; }
+        .coverage-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--success), var(--primary)); transition: width 0.3s; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .sliders-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .toolbar { gap: 6px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="background-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Background Blur</h1>
+                <p class="tool-page-sub">Paint over your subject to protect it — the rest gets blurred. You control exactly what stays sharp.</p>
+                <span class="privacy-badge">Runs in your browser — image never uploaded</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🖌️</span>
+                <p class="drop-title">Drop your photo here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Mode banner -->
+                <div class="mode-banner" id="modeBanner">
+                    <div class="mode-dot"></div>
+                    <span id="modeText">🖌️ Paint mode — draw over what you want to keep sharp</span>
+                </div>
+
+                <!-- Canvas workspace -->
+                <div class="canvas-wrap" id="canvasWrap">
+                    <canvas id="workCanvas"></canvas>
+                </div>
+
+                <!-- Coverage indicator -->
+                <div class="coverage-bar" id="coverageBar" style="display:none;">
+                    <div class="coverage-label"><span>Subject painted</span><span id="coveragePct">0%</span></div>
+                    <div class="coverage-track"><div class="coverage-fill" id="coverageFill" style="width:0%"></div></div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card" style="margin-top:16px;">
+                    <span class="section-label">Tools</span>
+                    <div class="toolbar">
+                        <button class="tool-btn active" id="btnPaint" onclick="setMode('paint')">🖌️ Paint</button>
+                        <button class="tool-btn" id="btnErase" onclick="setMode('erase')">⬜ Erase</button>
+                        <div class="tool-sep"></div>
+                        <button class="tool-btn" onclick="undoLast()">↩ Undo</button>
+                        <button class="tool-btn danger" onclick="clearMask()">🗑 Clear Mask</button>
+                        <div class="tool-sep"></div>
+                        <button class="tool-btn" id="btnPreview" onclick="toggleMaskPreview()">👁 Show Mask</button>
+                    </div>
+
+                    <span class="section-label">Blur Settings</span>
+                    <div class="preset-row">
+                        <button class="preset-chip" data-b="3" onclick="applyBlurPreset(this)">Subtle</button>
+                        <button class="preset-chip active" data-b="8" onclick="applyBlurPreset(this)">Portrait</button>
+                        <button class="preset-chip" data-b="16" onclick="applyBlurPreset(this)">Cinematic</button>
+                        <button class="preset-chip" data-b="28" onclick="applyBlurPreset(this)">Heavy</button>
+                        <button class="preset-chip" data-b="45" onclick="applyBlurPreset(this)">Max</button>
+                    </div>
+
+                    <div class="sliders-grid">
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Blur Strength</div>
+                                    <div class="slider-hint">How blurry the background gets</div>
+                                </div>
+                                <span class="slider-val" id="valBlur">8</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderBlur" min="1" max="60" value="8" oninput="document.getElementById('valBlur').textContent=this.value; clearActivePreset();">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Brush Size</div>
+                                    <div class="slider-hint">Painting brush radius (px)</div>
+                                </div>
+                                <span class="slider-val" id="valBrush">30</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderBrush" min="5" max="120" value="30" oninput="updateBrush()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Edge Feather</div>
+                                    <div class="slider-hint">Softens mask boundary</div>
+                                </div>
+                                <span class="slider-val" id="valFeather">8</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderFeather" min="0" max="40" value="8" oninput="document.getElementById('valFeather').textContent=this.value;">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Output Quality</div>
+                                    <div class="slider-hint">JPG/WebP compression</div>
+                                </div>
+                                <span class="slider-val" id="valQ">92%</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderQ" min="10" max="100" value="92" oninput="document.getElementById('valQ').textContent=this.value+'%'">
+                        </div>
+                    </div>
+
+                    <div class="output-row">
+                        <span class="section-label" style="margin-bottom:0;margin-right:4px;">Format</span>
+                        <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                        <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span id="processingMsg">Blurring background…</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doBlur()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">✨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Apply Background Blur</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Result panel -->
+                <div class="result-panel" id="resultPanel">
+                    <span class="section-label">Result</span>
+                    <div class="result-canvas-wrap">
+                        <canvas id="resultCanvas"></canvas>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>You draw the mask, not AI</h3>
+                        <p>Use the <code>Paint</code> brush to mark exactly what stays sharp. AI background removers often miss hair, glasses, or complex edges — you get pixel-level control here.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Edge Feather for natural look</h3>
+                        <p>A hard mask edge looks fake. The <code>Edge Feather</code> slider blurs the boundary between your painted area and the blurred background, mimicking real lens bokeh.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Undo works per stroke</h3>
+                        <p>Every brush stroke is tracked. Hit <code>↩ Undo</code> to remove the last stroke — you won't lose your whole mask by accident.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs via the <code>Canvas API</code> directly in your browser. Your photo never touches a server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let origFile = null, origImg = null;
+let resultDataURL = null, resultFilename = '';
+let outputFmt = 'jpeg';
+let paintMode = 'paint'; // 'paint' | 'erase'
+let isDrawing = false;
+let brushRadius = 30;
+let showMaskPreview = false;
+
+// Undo stack — array of ImageData snapshots of the mask
+let undoStack = [];
+const MAX_UNDO = 20;
+
+// Canvases
+let workCanvas, workCtx;       // display canvas (image + overlay)
+let maskCanvas, maskCtx;       // full-res mask (white = keep, black = blur)
+let imgW = 0, imgH = 0;        // original image dimensions
+let displayScale = 1;          // ratio of display canvas to original
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    workCanvas = document.getElementById('workCanvas');
+    workCtx = workCanvas.getContext('2d');
+    setupCanvasEvents();
+});
+
+// ─── DROP ZONE ────────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) loadFile(f);
+    else showToast('Please drop an image file', 'error');
+});
+dz.addEventListener('click', () => fi.click());
+fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+function loadFile(file) {
+    origFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+            origImg = img;
+            imgW = img.naturalWidth;
+            imgH = img.naturalHeight;
+
+            document.getElementById('imgThumb').src = e.target.result;
+            document.getElementById('imgName').textContent = file.name;
+            document.getElementById('imgDims').textContent = `${imgW} × ${imgH} px  ·  ${fmtBytes(file.size)}`;
+
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+            document.getElementById('resultPanel').classList.remove('visible');
+            document.getElementById('btnDownload').style.display = 'none';
+            resultDataURL = null;
+
+            initCanvases();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetTool() {
+    dz.style.display = '';
+    document.getElementById('toolPanel').classList.remove('visible');
+    fi.value = ''; origFile = null; origImg = null;
+    resultDataURL = null; undoStack = [];
+}
+
+// ─── CANVAS SETUP ─────────────────────────────────────────────────────────────
+function initCanvases() {
+    const wrap = document.getElementById('canvasWrap');
+    const maxW = wrap.clientWidth || 820;
+    const maxH = 500;
+
+    // Calculate display size keeping aspect ratio
+    let dW = imgW, dH = imgH;
+    if (dW > maxW) { dH = Math.round(dH * maxW / dW); dW = maxW; }
+    if (dH > maxH) { dW = Math.round(dW * maxH / dH); dH = maxH; }
+
+    displayScale = dW / imgW;
+
+    workCanvas.width = dW;
+    workCanvas.height = dH;
+
+    // Full-res mask canvas (hidden)
+    if (!maskCanvas) { maskCanvas = document.createElement('canvas'); maskCtx = maskCanvas.getContext('2d'); }
+    maskCanvas.width = imgW;
+    maskCanvas.height = imgH;
+    maskCtx.fillStyle = '#000';
+    maskCtx.fillRect(0, 0, imgW, imgH);
+
+    undoStack = [];
+    document.getElementById('coverageBar').style.display = 'block';
+    renderWork();
+}
+
+function renderWork() {
+    const dW = workCanvas.width, dH = workCanvas.height;
+    workCtx.clearRect(0, 0, dW, dH);
+    workCtx.drawImage(origImg, 0, 0, dW, dH);
+
+    if (showMaskPreview) {
+        // Show mask as green overlay
+        workCtx.save();
+        // Draw scaled mask
+        workCtx.globalAlpha = 0.5;
+        workCtx.globalCompositeOperation = 'source-over';
+        // Tint: green where mask is white
+        const tmp = document.createElement('canvas');
+        tmp.width = dW; tmp.height = dH;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(maskCanvas, 0, 0, dW, dH);
+        // Colorize: multiply with green
+        tctx.globalCompositeOperation = 'source-in';
+        tctx.fillStyle = 'rgba(170,255,0,1)';
+        tctx.fillRect(0, 0, dW, dH);
+        workCtx.drawImage(tmp, 0, 0);
+        workCtx.restore();
+    } else {
+        // Semi-transparent green overlay only where mask is painted
+        workCtx.save();
+        workCtx.globalAlpha = 0.28;
+        workCtx.globalCompositeOperation = 'source-over';
+        const tmp = document.createElement('canvas');
+        tmp.width = dW; tmp.height = dH;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(maskCanvas, 0, 0, dW, dH);
+        tctx.globalCompositeOperation = 'source-in';
+        tctx.fillStyle = 'rgba(170,255,0,1)';
+        tctx.fillRect(0, 0, dW, dH);
+        workCtx.drawImage(tmp, 0, 0);
+        workCtx.restore();
+    }
+
+    updateCoverage();
+}
+
+function updateCoverage() {
+    // Sample mask to estimate % painted — sample every 8px for speed
+    const data = maskCtx.getImageData(0, 0, imgW, imgH).data;
+    let painted = 0, total = 0;
+    for (let i = 0; i < data.length; i += 4 * 8) {
+        total++;
+        if (data[i] > 128) painted++;
+    }
+    const pct = total > 0 ? Math.round(painted / total * 100) : 0;
+    document.getElementById('coveragePct').textContent = pct + '%';
+    document.getElementById('coverageFill').style.width = pct + '%';
+}
+
+// ─── BRUSH PAINTING ───────────────────────────────────────────────────────────
+function setupCanvasEvents() {
+    workCanvas.addEventListener('mousedown', onPointerDown);
+    workCanvas.addEventListener('mousemove', onPointerMove);
+    workCanvas.addEventListener('mouseup', onPointerUp);
+    workCanvas.addEventListener('mouseleave', onPointerUp);
+    workCanvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e.touches[0]); }, { passive: false });
+    workCanvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e.touches[0]); }, { passive: false });
+    workCanvas.addEventListener('touchend', onPointerUp);
+}
+
+function getCanvasPos(e) {
+    const rect = workCanvas.getBoundingClientRect();
+    const scaleX = workCanvas.width / rect.width;
+    const scaleY = workCanvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function onPointerDown(e) {
+    isDrawing = true;
+    // Save undo snapshot before stroke
+    pushUndo();
+    const pos = getCanvasPos(e);
+    paint(pos.x, pos.y);
+}
+
+function onPointerMove(e) {
+    if (!isDrawing) return;
+    const pos = getCanvasPos(e);
+    paint(pos.x, pos.y);
+}
+
+function onPointerUp() {
+    if (isDrawing) { isDrawing = false; renderWork(); }
+}
+
+function paint(dx, dy) {
+    // Convert display coords to mask coords
+    const mx = Math.round(dx / displayScale);
+    const my = Math.round(dy / displayScale);
+    const mr = Math.round(brushRadius / displayScale);
+
+    maskCtx.beginPath();
+    maskCtx.arc(mx, my, mr, 0, Math.PI * 2);
+    maskCtx.fillStyle = paintMode === 'paint' ? '#fff' : '#000';
+    maskCtx.fill();
+
+    // Also draw on work canvas for instant feedback (display scale)
+    workCtx.beginPath();
+    workCtx.arc(dx, dy, brushRadius, 0, Math.PI * 2);
+    if (paintMode === 'paint') {
+        workCtx.fillStyle = 'rgba(170,255,0,0.28)';
+    } else {
+        workCtx.fillStyle = 'rgba(0,0,0,0)'; // will re-render
+    }
+    workCtx.fill();
+
+    if (paintMode === 'erase') {
+        // On erase, re-render cleanly (slightly slower but accurate)
+        renderWork();
+    }
+
+    updateCoverage();
+}
+
+// ─── UNDO ─────────────────────────────────────────────────────────────────────
+function pushUndo() {
+    if (undoStack.length >= MAX_UNDO) undoStack.shift();
+    undoStack.push(maskCtx.getImageData(0, 0, imgW, imgH));
+}
+
+function undoLast() {
+    if (undoStack.length === 0) { showToast('Nothing to undo', 'error'); return; }
+    const snapshot = undoStack.pop();
+    maskCtx.putImageData(snapshot, 0, 0);
+    renderWork();
+    showToast('Undone ✓');
+}
+
+function clearMask() {
+    pushUndo();
+    maskCtx.fillStyle = '#000';
+    maskCtx.fillRect(0, 0, imgW, imgH);
+    renderWork();
+    showToast('Mask cleared');
+}
+
+// ─── CONTROLS ─────────────────────────────────────────────────────────────────
+function setMode(m) {
+    paintMode = m;
+    document.getElementById('btnPaint').classList.toggle('active', m === 'paint');
+    document.getElementById('btnErase').classList.toggle('active', m === 'erase');
+    document.getElementById('canvasWrap').classList.toggle('erase-mode', m === 'erase');
+    document.getElementById('modeText').textContent = m === 'paint'
+        ? '🖌️ Paint mode — draw over what you want to keep sharp'
+        : '⬜ Erase mode — remove painted areas';
+}
+
+function updateBrush() {
+    brushRadius = parseInt(document.getElementById('sliderBrush').value);
+    document.getElementById('valBrush').textContent = brushRadius;
+}
+
+function toggleMaskPreview() {
+    showMaskPreview = !showMaskPreview;
+    document.getElementById('btnPreview').classList.toggle('active', showMaskPreview);
+    document.getElementById('btnPreview').textContent = showMaskPreview ? '👁 Hide Mask' : '👁 Show Mask';
+    renderWork();
+}
+
+function applyBlurPreset(btn) {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sliderBlur').value = btn.dataset.b;
+    document.getElementById('valBlur').textContent = btn.dataset.b;
+}
+
+function clearActivePreset() {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+}
+
+function setFmt(btn) {
+    document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    outputFmt = btn.dataset.fmt;
+}
+
+// ─── GAUSSIAN BOX BLUR ───────────────────────────────────────────────────────
+function gaussBlur(src, w, h, r) {
+    const dst = new Uint8ClampedArray(src.length);
+    const tmp = new Uint8ClampedArray(src.length);
+    const radius = Math.max(1, Math.round(r));
+
+    function boxH(inp, out, ww, hh, rad) {
+        const k = 1 / (rad + rad + 1);
+        for (let y = 0; y < hh; y++) {
+            const row = y * ww;
+            let li = row, ri = row + rad, ti = row;
+            const fR = inp[row*4], fG = inp[row*4+1], fB = inp[row*4+2];
+            const lR = inp[(row+ww-1)*4], lG = inp[(row+ww-1)*4+1], lB = inp[(row+ww-1)*4+2];
+            let vR = (rad+1)*fR, vG = (rad+1)*fG, vB = (rad+1)*fB;
+            for (let j = 0; j < rad; j++) { vR += inp[(row+j)*4]; vG += inp[(row+j)*4+1]; vB += inp[(row+j)*4+2]; }
+            for (let j = 0; j <= rad; j++, ri++, ti++) {
+                vR += inp[ri*4]-fR; vG += inp[ri*4+1]-fG; vB += inp[ri*4+2]-fB;
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+            for (let j = rad+1; j < ww-rad; j++, ri++, ti++, li++) {
+                vR += inp[ri*4]-inp[li*4]; vG += inp[ri*4+1]-inp[li*4+1]; vB += inp[ri*4+2]-inp[li*4+2];
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+            for (let j = ww-rad; j < ww; j++, ti++, li++) {
+                vR += lR-inp[li*4]; vG += lG-inp[li*4+1]; vB += lB-inp[li*4+2];
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+        }
+    }
+
+    function boxV(inp, out, ww, hh, rad) {
+        const k = 1 / (rad + rad + 1);
+        for (let x = 0; x < ww; x++) {
+            let li = x, ri = x + rad*ww, ti = x;
+            const fR = inp[x*4], fG = inp[x*4+1], fB = inp[x*4+2];
+            const lR = inp[(x+(hh-1)*ww)*4], lG = inp[(x+(hh-1)*ww)*4+1], lB = inp[(x+(hh-1)*ww)*4+2];
+            let vR = (rad+1)*fR, vG = (rad+1)*fG, vB = (rad+1)*fB;
+            for (let j = 0; j < rad; j++) { vR += inp[(x+j*ww)*4]; vG += inp[(x+j*ww)*4+1]; vB += inp[(x+j*ww)*4+2]; }
+            for (let j = 0; j <= rad; j++, ri+=ww, ti+=ww) {
+                vR += inp[ri*4]-fR; vG += inp[ri*4+1]-fG; vB += inp[ri*4+2]-fB;
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+            for (let j = rad+1; j < hh-rad; j++, ri+=ww, ti+=ww, li+=ww) {
+                vR += inp[ri*4]-inp[li*4]; vG += inp[ri*4+1]-inp[li*4+1]; vB += inp[ri*4+2]-inp[li*4+2];
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+            for (let j = hh-rad; j < hh; j++, ti+=ww, li+=ww) {
+                vR += lR-inp[li*4]; vG += lG-inp[li*4+1]; vB += lB-inp[li*4+2];
+                out[ti*4]=vR*k|0; out[ti*4+1]=vG*k|0; out[ti*4+2]=vB*k|0; out[ti*4+3]=inp[ti*4+3];
+            }
+        }
+    }
+
+    // 3 passes per direction ≈ Gaussian
+    boxH(src,tmp,w,h,radius); boxV(tmp,dst,w,h,radius);
+    boxH(dst,tmp,w,h,radius); boxV(tmp,dst,w,h,radius);
+    boxH(dst,tmp,w,h,radius); boxV(tmp,dst,w,h,radius);
+    return dst;
+}
+
+// ─── FEATHER MASK ─────────────────────────────────────────────────────────────
+function featherMask(maskData, w, h, featherRadius) {
+    if (featherRadius < 1) return maskData;
+    // Extract single channel from mask RGBA
+    const single = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < maskData.length; i += 4) {
+        single[i] = single[i+1] = single[i+2] = maskData[i];
+        single[i+3] = 255;
+    }
+    const blurred = gaussBlur(single, w, h, featherRadius);
+    // Write back
+    const result = new Uint8ClampedArray(maskData.length);
+    for (let i = 0; i < result.length; i += 4) {
+        result[i] = result[i+1] = result[i+2] = blurred[i];
+        result[i+3] = 255;
+    }
+    return result;
+}
+
+// ─── MAIN BLUR ────────────────────────────────────────────────────────────────
+function doBlur() {
+    if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+    // Check if mask has been painted
+    const maskCheck = maskCtx.getImageData(0, 0, imgW, imgH).data;
+    let hasMask = false;
+    for (let i = 0; i < maskCheck.length; i += 4) {
+        if (maskCheck[i] > 10) { hasMask = true; break; }
+    }
+    if (!hasMask) { showToast('Paint your subject first!', 'error'); return; }
+
+    const blurStrength = parseInt(document.getElementById('sliderBlur').value);
+    const featherR = parseInt(document.getElementById('sliderFeather').value);
+    const quality = parseInt(document.getElementById('sliderQ').value) / 100;
+    const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+
+    document.getElementById('processing').classList.add('visible');
+    document.getElementById('processingMsg').textContent = 'Blurring background…';
+
+    setTimeout(() => {
+        // 1. Draw original at full res
+        const origC = document.createElement('canvas');
+        origC.width = imgW; origC.height = imgH;
+        const origCtx = origC.getContext('2d');
+        origCtx.drawImage(origImg, 0, 0);
+        const origData = origCtx.getImageData(0, 0, imgW, imgH);
+
+        // 2. Create blurred version
+        document.getElementById('processingMsg').textContent = 'Applying Gaussian blur…';
+        const blurredPixels = gaussBlur(origData.data, imgW, imgH, blurStrength);
+
+        // 3. Get mask data (feathered)
+        let rawMask = maskCtx.getImageData(0, 0, imgW, imgH).data;
+        const maskData = featherMask(rawMask, imgW, imgH, featherR);
+
+        // 4. Composite: where mask=white → original, where mask=black → blurred
+        document.getElementById('processingMsg').textContent = 'Compositing…';
+        const result = new Uint8ClampedArray(origData.data.length);
+        for (let i = 0; i < result.length; i += 4) {
+            const alpha = maskData[i] / 255; // 0=blurred, 1=sharp
+            result[i]   = Math.round(origData.data[i]   * alpha + blurredPixels[i]   * (1 - alpha));
+            result[i+1] = Math.round(origData.data[i+1] * alpha + blurredPixels[i+1] * (1 - alpha));
+            result[i+2] = Math.round(origData.data[i+2] * alpha + blurredPixels[i+2] * (1 - alpha));
+            result[i+3] = origData.data[i+3];
+        }
+
+        // 5. Put result on output canvas
+        const outC = document.createElement('canvas');
+        outC.width = imgW; outC.height = imgH;
+        const outCtx = outC.getContext('2d');
+        outCtx.putImageData(new ImageData(result, imgW, imgH), 0, 0);
+
+        const q = outputFmt === 'png' ? undefined : quality;
+        resultDataURL = outC.toDataURL(mime, q);
+
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_bg-blur.${ext}`;
+
+        // Render result preview
+        const rc = document.getElementById('resultCanvas');
+        const wrap = document.getElementById('resultPanel');
+        const maxW2 = wrap.clientWidth - 40 || 780;
+        let rW = imgW, rH = imgH;
+        if (rW > maxW2) { rH = Math.round(rH * maxW2 / rW); rW = maxW2; }
+        if (rH > 460) { rW = Math.round(rW * 460 / rH); rH = 460; }
+        rc.width = rW; rc.height = rH;
+        rc.getContext('2d').drawImage(outC, 0, 0, rW, rH);
+
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-pill"><div class="stat-label">Dimensions</div><div class="stat-val green">${imgW} × ${imgH}</div></div>
+            <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(resultBytes)}</div></div>
+            <div class="stat-pill"><div class="stat-label">Blur</div><div class="stat-val">${blurStrength}px</div></div>
+            <div class="stat-pill"><div class="stat-label">Format</div><div class="stat-val">${outputFmt.toUpperCase()}</div></div>
+        `;
+
+        document.getElementById('processing').classList.remove('visible');
+        document.getElementById('btnDownload').style.display = 'block';
+        document.getElementById('resultPanel').classList.add('visible');
+        document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Background blurred! ✓', 'success');
+    }, 30);
+}
+
+// ─── DOWNLOAD ─────────────────────────────────────────────────────────────────
+function doDownload() {
+    if (!resultDataURL) return;
+    const a = document.createElement('a'); a.href = resultDataURL; a.download = resultFilename; a.click();
+    showToast('Downloaded!', 'success');
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+
+// Resize handler
+window.addEventListener('resize', () => { if (origImg) initCanvases(); });
+</script>
+    <script src="../nav.js"></script>
+</body>
+</html>

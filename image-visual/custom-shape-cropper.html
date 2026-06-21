@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Custom Shape Cropper — Crop Image to Circle, Star, Hexagon & More | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Crop any image into a circle, triangle, hexagon, star, diamond, heart and more. Exports as PNG with transparent background. Free, browser-only, instant.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Shape picker */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        .shapes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+        .shape-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 8px; padding: 14px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s;
+        }
+        .shape-card:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .shape-card.selected { border-color: var(--primary); background: var(--primary-dim); }
+        .shape-preview { width: 44px; height: 44px; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+        .shape-card:hover .shape-preview, .shape-card.selected .shape-preview { transform: scale(1.12); }
+        .shape-name { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); text-align: center; transition: color 0.18s; }
+        .shape-card:hover .shape-name, .shape-card.selected .shape-name { color: var(--primary); }
+
+        /* Options */
+        .options-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Size slider */
+        .size-slider-wrap { display: flex; align-items: center; gap: 10px; }
+        .size-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .size-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .size-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 42px; text-align: right; }
+
+        /* Padding input */
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.95rem; font-weight: 500; padding: 8px 12px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 80px; }
+        .px-input:focus { border-color: var(--primary); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Preview */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-top: 18px; display: none; }
+        .preview-panel.visible { display: block; }
+        .preview-inner { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+        .preview-box {
+            flex-shrink: 0;
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); border: 1px solid var(--border-mid);
+            display: flex; align-items: center; justify-content: center;
+            width: 200px; height: 200px; overflow: hidden;
+        }
+        .preview-box img { max-width: 190px; max-height: 190px; object-fit: contain; display: block; }
+        .preview-meta { flex: 1; min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ps-val.green { color: var(--success); }
+
+        /* Batch hint */
+        .batch-info { font-size: 0.75rem; color: var(--text-dim); margin-top: 10px; line-height: 1.5; display: flex; align-items: center; gap: 6px; }
+        .batch-info::before { content: '💡'; font-size: 0.85rem; flex-shrink: 0; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .options-row { grid-template-columns: 1fr; }
+            .shapes-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+            .action-row { flex-direction: column; }
+            .preview-inner { flex-direction: column; align-items: center; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Custom Shape Cropper</h1>
+                <p class="tool-page-sub">Circle, star, hexagon, heart & more — exports PNG with transparent background instantly.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">✂️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Shape picker -->
+                <div class="section-card">
+                    <div class="section-label">Choose a Shape</div>
+                    <div class="shapes-grid" id="shapesGrid"></div>
+                </div>
+
+                <!-- Options -->
+                <div class="section-card">
+                    <div class="options-row">
+                        <div class="opt-group">
+                            <label>Output Size</label>
+                            <div class="size-slider-wrap">
+                                <input type="range" class="size-slider" id="sizeSlider" min="100" max="2000" value="800" oninput="updateSizeLabel(this.value)">
+                                <span class="size-val" id="sizeVal">800px</span>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Padding (px)</label>
+                            <input class="px-input" type="number" id="paddingInput" value="0" min="0" max="200" placeholder="0">
+                        </div>
+                        <div class="opt-group" style="grid-column:1/-1;">
+                            <label>Fit Mode</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fit="cover" onclick="setFit(this)">Smart Crop</button>
+                                <button class="tog-btn" data-fit="contain" onclick="setFit(this)">Fit Inside</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doCrop()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✂️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Crop to Shape</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download PNG</button>
+                </div>
+                <div class="batch-info">Switch shapes and crop again to export multiple versions — no re-upload needed.</div>
+
+                <!-- Preview -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="section-label" style="margin-bottom:16px;">Result Preview</div>
+                    <div class="preview-inner">
+                        <div class="preview-box" id="previewBox">
+                            <img id="previewImg" src="" alt="Cropped result">
+                        </div>
+                        <div class="preview-meta" id="previewMeta"></div>
+                    </div>
+                </div>
+
+            </div><!-- /tool-panel -->
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Transparent PNG output</h3>
+                        <p>All shapes export as <code>PNG</code> with a fully transparent background — paste directly onto any design, post, or presentation without white boxes.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Smart Crop vs Fit Inside</h3>
+                        <p><code>Smart Crop</code> fills the shape completely (may trim edges). <code>Fit Inside</code> shows the whole image — ideal for logos or product shots you don't want cropped.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Padding for breathing room</h3>
+                        <p>Add padding (px) to shrink the image inside the shape — great for circular profile pics where faces get cut at the edges.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Uses <code>Canvas API</code> entirely in your browser. Your image never touches a server, works offline once the page is loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── SHAPE DEFINITIONS ──────────────────────────────────────────────────────
+    // Each shape: id, label, SVG path function (size s, cx, cy)
+    const SHAPES = [
+        { id: 'circle',    label: 'Circle',    svg: (s)=>`<circle cx="${s/2}" cy="${s/2}" r="${s/2}" fill="white"/>` },
+        { id: 'square',    label: 'Square',    svg: (s)=>`<rect x="0" y="0" width="${s}" height="${s}" rx="${s*0.06}" fill="white"/>` },
+        { id: 'rounded',   label: 'Rounded',   svg: (s)=>`<rect x="0" y="0" width="${s}" height="${s}" rx="${s*0.2}" fill="white"/>` },
+        { id: 'triangle',  label: 'Triangle',  svg: (s)=>`<polygon points="${s/2},0 ${s},${s} 0,${s}" fill="white"/>` },
+        { id: 'hexagon',   label: 'Hexagon',   svg: (s)=>hexPoly(s, 6) },
+        { id: 'pentagon',  label: 'Pentagon',  svg: (s)=>hexPoly(s, 5, -Math.PI/2) },
+        { id: 'octagon',   label: 'Octagon',   svg: (s)=>hexPoly(s, 8, Math.PI/8) },
+        { id: 'star',      label: 'Star',      svg: (s)=>starPath(s, 5, 0.42) },
+        { id: 'star6',     label: '6-pt Star', svg: (s)=>starPath(s, 6, 0.5) },
+        { id: 'star4',     label: '4-pt Star', svg: (s)=>starPath(s, 4, 0.38) },
+        { id: 'diamond',   label: 'Diamond',   svg: (s)=>`<polygon points="${s/2},0 ${s},${s/2} ${s/2},${s} 0,${s/2}" fill="white"/>` },
+        { id: 'heart',     label: 'Heart',     svg: (s)=>heartPath(s) },
+        { id: 'cross',     label: 'Cross',     svg: (s)=>crossPath(s) },
+        { id: 'arrow',     label: 'Arrow',     svg: (s)=>arrowPath(s) },
+        { id: 'shield',    label: 'Shield',    svg: (s)=>shieldPath(s) },
+        { id: 'speech',    label: 'Speech',    svg: (s)=>speechPath(s) },
+    ];
+
+    function hexPoly(s, n, offset = -Math.PI/2) {
+        const cx = s/2, cy = s/2, r = s/2;
+        const pts = Array.from({length:n}, (_,i) => {
+            const a = offset + (2*Math.PI/n)*i;
+            return `${cx + r*Math.cos(a)},${cy + r*Math.sin(a)}`;
+        }).join(' ');
+        return `<polygon points="${pts}" fill="white"/>`;
+    }
+
+    function starPath(s, pts, innerRatio) {
+        const cx = s/2, cy = s/2, outerR = s/2, innerR = s/2 * innerRatio;
+        const total = pts * 2;
+        const points = Array.from({length:total}, (_,i) => {
+            const a = -Math.PI/2 + (Math.PI/pts)*i;
+            const r = i % 2 === 0 ? outerR : innerR;
+            return `${cx + r*Math.cos(a)},${cy + r*Math.sin(a)}`;
+        }).join(' ');
+        return `<polygon points="${points}" fill="white"/>`;
+    }
+
+    function heartPath(s) {
+        const x = s, y = s;
+        return `<path d="M${x/2},${y*0.85} C${x*0.1},${y*0.6} 0,${y*0.4} 0,${y*0.28} C0,${y*0.1} ${x*0.15},0 ${x*0.35},0 C${x*0.42},0 ${x*0.5},${y*0.06} ${x/2},${y*0.18} C${x/2},${y*0.06} ${x*0.58},0 ${x*0.65},0 C${x*0.85},0 ${x},${y*0.1} ${x},${y*0.28} C${x},${y*0.4} ${x*0.9},${y*0.6} ${x/2},${y*0.85}Z" fill="white"/>`;
+    }
+
+    function crossPath(s) {
+        const t = s*0.3, m = s*0.35;
+        return `<polygon points="${m},0 ${s-m},0 ${s-m},${m} ${s},${m} ${s},${s-m} ${s-m},${s-m} ${s-m},${s} ${m},${s} ${m},${s-m} 0,${s-m} 0,${m} ${m},${m}" fill="white"/>`;
+    }
+
+    function arrowPath(s) {
+        const h = s, w = s;
+        return `<polygon points="0,${h*0.25} ${w*0.55},${h*0.25} ${w*0.55},0 ${w},${h/2} ${w*0.55},${h} ${w*0.55},${h*0.75} 0,${h*0.75}" fill="white"/>`;
+    }
+
+    function shieldPath(s) {
+        return `<path d="M${s/2},0 L${s},${s*0.18} L${s},${s*0.55} C${s},${s*0.82} ${s/2},${s} ${s/2},${s} C${s/2},${s} 0,${s*0.82} 0,${s*0.55} L0,${s*0.18} Z" fill="white"/>`;
+    }
+
+    function speechPath(s) {
+        const r = s*0.12;
+        return `<path d="M${r},0 H${s-r} Q${s},0 ${s},${r} V${s*0.7} Q${s},${s*0.82} ${s-r},${s*0.82} H${s*0.62} L${s*0.42},${s} L${s*0.38},${s*0.82} H${r} Q0,${s*0.82} 0,${s*0.7} V${r} Q0,0 ${r},0 Z" fill="white"/>`;
+    }
+
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let selectedShape = 'circle';
+    let outputSize = 800, fitMode = 'cover', padding = 0;
+    let resultDataURL = null, resultFilename = '';
+
+    // ── RENDER SHAPES ──────────────────────────────────────────────────────────
+    const grid = document.getElementById('shapesGrid');
+    SHAPES.forEach(sh => {
+        const card = document.createElement('div');
+        card.className = 'shape-card' + (sh.id === selectedShape ? ' selected' : '');
+        card.dataset.id = sh.id;
+
+        // Preview SVG (44px)
+        const previewSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" class="shape-preview">
+            <defs>
+                <clipPath id="clip-prev-${sh.id}">${sh.svg(44).replace(/fill="white"/g,'')}</clipPath>
+            </defs>
+            <rect width="44" height="44" fill="none"/>
+            ${sh.svg(44).replace(/fill="white"/g, 'fill="rgba(255,214,0,0.85)"')}
+        </svg>`;
+
+        card.innerHTML = previewSvg + `<span class="shape-name">${sh.label}</span>`;
+        card.onclick = () => {
+            document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedShape = sh.id;
+        };
+        grid.appendChild(card);
+    });
+
+    // ── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('previewPanel').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+    }
+
+    // ── CONTROLS ───────────────────────────────────────────────────────────────
+    function setFit(btn) {
+        document.querySelectorAll('[data-fit]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); fitMode = btn.dataset.fit;
+    }
+    function updateSizeLabel(v) {
+        outputSize = parseInt(v);
+        document.getElementById('sizeVal').textContent = v + 'px';
+    }
+
+    // ── CROP ENGINE ────────────────────────────────────────────────────────────
+    function doCrop() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        padding = Math.max(0, parseInt(document.getElementById('paddingInput').value) || 0);
+        const s = outputSize;
+        const shape = SHAPES.find(sh => sh.id === selectedShape);
+        if (!shape) { showToast('Select a shape', 'error'); return; }
+
+        // 1. Create mask canvas from shape SVG
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = s; maskCanvas.height = s;
+        const maskCtx = maskCanvas.getContext('2d');
+
+        const svgBlob = new Blob([
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">${shape.svg(s)}</svg>`
+        ], {type:'image/svg+xml'});
+        const maskURL = URL.createObjectURL(svgBlob);
+        const maskImg = new Image();
+        maskImg.onload = () => {
+            maskCtx.drawImage(maskImg, 0, 0, s, s);
+            URL.revokeObjectURL(maskURL);
+
+            // 2. Create output canvas
+            const out = document.createElement('canvas');
+            out.width = s; out.height = s;
+            const ctx = out.getContext('2d');
+
+            // Draw image source fitting mode
+            const iw = origImg.naturalWidth, ih = origImg.naturalHeight;
+            const drawArea = s - padding * 2;
+
+            let sx = 0, sy = 0, sw = iw, sh2 = ih;
+            let dx = padding, dy = padding, dw = drawArea, dh = drawArea;
+
+            if (fitMode === 'cover') {
+                // Crop image to square center, then draw
+                const minSide = Math.min(iw, ih);
+                sx = (iw - minSide) / 2;
+                sy = (ih - minSide) / 2;
+                sw = minSide; sh2 = minSide;
+            } else {
+                // Fit inside — maintain aspect ratio
+                const scale = Math.min(drawArea / iw, drawArea / ih);
+                dw = iw * scale; dh = ih * scale;
+                dx = (s - dw) / 2; dy = (s - dh) / 2;
+            }
+
+            ctx.drawImage(origImg, sx, sy, sw, sh2, dx, dy, dw, dh);
+
+            // 3. Apply mask via destination-in
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.drawImage(maskCanvas, 0, 0, s, s);
+
+            resultDataURL = out.toDataURL('image/png');
+            const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+            const baseName = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+            resultFilename = `${baseName}_${selectedShape}.png`;
+
+            document.getElementById('previewImg').src = resultDataURL;
+            document.getElementById('previewMeta').innerHTML = `
+                <div class="preview-stat"><span class="ps-label">Output</span><span class="ps-val green">${s} × ${s} px</span></div>
+                <div class="preview-stat"><span class="ps-label">Shape</span><span class="ps-val">${shape.label}</span></div>
+                <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(resultBytes)}</span></div>
+                <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">PNG (transparent)</span></div>
+                <div class="preview-stat"><span class="ps-label">Fit Mode</span><span class="ps-val">${fitMode}</span></div>
+                ${padding > 0 ? `<div class="preview-stat"><span class="ps-label">Padding</span><span class="ps-val">${padding}px</span></div>` : ''}
+            `;
+            document.getElementById('previewPanel').classList.add('visible');
+            document.getElementById('btnDownload').classList.add('visible');
+            document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast('Cropped! ✓', 'success');
+        };
+        maskImg.onerror = () => { showToast('Shape render failed — try another browser', 'error'); };
+        maskImg.src = maskURL;
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Zone Abbreviation Lookup | Rebrixe</title>
+    <meta name="description" content="Look up any time zone abbreviation — IST, EST, PST, AEST and more. Get full name, UTC offset, countries, and current time.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap { max-width: 900px; margin: 0 auto; }
+
+        /* ── Limitations Banner ── */
+        .limitations-banner {
+            background: rgba(251,191,36,0.07);
+            border: 1px solid rgba(251,191,36,0.2);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 28px;
+        }
+        .limitations-banner summary {
+            cursor: pointer;
+            font-family: 'Outfit';
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #fbbf24;
+            user-select: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .limitations-banner summary::-webkit-details-marker { display: none; }
+        .limitations-banner summary::before {
+            content: '▶';
+            font-size: 0.6rem;
+            transition: transform 0.2s;
+        }
+        .limitations-banner[open] summary::before { transform: rotate(90deg); }
+        .limitations-list {
+            margin: 12px 0 0 0;
+            padding: 0;
+            list-style: none;
+        }
+        .limitations-list li {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            line-height: 1.7;
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+        .limitations-list li::before {
+            content: '·';
+            position: absolute;
+            left: 4px;
+            color: #fbbf24;
+        }
+        .limitations-list strong { color: #fbbf24; font-weight: 700; }
+
+        /* ── Search Bar ── */
+        .search-shell {
+            position: relative;
+            margin-bottom: 14px;
+        }
+        .search-shell input {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255,255,255,0.04);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            color: #fff;
+            padding: 18px 56px 18px 52px;
+            font-family: 'Outfit';
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-shell input::placeholder { color: #334155; font-weight: 700; letter-spacing: 2px; }
+        .search-shell input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,0,127,0.08); }
+        .search-icon {
+            position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+            color: #64748b; font-size: 1.1rem; pointer-events: none;
+        }
+        .clear-btn {
+            position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: #64748b; font-size: 1.1rem;
+            cursor: pointer; padding: 4px; display: none;
+            line-height: 1;
+        }
+        .clear-btn:hover { color: #fff; }
+
+        /* ── Quick Pills ── */
+        .pill-label {
+            font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1.5px; color: #64748b; margin-bottom: 8px;
+        }
+        .pills-row {
+            display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 24px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: #94a3b8; padding: 6px 14px; border-radius: 999px;
+            font-family: 'Outfit'; font-weight: 700; font-size: 0.73rem;
+            letter-spacing: 1px; cursor: pointer; transition: 0.18s;
+        }
+        .pill:hover, .pill.active {
+            border-color: var(--primary); color: #fff;
+            background: rgba(255,0,127,0.07);
+        }
+
+        /* ── Ambiguity Warning ── */
+        .ambiguity-warn {
+            background: rgba(249,115,22,0.07);
+            border: 1px solid rgba(249,115,22,0.25);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            display: none;
+        }
+        .ambiguity-warn.visible { display: block; }
+        .ambiguity-warn strong { color: #f97316; }
+        .ambiguity-alts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .ambiguity-alt-btn {
+            background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.3);
+            color: #fb923c; padding: 4px 12px; border-radius: 999px;
+            font-family: 'Outfit'; font-weight: 700; font-size: 0.7rem;
+            letter-spacing: 1px; cursor: pointer; transition: 0.15s;
+        }
+        .ambiguity-alt-btn:hover { background: rgba(249,115,22,0.16); color: #fff; }
+
+        /* ── Result Card ── */
+        .result-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 28px;
+            margin-bottom: 18px;
+            display: none;
+        }
+        .result-card.visible { display: block; }
+
+        .rc-top {
+            display: flex; align-items: flex-start;
+            justify-content: space-between; gap: 16px;
+            margin-bottom: 22px; flex-wrap: wrap;
+        }
+        .rc-abbr {
+            font-family: 'Outfit'; font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 900; letter-spacing: -2px; color: var(--primary);
+            line-height: 1;
+        }
+        .rc-fullname {
+            font-size: 0.85rem; color: #94a3b8; margin-top: 4px; max-width: 340px;
+        }
+        .rc-clock-block { text-align: right; }
+        .rc-time {
+            font-family: 'Outfit'; font-size: 2rem; font-weight: 900;
+            color: #fff; letter-spacing: -1px; line-height: 1;
+        }
+        .rc-date { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
+        .rc-phase {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 6px; font-size: 0.75rem; font-weight: 700;
+            padding: 4px 10px; border-radius: 999px;
+        }
+        .phase-dawn   { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+        .phase-day    { background: rgba(56,189,248,0.1);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
+        .phase-dusk   { background: rgba(249,115,22,0.1);  color: #f97316; border: 1px solid rgba(249,115,22,0.2); }
+        .phase-night  { background: rgba(139,92,246,0.1);  color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+
+        /* Stats strip */
+        .rc-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-bottom: 18px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 14px; padding: 14px 12px; text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit'; font-size: 1.3rem; font-weight: 800;
+            color: #fff; line-height: 1;
+        }
+        .stat-lbl { font-size: 0.6rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; font-weight: 600; }
+
+        /* DST note */
+        .dst-note {
+            font-size: 0.72rem; color: #64748b;
+            margin-bottom: 14px; padding: 8px 12px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px; border: 1px solid var(--border);
+            display: none;
+        }
+        .dst-note.visible { display: block; }
+
+        /* Countries */
+        .rc-countries-label {
+            font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1.5px; color: #64748b; margin-bottom: 8px;
+        }
+        .country-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+        .ctag {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: #cbd5e1; padding: 5px 12px; border-radius: 8px;
+            font-size: 0.75rem; font-weight: 500;
+        }
+
+        /* ── "No result" ── */
+        .no-result {
+            text-align: center; padding: 40px 20px;
+            color: #334155; font-size: 0.9rem; display: none;
+            border: 1px dashed var(--border); border-radius: 16px;
+            margin-bottom: 18px;
+        }
+        .no-result strong { color: #64748b; }
+
+        /* ── Browse all table ── */
+        .browse-section { margin-bottom: 10px; }
+        .browse-toggle {
+            width: 100%; background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border); border-radius: 14px;
+            color: #94a3b8; padding: 13px 18px;
+            font-family: 'Outfit'; font-weight: 700; font-size: 0.8rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: 0.2s; text-align: left;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .browse-toggle:hover { border-color: var(--primary); color: #fff; }
+        .browse-toggle .arr { transition: 0.3s; display: inline-block; }
+        .browse-toggle.open .arr { transform: rotate(180deg); }
+
+        .browse-table-wrap {
+            display: none; margin-top: 10px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 14px; overflow: hidden;
+            max-height: 360px; overflow-y: auto;
+        }
+        .browse-table-wrap.open { display: block; }
+        table.tz-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        table.tz-table thead th {
+            background: rgba(255,255,255,0.04);
+            padding: 10px 14px; text-align: left;
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 1.2px; color: #64748b; font-weight: 700;
+            position: sticky; top: 0; z-index: 1;
+        }
+        table.tz-table tbody tr {
+            border-top: 1px solid rgba(255,255,255,0.04);
+            cursor: pointer; transition: background 0.15s;
+        }
+        table.tz-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+        table.tz-table td { padding: 10px 14px; color: #94a3b8; }
+        table.tz-table td:first-child { font-family: 'Outfit'; font-weight: 800; color: var(--primary); font-size: 0.85rem; }
+
+        /* Scrollbar */
+        .browse-table-wrap::-webkit-scrollbar { width: 6px; }
+        .browse-table-wrap::-webkit-scrollbar-track { background: transparent; }
+        .browse-table-wrap::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+
+        @media(max-width:600px) {
+            .rc-stats { grid-template-columns: repeat(2,1fr); }
+            .rc-top { flex-direction: column; }
+            .rc-clock-block { text-align: left; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+<nav class="nav-container"></nav>
+
+<div class="container">
+    <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+    <header style="text-align:center; margin-bottom:40px;">
+        <h1 style="font-family:'Outfit';font-size:clamp(1.9rem,6vw,3.2rem);font-weight:900;letter-spacing:-2px;margin-bottom:10px;">Time Zone Abbreviation Lookup</h1>
+        <p style="color:#64748b;font-size:0.93rem;">IST, EST, PST, AEST — full name, UTC offset, countries &amp; live time for 100+ abbreviations.</p>
+    </header>
+
+    <div class="tool-wrap">
+
+        <!-- ── Limitations Notice ── -->
+        <details class="limitations-banner">
+            <summary>⚠ What this tool can and cannot do</summary>
+            <ul class="limitations-list">
+                <li><strong>Static offsets only.</strong> UTC offsets in this tool are hardcoded. DST transitions happen on different dates every year by country — this tool does <em>not</em> auto-switch between standard and daylight-saving offsets. The "DST" label is informational only.</li>
+                <li><strong>Live clock uses your browser's clock.</strong> If your system clock is wrong, all times shown will be wrong.</li>
+                <li><strong>Ambiguous abbreviations exist.</strong> IST means Indian Standard Time, Ireland Standard Time, and Israel Standard Time. CST can be Central Standard Time (Americas) or China Standard Time. When an abbreviation is ambiguous, all matching zones are shown — we do not guess.</li>
+                <li><strong>No map is shown.</strong> The previous version's world map was purely decorative and placed the highlighted band at the wrong longitude for non-integer offsets (e.g. IST at UTC+5:30 and NPT at UTC+5:45). It has been removed to avoid misleading you.</li>
+                <li><strong>Country lists are representative, not exhaustive.</strong> We list the most commonly associated countries. Some territories or dependencies may be omitted.</li>
+                <li><strong>No real-time DST detection.</strong> Whether a country is currently observing DST right now is not computed. We show the abbreviation's fixed offset only.</li>
+            </ul>
+        </details>
+
+        <!-- Search -->
+        <div class="search-shell">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="tzInput" placeholder="Type abbreviation… e.g. IST" maxlength="8" autocomplete="off" spellcheck="false" aria-label="Search time zone abbreviation">
+            <button class="clear-btn" id="clearBtn" aria-label="Clear search">✕</button>
+        </div>
+
+        <!-- Quick pills -->
+        <div class="pill-label">Popular</div>
+        <div class="pills-row" id="pillsRow"></div>
+
+        <!-- No result -->
+        <div class="no-result" id="noResult" role="status">
+            No match for <strong id="noResultTerm"></strong>. Try another abbreviation or browse below.
+        </div>
+
+        <!-- Ambiguity warning -->
+        <div class="ambiguity-warn" id="ambiguityWarn" role="status">
+            <strong id="ambiguityTitle"></strong>
+            <div class="ambiguity-alts" id="ambiguityAlts"></div>
+        </div>
+
+        <!-- Result card -->
+        <div class="result-card" id="resultCard" role="region" aria-label="Time zone details">
+            <div class="rc-top">
+                <div>
+                    <div class="rc-abbr" id="rcAbbr"></div>
+                    <div class="rc-fullname" id="rcFullname"></div>
+                </div>
+                <div class="rc-clock-block">
+                    <div class="rc-time" id="rcTime" aria-live="polite">--:--:--</div>
+                    <div class="rc-date" id="rcDate"></div>
+                    <div class="rc-phase" id="rcPhase"></div>
+                </div>
+            </div>
+            <div class="rc-stats">
+                <div class="stat-cell">
+                    <div class="stat-num" id="statOffset"></div>
+                    <div class="stat-lbl">UTC Offset</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num" id="statDiff"></div>
+                    <div class="stat-lbl">Diff from your clock</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num" id="statType"></div>
+                    <div class="stat-lbl">Type</div>
+                </div>
+            </div>
+            <div class="dst-note" id="dstNote"></div>
+            <div class="rc-countries-label">Used In</div>
+            <div class="country-tags" id="rcCountries"></div>
+        </div>
+
+        <!-- Browse all -->
+        <div class="browse-section">
+            <button class="browse-toggle" id="browseBtn" onclick="toggleBrowse()" aria-expanded="false" aria-controls="browseTable">
+                <span>Browse All Time Zones</span>
+                <span class="arr" aria-hidden="true">▾</span>
+            </button>
+            <div class="browse-table-wrap" id="browseTable" role="region" aria-label="All time zones">
+                <table class="tz-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Abbr</th>
+                            <th scope="col">Full Name</th>
+                            <th scope="col">UTC Offset</th>
+                            <th scope="col">Countries</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tzTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /.tool-wrap -->
+</div><!-- /.container -->
+
+<footer></footer>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA — timezone abbreviations
+// Offsets are fixed (standard time values).
+// DST flag is informational only — not computed live.
+//
+// IMPORTANT: Several abbreviations are AMBIGUOUS (real-world fact):
+//   IST = Indian Standard Time / Ireland Standard Time / Israel Standard Time
+//   CST = Central Standard Time (Americas) / China Standard Time
+//   AST = Atlantic Standard Time / Arabia Standard Time
+//   BST = British Summer Time / Bangladesh Standard Time
+//
+// We handle ambiguity explicitly by showing all matches.
+// We do NOT silently pick one — that would be misleading.
+// ─────────────────────────────────────────────
+
+const TZ = [
+    // UTC / Global
+    { a:'UTC',  n:'Coordinated Universal Time',           off:0,     dst:false, type:'Standard', countries:['Worldwide','Aviation','Internet'] },
+    { a:'GMT',  n:'Greenwich Mean Time',                  off:0,     dst:false, type:'Standard', countries:['UK (winter)','Ireland (winter)','Iceland','Ghana','Portugal (winter)'] },
+
+    // Europe
+    { a:'BST',  n:'British Summer Time',                  off:1,     dst:true,  type:'DST',      countries:['United Kingdom','Ireland'] },
+    { a:'IST',  n:'Ireland Standard Time',                off:1,     dst:true,  type:'DST',      countries:['Ireland (summer)'] },
+    { a:'CET',  n:'Central European Time',                off:1,     dst:false, type:'Standard', countries:['France','Germany','Italy','Spain','Poland','Netherlands','Belgium','Austria','Switzerland','Norway','Sweden','Denmark'] },
+    { a:'CEST', n:'Central European Summer Time',         off:2,     dst:true,  type:'DST',      countries:['Most of continental Europe (summer)'] },
+    { a:'EET',  n:'Eastern European Time',                off:2,     dst:false, type:'Standard', countries:['Greece','Romania','Bulgaria','Finland','Estonia','Latvia','Lithuania'] },
+    { a:'EEST', n:'Eastern European Summer Time',         off:3,     dst:true,  type:'DST',      countries:['Eastern Europe (summer)'] },
+    { a:'WET',  n:'Western European Time',                off:0,     dst:false, type:'Standard', countries:['Portugal','Canary Islands'] },
+    { a:'WEST', n:'Western European Summer Time',         off:1,     dst:true,  type:'DST',      countries:['Portugal (summer)','Canary Islands (summer)'] },
+    { a:'MET',  n:'Middle European Time',                 off:1,     dst:false, type:'Standard', countries:['Albania','Bosnia','Croatia','North Macedonia','Montenegro','Serbia','Slovenia'] },
+    { a:'MSK',  n:'Moscow Standard Time',                 off:3,     dst:false, type:'Standard', countries:['Russia (Moscow region)','Belarus'] },
+
+    // Americas
+    { a:'EST',  n:'Eastern Standard Time',                off:-5,    dst:false, type:'Standard', countries:['USA (Eastern, winter)','Canada (Eastern, winter)','Jamaica','Haiti'] },
+    { a:'EDT',  n:'Eastern Daylight Time',                off:-4,    dst:true,  type:'DST',      countries:['USA (Eastern, summer)','Canada (Eastern, summer)'] },
+    { a:'CST',  n:'Central Standard Time (Americas)',     off:-6,    dst:false, type:'Standard', countries:['USA (Central, winter)','Canada (Central, winter)','Mexico (Central)'] },
+    { a:'CDT',  n:'Central Daylight Time',                off:-5,    dst:true,  type:'DST',      countries:['USA (Central, summer)','Canada (Central, summer)'] },
+    { a:'MST',  n:'Mountain Standard Time',               off:-7,    dst:false, type:'Standard', countries:['USA (Mountain, winter)','Canada (Mountain, winter)','Mexico (Sonora)'] },
+    { a:'MDT',  n:'Mountain Daylight Time',               off:-6,    dst:true,  type:'DST',      countries:['USA (Mountain, summer)','Canada (Mountain, summer)'] },
+    { a:'PST',  n:'Pacific Standard Time',                off:-8,    dst:false, type:'Standard', countries:['USA (Pacific, winter)','Canada (Pacific, winter)'] },
+    { a:'PDT',  n:'Pacific Daylight Time',                off:-7,    dst:true,  type:'DST',      countries:['USA (Pacific, summer)','Canada (Pacific, summer)'] },
+    { a:'AKST', n:'Alaska Standard Time',                 off:-9,    dst:false, type:'Standard', countries:['USA (Alaska, winter)'] },
+    { a:'AKDT', n:'Alaska Daylight Time',                 off:-8,    dst:true,  type:'DST',      countries:['USA (Alaska, summer)'] },
+    { a:'HST',  n:'Hawaii Standard Time',                 off:-10,   dst:false, type:'Standard', countries:['USA (Hawaii)','Cook Islands'] },
+    { a:'AST',  n:'Atlantic Standard Time',               off:-4,    dst:false, type:'Standard', countries:['Canada (Atlantic, winter)','Puerto Rico','US Virgin Islands','Barbados'] },
+    { a:'ADT',  n:'Atlantic Daylight Time',               off:-3,    dst:true,  type:'DST',      countries:['Canada (Atlantic, summer)'] },
+    { a:'NST',  n:'Newfoundland Standard Time',           off:-3.5,  dst:false, type:'Standard', countries:['Canada (Newfoundland, winter)'] },
+    { a:'NDT',  n:'Newfoundland Daylight Time',           off:-2.5,  dst:true,  type:'DST',      countries:['Canada (Newfoundland, summer)'] },
+    { a:'ART',  n:'Argentina Time',                       off:-3,    dst:false, type:'Standard', countries:['Argentina'] },
+    { a:'BRT',  n:'Brasília Time',                        off:-3,    dst:false, type:'Standard', countries:['Brazil (most states)'] },
+    { a:'BRST', n:'Brasília Summer Time',                 off:-2,    dst:true,  type:'DST',      countries:['Brazil (summer, when observed)'] },
+    { a:'COT',  n:'Colombia Time',                        off:-5,    dst:false, type:'Standard', countries:['Colombia'] },
+    { a:'VET',  n:'Venezuelan Standard Time',             off:-4,    dst:false, type:'Standard', countries:['Venezuela'] },
+    { a:'PET',  n:'Peru Time',                            off:-5,    dst:false, type:'Standard', countries:['Peru'] },
+    { a:'CLT',  n:'Chile Standard Time',                  off:-4,    dst:false, type:'Standard', countries:['Chile (winter)'] },
+    { a:'CLST', n:'Chile Summer Time',                    off:-3,    dst:true,  type:'DST',      countries:['Chile (summer)'] },
+    { a:'BOT',  n:'Bolivia Time',                         off:-4,    dst:false, type:'Standard', countries:['Bolivia'] },
+    { a:'GYT',  n:'Guyana Time',                          off:-4,    dst:false, type:'Standard', countries:['Guyana'] },
+    { a:'UYT',  n:'Uruguay Standard Time',                off:-3,    dst:false, type:'Standard', countries:['Uruguay'] },
+    { a:'PYT',  n:'Paraguay Time',                        off:-4,    dst:false, type:'Standard', countries:['Paraguay'] },
+    { a:'ECT',  n:'Ecuador Time',                         off:-5,    dst:false, type:'Standard', countries:['Ecuador'] },
+    { a:'GFT',  n:'French Guiana Time',                   off:-3,    dst:false, type:'Standard', countries:['French Guiana'] },
+    { a:'SRT',  n:'Suriname Time',                        off:-3,    dst:false, type:'Standard', countries:['Suriname'] },
+    { a:'FKST', n:'Falkland Islands Time',                off:-3,    dst:false, type:'Standard', countries:['Falkland Islands'] },
+    { a:'WGT',  n:'Western Greenland Time',               off:-3,    dst:false, type:'Standard', countries:['Greenland (most, winter)'] },
+    { a:'WGST', n:'Western Greenland Summer Time',        off:-2,    dst:true,  type:'DST',      countries:['Greenland (most, summer)'] },
+    { a:'CVT',  n:'Cape Verde Time',                      off:-1,    dst:false, type:'Standard', countries:['Cape Verde'] },
+    { a:'AZOT', n:'Azores Standard Time',                 off:-1,    dst:false, type:'Standard', countries:['Azores (Portugal, winter)'] },
+    { a:'AZOST',n:'Azores Summer Time',                   off:0,     dst:true,  type:'DST',      countries:['Azores (Portugal, summer)'] },
+    { a:'SST',  n:'Samoa Standard Time',                  off:-11,   dst:false, type:'Standard', countries:['American Samoa','Niue'] },
+    { a:'PMST', n:'Saint Pierre & Miquelon Standard Time',off:-3,    dst:false, type:'Standard', countries:['Saint Pierre and Miquelon'] },
+
+    // Africa / Middle East
+    { a:'EAT',  n:'East Africa Time',                     off:3,     dst:false, type:'Standard', countries:['Kenya','Ethiopia','Tanzania','Uganda','Somalia'] },
+    { a:'CAT',  n:'Central Africa Time',                  off:2,     dst:false, type:'Standard', countries:['South Africa','Zambia','Zimbabwe','DRC','Botswana','Namibia'] },
+    { a:'WAT',  n:'West Africa Time',                     off:1,     dst:false, type:'Standard', countries:['Nigeria','Cameroon','Angola','Niger','Algeria'] },
+    { a:'SAST', n:'South Africa Standard Time',           off:2,     dst:false, type:'Standard', countries:['South Africa','Lesotho','Eswatini'] },
+    { a:'TRT',  n:'Turkey Time',                          off:3,     dst:false, type:'Standard', countries:['Turkey'] },
+    { a:'IRST', n:'Iran Standard Time',                   off:3.5,   dst:false, type:'Standard', countries:['Iran (winter)'] },
+    { a:'IRDT', n:'Iran Daylight Time',                   off:4.5,   dst:true,  type:'DST',      countries:['Iran (summer)'] },
+    { a:'IDT',  n:'Israel Daylight Time',                 off:3,     dst:true,  type:'DST',      countries:['Israel (summer)'] },
+    { a:'IST3', n:'Israel Standard Time',                 off:2,     dst:false, type:'Standard', countries:['Israel (winter)'] },
+    { a:'EET2', n:'Egypt Standard Time',                  off:2,     dst:false, type:'Standard', countries:['Egypt'] },
+    { a:'AST2', n:'Arabia Standard Time',                 off:3,     dst:false, type:'Standard', countries:['Saudi Arabia','Iraq','Kuwait','Qatar','Bahrain','Yemen'] },
+    { a:'GST',  n:'Gulf Standard Time',                   off:4,     dst:false, type:'Standard', countries:['UAE','Oman'] },
+    { a:'GET',  n:'Georgia Standard Time',                off:4,     dst:false, type:'Standard', countries:['Georgia'] },
+    { a:'AZT',  n:'Azerbaijan Time',                      off:4,     dst:false, type:'Standard', countries:['Azerbaijan'] },
+
+    // Asia
+    { a:'IST2', n:'Indian Standard Time',                 off:5.5,   dst:false, type:'Standard', countries:['India','Sri Lanka'] },
+    { a:'PKT',  n:'Pakistan Standard Time',               off:5,     dst:false, type:'Standard', countries:['Pakistan'] },
+    { a:'UZT',  n:'Uzbekistan Time',                      off:5,     dst:false, type:'Standard', countries:['Uzbekistan','Tajikistan','Turkmenistan'] },
+    { a:'MVT',  n:'Maldives Time',                        off:5,     dst:false, type:'Standard', countries:['Maldives'] },
+    { a:'NPT',  n:'Nepal Time',                           off:5.75,  dst:false, type:'Standard', countries:['Nepal'] },
+    { a:'BST2', n:'Bangladesh Standard Time',             off:6,     dst:false, type:'Standard', countries:['Bangladesh'] },
+    { a:'BTT',  n:'Bhutan Time',                          off:6,     dst:false, type:'Standard', countries:['Bhutan'] },
+    { a:'KGT',  n:'Kyrgyzstan Time',                      off:6,     dst:false, type:'Standard', countries:['Kyrgyzstan'] },
+    { a:'OMST', n:'Omsk Standard Time',                   off:6,     dst:false, type:'Standard', countries:['Russia (Omsk region)'] },
+    { a:'MMT',  n:'Myanmar Standard Time',                off:6.5,   dst:false, type:'Standard', countries:['Myanmar'] },
+    { a:'ICT',  n:'Indochina Time',                       off:7,     dst:false, type:'Standard', countries:['Thailand','Vietnam','Laos','Cambodia'] },
+    { a:'WIB',  n:'Western Indonesian Time',              off:7,     dst:false, type:'Standard', countries:['Indonesia (Sumatra, Java, West Kalimantan)'] },
+    { a:'KRAT', n:'Krasnoyarsk Time',                     off:7,     dst:false, type:'Standard', countries:['Russia (Krasnoyarsk region)'] },
+    { a:'CST2', n:'China Standard Time',                  off:8,     dst:false, type:'Standard', countries:['China','Taiwan','Macau'] },
+    { a:'HKT',  n:'Hong Kong Time',                       off:8,     dst:false, type:'Standard', countries:['Hong Kong'] },
+    { a:'SGT',  n:'Singapore Time',                       off:8,     dst:false, type:'Standard', countries:['Singapore'] },
+    { a:'MYT',  n:'Malaysia Time',                        off:8,     dst:false, type:'Standard', countries:['Malaysia'] },
+    { a:'PHT',  n:'Philippine Time',                      off:8,     dst:false, type:'Standard', countries:['Philippines'] },
+    { a:'WITA', n:'Central Indonesia Time',               off:8,     dst:false, type:'Standard', countries:['Indonesia (Bali, Sulawesi, Kalimantan)'] },
+    { a:'ULAT', n:'Ulaanbaatar Time',                     off:8,     dst:false, type:'Standard', countries:['Mongolia'] },
+    { a:'AWST', n:'Australian Western Standard Time',     off:8,     dst:false, type:'Standard', countries:['Australia (Western Australia)'] },
+    { a:'IRKT', n:'Irkutsk Time',                         off:8,     dst:false, type:'Standard', countries:['Russia (Irkutsk region)'] },
+    { a:'JST',  n:'Japan Standard Time',                  off:9,     dst:false, type:'Standard', countries:['Japan'] },
+    { a:'KST',  n:'Korea Standard Time',                  off:9,     dst:false, type:'Standard', countries:['South Korea','North Korea'] },
+    { a:'WIT',  n:'Eastern Indonesia Time',               off:9,     dst:false, type:'Standard', countries:['Indonesia (Maluku, Papua)'] },
+    { a:'YAKT', n:'Yakutsk Time',                         off:9,     dst:false, type:'Standard', countries:['Russia (Yakutsk region)'] },
+    { a:'TLT',  n:'East Timor Time',                      off:9,     dst:false, type:'Standard', countries:['East Timor (Timor-Leste)'] },
+    { a:'ACST', n:'Australian Central Standard Time',     off:9.5,   dst:false, type:'Standard', countries:['Australia (Northern Territory, South Australia winter)'] },
+    { a:'ACDT', n:'Australian Central Daylight Time',     off:10.5,  dst:true,  type:'DST',      countries:['Australia (South Australia, ACT summer)'] },
+    { a:'AEST', n:'Australian Eastern Standard Time',     off:10,    dst:false, type:'Standard', countries:['Australia (Queensland, NSW, Victoria, Tasmania winter)'] },
+    { a:'AEDT', n:'Australian Eastern Daylight Time',     off:11,    dst:true,  type:'DST',      countries:['Australia (NSW, Victoria, Tasmania summer)'] },
+    { a:'VLAT', n:'Vladivostok Time',                     off:10,    dst:false, type:'Standard', countries:['Russia (Vladivostok region)'] },
+    { a:'PGT',  n:'Papua New Guinea Time',                off:10,    dst:false, type:'Standard', countries:['Papua New Guinea'] },
+    { a:'CHST', n:'Chamorro Standard Time',               off:10,    dst:false, type:'Standard', countries:['Guam','Northern Mariana Islands'] },
+    { a:'SBT',  n:'Solomon Islands Time',                 off:11,    dst:false, type:'Standard', countries:['Solomon Islands','Vanuatu'] },
+    { a:'MAGT', n:'Magadan Time',                         off:11,    dst:false, type:'Standard', countries:['Russia (Magadan region)'] },
+    { a:'NZST', n:'New Zealand Standard Time',            off:12,    dst:false, type:'Standard', countries:['New Zealand (winter)'] },
+    { a:'NZDT', n:'New Zealand Daylight Time',            off:13,    dst:true,  type:'DST',      countries:['New Zealand (summer)'] },
+    { a:'FJT',  n:'Fiji Time',                            off:12,    dst:false, type:'Standard', countries:['Fiji'] },
+    { a:'PETT', n:'Kamchatka Time',                       off:12,    dst:false, type:'Standard', countries:['Russia (Kamchatka)'] },
+    { a:'WSST', n:'West Samoa Time',                      off:13,    dst:false, type:'Standard', countries:['Samoa','Tonga'] },
+    { a:'TOT',  n:'Tonga Time',                           off:13,    dst:false, type:'Standard', countries:['Tonga'] },
+    { a:'LINT', n:'Line Islands Time',                    off:14,    dst:false, type:'Standard', countries:['Kiribati (Line Islands)'] },
+];
+
+// ─────────────────────────────────────────────
+// AMBIGUITY TABLE
+// Maps a user-typed abbreviation to multiple real zones.
+// This is the honest approach — we don't silently pick one.
+// ─────────────────────────────────────────────
+const AMBIGUOUS = {
+    'IST': ['IST2', 'IST', 'IST3'],   // Indian / Ireland / Israel
+    'CST': ['CST', 'CST2'],            // Central (Americas) / China
+    'AST': ['AST', 'AST2'],            // Atlantic / Arabia
+    'BST': ['BST', 'BST2'],            // British Summer / Bangladesh
+};
+
+// ─────────────────────────────────────────────
+// ALIAS TABLE — common city/country → zone abbr
+// Only maps to unambiguous zones.
+// ─────────────────────────────────────────────
+const ALIAS = {
+    'INDIA':'IST2','MUMBAI':'IST2','DELHI':'IST2','KOLKATA':'IST2','CHENNAI':'IST2',
+    'LONDON':'GMT','UK':'GMT','ENGLAND':'GMT',
+    'IRELAND':'IST',
+    'NEWYORK':'EST','NYC':'EST','NY':'EST',
+    'CHICAGO':'CST','HOUSTON':'CST',
+    'LA':'PST','LOSANGELES':'PST',
+    'TORONTO':'EST','VANCOUVER':'PST','MONTREAL':'EST',
+    'DUBAI':'GST','UAE':'GST',
+    'SYDNEY':'AEST','MELBOURNE':'AEST','BRISBANE':'AEST',
+    'PERTH':'AWST',
+    'TOKYO':'JST','JAPAN':'JST',
+    'BEIJING':'CST2','CHINA':'CST2','SHANGHAI':'CST2',
+    'PARIS':'CET','BERLIN':'CET','ROME':'CET','MADRID':'CET','AMSTERDAM':'CET',
+    'SINGAPORE':'SGT',
+    'KARACHI':'PKT','PAKISTAN':'PKT',
+    'DHAKA':'BST2','BANGLADESH':'BST2',
+    'BANGKOK':'ICT','THAILAND':'ICT',
+    'JAKARTA':'WIB','INDONESIA':'WIB',
+    'SEOUL':'KST','KOREA':'KST',
+    'HONGKONG':'HKT',
+    'AUCKLAND':'NZST','NEWZEALAND':'NZST',
+    'RIYADH':'AST2','SAUDIARABIA':'AST2',
+    'MOSCOW':'MSK','RUSSIA':'MSK',
+    'TEHRAN':'IRST','IRAN':'IRST',
+    'ISLAMABAD':'PKT',
+    'COLOMBO':'IST2','SRILANKA':'IST2',
+    'KATHMANDU':'NPT','NEPAL':'NPT',
+    'NAIROBI':'EAT','KENYA':'EAT',
+    'CAIRO':'EET2','EGYPT':'EAT',
+    'LAGOS':'WAT','NIGERIA':'WAT',
+    'JOHANNESBURG':'SAST','CAPETOWN':'SAST',
+    'ISTANBUL':'TRT',
+    'MANILA':'PHT','PHILIPPINES':'PHT',
+    'KUALALUMPUR':'MYT','MALAYSIA':'MYT',
+};
+
+// ── Build index
+const TZ_MAP = {};
+TZ.forEach(z => { TZ_MAP[z.a] = z; });
+
+// Popular pills — these are unambiguous or the most common reading
+const POPULAR = ['UTC','GMT','IST2','EST','PST','CST','CET','JST','AEST','GST','MSK','SGT'];
+const POPULAR_LABELS = {'IST2':'IST','CST':'CST','CST2':'CST (China)'};
+
+// ── Build pills
+const pillsRow = document.getElementById('pillsRow');
+POPULAR.forEach(key => {
+    const zone = TZ_MAP[key];
+    if (!zone) return;
+    const btn = document.createElement('span');
+    btn.className = 'pill';
+    btn.textContent = POPULAR_LABELS[key] || zone.a;
+    btn.dataset.key = key;
+    btn.onclick = () => selectZone(zone);
+    pillsRow.appendChild(btn);
+});
+
+// ── Build browse table
+const tbody = document.getElementById('tzTableBody');
+TZ.forEach(z => {
+    const displayAbbr = z.a.replace(/\d+$/, ''); // strip disambiguation suffix for display
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>${displayAbbr}</td>
+        <td>${z.n}</td>
+        <td>${fmtOffset(z.off)}</td>
+        <td>${z.countries.slice(0,3).join(', ')}</td>
+    `;
+    tr.onclick = () => { closeBrowse(); selectZone(z); };
+    tbody.appendChild(tr);
+});
+
+// ── Input listener
+const inp = document.getElementById('tzInput');
+const clearBtn = document.getElementById('clearBtn');
+
+inp.addEventListener('input', () => {
+    const v = inp.value.trim();
+    clearBtn.style.display = v ? 'block' : 'none';
+    if (v.length >= 2) {
+        doSearch(v);
+    } else {
+        hideResult();
+    }
+});
+
+clearBtn.onclick = () => {
+    inp.value = '';
+    clearBtn.style.display = 'none';
+    hideResult();
+    inp.focus();
+};
+
+function hideResult() {
+    document.getElementById('resultCard').classList.remove('visible');
+    document.getElementById('noResult').style.display = 'none';
+    document.getElementById('ambiguityWarn').classList.remove('visible');
+    stopClock();
+    // Clear pill highlights
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+}
+
+// ─────────────────────────────────────────────
+// SEARCH LOGIC
+// Priority order:
+//   1. Exact match in TZ_MAP (internal key)
+//   2. Ambiguity check (user typed an ambiguous abbr)
+//   3. Alias lookup
+//   4. Prefix match on abbreviation display name
+//   5. Substring match on full zone name
+//   6. Substring match on country names
+// ─────────────────────────────────────────────
+function doSearch(raw) {
+    const key = raw.trim().toUpperCase().replace(/\s+/g,'');
+
+    // 1. Check for ambiguous abbreviation
+    if (AMBIGUOUS[key]) {
+        const matches = AMBIGUOUS[key].map(k => TZ_MAP[k]).filter(Boolean);
+        showAmbiguity(key, matches);
+        return;
+    }
+
+    // 2. Direct match (internal key, e.g. IST2, CST2)
+    let zone = TZ_MAP[key];
+
+    // 3. Alias
+    if (!zone && ALIAS[key]) zone = TZ_MAP[ALIAS[key]];
+
+    // 4. Display abbreviation match (strip trailing digit from internal key)
+    if (!zone) {
+        zone = TZ.find(z => z.a.replace(/\d+$/, '') === key);
+    }
+
+    // 5. Prefix match on display abbreviation
+    if (!zone) {
+        zone = TZ.find(z => z.a.replace(/\d+$/, '').startsWith(key));
+    }
+
+    // 6. Full name contains
+    if (!zone) {
+        zone = TZ.find(z => z.n.toUpperCase().includes(key));
+    }
+
+    // 7. Country contains
+    if (!zone) {
+        zone = TZ.find(z => z.countries.some(c => c.toUpperCase().replace(/\s+/g,'').includes(key)));
+    }
+
+    document.getElementById('ambiguityWarn').classList.remove('visible');
+
+    if (!zone) {
+        document.getElementById('resultCard').classList.remove('visible');
+        document.getElementById('noResult').style.display = 'block';
+        document.getElementById('noResultTerm').textContent = raw;
+        stopClock();
+        highlightPill(null);
+        return;
+    }
+
+    document.getElementById('noResult').style.display = 'none';
+    selectZone(zone);
+}
+
+function showAmbiguity(key, matches) {
+    document.getElementById('resultCard').classList.remove('visible');
+    document.getElementById('noResult').style.display = 'none';
+    stopClock();
+
+    const warn = document.getElementById('ambiguityWarn');
+    const title = document.getElementById('ambiguityTitle');
+    const alts = document.getElementById('ambiguityAlts');
+
+    title.innerHTML = `<strong>"${key}"</strong> is ambiguous — it refers to ${matches.length} different time zones. Select one:`;
+    alts.innerHTML = '';
+
+    matches.forEach(z => {
+        const btn = document.createElement('button');
+        btn.className = 'ambiguity-alt-btn';
+        const displayAbbr = z.a.replace(/\d+$/, '');
+        btn.textContent = `${displayAbbr} — ${z.n} (${fmtOffset(z.off)})`;
+        btn.onclick = () => { warn.classList.remove('visible'); selectZone(z); };
+        alts.appendChild(btn);
+    });
+
+    warn.classList.add('visible');
+    highlightPill(null);
+}
+
+function selectZone(zone) {
+    highlightPill(zone.a);
+    renderResult(zone);
+}
+
+// ─────────────────────────────────────────────
+// FORMAT HELPERS
+// ─────────────────────────────────────────────
+
+// fmtOffset: converts decimal offset to UTC±HH:MM string
+// Handles half-hours (5.5 → +05:30) and quarter-hours (5.75 → +05:45)
+function fmtOffset(off) {
+    const sign = off >= 0 ? '+' : '−';
+    const absOff = Math.abs(off);
+    const h = Math.floor(absOff);
+    const m = Math.round((absOff - h) * 60);
+    return `UTC${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+// getZoneTime: compute current time in a given UTC offset zone
+// Uses UTC millis + offset, avoids any locale/DST entanglement
+function getZoneTime(off) {
+    const now = new Date();
+    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utcMs + (off * 3600000));
+}
+
+// userOffsetHours: returns local UTC offset in fractional hours
+function userOffsetHours() {
+    return -(new Date().getTimezoneOffset()) / 60;
+}
+
+// fmtDiff: formats difference between zone offset and user's local offset
+function fmtDiff(off) {
+    const userOff = userOffsetHours();
+    const diff = off - userOff;
+    if (Math.abs(diff) < 0.01) return 'Same as you';
+    const sign = diff > 0 ? '+' : '−';
+    const absD = Math.abs(diff);
+    const h = Math.floor(absD);
+    const m = Math.round((absD - h) * 60);
+    let s = `${sign}${h}h`;
+    if (m) s += ` ${m}m`;
+    return `${s} ${diff > 0 ? 'ahead' : 'behind'}`;
+}
+
+function timePhase(h) {
+    if (h >= 5  && h < 8)  return { cls:'phase-dawn',  icon:'🌅', label:'Dawn'    };
+    if (h >= 8  && h < 18) return { cls:'phase-day',   icon:'☀️', label:'Daytime' };
+    if (h >= 18 && h < 21) return { cls:'phase-dusk',  icon:'🌇', label:'Dusk'    };
+    return                         { cls:'phase-night', icon:'🌙', label:'Night'   };
+}
+
+function highlightPill(zoneKey) {
+    document.querySelectorAll('.pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.key === zoneKey);
+    });
+}
+
+// ─────────────────────────────────────────────
+// RENDER RESULT CARD
+// ─────────────────────────────────────────────
+let clockTimer = null;
+
+function stopClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+}
+
+function renderResult(zone) {
+    stopClock();
+
+    // Strip numeric disambiguation suffix for display
+    const displayAbbr = zone.a.replace(/\d+$/, '');
+
+    document.getElementById('rcAbbr').textContent = displayAbbr;
+    document.getElementById('rcFullname').textContent = zone.n;
+    document.getElementById('statOffset').textContent = fmtOffset(zone.off);
+    document.getElementById('statType').textContent = zone.type;
+
+    // DST note
+    const dstNote = document.getElementById('dstNote');
+    if (zone.dst) {
+        dstNote.textContent = '⚠ This is a Daylight Saving Time zone. The offset shown is fixed (hardcoded). Whether DST is currently active in a specific country depends on that country\'s rules and the current date — this tool does not compute that automatically.';
+        dstNote.classList.add('visible');
+    } else {
+        dstNote.classList.remove('visible');
+    }
+
+    // Countries
+    const tags = document.getElementById('rcCountries');
+    tags.innerHTML = zone.countries.map(c => `<span class="ctag">${c}</span>`).join('');
+
+    document.getElementById('resultCard').classList.add('visible');
+
+    // Live clock tick
+    function tick() {
+        const t = getZoneTime(zone.off);
+        const h = t.getHours(), mi = t.getMinutes(), s = t.getSeconds();
+        document.getElementById('rcTime').textContent =
+            `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        document.getElementById('rcDate').textContent =
+            t.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+        document.getElementById('statDiff').textContent = fmtDiff(zone.off);
+        const ph = timePhase(h);
+        const phEl = document.getElementById('rcPhase');
+        phEl.className = `rc-phase ${ph.cls}`;
+        phEl.textContent = `${ph.icon} ${ph.label}`;
+    }
+
+    tick();
+    clockTimer = setInterval(tick, 1000);
+}
+
+// ─────────────────────────────────────────────
+// BROWSE TOGGLE
+// ─────────────────────────────────────────────
+function toggleBrowse() {
+    const btn = document.getElementById('browseBtn');
+    const tbl = document.getElementById('browseTable');
+    const isOpen = btn.classList.contains('open');
+    if (isOpen) {
+        closeBrowse();
+    } else {
+        btn.classList.add('open');
+        tbl.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        btn.querySelector('.arr').textContent = '▴';
+    }
+}
+
+function closeBrowse() {
+    const btn = document.getElementById('browseBtn');
+    const tbl = document.getElementById('browseTable');
+    btn.classList.remove('open');
+    tbl.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.querySelector('.arr').textContent = '▾';
+}
+
+// ─────────────────────────────────────────────
+// DEFAULT: show IST (India) on load
+// ─────────────────────────────────────────────
+selectZone(TZ_MAP['IST2']);
+inp.value = 'IST';
+clearBtn.style.display = 'block';
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

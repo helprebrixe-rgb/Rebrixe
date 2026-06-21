@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SVG Optimizer & Minifier — Remove Illustrator Bloat | Rebrixe</title>
+    <meta name="description" content="Free SVG optimizer and minifier. Strips Adobe Illustrator, Inkscape, and Figma bloat, removes unused defs, comments, and metadata. Paste SVG code or upload a file — instant clean output with size savings shown.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #3ceaea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            min-height: 38px;
+            align-items: center;
+        }
+        .stat-chip {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 6px 13px;
+            border-radius: 8px;
+            letter-spacing: 0.4px;
+            font-family: 'Inter', sans-serif;
+        }
+        .chip-size   { background: rgba(255,107,53,0.12); color: #358dff; border: 1px solid rgba(53, 245, 255, 0.3); }
+        .chip-saving { background: rgba(46,204,113,0.12); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .chip-warn   { background: rgba(241,196,15,0.12); color: #0f35f1; border: 1px solid rgba(15, 218, 241, 0.3); }
+        .chip-info   { background: rgba(255,255,255,0.06); color: #68bdbf; border: 1px solid var(--border); }
+
+        /* ── Cards ── */
+        .config-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+            min-width: 0;
+        }
+
+        /* ── Grid ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin: 0 0 40px;
+            width: 100%;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #35e7ff;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        textarea, select {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            color: white;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+            resize: vertical;
+            line-height: 1.6;
+        }
+        select { font-family: 'Inter', sans-serif; font-size: 0.88rem; }
+        textarea:focus, select:focus { border-color: #35b5ff; }
+
+        #svgInput  { min-height: 260px; }
+        #svgOutput { min-height: 260px; color: #35b5ff; }
+
+        /* ── Options grid ── */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 18px;
+            margin-bottom: 20px;
+        }
+        .opt-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 0;
+            border-bottom: 1px solid rgba(61, 229, 248, 0.356);
+            cursor: pointer;
+        }
+        .opt-row:last-child { border-bottom: none; }
+        .opt-row input[type="checkbox"] {
+            width: 15px; height: 15px;
+            accent-color: #35e1ff;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .opt-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            line-height: 1.3;
+            user-select: none;
+        }
+        .opt-label strong { color: #e2e8f0; font-weight: 700; display: block; }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #35ebff; color: #000; }
+        .btn-ghost   { background: rgba(50, 243, 236, 0.116); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* ── Preset pills ── */
+        .preset-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+        .preset-btn {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: 0.18s;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.4px;
+        }
+        .preset-btn:hover, .preset-btn.active {
+            background: rgba(53, 161, 255, 0.15);
+            color: #3586ff;
+            border-color: rgba(53, 218, 255, 0.4);
+        }
+
+        /* ── Upload drop zone ── */
+        .drop-zone {
+            border: 2px dashed rgba(53, 248, 255, 0.416);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: #35fcff;
+            background: rgba(53, 157, 255, 0.06);
+            color: #35d7ff;
+        }
+
+        /* ── Preview toggle ── */
+        .preview-wrap {
+            display: none;
+            margin-top: 14px;
+            background: repeating-conic-gradient(#1a1a2e 0% 25%, #0d0d1a 0% 50%) 0 0 / 16px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 14px;
+            text-align: center;
+            min-height: 80px;
+            max-height: 180px;
+            overflow: hidden;
+        }
+        .preview-wrap svg {
+            max-width: 100%;
+            max-height: 150px;
+        }
+
+        /* ── Removed items log ── */
+        .removed-log {
+            display: none;
+            margin-top: 14px;
+            font-size: 0.7rem;
+            color: #64748b;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.8;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 10px;
+            border-left: 3px solid rgba(53, 235, 255, 0.4);
+        }
+        .removed-log span { color: #94a3b8; }
+        .removed-log .rm-item { color: #ff6b35; }
+
+        /* ── Format hint ── */
+        .format-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border-left: 3px solid #35ffee;
+            font-family: 'Inter', sans-serif;
+        }
+        .format-hint code { color: #35ebff; background: rgba(53, 255, 252, 0.1); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── SEO / FAQ ── */
+        .seo-content { text-align: left; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 8px; font-size: 0.95rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.6; font-family: 'Inter', sans-serif; }
+        .faq-item code { color: #35fff2; background: rgba(53, 221, 255, 0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid, .options-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="frontend-math.html" class="back-btn">← Back to Dev Tools</a>
+        <h1 class="tool-title">SVG Optimizer & Minifier</h1>
+        <p style="opacity:0.6; font-weight:500; text-align:center; margin-bottom:28px;">Strips Illustrator, Inkscape & Figma bloat. Cleaner code, faster load — zero quality loss.</p>
+
+        <div class="workspace-grid">
+
+            <!-- ── LEFT: Input + Options ── -->
+            <div class="config-card">
+
+                <!-- Upload -->
+                <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    ↑ Drop an .svg file here, or click to upload
+                    <input type="file" id="fileInput" accept=".svg,image/svg+xml" style="display:none" onchange="loadFile(event)">
+                </div>
+
+                <label>SVG Code Input</label>
+                <textarea id="svgInput" placeholder="Paste your raw SVG code here…&#10;&#10;&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; ...&gt;&#10;  ...&#10;&lt;/svg&gt;" oninput="onInputChange()"></textarea>
+
+                <!-- Presets -->
+                <label style="margin-top:4px;">Optimization Preset</label>
+                <div class="preset-row">
+                    <button class="preset-btn" onclick="applyPreset('safe')">🛡 Safe</button>
+                    <button class="preset-btn active" onclick="applyPreset('balanced')">⚡ Balanced</button>
+                    <button class="preset-btn" onclick="applyPreset('aggressive')">🔥 Aggressive</button>
+                    <button class="preset-btn" onclick="applyPreset('none')">🚫 None</button>
+                </div>
+
+                <!-- Options -->
+                <label>What to Remove</label>
+                <div class="options-grid">
+                    <label class="opt-row" title="XML comments like <!-- Created by Adobe -->">
+                        <input type="checkbox" id="opt_comments" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Comments</strong><!-- Created by… --></span>
+                    </label>
+                    <label class="opt-row" title="Metadata tags: <title>, <desc>, <metadata>">
+                        <input type="checkbox" id="opt_metadata" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Metadata</strong>&lt;title&gt;, &lt;desc&gt;, &lt;metadata&gt;</span>
+                    </label>
+                    <label class="opt-row" title="Adobe Illustrator, Inkscape, Sketch namespaces and attributes">
+                        <input type="checkbox" id="opt_editor_ns" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Editor namespaces</strong>ai:, inkscape:, sketch:</span>
+                    </label>
+                    <label class="opt-row" title="xmlns:xlink if xlink:href is unused">
+                        <input type="checkbox" id="opt_unused_ns" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Unused xmlns</strong>xlink, dc, cc, rdf…</span>
+                    </label>
+                    <label class="opt-row" title="style=&quot;display:inline&quot; and similar no-op inline styles">
+                        <input type="checkbox" id="opt_noop_style" checked onchange="optimize()">
+                        <span class="opt-label"><strong>No-op styles</strong>display:inline, fill:none on g</span>
+                    </label>
+                    <label class="opt-row" title="Attributes with default SVG values that don't need to be specified">
+                        <input type="checkbox" id="opt_defaults" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Default attrs</strong>version, x="0" y="0"</span>
+                    </label>
+                    <label class="opt-row" title="Empty <g> tags with no children or meaningful attrs">
+                        <input type="checkbox" id="opt_empty_g" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Empty &lt;g&gt; tags</strong>groups with no content</span>
+                    </label>
+                    <label class="opt-row" title="Trailing zeros in decimal numbers: 1.50 → 1.5">
+                        <input type="checkbox" id="opt_numbers" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Number precision</strong>1.500 → 1.5</span>
+                    </label>
+                    <label class="opt-row" title="Collapse whitespace, newlines, and indentation">
+                        <input type="checkbox" id="opt_whitespace" checked onchange="optimize()">
+                        <span class="opt-label"><strong>Whitespace</strong>collapse all extra space</span>
+                    </label>
+                    <label class="opt-row" title="id=&quot;Layer_1&quot; and similar editor-generated IDs not referenced by anything">
+                        <input type="checkbox" id="opt_ids" onchange="optimize()">
+                        <span class="opt-label"><strong>Unreferenced IDs</strong>Layer_1, XMLID_… etc</span>
+                    </label>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" onclick="optimize()">OPTIMIZE →</button>
+                    <button class="btn btn-ghost" onclick="clearAll()">CLEAR</button>
+                </div>
+            </div>
+
+            <!-- ── RIGHT: Output ── -->
+            <div class="config-card">
+                <label>Optimized SVG Output</label>
+
+                <!-- Stats -->
+                <div class="stats-bar" id="statsBar">
+                    <span class="stat-chip chip-info">Paste SVG to begin</span>
+                </div>
+
+                <textarea id="svgOutput" readonly placeholder="Optimized SVG will appear here…"></textarea>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyOutput()" disabled>COPY SVG</button>
+                    <button class="btn btn-ghost" id="downloadBtn" onclick="downloadSVG()" disabled>DOWNLOAD .SVG</button>
+                    <button class="btn btn-ghost" id="previewBtn" onclick="togglePreview()" disabled>PREVIEW ▾</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-wrap" id="previewWrap"></div>
+
+                <!-- What was removed -->
+                <div class="removed-log" id="removedLog"></div>
+
+                <div class="format-hint">
+                    <strong>Tip:</strong> Always test the optimized SVG visually before deploying. Use <code>PREVIEW</code> above — if it looks identical, you're good. For animated SVGs, use the <strong>Safe</strong> preset.
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SEO Content ── -->
+        <article class="seo-content">
+            <h2>Why SVG Bloat Kills Your Page Speed</h2>
+            <p>When you export an SVG from Adobe Illustrator, Inkscape, or Figma, the file comes loaded with hidden metadata, editor-specific namespaces, and unnecessary precision that can double or triple the file size — none of which a browser needs to render the graphic.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>What is SVG bloat?</h3>
+                    <p>Editor software embeds its own metadata into SVG files — things like <code>&lt;!-- Generator: Adobe Illustrator --&gt;</code>, <code>xmlns:ai</code> namespaces, <code>&lt;metadata&gt;</code> blocks with RDF/Dublin Core data, and numbers like <code>123.456789</code> where <code>123.46</code> is identical visually.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is it safe to remove all this?</h3>
+                    <p>For static SVGs: yes. Comments, metadata, editor namespaces, and default attribute values have zero visual effect. For SVGs with JavaScript animations targeting specific <code>id</code> attributes, use the <strong>Safe</strong> preset which skips ID removal.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Apache / Nginx + SVG gzip</h3>
+                    <p>Optimizing SVG before serving is only half the job. Make sure your server compresses SVGs with gzip or Brotli. Add <code>AddOutputFilterByType DEFLATE image/svg+xml</code> to <code>.htaccess</code> — this can reduce transfer size by another 70–80%.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Illustrator vs Inkscape vs Figma</h3>
+                    <p>Illustrator adds <code>ai:</code> namespaces and <code>&lt;!-- Generator --&gt;</code> comments. Inkscape embeds <code>inkscape:</code> and <code>sodipodi:</code> attrs plus a full <code>&lt;metadata&gt;</code> block. Figma exports are cleaner but still include redundant <code>id</code> values and default attributes this tool removes.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>When to use Aggressive preset</h3>
+                    <p>Logos, icons, decorative graphics that have no scripted interaction and no CSS targeting IDs. Aggressive mode removes unreferenced IDs and applies the tightest number rounding. Never use it on SVGs used with <code>&lt;use href="#symbol"&gt;</code> or JavaScript <code>getElementById</code>.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Using SVGs inline vs as &lt;img&gt;</h3>
+                    <p>Inline SVGs are styled with CSS and animated with JS — but every byte counts in your HTML payload. Optimize before inlining. For <code>&lt;img src="icon.svg"&gt;</code> usage, the browser caches the file, so optimizing for size is even more impactful across repeat loads.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ─── Drag & Drop ─── */
+    const dz = document.getElementById('dropZone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && (file.type === 'image/svg+xml' || file.name.endsWith('.svg'))) readFile(file);
+    });
+
+    function loadFile(e) { const f = e.target.files[0]; if (f) readFile(f); }
+    function readFile(f) {
+        const r = new FileReader();
+        r.onload = ev => { document.getElementById('svgInput').value = ev.target.result; optimize(); };
+        r.readAsText(f);
+    }
+
+    /* ─── Presets ─── */
+    const presets = {
+        safe:       { opt_comments:1, opt_metadata:1, opt_editor_ns:1, opt_unused_ns:1, opt_noop_style:0, opt_defaults:0, opt_empty_g:0, opt_numbers:0, opt_whitespace:1, opt_ids:0 },
+        balanced:   { opt_comments:1, opt_metadata:1, opt_editor_ns:1, opt_unused_ns:1, opt_noop_style:1, opt_defaults:1, opt_empty_g:1, opt_numbers:1, opt_whitespace:1, opt_ids:0 },
+        aggressive: { opt_comments:1, opt_metadata:1, opt_editor_ns:1, opt_unused_ns:1, opt_noop_style:1, opt_defaults:1, opt_empty_g:1, opt_numbers:1, opt_whitespace:1, opt_ids:1 },
+        none:       { opt_comments:0, opt_metadata:0, opt_editor_ns:0, opt_unused_ns:0, opt_noop_style:0, opt_defaults:0, opt_empty_g:0, opt_numbers:0, opt_whitespace:0, opt_ids:0 },
+    };
+
+    function applyPreset(name) {
+        const p = presets[name];
+        Object.keys(p).forEach(k => {
+            const el = document.getElementById(k);
+            if (el) el.checked = !!p[k];
+        });
+        document.querySelectorAll('.preset-btn').forEach((b, i) => {
+            b.classList.toggle('active', b.textContent.toLowerCase().includes(name));
+        });
+        optimize();
+    }
+
+    function getOpts() {
+        const ids = ['opt_comments','opt_metadata','opt_editor_ns','opt_unused_ns','opt_noop_style','opt_defaults','opt_empty_g','opt_numbers','opt_whitespace','opt_ids'];
+        const o = {};
+        ids.forEach(id => o[id] = document.getElementById(id).checked);
+        return o;
+    }
+
+    /* ─── Main Optimizer ─── */
+    function optimize() {
+        const input = document.getElementById('svgInput').value.trim();
+        if (!input) { resetOutput(); return; }
+
+        let svg = input;
+        const log = [];
+
+        const o = getOpts();
+
+        // 1. XML comments
+        if (o.opt_comments) {
+            const before = (svg.match(/<!--[\s\S]*?-->/g) || []).length;
+            svg = svg.replace(/<!--[\s\S]*?-->/g, '');
+            if (before) log.push(`Removed ${before} comment${before > 1 ? 's' : ''}`);
+        }
+
+        // 2. Metadata tags
+        if (o.opt_metadata) {
+            let removed = 0;
+            ['metadata', 'title', 'desc', 'rdf:RDF', 'cc:Work', 'dc:format'].forEach(tag => {
+                const re = new RegExp(`<${tag}[\\s\\S]*?<\\/${tag}>`, 'gi');
+                const matches = svg.match(re) || [];
+                removed += matches.length;
+                svg = svg.replace(re, '');
+            });
+            // Self-closing metadata
+            svg = svg.replace(/<(title|desc)\s*\/>/gi, m => { removed++; return ''; });
+            if (removed) log.push(`Removed ${removed} metadata element${removed > 1 ? 's' : ''}`);
+        }
+
+        // 3. Editor namespaces & attrs (ai:, inkscape:, sodipodi:, sketch:, dc:, cc:, rdf:)
+        if (o.opt_editor_ns) {
+            const editorAttrs = /\s+(ai|inkscape|sodipodi|sketch|i|xlink):[a-z\-:]+="[^"]*"/gi;
+            const count = (svg.match(editorAttrs) || []).length;
+            svg = svg.replace(editorAttrs, '');
+            // xmlns declarations for those namespaces
+            svg = svg.replace(/\s+xmlns:(ai|inkscape|sodipodi|sketch|dc|cc|rdf|xlink)="[^"]*"/gi, '');
+            if (count) log.push(`Stripped ${count} editor attribute${count > 1 ? 's' : ''}`);
+        }
+
+        // 4. Unused xmlns (dc, cc, rdf, xlink if no xlink:href remains)
+        if (o.opt_unused_ns) {
+            const hasXlinkHref = /xlink:href/.test(svg);
+            if (!hasXlinkHref) {
+                const before = svg;
+                svg = svg.replace(/\s+xmlns:xlink="[^"]*"/gi, '');
+                if (svg !== before) log.push('Removed unused xmlns:xlink');
+            }
+            svg = svg.replace(/\s+xmlns:(dc|cc|rdf)="[^"]*"/gi, '');
+        }
+
+        // 5. No-op styles
+        if (o.opt_noop_style) {
+            let count = 0;
+            // display:inline is the default
+            svg = svg.replace(/\s*display\s*:\s*inline\s*;?\s*/gi, m => { count++; return ''; });
+            // empty style attrs
+            svg = svg.replace(/\s+style="(\s*;?\s*)"/gi, m => { count++; return ''; });
+            if (count) log.push(`Removed ${count} no-op style declaration${count > 1 ? 's' : ''}`);
+        }
+
+        // 6. Default SVG attributes
+        if (o.opt_defaults) {
+            let removed = 0;
+            const defaults = [
+                [/\s+version="1\.1"/gi, ''],
+                [/\s+x="0(px|pt|mm|em)?"/gi, ''],
+                [/\s+y="0(px|pt|mm|em)?"/gi, ''],
+                [/\s+x="0\.0+"/gi, ''],
+                [/\s+y="0\.0+"/gi, ''],
+                [/\s+fill-rule="nonzero"/gi, ''],
+                [/\s+clip-rule="nonzero"/gi, ''],
+                [/\s+stroke="none"/gi, ''],
+                [/\s+stroke-width="1"/gi, ''],
+                [/\s+opacity="1"/gi, ''],
+                [/\s+fill-opacity="1"/gi, ''],
+                [/\s+stroke-opacity="1"/gi, ''],
+            ];
+            defaults.forEach(([re, rep]) => {
+                const m = svg.match(re);
+                if (m) { removed += m.length; svg = svg.replace(re, rep); }
+            });
+            if (removed) log.push(`Removed ${removed} default attribute${removed > 1 ? 's' : ''}`);
+        }
+
+        // 7. Empty <g> tags
+        if (o.opt_empty_g) {
+            let count = 0;
+            // Repeat a few times for nested empties
+            for (let i = 0; i < 4; i++) {
+                svg = svg.replace(/<g(\s[^>]*)?\s*>\s*<\/g>/gi, m => { count++; return ''; });
+            }
+            if (count) log.push(`Removed ${count} empty &lt;g&gt; element${count > 1 ? 's' : ''}`);
+        }
+
+        // 8. Number precision (trailing zeros, unnecessary decimals)
+        if (o.opt_numbers) {
+            let count = 0;
+            // Trailing zeros: 1.500 → 1.5, 2.0 → 2, 0.5 → .5
+            svg = svg.replace(/(\d+\.\d*[1-9])0+(?=[^\d])/g, '$1');
+            svg = svg.replace(/(\d+)\.0+(?=[^\d])/g, (m, n) => { count++; return n; });
+            svg = svg.replace(/\b0(\.\d+)/g, '$1'); // 0.5 → .5
+            // Very long decimals: keep 3 sig figs
+            svg = svg.replace(/(-?\d+\.\d{4,})/g, m => {
+                count++;
+                return parseFloat(parseFloat(m).toPrecision(5)).toString();
+            });
+            if (count) log.push(`Condensed ${count} number${count > 1 ? 's' : ''}`);
+        }
+
+        // 9. Whitespace collapse
+        if (o.opt_whitespace) {
+            svg = svg.replace(/\n\s*\n/g, '\n');  // blank lines
+            svg = svg.replace(/>\s+</g, '><');     // whitespace between tags
+            svg = svg.replace(/\s{2,}/g, ' ');     // multiple spaces → one
+            svg = svg.trim();
+            log.push('Collapsed whitespace');
+        }
+
+        // 10. Unreferenced IDs
+        if (o.opt_ids) {
+            // Collect all id values
+            const idMatches = [...svg.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
+            let removed = 0;
+            idMatches.forEach(id => {
+                // Check if referenced by url(#id), href="#id", or class selectors
+                const refPattern = new RegExp(`(url\\(#${escapeReg(id)}\\)|href="#${escapeReg(id)}"|#${escapeReg(id)}[^a-zA-Z0-9_-])`);
+                if (!refPattern.test(svg)) {
+                    svg = svg.replace(new RegExp(`\\s+id="${escapeReg(id)}"`, 'g'), '');
+                    removed++;
+                }
+            });
+            if (removed) log.push(`Removed ${removed} unreferenced id attribute${removed > 1 ? 's' : ''}`);
+        }
+
+        // ─── Output & Stats ───
+        const origBytes  = new Blob([input]).size;
+        const optBytes   = new Blob([svg]).size;
+        const saving     = origBytes - optBytes;
+        const pct        = origBytes > 0 ? Math.round((saving / origBytes) * 100) : 0;
+
+        document.getElementById('svgOutput').value = svg;
+
+        // Stats bar
+        const sb = document.getElementById('statsBar');
+        let chips = '';
+        chips += `<span class="stat-chip chip-info">Before: ${fmt(origBytes)}</span>`;
+        chips += `<span class="stat-chip chip-info">After: ${fmt(optBytes)}</span>`;
+        if (saving > 0) {
+            chips += `<span class="stat-chip chip-saving">−${fmt(saving)} saved (${pct}%)</span>`;
+        } else {
+            chips += `<span class="stat-chip chip-warn">No reduction — already lean</span>`;
+        }
+        sb.innerHTML = chips;
+
+        // Removed log
+        const rl = document.getElementById('removedLog');
+        if (log.length) {
+            rl.style.display = 'block';
+            rl.innerHTML = '<span>What was removed:</span><br>' + log.map(l => `<span class="rm-item">✓</span> ${l}`).join('<br>');
+        } else {
+            rl.style.display = 'none';
+        }
+
+        // Enable buttons
+        document.getElementById('copyBtn').disabled     = false;
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('previewBtn').disabled  = false;
+
+        // Update preview if visible
+        const pw = document.getElementById('previewWrap');
+        if (pw.style.display === 'block') renderPreview(svg);
+    }
+
+    function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function fmt(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        return (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    /* ─── Preview ─── */
+    let previewOpen = false;
+    function togglePreview() {
+        previewOpen = !previewOpen;
+        const pw = document.getElementById('previewWrap');
+        pw.style.display = previewOpen ? 'block' : 'none';
+        document.getElementById('previewBtn').innerText = previewOpen ? 'PREVIEW ▴' : 'PREVIEW ▾';
+        if (previewOpen) renderPreview(document.getElementById('svgOutput').value);
+    }
+    function renderPreview(svg) {
+        const pw = document.getElementById('previewWrap');
+        // Only render if it looks like valid SVG
+        if (!svg.includes('<svg')) { pw.innerHTML = '<span style="color:#64748b;font-size:0.8rem">No valid SVG to preview</span>'; return; }
+        pw.innerHTML = svg;
+    }
+
+    /* ─── Copy / Download ─── */
+    async function copyOutput() {
+        const btn = document.getElementById('copyBtn');
+        await navigator.clipboard.writeText(document.getElementById('svgOutput').value);
+        btn.innerText = '✓ COPIED'; btn.classList.add('success');
+        setTimeout(() => { btn.innerText = 'COPY SVG'; btn.classList.remove('success'); }, 1600);
+    }
+
+    function downloadSVG() {
+        const code = document.getElementById('svgOutput').value;
+        if (!code) return;
+        const blob = new Blob([code], { type: 'image/svg+xml' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = 'optimized.svg';
+        a.click();
+    }
+
+    /* ─── Clear ─── */
+    function clearAll() {
+        document.getElementById('svgInput').value  = '';
+        document.getElementById('svgOutput').value = '';
+        document.getElementById('statsBar').innerHTML = '<span class="stat-chip chip-info">Paste SVG to begin</span>';
+        document.getElementById('removedLog').style.display = 'none';
+        document.getElementById('previewWrap').style.display = 'none';
+        document.getElementById('previewWrap').innerHTML = '';
+        previewOpen = false;
+        document.getElementById('previewBtn').innerText = 'PREVIEW ▾';
+        ['copyBtn','downloadBtn','previewBtn'].forEach(id => document.getElementById(id).disabled = true);
+    }
+
+    function onInputChange() {
+        const v = document.getElementById('svgInput').value.trim();
+        if (v.length > 20) optimize();
+        else if (!v) clearAll();
+    }
+
+    /* ─── Init ─── */
+    applyPreset('balanced');
+    </script>
+</body>
+</html>

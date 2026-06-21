@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Free Meme Generator — Add Captions & Stickers to Any Image | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Create memes instantly. Upload any image (or start blank), drag in unlimited captions and stickers, and export at full resolution. Free, browser-only, no watermarks.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Anton&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --warn: #FF8800;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 30px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Layout: two col on desktop */
+        .meme-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+        @media (max-width: 700px) { .meme-layout { grid-template-columns: 1fr; } }
+
+        /* Canvas side */
+        .canvas-wrap {
+            position: relative; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden;
+            display: flex; align-items: center; justify-content: center; min-height: 260px;
+        }
+        #memeCanvas { display: block; max-width: 100%; max-height: 520px; border-radius: var(--radius-md); touch-action: none; cursor: grab; }
+        #memeCanvas:active { cursor: grabbing; }
+
+        .drag-hint { font-size: 0.74rem; color: var(--text-dim); text-align: center; margin-top: 10px; }
+
+        /* Section labels */
+        .tmpl-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 12px 0 7px; }
+
+        /* Controls side */
+        .controls-side { display: flex; flex-direction: column; gap: 14px; }
+        .ctrl-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px;
+        }
+        .ctrl-title { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 12px; }
+
+        .ctrl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .ctrl-sub-label { font-size: 0.65rem; font-weight: 700; color: var(--text-dim); white-space: nowrap; }
+
+        .slider-wrap { display: flex; align-items: center; gap: 8px; width: 100%; }
+        .meme-slider {
+            flex: 1; -webkit-appearance: none; height: 4px; border-radius: 2px;
+            background: var(--border-mid); outline: none; cursor: pointer;
+        }
+        .meme-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--primary); cursor: pointer; transition: transform 0.15s;
+        }
+        .meme-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .slider-val { font-size: 0.72rem; font-family: 'Fira Code', monospace; color: var(--text-sec); min-width: 28px; text-align: right; }
+
+        .color-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+        .color-swatch {
+            width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent;
+            cursor: pointer; transition: transform 0.15s, border-color 0.15s; flex-shrink: 0;
+            padding: 0; appearance: none; -webkit-appearance: none; outline: none; font-size: 0;
+        }
+        .color-swatch:hover { transform: scale(1.15); }
+        .color-swatch.active { border-color: var(--primary); transform: scale(1.1); }
+        .color-swatch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .color-picker-btn {
+            width: 24px; height: 24px; border-radius: 50%; border: 1.5px dashed var(--border-mid);
+            background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: var(--text-dim); position: relative; overflow: hidden;
+        }
+        .color-picker-btn input[type=color] {
+            position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: none;
+        }
+
+        /* Bigger swatches used for the blank-canvas background picker */
+        .bg-swatch { width: 34px; height: 34px; border-radius: 9px; }
+
+        .pos-row { display: flex; gap: 6px; }
+        .pos-btn {
+            flex: 1; padding: 6px 0; font-size: 0.68rem; font-weight: 700; border-radius: 7px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
+            cursor: pointer; transition: all 0.15s; font-family: 'Outfit', sans-serif;
+        }
+        .pos-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .pos-btn:hover:not(.active) { border-color: var(--border-mid); color: var(--text-sec); }
+
+        .tog-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tog-sm {
+            padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-dim); font-size: 0.68rem;
+            font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s;
+        }
+        .tog-sm.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Sticker row */
+        .sticker-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+        .sticker-btn {
+            font-size: 1.3rem; width: 36px; height: 36px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+        }
+        .sticker-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); transform: scale(1.1); }
+
+        /* Layer list */
+        .layer-row {
+            display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px;
+            border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .layer-row.selected { border-color: var(--primary-border); background: var(--primary-dim); }
+        .layer-emoji { font-size: 1rem; flex-shrink: 0; }
+        .layer-text-input {
+            flex: 1; min-width: 0; background: transparent; border: none; color: var(--text);
+            font-family: 'Outfit', sans-serif; font-size: 0.85rem; outline: none;
+        }
+        .layer-text-input::placeholder { color: var(--text-dim); }
+        .layer-del {
+            background: none; border: none; color: var(--text-dim); cursor: pointer;
+            font-size: 0.9rem; padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
+        }
+        .layer-del:hover { color: var(--error); background: rgba(255,68,68,0.08); }
+        .empty-hint { font-size: 0.78rem; color: var(--text-dim); text-align: center; padding: 12px 4px; }
+
+        /* Action buttons */
+        .btn-main {
+            width: 100%; padding: 13px; border-radius: var(--radius-md); border: none;
+            background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%);
+            color: #000; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 800;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;
+        }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,180,0,0.3); }
+        .btn-secondary {
+            width: 100%; padding: 11px; border-radius: var(--radius-md);
+            border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary);
+            font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+        .btn-ghost {
+            width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; max-width: 86vw; text-align: center; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* drop-zone for upload */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 44px 30px;
+            text-align: center; cursor: pointer; margin-bottom: 14px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1); }
+        .drop-zone.drag-over { transform: scale(1.01); box-shadow: 0 20px 60px rgba(255,214,0,0.2); }
+        .drop-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+        .drop-title { font-size: 1rem; font-weight: 700; margin-bottom: 5px; }
+        .drop-sub { font-size: 0.8rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
+        #fileInput { display: none; }
+
+        .blank-start { text-align: center; margin-bottom: 28px; }
+        .blank-controls { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 10px; }
+
+        .meme-main { display: none; }
+        .meme-main.visible { display: block; }
+
+        /* FAQ / Good-to-know */
+        .faq-section { margin-top: 52px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .faq-item h3 { font-size: 0.83rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .faq-item p { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
+        .limits-section .faq-item { border-left: 3px solid var(--warn); }
+        .limits-section .faq-item h3 { color: var(--warn); }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="text-watermark-overlay.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Meme Generator</h1>
+                <p class="tool-page-sub">Upload any image (or start from a blank canvas), drag in as many captions and stickers as you want, export at full resolution.</p>
+                <span class="privacy-badge">100% browser-based — nothing leaves your device</span>
+            </div>
+
+            <!-- START SCREEN -->
+            <div id="startScreen">
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept="image/*">
+                    <span class="drop-icon">😂</span>
+                    <p class="drop-title">Drop an image here to start</p>
+                    <p class="drop-sub">or <span id="browseLink">browse to upload</span> · JPG, PNG, WebP, GIF</p>
+                </div>
+
+                <div class="blank-start">
+                    <p class="tmpl-label">or start from a blank canvas</p>
+                    <div class="blank-controls">
+                        <div class="pos-row" id="aspectRow" style="max-width:320px;">
+                            <button class="pos-btn active" data-aspect="square">◻ Square</button>
+                            <button class="pos-btn" data-aspect="landscape">▭ Landscape</button>
+                            <button class="pos-btn" data-aspect="portrait">▯ Portrait</button>
+                        </div>
+                        <div class="color-row" id="bgSwatchRow"></div>
+                        <button class="btn-secondary" id="createBlankBtn" style="max-width:240px;">Create blank canvas</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN MEME EDITOR -->
+            <div class="meme-main" id="memeMain">
+                <div class="meme-layout">
+                    <!-- LEFT: Canvas -->
+                    <div class="canvas-side">
+                        <div class="canvas-wrap" id="canvasWrap">
+                            <canvas id="memeCanvas"></canvas>
+                        </div>
+                        <p class="drag-hint">💡 Drag any caption or sticker on the image to move it. Tap a layer in the list to edit its style.</p>
+                    </div>
+
+                    <!-- RIGHT: Controls -->
+                    <div class="controls-side">
+
+                        <!-- Layers -->
+                        <div class="ctrl-card">
+                            <div class="ctrl-title">🗂 Layers</div>
+                            <div id="layerList"></div>
+                            <button class="btn-secondary" id="addTextBtn" style="margin-top:6px;">+ Add text layer</button>
+                            <p class="tmpl-label" style="margin-top:16px;">Stickers — tap to add</p>
+                            <div class="sticker-grid" id="stickerGrid"></div>
+                        </div>
+
+                        <!-- Style (shown when a layer is selected) -->
+                        <div class="ctrl-card" id="styleCard" style="display:none;"></div>
+
+                        <!-- Actions -->
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <button class="btn-main" id="downloadBtn">⬇ Download Meme</button>
+                            <button class="btn-secondary" id="shareNativeBtn" style="display:none;">📤 Share from device</button>
+                            <button class="btn-secondary" id="copyImgBtn" style="display:none;">📋 Copy image</button>
+                            <button class="btn-ghost" id="startOverBtn">✕ Start over</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- GOOD TO KNOW / LIMITATIONS -->
+            <article class="faq-section limits-section">
+                <h2 class="faq-heading">Good to know — what this tool won't pretend to do</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>No fake "classic" templates</h3>
+                        <p>Drake, Distracted Boyfriend, Surprised Pikachu and friends are photos and film stills owned by other people. We won't ship cheap fake copies of them. Bring your own image — including a screenshot of one of those templates — and caption it however you like.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Always exports as a static image</h3>
+                        <p>If you upload an animated GIF, only its first frame is used. The result you download or share is always a single still image, never an animation.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Sharing depends on your browser</h3>
+                        <p>"Share from device" only appears if your browser supports sending the image straight to another app (common on phones, rare on desktop). "Copy image" only appears if your browser supports copying images to the clipboard. If you don't see them, download the image and share it manually instead.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Big images get resized on export</h3>
+                        <p>Very large photos are automatically scaled down to a maximum of 2400px on the longer side before export, to keep the tool fast and avoid crashing your browser tab.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Up to 20 layers per meme</h3>
+                        <p>You can add up to 20 text and sticker layers in total, so dragging and rendering stays smooth. Delete a layer you don't need to make room for another.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>"Impact" font, recreated</h3>
+                        <p>The classic Impact font isn't installed on every device, so we bundle a free lookalike (Anton) for a consistent look everywhere — it won't be pixel-identical to Impact on every system.</p>
+                    </div>
+                </div>
+            </article>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why this meme generator slaps</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Caption anything, your way</h3>
+                        <p>Not just top and bottom — add as many text boxes as the joke needs and drag each one exactly where it belongs.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Stickers that actually move</h3>
+                        <p>Drop in an emoji, then drag and resize it directly on the image. No more "added to center, stuck forever."</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Full-resolution downloads</h3>
+                        <p>Your meme exports at your original image's resolution (capped only to stop huge files from crashing the tab) — not a shrunk preview.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>No watermarks. Ever.</h3>
+                        <p>Download your meme clean. No "made with Rebrixe" stamped on your masterpiece. It's your meme.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    'use strict';
+
+    // ─── CONSTANTS ─────────────────────────────────────────────────────────────
+    const REFERENCE_W = 520;      // font/sticker sizes are authored against this reference width, then scaled
+    const PREVIEW_MAX_W = 560;    // live-edit canvas is capped small for smooth dragging/performance
+    const PREVIEW_MAX_H = 520;
+    const EXPORT_MAX_DIM = 2400;  // exported image is capped on its longer side
+    const MAX_LAYERS = 20;
+
+    const ASPECTS = {
+        square:    { w: 1080, h: 1080 },
+        landscape: { w: 1200, h: 675  },
+        portrait:  { w: 1080, h: 1350 }
+    };
+
+    const BG_PRESETS = [
+        { type: 'color',    c1: '#1A1812' },
+        { type: 'color',    c1: '#ffffff' },
+        { type: 'color',    c1: '#000000' },
+        { type: 'color',    c1: '#FFD600' },
+        { type: 'gradient', c1: '#FF512F', c2: '#DD2476' },
+        { type: 'gradient', c1: '#11998E', c2: '#38EF7D' },
+        { type: 'gradient', c1: '#1A1812', c2: '#3A2F00' }
+    ];
+
+    const TEXT_COLORS = ['#ffffff', '#000000', '#FFD600', '#FF4444', '#00CFFF', '#AAFF00'];
+    const STICKERS = ['🔥','💀','😂','🤣','💯','👀','😎','🤡','⚡','👑','💥','🤌','💅','🗿','✨','😤','🥹','🫠'];
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    const state = {
+        mode: null,        // 'image' | 'blank'
+        img: null,
+        bg: null,          // { type:'color'|'gradient', c1, c2 }
+        canvasW: 0,
+        canvasH: 0,
+        layers: [],        // text/sticker layer objects
+        selectedId: null,
+        nextId: 1
+    };
+
+    let blankAspect = 'square';
+    let blankBg = BG_PRESETS[0];
+    let dragging = null;   // layer currently being dragged
+    let dragOffX = 0, dragOffY = 0;
+
+    // ─── INIT ──────────────────────────────────────────────────────────────────
+    function init() {
+        buildBgSwatches();
+        buildStickerGrid();
+        bindStartScreen();
+        bindCanvasPointerEvents();
+        bindActionButtons();
+        detectShareCapabilities();
+        document.fonts && document.fonts.ready && document.fonts.ready.then(() => { if (state.mode) renderPreview(); });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (state.mode) renderPreview(); }, 150);
+        });
+    }
+
+    // ─── START SCREEN ─────────────────────────────────────────────────────────
+    function bindStartScreen() {
+        const dz = document.getElementById('dropZone');
+        const fi = document.getElementById('fileInput');
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+        dz.addEventListener('drop', e => {
+            e.preventDefault(); dz.classList.remove('drag-over');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+        });
+        dz.addEventListener('click', e => { if (e.target.id !== 'browseLink') fi.click(); });
+        document.getElementById('browseLink').addEventListener('click', e => { e.stopPropagation(); fi.click(); });
+        fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+        document.querySelectorAll('#aspectRow .pos-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#aspectRow .pos-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                blankAspect = btn.dataset.aspect;
+            });
+        });
+
+        document.getElementById('createBlankBtn').addEventListener('click', createBlankCanvas);
+    }
+
+    function buildBgSwatches() {
+        const row = document.getElementById('bgSwatchRow');
+        BG_PRESETS.forEach((preset, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'color-swatch bg-swatch' + (i === 0 ? ' active' : '');
+            btn.type = 'button';
+            btn.setAttribute('aria-label', preset.type === 'gradient' ? 'Gradient background' : 'Solid background ' + preset.c1);
+            btn.style.background = preset.type === 'gradient'
+                ? 'linear-gradient(135deg,' + preset.c1 + ',' + preset.c2 + ')'
+                : preset.c1;
+            btn.addEventListener('click', () => {
+                row.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                btn.classList.add('active');
+                blankBg = preset;
+            });
+            row.appendChild(btn);
+        });
+
+        const customLabel = document.createElement('label');
+        customLabel.className = 'color-picker-btn';
+        customLabel.style.width = '34px'; customLabel.style.height = '34px'; customLabel.style.borderRadius = '9px';
+        customLabel.title = 'Custom background color';
+        customLabel.innerHTML = '+<input type="color" value="#1A1812" aria-label="Custom background color">';
+        customLabel.querySelector('input').addEventListener('input', e => {
+            blankBg = { type: 'color', c1: e.target.value };
+            row.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        });
+        row.appendChild(customLabel);
+    }
+
+    function buildStickerGrid() {
+        const grid = document.getElementById('stickerGrid');
+        STICKERS.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'sticker-btn';
+            btn.type = 'button';
+            btn.textContent = s;
+            btn.setAttribute('aria-label', 'Add ' + s + ' sticker');
+            btn.addEventListener('click', () => addSticker(s));
+            grid.appendChild(btn);
+        });
+    }
+
+    // ─── LOADING AN IMAGE / BLANK CANVAS ──────────────────────────────────────
+    function loadFile(file) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            showToast('Please choose an image file', 'error');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => showToast('Could not read that file — try another image', 'error');
+        reader.onload = e => {
+            const img = new Image();
+            img.onerror = () => showToast('That file could not be loaded as an image', 'error');
+            img.onload = () => {
+                state.mode = 'image';
+                state.img = img;
+                state.bg = null;
+                state.canvasW = img.naturalWidth || 800;
+                state.canvasH = img.naturalHeight || 800;
+                resetLayers();
+                addDefaultTopBottomLayers();
+                enterEditor();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function createBlankCanvas() {
+        const dims = ASPECTS[blankAspect] || ASPECTS.square;
+        state.mode = 'blank';
+        state.img = null;
+        state.bg = blankBg;
+        state.canvasW = dims.w;
+        state.canvasH = dims.h;
+        resetLayers();
+        addDefaultTopBottomLayers();
+        enterEditor();
+    }
+
+    function resetLayers() {
+        state.layers = [];
+        state.selectedId = null;
+        state.nextId = 1;
+    }
+
+    function addDefaultTopBottomLayers() {
+        const topId = state.nextId++;
+        state.layers.push({ id: topId, type: 'text', text: '', x: 0.5, y: 0.08, size: 42, color: '#ffffff', stroke: '#000000', style: 'impact', align: 'center', placeholder: 'Top text…' });
+        const botId = state.nextId++;
+        state.layers.push({ id: botId, type: 'text', text: '', x: 0.5, y: 0.92, size: 42, color: '#ffffff', stroke: '#000000', style: 'impact', align: 'center', placeholder: 'Bottom text…' });
+    }
+
+    function enterEditor() {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('memeMain').classList.add('visible');
+        buildLayerListDOM();
+        renderStylePanel();
+        renderPreview();
+    }
+
+    function resetTool() {
+        state.mode = null;
+        state.img = null;
+        state.bg = null;
+        resetLayers();
+        document.getElementById('memeMain').classList.remove('visible');
+        document.getElementById('startScreen').style.display = '';
+        document.getElementById('fileInput').value = '';
+        document.getElementById('layerList').innerHTML = '';
+        document.getElementById('styleCard').style.display = 'none';
+        document.getElementById('shareNativeBtn').style.display = shareSupported ? '' : 'none';
+        document.getElementById('copyImgBtn').style.display = clipboardSupported ? '' : 'none';
+    }
+
+    // ─── RENDERING ─────────────────────────────────────────────────────────────
+    function renderToCtx(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+        if (state.mode === 'image' && state.img) {
+            ctx.drawImage(state.img, 0, 0, w, h);
+        } else if (state.mode === 'blank' && state.bg) {
+            if (state.bg.type === 'gradient') {
+                const g = ctx.createLinearGradient(0, 0, w, h);
+                g.addColorStop(0, state.bg.c1);
+                g.addColorStop(1, state.bg.c2);
+                ctx.fillStyle = g;
+            } else {
+                ctx.fillStyle = state.bg.c1;
+            }
+            ctx.fillRect(0, 0, w, h);
+        }
+        const scale = w / REFERENCE_W;
+        state.layers.forEach(layer => {
+            if (layer.type === 'sticker') drawStickerLayer(ctx, layer, w, h, scale);
+            else drawTextLayer(ctx, layer, w, h, scale);
+        });
+    }
+
+    function drawStickerLayer(ctx, layer, w, h, scale) {
+        const size = layer.size * scale;
+        ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(layer.emoji, layer.x * w, layer.y * h);
+    }
+
+    function fontStringFor(style, size) {
+        switch (style) {
+            case 'impact': return '400 ' + size + 'px Anton, Impact, "Arial Black", sans-serif';
+            case 'bold':   return '800 ' + size + 'px Outfit, sans-serif';
+            case 'bubble': return '400 ' + size + 'px Anton, Impact, sans-serif';
+            case 'plain':  return '600 ' + size + 'px Outfit, sans-serif';
+            default:       return '400 ' + size + 'px Anton, sans-serif';
+        }
+    }
+
+    function wrapText(ctx, text, maxW) {
+        const words = text.split(' ');
+        const lines = [];
+        let cur = '';
+        words.forEach(word => {
+            const test = cur ? cur + ' ' + word : word;
+            if (cur && ctx.measureText(test).width > maxW) { lines.push(cur); cur = word; }
+            else { cur = test; }
+        });
+        if (cur) lines.push(cur);
+        return lines;
+    }
+
+    function getTextLayout(ctx, layer, w, h, scale) {
+        if (!layer.text) return null;
+        const size = Math.max(1, Math.round(layer.size * scale));
+        ctx.font = fontStringFor(layer.style, size);
+        const maxW = w * 0.92;
+        const lines = wrapText(ctx, layer.text.toUpperCase(), maxW);
+        const lineH = size * 1.18;
+        const totalH = lines.length * lineH;
+        let maxLineW = 0;
+        lines.forEach(line => { maxLineW = Math.max(maxLineW, ctx.measureText(line).width); });
+        return { size, lines, lineH, totalH, maxLineW };
+    }
+
+    function drawTextLayer(ctx, layer, w, h, scale) {
+        const layout = getTextLayout(ctx, layer, w, h, scale);
+        if (!layout) return;
+        ctx.font = fontStringFor(layer.style, layout.size);
+        ctx.textAlign = layer.align;
+        ctx.textBaseline = 'middle';
+        const x = layer.x * w;
+        const startY = layer.y * h - layout.totalH / 2 + layout.lineH / 2;
+        layout.lines.forEach((line, i) => {
+            const ly = startY + i * layout.lineH;
+            if (layer.stroke && layer.stroke !== 'none') {
+                ctx.strokeStyle = layer.stroke;
+                ctx.lineWidth = Math.max(2, layout.size * (layer.style === 'bubble' ? 0.16 : 0.08));
+                ctx.lineJoin = 'round';
+                ctx.miterLimit = 2;
+                ctx.strokeText(line, x, ly);
+            }
+            ctx.fillStyle = layer.color;
+            ctx.fillText(line, x, ly);
+        });
+    }
+
+    function renderPreview() {
+        if (!state.mode) return;
+        const canvas = document.getElementById('memeCanvas');
+        const wrap = document.getElementById('canvasWrap');
+        const availW = (wrap.clientWidth || PREVIEW_MAX_W) - 4;
+        let w = Math.min(state.canvasW, availW, PREVIEW_MAX_W);
+        let h = Math.round(w * state.canvasH / state.canvasW);
+        if (h > PREVIEW_MAX_H) { h = PREVIEW_MAX_H; w = Math.round(h * state.canvasW / state.canvasH); }
+        canvas.width = Math.max(1, w);
+        canvas.height = Math.max(1, h);
+        renderToCtx(canvas.getContext('2d'), canvas.width, canvas.height);
+    }
+
+    function getExportDims() {
+        let w = state.canvasW, h = state.canvasH;
+        const longest = Math.max(w, h);
+        if (longest > EXPORT_MAX_DIM) {
+            const scale = EXPORT_MAX_DIM / longest;
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+        }
+        return { w: Math.max(1, w), h: Math.max(1, h) };
+    }
+
+    function buildExportCanvas() {
+        const { w, h } = getExportDims();
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        renderToCtx(c.getContext('2d'), w, h);
+        return c;
+    }
+
+    // ─── DRAGGING ON CANVAS ────────────────────────────────────────────────────
+    function canvasPointFromEvent(e, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    }
+
+    function findTopLayerAt(px, py, ctx, w, h, scale) {
+        for (let i = state.layers.length - 1; i >= 0; i--) {
+            const layer = state.layers[i];
+            if (layer.type === 'sticker') {
+                const size = layer.size * scale;
+                const left = layer.x * w - size / 2, top = layer.y * h - size / 2;
+                if (px >= left && px <= left + size && py >= top && py <= top + size) return layer;
+            } else {
+                const layout = getTextLayout(ctx, layer, w, h, scale);
+                if (!layout) continue;
+                let left;
+                if (layer.align === 'left') left = layer.x * w;
+                else if (layer.align === 'right') left = layer.x * w - layout.maxLineW;
+                else left = layer.x * w - layout.maxLineW / 2;
+                const top = layer.y * h - layout.totalH / 2;
+                if (px >= left - 6 && px <= left + layout.maxLineW + 6 && py >= top - 6 && py <= top + layout.totalH + 6) return layer;
+            }
+        }
+        return null;
+    }
+
+    function bindCanvasPointerEvents() {
+        const canvas = document.getElementById('memeCanvas');
+        canvas.addEventListener('pointerdown', e => {
+            if (!state.mode) return;
+            const ctx = canvas.getContext('2d');
+            const scale = canvas.width / REFERENCE_W;
+            const pt = canvasPointFromEvent(e, canvas);
+            const hit = findTopLayerAt(pt.x, pt.y, ctx, canvas.width, canvas.height, scale);
+            if (hit) {
+                dragging = hit;
+                dragOffX = pt.x - hit.x * canvas.width;
+                dragOffY = pt.y - hit.y * canvas.height;
+                selectLayer(hit.id);
+                try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not critical */ }
+                e.preventDefault();
+            } else if (state.selectedId !== null) {
+                state.selectedId = null;
+                updateSelectionHighlight();
+                renderStylePanel();
+            }
+        });
+        canvas.addEventListener('pointermove', e => {
+            if (!dragging) return;
+            const pt = canvasPointFromEvent(e, canvas);
+            let nx = (pt.x - dragOffX) / canvas.width;
+            let ny = (pt.y - dragOffY) / canvas.height;
+            nx = Math.min(0.98, Math.max(0.02, nx));
+            ny = Math.min(0.98, Math.max(0.02, ny));
+            dragging.x = nx; dragging.y = ny;
+            renderPreview();
+        });
+        const endDrag = () => { dragging = null; };
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+    }
+
+    // ─── LAYER LIST ────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function buildLayerListDOM() {
+        const list = document.getElementById('layerList');
+        list.innerHTML = '';
+        if (state.layers.length === 0) {
+            list.innerHTML = '<p class="empty-hint">No layers yet — add a text layer or tap a sticker below.</p>';
+            return;
+        }
+        state.layers.forEach(layer => {
+            const row = document.createElement('div');
+            row.className = 'layer-row';
+            row.dataset.id = String(layer.id);
+            if (layer.type === 'text') {
+                row.innerHTML =
+                    '<span class="layer-emoji">📝</span>' +
+                    '<input class="layer-text-input" type="text" maxlength="80" placeholder="' + escapeHtml(layer.placeholder || 'Type your caption…') + '" value="' + escapeHtml(layer.text) + '">' +
+                    '<button class="layer-del" type="button" aria-label="Delete this text layer">✕</button>';
+                const input = row.querySelector('input');
+                input.addEventListener('input', e => { layer.text = e.target.value; renderPreview(); });
+                input.addEventListener('focus', () => selectLayer(layer.id));
+            } else {
+                row.innerHTML =
+                    '<span class="layer-emoji">' + layer.emoji + '</span>' +
+                    '<span style="flex:1;color:var(--text-sec);font-size:0.8rem;">Sticker</span>' +
+                    '<button class="layer-del" type="button" aria-label="Delete this sticker">✕</button>';
+            }
+            row.querySelector('.layer-del').addEventListener('click', e => { e.stopPropagation(); deleteLayer(layer.id); });
+            row.addEventListener('click', e => {
+                if (e.target.classList.contains('layer-text-input') || e.target.classList.contains('layer-del')) return;
+                selectLayer(layer.id);
+            });
+            list.appendChild(row);
+        });
+        updateSelectionHighlight();
+    }
+
+    function updateSelectionHighlight() {
+        document.querySelectorAll('.layer-row').forEach(row => {
+            row.classList.toggle('selected', row.dataset.id === String(state.selectedId));
+        });
+    }
+
+    function selectLayer(id) {
+        state.selectedId = id;
+        updateSelectionHighlight();
+        renderStylePanel();
+    }
+
+    function deleteLayer(id) {
+        state.layers = state.layers.filter(l => l.id !== id);
+        if (state.selectedId === id) state.selectedId = null;
+        buildLayerListDOM();
+        renderStylePanel();
+        renderPreview();
+    }
+
+    function addTextLayer() {
+        if (state.layers.length >= MAX_LAYERS) { showToast('Layer limit reached (' + MAX_LAYERS + ') — delete one to add another', 'error'); return; }
+        const id = state.nextId++;
+        const layer = { id, type: 'text', text: '', x: 0.5 + (Math.random() * 0.1 - 0.05), y: 0.5 + (Math.random() * 0.1 - 0.05), size: 40, color: '#ffffff', stroke: '#000000', style: 'impact', align: 'center', placeholder: 'Type your caption…' };
+        state.layers.push(layer);
+        buildLayerListDOM();
+        selectLayer(id);
+        renderPreview();
+        requestAnimationFrame(() => {
+            const row = document.querySelector('.layer-row[data-id="' + id + '"] .layer-text-input');
+            if (row) row.focus();
+        });
+    }
+
+    function addSticker(emoji) {
+        if (!state.mode) { showToast('Upload an image or create a blank canvas first', 'error'); return; }
+        if (state.layers.length >= MAX_LAYERS) { showToast('Layer limit reached (' + MAX_LAYERS + ') — delete one to add another', 'error'); return; }
+        const id = state.nextId++;
+        const layer = { id, type: 'sticker', emoji, x: 0.5 + (Math.random() * 0.12 - 0.06), y: 0.5 + (Math.random() * 0.12 - 0.06), size: 56 };
+        state.layers.push(layer);
+        buildLayerListDOM();
+        selectLayer(id);
+        renderPreview();
+    }
+
+    // ─── STYLE PANEL ───────────────────────────────────────────────────────────
+    function renderStylePanel() {
+        const card = document.getElementById('styleCard');
+        const layer = state.layers.find(l => l.id === state.selectedId);
+        if (!layer) { card.style.display = 'none'; card.innerHTML = ''; return; }
+        card.style.display = 'block';
+
+        if (layer.type === 'text') {
+            card.innerHTML =
+                '<div class="ctrl-title">🎨 Style — Text</div>' +
+                '<div class="ctrl-row"><span class="ctrl-sub-label">Style</span><div class="tog-group" id="styleToggleGroup">' +
+                    ['impact', 'bold', 'bubble', 'plain'].map(s =>
+                        '<button class="tog-sm' + (layer.style === s ? ' active' : '') + '" type="button" data-style="' + s + '">' + s.charAt(0).toUpperCase() + s.slice(1) + '</button>'
+                    ).join('') +
+                '</div></div>' +
+                '<div class="ctrl-row" style="margin-top:10px;"><span class="ctrl-sub-label">Size</span><div class="slider-wrap"><input type="range" class="meme-slider" id="layerSize" min="14" max="140" value="' + layer.size + '"><span class="slider-val" id="layerSizeVal">' + layer.size + '</span></div></div>' +
+                '<div style="margin-top:10px;"><span class="ctrl-sub-label">Text color</span><div class="color-row" id="layerTextColors" style="margin-top:7px;">' +
+                    TEXT_COLORS.map(c => '<button class="color-swatch' + (layer.color === c ? ' active' : '') + '" type="button" style="background:' + c + ';" data-color="' + c + '" aria-label="Text color ' + c + '"></button>').join('') +
+                    '<label class="color-picker-btn" title="Custom text color">+<input type="color" id="layerCustomTextColor" value="' + (layer.color.startsWith('#') ? layer.color : '#ffffff') + '" aria-label="Custom text color"></label>' +
+                '</div></div>' +
+                '<div style="margin-top:10px;"><span class="ctrl-sub-label">Stroke</span><div class="color-row" id="layerStrokeColors" style="margin-top:7px;">' +
+                    '<button class="color-swatch' + (layer.stroke === '#000000' ? ' active' : '') + '" type="button" style="background:#000;" data-color="#000000" aria-label="Black stroke"></button>' +
+                    '<button class="color-swatch' + (layer.stroke === '#ffffff' ? ' active' : '') + '" type="button" style="background:#fff;" data-color="#ffffff" aria-label="White stroke"></button>' +
+                    '<button class="color-swatch' + (layer.stroke === 'none' ? ' active' : '') + '" type="button" style="background:transparent;border:1px dashed var(--border-mid);" data-color="none" aria-label="No stroke"></button>' +
+                    '<label class="color-picker-btn" title="Custom stroke color">+<input type="color" id="layerCustomStrokeColor" value="' + (layer.stroke !== 'none' ? layer.stroke : '#000000') + '" aria-label="Custom stroke color"></label>' +
+                '</div></div>' +
+                '<div style="margin-top:10px;"><span class="ctrl-sub-label">Align</span><div class="pos-row" id="layerAlignRow" style="margin-top:6px;">' +
+                    '<button class="pos-btn' + (layer.align === 'left' ? ' active' : '') + '" type="button" data-align="left">◀ Left</button>' +
+                    '<button class="pos-btn' + (layer.align === 'center' ? ' active' : '') + '" type="button" data-align="center">▬ Center</button>' +
+                    '<button class="pos-btn' + (layer.align === 'right' ? ' active' : '') + '" type="button" data-align="right">Right ▶</button>' +
+                '</div></div>' +
+                '<button class="btn-ghost" id="deleteLayerBtn" type="button" style="margin-top:14px; color:var(--error); border-color:rgba(255,68,68,0.25);">🗑 Delete this text</button>';
+        } else {
+            card.innerHTML =
+                '<div class="ctrl-title">🎨 Style — Sticker ' + layer.emoji + '</div>' +
+                '<div class="ctrl-row"><span class="ctrl-sub-label">Size</span><div class="slider-wrap"><input type="range" class="meme-slider" id="layerSize" min="20" max="220" value="' + layer.size + '"><span class="slider-val" id="layerSizeVal">' + layer.size + '</span></div></div>' +
+                '<button class="btn-ghost" id="deleteLayerBtn" type="button" style="margin-top:14px; color:var(--error); border-color:rgba(255,68,68,0.25);">🗑 Remove sticker</button>';
+        }
+        bindStylePanelEvents(layer);
+    }
+
+    function bindStylePanelEvents(layer) {
+        const sizeEl = document.getElementById('layerSize');
+        sizeEl.addEventListener('input', () => {
+            layer.size = +sizeEl.value;
+            document.getElementById('layerSizeVal').textContent = sizeEl.value;
+            renderPreview();
+        });
+
+        document.getElementById('deleteLayerBtn').addEventListener('click', () => deleteLayer(layer.id));
+
+        if (layer.type !== 'text') return;
+
+        document.querySelectorAll('#styleToggleGroup .tog-sm').forEach(btn => {
+            btn.addEventListener('click', () => {
+                layer.style = btn.dataset.style;
+                document.querySelectorAll('#styleToggleGroup .tog-sm').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPreview();
+            });
+        });
+
+        const txtColors = document.getElementById('layerTextColors');
+        txtColors.querySelectorAll('.color-swatch').forEach(sw => {
+            sw.addEventListener('click', () => {
+                layer.color = sw.dataset.color;
+                txtColors.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                sw.classList.add('active');
+                renderPreview();
+            });
+        });
+        document.getElementById('layerCustomTextColor').addEventListener('input', e => {
+            layer.color = e.target.value;
+            txtColors.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            renderPreview();
+        });
+
+        const strokeColors = document.getElementById('layerStrokeColors');
+        strokeColors.querySelectorAll('.color-swatch').forEach(sw => {
+            sw.addEventListener('click', () => {
+                layer.stroke = sw.dataset.color;
+                strokeColors.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                sw.classList.add('active');
+                renderPreview();
+            });
+        });
+        document.getElementById('layerCustomStrokeColor').addEventListener('input', e => {
+            layer.stroke = e.target.value;
+            strokeColors.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            renderPreview();
+        });
+
+        document.querySelectorAll('#layerAlignRow .pos-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                layer.align = btn.dataset.align;
+                document.querySelectorAll('#layerAlignRow .pos-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPreview();
+            });
+        });
+    }
+
+    // ─── DOWNLOAD / SHARE / COPY ───────────────────────────────────────────────
+    let shareSupported = false;
+    let clipboardSupported = false;
+
+    function detectShareCapabilities() {
+        try {
+            const testFile = new File([new Uint8Array([0])], 'test.png', { type: 'image/png' });
+            shareSupported = !!(navigator.canShare && navigator.share && navigator.canShare({ files: [testFile] }));
+        } catch (e) { shareSupported = false; }
+        clipboardSupported = !!(navigator.clipboard && window.ClipboardItem);
+        document.getElementById('shareNativeBtn').style.display = shareSupported ? '' : 'none';
+        document.getElementById('copyImgBtn').style.display = clipboardSupported ? '' : 'none';
+    }
+
+    function bindActionButtons() {
+        document.getElementById('addTextBtn').addEventListener('click', addTextLayer);
+        document.getElementById('downloadBtn').addEventListener('click', downloadMeme);
+        document.getElementById('shareNativeBtn').addEventListener('click', shareNative);
+        document.getElementById('copyImgBtn').addEventListener('click', copyImage);
+        document.getElementById('startOverBtn').addEventListener('click', resetTool);
+    }
+
+    function downloadMeme() {
+        if (!state.mode) { showToast('Upload an image or create a blank canvas first', 'error'); return; }
+        try {
+            const canvas = buildExportCanvas();
+            canvas.toBlob(blob => {
+                if (!blob) { showToast('Download failed — try again', 'error'); return; }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'rebrixe-meme-' + Date.now() + '.png';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 4000);
+                showToast('Meme downloaded 🔥', 'success');
+            }, 'image/png');
+        } catch (e) {
+            showToast('Download failed — try a smaller image', 'error');
+        }
+    }
+
+    function shareNative() {
+        if (!state.mode) { showToast('Upload an image or create a blank canvas first', 'error'); return; }
+        try {
+            const canvas = buildExportCanvas();
+            canvas.toBlob(async blob => {
+                if (!blob) { showToast('Could not prepare the image for sharing', 'error'); return; }
+                const file = new File([blob], 'rebrixe-meme.png', { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: 'My meme', text: 'Made with the Rebrixe meme generator' });
+                    } catch (err) {
+                        if (err && err.name !== 'AbortError') showToast('Sharing was cancelled or failed', 'error');
+                    }
+                } else {
+                    showToast('Sharing isn\'t supported on this device — download instead', 'error');
+                }
+            }, 'image/png');
+        } catch (e) {
+            showToast('Something went wrong preparing the share', 'error');
+        }
+    }
+
+    function copyImage() {
+        if (!state.mode) { showToast('Upload an image or create a blank canvas first', 'error'); return; }
+        try {
+            const canvas = buildExportCanvas();
+            canvas.toBlob(async blob => {
+                if (!blob) { showToast('Could not prepare the image', 'error'); return; }
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    showToast('Image copied — paste it anywhere', 'success');
+                } catch (e) {
+                    showToast('Copy was blocked by your browser — download instead', 'error');
+                }
+            }, 'image/png');
+        } catch (e) {
+            showToast('Something went wrong preparing the copy', 'error');
+        }
+    }
+
+    // ─── TOAST ─────────────────────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast' + (type ? ' ' + type : '') + ' show';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+    }
+
+    init();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

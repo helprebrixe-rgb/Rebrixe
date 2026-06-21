@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ratio Crop Tool — Crop Images to Exact Aspect Ratios | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Crop any image to exact aspect ratios — 1:1, 4:3, 16:9, 9:16, 3:2 and more. Drag to reposition crop window. Free, browser-only, instant download.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); position: relative; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Ratio selector */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .ratio-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+        .ratio-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; min-width: 72px;
+            font-family: 'Outfit', sans-serif;
+        }
+        .ratio-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .ratio-btn.active { border-color: var(--primary); background: var(--primary-dim); }
+        .ratio-visual { background: rgba(255,214,0,0.18); border: 1.5px solid rgba(255,214,0,0.4); border-radius: 3px; }
+        .ratio-btn.active .ratio-visual { background: rgba(255,214,0,0.32); border-color: var(--primary); }
+        .ratio-label { font-size: 0.78rem; font-weight: 800; color: var(--text-dim); transition: color 0.18s; }
+        .ratio-btn.active .ratio-label { color: var(--primary); }
+        .ratio-use { font-size: 0.6rem; color: var(--text-dim); text-align: center; line-height: 1.3; transition: color 0.18s; }
+        .ratio-btn.active .ratio-use, .ratio-btn:hover .ratio-use { color: var(--text-sec); }
+
+        /* Custom ratio */
+        .custom-ratio-row { display: flex; gap: 10px; align-items: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .px-input:focus { border-color: var(--primary); }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 80px; max-width: 120px; }
+        .input-label { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.7px; }
+        .x-sep { font-size: 1.2rem; color: var(--text-dim); padding-bottom: 8px; font-weight: 300; }
+        .tog-btn { padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; flex-shrink: 0; }
+        .tog-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Crop canvas area */
+        .crop-area-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .crop-stage {
+            position: relative; overflow: hidden; border-radius: var(--radius-md);
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border: 1px solid var(--border-mid); cursor: crosshair; user-select: none; touch-action: none;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .crop-stage img { display: block; pointer-events: none; }
+        /* Dark overlay: 4 divs covering outside crop */
+        .overlay-piece { position: absolute; background: rgba(0,0,0,0.6); pointer-events: none; }
+        /* Crop box */
+        .crop-box {
+            position: absolute; border: 2px solid var(--primary);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.3);
+            cursor: move; touch-action: none;
+        }
+        .crop-box::before, .crop-box::after { content: ''; position: absolute; background: var(--primary); }
+        /* Rule of thirds grid lines */
+        .crop-grid { position: absolute; inset: 0; pointer-events: none; }
+        .crop-grid line { stroke: rgba(255,214,0,0.2); stroke-width: 1; }
+        /* Corner handles */
+        .crop-handle {
+            position: absolute; width: 12px; height: 12px; background: var(--primary);
+            border-radius: 2px; border: 1.5px solid #000;
+        }
+        .crop-handle.tl { top: -6px; left: -6px; cursor: nwse-resize; }
+        .crop-handle.tr { top: -6px; right: -6px; cursor: nesw-resize; }
+        .crop-handle.bl { bottom: -6px; left: -6px; cursor: nesw-resize; }
+        .crop-handle.br { bottom: -6px; right: -6px; cursor: nwse-resize; }
+        /* Dimension badge inside crop box */
+        .crop-badge {
+            position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.75); color: var(--primary); font-family: 'Fira Code', monospace;
+            font-size: 0.62rem; font-weight: 500; padding: 3px 8px; border-radius: 99px;
+            white-space: nowrap; pointer-events: none; border: 1px solid rgba(255,214,0,0.25);
+        }
+
+        /* Output size row */
+        .output-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .output-row .section-label { margin-bottom: 0; }
+
+        /* Flip / rotate strip */
+        .transform-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .icon-btn { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 5px; }
+        .icon-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Output format row */
+        .fmt-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .ratio-tabs { gap: 6px; }
+            .ratio-btn { min-width: 60px; padding: 10px 12px; }
+            .action-row { flex-direction: column; }
+            .btn-main, .btn-secondary { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Ratio Crop Tool</h1>
+                <p class="tool-page-sub">Drag to position, lock to any ratio — 1:1, 16:9, 9:16, 4:3, 3:2 and custom. Crop in seconds.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">✂️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Ratio selector -->
+                <div class="section-card">
+                    <div class="section-label">Choose Aspect Ratio</div>
+                    <div class="ratio-tabs" id="ratioTabs"></div>
+
+                    <!-- Custom ratio -->
+                    <div class="custom-ratio-row">
+                        <div class="section-label" style="margin-bottom:0; align-self:center;">Custom:</div>
+                        <div class="input-group">
+                            <label class="input-label" for="cusW">W</label>
+                            <input class="px-input" type="number" id="cusW" placeholder="16" min="1" max="99">
+                        </div>
+                        <span class="x-sep">:</span>
+                        <div class="input-group">
+                            <label class="input-label" for="cusH">H</label>
+                            <input class="px-input" type="number" id="cusH" placeholder="9" min="1" max="99">
+                        </div>
+                        <button class="tog-btn" onclick="applyCustomRatio()">Apply</button>
+                    </div>
+                </div>
+
+                <!-- Crop canvas -->
+                <div class="crop-area-wrap">
+                    <div class="section-label">Drag to reposition — handles to resize</div>
+                    <div class="crop-stage" id="cropStage">
+                        <img id="cropImg" src="" alt="Crop">
+                        <!-- overlay pieces injected by JS -->
+                        <div class="overlay-piece" id="ovTop"></div>
+                        <div class="overlay-piece" id="ovBottom"></div>
+                        <div class="overlay-piece" id="ovLeft"></div>
+                        <div class="overlay-piece" id="ovRight"></div>
+                        <div class="crop-box" id="cropBox">
+                            <svg class="crop-grid" id="cropGrid" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <line x1="33.3" y1="0" x2="33.3" y2="100"/>
+                                <line x1="66.6" y1="0" x2="66.6" y2="100"/>
+                                <line x1="0" y1="33.3" x2="100" y2="33.3"/>
+                                <line x1="0" y1="66.6" x2="100" y2="66.6"/>
+                            </svg>
+                            <div class="crop-handle tl" data-dir="tl"></div>
+                            <div class="crop-handle tr" data-dir="tr"></div>
+                            <div class="crop-handle bl" data-dir="bl"></div>
+                            <div class="crop-handle br" data-dir="br"></div>
+                            <div class="crop-badge" id="cropBadge">1080 × 1080</div>
+                        </div>
+                    </div>
+
+                    <!-- Transforms -->
+                    <div class="transform-strip">
+                        <button class="icon-btn" onclick="rotateSrc(90)" title="Rotate 90°">↻ Rotate 90°</button>
+                        <button class="icon-btn" onclick="flipSrc('h')" title="Flip Horizontal">⇄ Flip H</button>
+                        <button class="icon-btn" onclick="flipSrc('v')" title="Flip Vertical">⇅ Flip V</button>
+                        <button class="icon-btn" onclick="fitCrop()" title="Reset crop to fill">⊡ Reset Crop</button>
+                    </div>
+
+                    <!-- Output size & format -->
+                    <div class="output-row">
+                        <div>
+                            <div class="section-label" style="margin-bottom:8px;">Output max width (px)</div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="tog-btn active" data-ow="original" onclick="setOutW(this)">Original</button>
+                                <button class="tog-btn" data-ow="1920" onclick="setOutW(this)">1920</button>
+                                <button class="tog-btn" data-ow="1280" onclick="setOutW(this)">1280</button>
+                                <button class="tog-btn" data-ow="1080" onclick="setOutW(this)">1080</button>
+                                <button class="tog-btn" data-ow="720" onclick="setOutW(this)">720</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="output-row" style="margin-top:12px;">
+                        <div>
+                            <div class="section-label" style="margin-bottom:8px;">Format</div>
+                            <div class="fmt-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doCrop()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✂️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Crop & Download</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary visible" id="btnCopyClip" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Pixel-perfect ratios</h3>
+                        <p>Lock to <code>16:9</code>, <code>9:16</code>, <code>1:1</code>, <code>4:3</code>, <code>3:2</code> or any custom ratio. The crop box is mathematically constrained — no guesswork.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Drag to frame the shot</h3>
+                        <p>Drag the crop box to nail composition. Use corner handles to resize while keeping ratio locked. Rule-of-thirds grid helps you frame like a pro.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Rotate & Flip built in</h3>
+                        <p>Shot sideways on your phone? Rotate 90° before cropping. Flip horizontally or vertically without opening Photoshop.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs inside your browser with the <code>Canvas API</code>. Your image never touches a server. Works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── PRESETS ──────────────────────────────────────────────────────────────
+    const RATIOS = [
+        { label:'1:1',  w:1, h:1,  icon:'⬛', use:'Posts, avatars' },
+        { label:'16:9', w:16,h:9,  icon:'🖥️', use:'YouTube, video' },
+        { label:'9:16', w:9, h:16, icon:'📱', use:'Stories, Reels, TikTok' },
+        { label:'4:3',  w:4, h:3,  icon:'📷', use:'Classic photos' },
+        { label:'3:2',  w:3, h:2,  icon:'🖼️', use:'DSLR, prints' },
+        { label:'3:4',  w:3, h:4,  icon:'📄', use:'Portrait prints' },
+        { label:'2:1',  w:2, h:1,  icon:'🎬', use:'Twitter banners' },
+        { label:'21:9', w:21,h:9,  icon:'🎞️', use:'Cinematic, headers' },
+    ];
+
+    // ─── STATE ────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let stageW = 0, stageH = 0;       // rendered canvas dimensions
+    let scaleX = 1, scaleY = 1;        // origImg / stage scale
+    let cropRatio = 1;                 // w/h ratio
+    let cropBox = { x:0, y:0, w:0, h:0 }; // in stage px
+    let drag = null;                   // { type:'move'|'tl'|'tr'|'bl'|'br', sx, sy, cx, cy, cw, ch }
+    let outW = 'original';
+    let outFmt = 'jpeg';
+    let rotation = 0, flipH = false, flipV = false;
+    let transformedDataURL = null;
+
+    // ─── BUILD RATIO TABS ─────────────────────────────────────────────────────
+    const tabsEl = document.getElementById('ratioTabs');
+    RATIOS.forEach((r, i) => {
+        const b = document.createElement('button');
+        b.className = 'ratio-btn' + (i === 0 ? ' active' : '');
+        b.dataset.rw = r.w; b.dataset.rh = r.h;
+        const vw = r.w >= r.h ? 32 : Math.round(32 * r.w / r.h);
+        const vh = r.h >= r.w ? 32 : Math.round(32 * r.h / r.w);
+        b.innerHTML = `<div class="ratio-visual" style="width:${vw}px;height:${vh}px;"></div>
+                       <span class="ratio-label">${r.label}</span>
+                       <span class="ratio-use">${r.use}</span>`;
+        b.onclick = () => { selectRatioBtn(b); cropRatio = r.w / r.h; fitCrop(); };
+        tabsEl.appendChild(b);
+    });
+
+    function selectRatioBtn(btn) {
+        tabsEl.querySelectorAll('.ratio-btn').forEach(x => x.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function applyCustomRatio() {
+        const w = parseFloat(document.getElementById('cusW').value);
+        const h = parseFloat(document.getElementById('cusH').value);
+        if (!w || !h || w < 1 || h < 1) { showToast('Enter valid ratio', 'error'); return; }
+        cropRatio = w / h;
+        tabsEl.querySelectorAll('.ratio-btn').forEach(x => x.classList.remove('active'));
+        fitCrop();
+        showToast(`Ratio ${w}:${h} applied`, 'success');
+    }
+
+    // ─── DROP ZONE ───────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        rotation = 0; flipH = false; flipV = false; transformedDataURL = null;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                renderStage();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; transformedDataURL = null;
+        rotation = 0; flipH = false; flipV = false;
+    }
+
+    // ─── STAGE RENDER ────────────────────────────────────────────────────────
+    function getTransformedImg(callback) {
+        // returns a canvas with rotation/flip applied
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        const rotated = rotation % 180 !== 0;
+        const cw = rotated ? sh : sw, ch = rotated ? sw : sh;
+        const cv = document.createElement('canvas');
+        cv.width = cw; cv.height = ch;
+        const ctx = cv.getContext('2d');
+        ctx.translate(cw / 2, ch / 2);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+        ctx.drawImage(origImg, -sw / 2, -sh / 2);
+        callback(cv, cw, ch);
+    }
+
+    function renderStage() {
+        getTransformedImg((cv, iw, ih) => {
+            const stage = document.getElementById('cropStage');
+            const maxW = stage.getBoundingClientRect().width || 760;
+            const maxH = Math.min(500, maxW * ih / iw);
+            stageW = maxW; stageH = maxH;
+            scaleX = iw / stageW; scaleY = ih / stageH;
+
+            const imgEl = document.getElementById('cropImg');
+            imgEl.src = cv.toDataURL('image/jpeg', 0.85);
+            imgEl.style.width = stageW + 'px';
+            imgEl.style.height = stageH + 'px';
+            stage.style.width = stageW + 'px';
+            stage.style.height = stageH + 'px';
+
+            transformedDataURL = cv.toDataURL('image/jpeg', 1);
+            fitCrop();
+        });
+    }
+
+    // ─── CROP BOX ────────────────────────────────────────────────────────────
+    function fitCrop() {
+        if (!stageW) return;
+        // Fill as much of stage as possible at cropRatio
+        let cw, ch;
+        if (stageW / stageH > cropRatio) {
+            ch = stageH; cw = ch * cropRatio;
+        } else {
+            cw = stageW; ch = cw / cropRatio;
+        }
+        cropBox = { x: (stageW - cw) / 2, y: (stageH - ch) / 2, w: cw, h: ch };
+        updateCropUI();
+    }
+
+    function updateCropUI() {
+        const box = document.getElementById('cropBox');
+        box.style.left   = cropBox.x + 'px';
+        box.style.top    = cropBox.y + 'px';
+        box.style.width  = cropBox.w + 'px';
+        box.style.height = cropBox.h + 'px';
+
+        // Overlays
+        const { x, y, w, h } = cropBox;
+        const s = document.getElementById('cropStage');
+        const sw2 = s.offsetWidth, sh2 = s.offsetHeight;
+        setOverlay('ovTop',    0,     0,      sw2,   y);
+        setOverlay('ovBottom', 0,     y + h,  sw2,   sh2 - y - h);
+        setOverlay('ovLeft',   0,     y,      x,     h);
+        setOverlay('ovRight',  x + w, y,      sw2 - x - w, h);
+
+        // Badge: show actual pixel dimensions
+        const px = Math.round(cropBox.w * scaleX);
+        const py = Math.round(cropBox.h * scaleY);
+        document.getElementById('cropBadge').textContent = `${px} × ${py} px`;
+    }
+
+    function setOverlay(id, x, y, w, h) {
+        const el = document.getElementById(id);
+        el.style.left = x + 'px'; el.style.top = y + 'px';
+        el.style.width = Math.max(0, w) + 'px'; el.style.height = Math.max(0, h) + 'px';
+    }
+
+    // ─── DRAG ────────────────────────────────────────────────────────────────
+    const cropBoxEl = document.getElementById('cropBox');
+
+    function startDrag(e, type) {
+        e.preventDefault(); e.stopPropagation();
+        const pt = e.touches ? e.touches[0] : e;
+        drag = { type, sx: pt.clientX, sy: pt.clientY, cx: cropBox.x, cy: cropBox.y, cw: cropBox.w, ch: cropBox.h };
+    }
+
+    cropBoxEl.addEventListener('mousedown', e => { if (!e.target.dataset.dir) startDrag(e, 'move'); });
+    cropBoxEl.addEventListener('touchstart', e => { if (!e.target.dataset.dir) startDrag(e, 'move'); }, { passive: false });
+    cropBoxEl.querySelectorAll('.crop-handle').forEach(h => {
+        h.addEventListener('mousedown', e => { e.stopPropagation(); startDrag(e, h.dataset.dir); });
+        h.addEventListener('touchstart', e => { e.stopPropagation(); startDrag(e, h.dataset.dir); }, { passive: false });
+    });
+
+    function onDrag(e) {
+        if (!drag) return;
+        e.preventDefault();
+        const pt = e.touches ? e.touches[0] : e;
+        const dx = pt.clientX - drag.sx, dy = pt.clientY - drag.sy;
+
+        if (drag.type === 'move') {
+            cropBox.x = clamp(drag.cx + dx, 0, stageW - cropBox.w);
+            cropBox.y = clamp(drag.cy + dy, 0, stageH - cropBox.h);
+        } else {
+            // Resize from corner, keep ratio locked
+            let newW = drag.cw, newH = drag.ch, newX = drag.cx, newY = drag.cy;
+            if (drag.type === 'br') {
+                newW = Math.max(40, drag.cw + dx);
+                newH = newW / cropRatio;
+            } else if (drag.type === 'bl') {
+                newW = Math.max(40, drag.cw - dx);
+                newH = newW / cropRatio;
+                newX = drag.cx + drag.cw - newW;
+            } else if (drag.type === 'tr') {
+                newW = Math.max(40, drag.cw + dx);
+                newH = newW / cropRatio;
+                newY = drag.cy + drag.ch - newH;
+            } else if (drag.type === 'tl') {
+                newW = Math.max(40, drag.cw - dx);
+                newH = newW / cropRatio;
+                newX = drag.cx + drag.cw - newW;
+                newY = drag.cy + drag.ch - newH;
+            }
+            // clamp to stage
+            newX = clamp(newX, 0, stageW - 40);
+            newY = clamp(newY, 0, stageH - 40);
+            newW = Math.min(newW, stageW - newX);
+            newH = newW / cropRatio;
+            if (newY + newH > stageH) { newH = stageH - newY; newW = newH * cropRatio; }
+            cropBox = { x: newX, y: newY, w: newW, h: newH };
+        }
+        updateCropUI();
+    }
+
+    function endDrag() { drag = null; }
+
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchmove', onDrag, { passive: false });
+    window.addEventListener('touchend', endDrag);
+
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+    // ─── TRANSFORMS ──────────────────────────────────────────────────────────
+    function rotateSrc(deg) {
+        rotation = (rotation + deg) % 360;
+        renderStage();
+    }
+    function flipSrc(dir) {
+        if (dir === 'h') flipH = !flipH;
+        else flipV = !flipV;
+        renderStage();
+    }
+
+    // ─── OUTPUT CONTROLS ─────────────────────────────────────────────────────
+    function setOutW(btn) {
+        document.querySelectorAll('[data-ow]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outW = btn.dataset.ow;
+    }
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outFmt = btn.dataset.fmt;
+    }
+
+    // ─── CROP & EXPORT ───────────────────────────────────────────────────────
+    function buildCroppedCanvas() {
+        // Source rect in original image pixels
+        const srcX = Math.round(cropBox.x * scaleX);
+        const srcY = Math.round(cropBox.y * scaleY);
+        const srcW = Math.round(cropBox.w * scaleX);
+        const srcH = Math.round(cropBox.h * scaleY);
+
+        let dstW = srcW, dstH = srcH;
+        if (outW !== 'original') {
+            const maxPx = parseInt(outW);
+            if (dstW > maxPx) { dstH = Math.round(dstH * maxPx / dstW); dstW = maxPx; }
+        }
+
+        const cv = document.createElement('canvas');
+        cv.width = dstW; cv.height = dstH;
+        const ctx = cv.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Draw from transformed image
+        const tImg = new Image();
+        tImg.src = transformedDataURL;
+        ctx.drawImage(tImg, srcX, srcY, srcW, srcH, 0, 0, dstW, dstH);
+        return cv;
+    }
+
+    function doCrop() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const cv = buildCroppedCanvas();
+        const mime = outFmt === 'webp' ? 'image/webp' : outFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const url = cv.toDataURL(mime, outFmt === 'png' ? undefined : 0.92);
+        const ext = outFmt === 'jpeg' ? 'jpg' : outFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const ratioLabel = document.querySelector('.ratio-btn.active')?.querySelector('.ratio-label')?.textContent.replace(':','-') || 'custom';
+        const a = document.createElement('a');
+        a.href = url; a.download = `${base}_${ratioLabel}.${ext}`; a.click();
+        showToast('Cropped & downloaded! ✓', 'success');
+    }
+
+    async function copyToClipboard() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        try {
+            const cv = buildCroppedCanvas();
+            cv.toBlob(async blob => {
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    showToast('Copied to clipboard!', 'success');
+                } catch { showToast('Clipboard not supported in this browser', 'error'); }
+            }, 'image/png');
+        } catch { showToast('Could not copy image', 'error'); }
+    }
+
+    // ─── UTILS ───────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Init with 1:1
+    cropRatio = 1;
+    window.addEventListener('resize', () => { if (origImg) renderStage(); });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

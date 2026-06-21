@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multi-Image Stitcher — Combine 2–4 Images Side by Side or Stacked | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Combine 2 to 4 images side by side, stacked, or in a grid. Add spacing, align, label them. Export as one image. Free, browser-only — perfect for before/after comparisons and product galleries.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* ── Slots ── */
+        .slot-count-row { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .slot-count-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-right: 4px; }
+        .count-btn { padding: 7px 16px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.17s; }
+        .count-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .count-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        .slots-grid { display: grid; gap: 12px; margin-bottom: 20px; }
+        .slots-grid.count-2h { grid-template-columns: 1fr 1fr; }
+        .slots-grid.count-2v { grid-template-columns: 1fr; }
+        .slots-grid.count-3h { grid-template-columns: 1fr 1fr 1fr; }
+        .slots-grid.count-3v { grid-template-columns: 1fr; }
+        .slots-grid.count-4g { grid-template-columns: 1fr 1fr; }
+        .slots-grid.count-4h { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .slots-grid.count-4v { grid-template-columns: 1fr; }
+
+        .img-slot {
+            position: relative; background: var(--card); border: 1.5px dashed rgba(255,214,0,0.18);
+            border-radius: var(--radius-md); overflow: hidden; cursor: pointer;
+            min-height: 140px; display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 8px; transition: border-color 0.2s, background 0.2s;
+        }
+        .img-slot:hover { border-color: rgba(255,214,0,0.45); background: rgba(255,214,0,0.03); }
+        .img-slot.has-image { border-style: solid; border-color: var(--border-mid); cursor: default; }
+        .img-slot.drag-over { border-color: var(--primary); background: var(--primary-dim); }
+        .slot-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+        .slot-num { font-size: 1.4rem; font-weight: 800; color: rgba(255,214,0,0.2); line-height: 1; }
+        .slot-hint { font-size: 0.7rem; color: var(--text-dim); font-weight: 600; }
+        .slot-img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
+        .slot-remove {
+            position: absolute; top: 7px; right: 7px; width: 24px; height: 24px;
+            background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+            color: var(--text-sec); font-size: 0.75rem; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; z-index: 2; transition: all 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .slot-remove:hover { background: rgba(255,68,68,0.7); color: #fff; border-color: transparent; }
+        .slot-label-input {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6); border: none; border-top: 1px solid rgba(255,255,255,0.08);
+            color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700;
+            padding: 6px 10px; outline: none; text-align: center; z-index: 2;
+            backdrop-filter: blur(4px); transition: background 0.2s;
+        }
+        .slot-label-input:focus { background: rgba(0,0,0,0.85); }
+        .slot-label-input::placeholder { color: rgba(255,255,255,0.25); }
+
+        /* ── Layout + Options ── */
+        .options-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.17s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .tool-range { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .tool-range::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .range-val { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 32px; text-align: right; }
+
+        /* bg color swatch strip */
+        .swatch-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .swatch { width: 26px; height: 26px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; flex-shrink: 0; }
+        .swatch:hover { transform: scale(1.12); }
+        .swatch.active { border-color: var(--primary); }
+
+        /* Output format */
+        .format-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        /* ── Action ── */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.55s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled .btn-main-inner { opacity: 0.4; }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.14); }
+
+        /* ── Preview ── */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-top: 18px; display: none; }
+        .preview-panel.visible { display: block; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .preview-canvas-wrap { background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; max-height: 420px; margin-bottom: 14px; }
+        .preview-canvas-wrap canvas { max-width: 100%; max-height: 420px; display: block; }
+        .preview-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+        .pstat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+        .pstat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 800; }
+        .pstat-val { font-size: 0.82rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+
+        /* ── Toast ── */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* ── FAQ ── */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .slots-grid.count-3h,
+            .slots-grid.count-4h,
+            .slots-grid.count-4g { grid-template-columns: 1fr 1fr; }
+            .options-card { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+<nav class="nav-container"></nav>
+
+<main>
+    <div class="container">
+        <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+        <div class="tool-page-header">
+            <h1 class="tool-page-title">Multi-Image Stitcher</h1>
+            <p class="tool-page-sub">Place 2–4 images side by side, stacked, or in a grid. Add labels, spacing, background. Export as one image.</p>
+            <span class="privacy-badge">100% browser — images never leave your device</span>
+        </div>
+
+        <!-- Image count selector -->
+        <div class="slot-count-row">
+            <span class="slot-count-label">Images:</span>
+            <button class="count-btn active" data-count="2">2 Images</button>
+            <button class="count-btn" data-count="3">3 Images</button>
+            <button class="count-btn" data-count="4">4 Images</button>
+        </div>
+
+        <!-- Image drop slots -->
+        <div class="slots-grid count-2h" id="slotsGrid"></div>
+
+        <!-- Layout & Options -->
+        <div class="options-card" id="optionsCard">
+            <!-- Layout -->
+            <div class="opt-group">
+                <label>Layout</label>
+                <div class="toggle-row" id="layoutBtns"></div>
+            </div>
+
+            <!-- Alignment -->
+            <div class="opt-group">
+                <label>Alignment</label>
+                <div class="toggle-row">
+                    <button class="tog-btn active" data-align="center" onclick="setOpt('align',this)">Center</button>
+                    <button class="tog-btn" data-align="start" onclick="setOpt('align',this)">Top/Left</button>
+                    <button class="tog-btn" data-align="end" onclick="setOpt('align',this)">Bottom/Right</button>
+                </div>
+            </div>
+
+            <!-- Gap -->
+            <div class="opt-group">
+                <label>Gap — <span id="gapLabel">12px</span></label>
+                <div class="range-row">
+                    <input type="range" class="tool-range" id="gapRange" min="0" max="60" value="12" oninput="setGap(this.value)">
+                    <span class="range-val" id="gapVal">12</span>
+                </div>
+            </div>
+
+            <!-- Background -->
+            <div class="opt-group">
+                <label>Background</label>
+                <div class="swatch-row" id="swatches"></div>
+            </div>
+
+            <!-- Output Format -->
+            <div class="opt-group">
+                <label>Format</label>
+                <div class="toggle-row">
+                    <button class="tog-btn active" data-fmt="jpeg" onclick="setOpt('fmt',this)">JPG</button>
+                    <button class="tog-btn" data-fmt="png" onclick="setOpt('fmt',this)">PNG</button>
+                    <button class="tog-btn" data-fmt="webp" onclick="setOpt('fmt',this)">WebP</button>
+                </div>
+            </div>
+
+            <!-- Quality -->
+            <div class="opt-group">
+                <label>Quality — <span id="qualLabel">92%</span></label>
+                <div class="range-row">
+                    <input type="range" class="tool-range" id="qualRange" min="20" max="100" value="92" oninput="setQual(this.value)">
+                    <span class="range-val" id="qualVal">92</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action -->
+        <div class="action-row">
+            <button class="btn-main" id="btnStitch" onclick="doStitch()">
+                <div class="btn-main-inner">
+                    <span style="font-size:1.1rem;">🪡</span>
+                    <span style="font-weight:800; font-size:0.95rem;">Stitch Images</span>
+                </div>
+            </button>
+            <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+        </div>
+
+        <!-- Preview -->
+        <div class="preview-panel" id="previewPanel">
+            <div class="section-label">Stitched Result</div>
+            <div class="preview-canvas-wrap" id="previewWrap">
+                <canvas id="outputCanvas"></canvas>
+            </div>
+            <div class="preview-stats" id="previewStats"></div>
+        </div>
+
+        <!-- FAQ -->
+        <article class="faq-section">
+            <h2 class="faq-heading">Why this tool?</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Before / After comparisons</h3>
+                    <p>Place your original and edited image side by side. Add labels like <code>Before</code> and <code>After</code>. Export one clean image — ready to post anywhere.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Product galleries</h3>
+                    <p>Show multiple angles or variants of a product in a single image. Saves extra uploads and keeps your feed consistent.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Precise control</h3>
+                    <p>Set the <code>gap</code> between images, choose background color, pick layout (horizontal, vertical, or grid), and align images your way.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Labels on each slot</h3>
+                    <p>Each image slot has an optional text label at the bottom. Great for <code>Day 1 / Day 30</code>, product names, or captions — embedded right into the export.</p>
+                </div>
+            </div>
+        </article>
+    </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<footer></footer>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const state = {
+    count: 2,
+    layout: '2h',       // e.g. 2h, 2v, 3h, 3v, 4g, 4h, 4v
+    align: 'center',
+    gap: 12,
+    bg: '#000000',
+    fmt: 'jpeg',
+    qual: 0.92,
+    images: [null, null, null, null],  // HTMLImageElement
+    labels: ['', '', '', ''],
+    files: [null, null, null, null],
+};
+
+let resultDataURL = null;
+
+// ─── LAYOUT CONFIGS ───────────────────────────────────────────────────────────
+const LAYOUTS = {
+    2: [
+        { key:'2h', label:'Side by Side', gridClass:'count-2h' },
+        { key:'2v', label:'Stacked',      gridClass:'count-2v' },
+    ],
+    3: [
+        { key:'3h', label:'Side by Side', gridClass:'count-3h' },
+        { key:'3v', label:'Stacked',      gridClass:'count-3v' },
+        { key:'3g', label:'1 + 2 Grid',   gridClass:'count-4g' },
+    ],
+    4: [
+        { key:'4g', label:'2×2 Grid',     gridClass:'count-4g' },
+        { key:'4h', label:'Side by Side', gridClass:'count-4h' },
+        { key:'4v', label:'Stacked',      gridClass:'count-4v' },
+    ],
+};
+
+const BG_COLORS = [
+    { c:'#000000', label:'Black' },
+    { c:'#ffffff', label:'White' },
+    { c:'#1a1812', label:'Dark' },
+    { c:'#f5f4f0', label:'Cream' },
+    { c:'#111827', label:'Ink' },
+    { c:'#ffd600', label:'Yellow' },
+    { c:'transparent', label:'None' },
+];
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+buildSwatches();
+buildCountBtns();
+setCount(2);
+
+function buildSwatches() {
+    const el = document.getElementById('swatches');
+    BG_COLORS.forEach(({ c, label }) => {
+        const s = document.createElement('div');
+        s.className = 'swatch' + (c === state.bg ? ' active' : '');
+        s.title = label;
+        s.style.cssText = c === 'transparent'
+            ? `background: repeating-conic-gradient(#333 0% 25%, #555 0% 50%) 0 0 / 10px 10px;`
+            : `background:${c};`;
+        s.onclick = () => {
+            document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+            s.classList.add('active');
+            state.bg = c;
+        };
+        el.appendChild(s);
+    });
+}
+
+function buildCountBtns() {
+    document.querySelectorAll('.count-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.count-btn').forEach(x => x.classList.remove('active'));
+            btn.classList.add('active');
+            setCount(parseInt(btn.dataset.count));
+        };
+    });
+}
+
+function setCount(n) {
+    state.count = n;
+    // reset stale images beyond new count
+    state.layout = LAYOUTS[n][0].key;
+    buildLayoutBtns(n);
+    buildSlots(n);
+    updateGridClass();
+    hideResult();
+}
+
+function buildLayoutBtns(n) {
+    const el = document.getElementById('layoutBtns');
+    el.innerHTML = '';
+    LAYOUTS[n].forEach((l, i) => {
+        const b = document.createElement('button');
+        b.className = 'tog-btn' + (i === 0 ? ' active' : '');
+        b.textContent = l.label;
+        b.dataset.layout = l.key;
+        b.onclick = () => {
+            el.querySelectorAll('.tog-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            state.layout = l.key;
+            updateGridClass();
+        };
+        el.appendChild(b);
+    });
+}
+
+function updateGridClass() {
+    const grid = document.getElementById('slotsGrid');
+    grid.className = 'slots-grid';
+    // find gridClass for current layout
+    const all = Object.values(LAYOUTS).flat();
+    const found = all.find(l => l.key === state.layout);
+    if (found) grid.classList.add(found.gridClass);
+}
+
+function buildSlots(n) {
+    const grid = document.getElementById('slotsGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'img-slot' + (state.images[i] ? ' has-image' : '');
+        slot.dataset.index = i;
+        slot.style.minHeight = n <= 2 ? '180px' : '140px';
+
+        if (state.images[i]) {
+            // already has image
+            renderSlotFilled(slot, i);
+        } else {
+            slot.innerHTML = `<div class="slot-placeholder">
+                <div class="slot-num">${i + 1}</div>
+                <div class="slot-hint">Click or drop image</div>
+            </div>`;
+            slot.onclick = () => triggerSlotInput(i);
+        }
+
+        // drag-and-drop
+        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+        slot.addEventListener('drop', e => {
+            e.preventDefault(); slot.classList.remove('drag-over');
+            const f = e.dataTransfer.files[0];
+            if (f && f.type.startsWith('image/')) loadSlotFile(i, f);
+            else showToast('Drop an image file', 'error');
+        });
+
+        grid.appendChild(slot);
+    }
+}
+
+function triggerSlotInput(i) {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => { if (inp.files[0]) loadSlotFile(i, inp.files[0]); };
+    inp.click();
+}
+
+function loadSlotFile(i, file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+            state.images[i] = img;
+            state.files[i] = file;
+            const slot = document.querySelector(`.img-slot[data-index="${i}"]`);
+            slot.classList.add('has-image');
+            slot.onclick = null;
+            renderSlotFilled(slot, i);
+            hideResult();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function renderSlotFilled(slot, i) {
+    slot.innerHTML = `
+        <img class="slot-img" src="${state.images[i].src}" alt="Image ${i+1}">
+        <button class="slot-remove" onclick="removeSlot(${i})" title="Remove">✕</button>
+        <input class="slot-label-input" type="text" placeholder="Add label…" value="${state.labels[i]}"
+            oninput="state.labels[${i}]=this.value" onclick="event.stopPropagation()">
+    `;
+}
+
+function removeSlot(i) {
+    state.images[i] = null;
+    state.files[i] = null;
+    const slot = document.querySelector(`.img-slot[data-index="${i}"]`);
+    slot.classList.remove('has-image');
+    slot.innerHTML = `<div class="slot-placeholder">
+        <div class="slot-num">${i+1}</div>
+        <div class="slot-hint">Click or drop image</div>
+    </div>`;
+    slot.onclick = () => triggerSlotInput(i);
+    hideResult();
+}
+
+function setOpt(type, btn) {
+    const parent = btn.closest('.toggle-row');
+    parent.querySelectorAll('.tog-btn').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    if (type === 'align') state.align = btn.dataset.align;
+    if (type === 'fmt') state.fmt = btn.dataset.fmt;
+}
+
+function setGap(v) {
+    state.gap = parseInt(v);
+    document.getElementById('gapVal').textContent = v;
+    document.getElementById('gapLabel').textContent = v + 'px';
+}
+
+function setQual(v) {
+    state.qual = v / 100;
+    document.getElementById('qualVal').textContent = v;
+    document.getElementById('qualLabel').textContent = v + '%';
+}
+
+// ─── STITCH ───────────────────────────────────────────────────────────────────
+function doStitch() {
+    const imgs = state.images.slice(0, state.count);
+    if (imgs.filter(Boolean).length < 2) { showToast('Upload at least 2 images', 'error'); return; }
+
+    const layout = state.layout;
+    const gap = state.gap;
+    const bgColor = state.bg === 'transparent' ? null : state.bg;
+
+    // Determine canvas and draw positions
+    const isHorizontal = layout.endsWith('h');
+    const isVertical   = layout.endsWith('v');
+    const isGrid       = layout.endsWith('g');
+
+    // Use same height (horizontal) or same width (vertical) for consistency
+    let canvasW, canvasH, positions = [];
+
+    // For missing slots, use a grey placeholder
+    const loadedImgs = imgs.map((img, i) => img || null);
+
+    if (isHorizontal) {
+        // All images same height as tallest; width proportional
+        const targetH = Math.max(...loadedImgs.filter(Boolean).map(img => img.naturalHeight));
+        const scaledWidths = loadedImgs.map(img => img ? Math.round(img.naturalWidth * (targetH / img.naturalHeight)) : targetH);
+        canvasH = targetH;
+        const filledCount = loadedImgs.filter(Boolean).length;
+        canvasW = scaledWidths.reduce((a,b,i) => loadedImgs[i] ? a + b : a, 0) + gap * (filledCount - 1);
+
+        let x = 0;
+        loadedImgs.forEach((img, i) => {
+            if (!img) return;
+            let drawY = 0, drawH = targetH;
+            if (state.align === 'center') drawY = 0; // all same height
+            positions.push({ img, x, y: drawY, w: scaledWidths[i], h: drawH, label: state.labels[i] });
+            x += scaledWidths[i] + gap;
+        });
+
+    } else if (isVertical) {
+        const targetW = Math.max(...loadedImgs.filter(Boolean).map(img => img.naturalWidth));
+        const scaledHeights = loadedImgs.map(img => img ? Math.round(img.naturalHeight * (targetW / img.naturalWidth)) : targetW);
+        canvasW = targetW;
+        const filledCount = loadedImgs.filter(Boolean).length;
+        canvasH = scaledHeights.reduce((a,b,i) => loadedImgs[i] ? a + b : a, 0) + gap * (filledCount - 1);
+
+        let y = 0;
+        loadedImgs.forEach((img, i) => {
+            if (!img) return;
+            let drawX = 0, drawW = targetW;
+            if (state.align === 'center') drawX = (targetW - scaledHeights[i] * (img.naturalWidth / img.naturalHeight)) / 2;
+            // just fill width
+            drawW = targetW;
+            const drawH = scaledHeights[i];
+            positions.push({ img, x: 0, y, w: drawW, h: drawH, label: state.labels[i] });
+            y += drawH + gap;
+        });
+
+    } else {
+        // Grid — 2 columns
+        const cols = 2;
+        const cellH = Math.max(...loadedImgs.filter(Boolean).map(img => img.naturalHeight));
+        const cellW = Math.max(...loadedImgs.filter(Boolean).map(img => img.naturalWidth));
+        // uniform cells
+        const rows = Math.ceil(state.count / cols);
+        canvasW = cellW * cols + gap * (cols - 1);
+        canvasH = cellH * rows + gap * (rows - 1);
+
+        loadedImgs.forEach((img, i) => {
+            if (!img) return;
+            const col = i % cols, row = Math.floor(i / cols);
+            const x = col * (cellW + gap), y = row * (cellH + gap);
+            // scale to fit cell, center
+            const scale = Math.min(cellW / img.naturalWidth, cellH / img.naturalHeight);
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            const ox = x + (cellW - w) / 2, oy = y + (cellH - h) / 2;
+            positions.push({ img, x: ox, y: oy, w, h, label: state.labels[i] });
+        });
+    }
+
+    // Draw onto canvas
+    const canvas = document.getElementById('outputCanvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Background
+    if (bgColor) {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvasW, canvasH);
+    }
+
+    // Draw images
+    positions.forEach(({ img, x, y, w, h, label }) => {
+        ctx.drawImage(img, x, y, w, h);
+
+        // Label
+        if (label && label.trim()) {
+            const fontSize = Math.max(14, Math.min(28, Math.round(h * 0.055)));
+            ctx.font = `700 ${fontSize}px Outfit, sans-serif`;
+            const tw = ctx.measureText(label).width;
+            const padding = fontSize * 0.6;
+            const lx = x + w / 2 - tw / 2 - padding;
+            const ly = y + h - fontSize * 1.8;
+            const lh = fontSize * 1.6;
+            const lw = tw + padding * 2;
+            // label bg pill
+            ctx.fillStyle = 'rgba(0,0,0,0.62)';
+            roundRect(ctx, lx, ly, lw, lh, 6);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, lx + padding, ly + lh * 0.72);
+        }
+    });
+
+    const mime = state.fmt === 'webp' ? 'image/webp' : state.fmt === 'png' ? 'image/png' : 'image/jpeg';
+    const q = state.fmt === 'png' ? undefined : state.qual;
+    resultDataURL = canvas.toDataURL(mime, q);
+
+    // Show preview
+    const estBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+    document.getElementById('previewStats').innerHTML = `
+        <div class="pstat"><div class="pstat-label">Dimensions</div><div class="pstat-val">${canvasW} × ${canvasH}</div></div>
+        <div class="pstat"><div class="pstat-label">File size</div><div class="pstat-val">${fmtBytes(estBytes)}</div></div>
+        <div class="pstat"><div class="pstat-label">Format</div><div class="pstat-val">${state.fmt.toUpperCase()}</div></div>
+        <div class="pstat"><div class="pstat-label">Images</div><div class="pstat-val">${positions.length}</div></div>
+    `;
+    const panel = document.getElementById('previewPanel');
+    panel.classList.add('visible');
+    document.getElementById('btnDownload').style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Stitched! ✓', 'success');
+}
+
+function doDownload() {
+    if (!resultDataURL) return;
+    const ext = state.fmt === 'jpeg' ? 'jpg' : state.fmt;
+    const a = document.createElement('a');
+    a.href = resultDataURL;
+    a.download = `stitched-${Date.now()}.${ext}`;
+    a.click();
+    showToast('Downloaded!', 'success');
+}
+
+function hideResult() {
+    document.getElementById('previewPanel').classList.remove('visible');
+    document.getElementById('btnDownload').style.display = 'none';
+    resultDataURL = null;
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function fmtBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+}
+
+function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

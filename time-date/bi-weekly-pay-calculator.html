@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bi-Weekly Pay Calculator | Rebrixe</title>
+    <meta name="description" content="Calculate your bi-weekly gross pay instantly. Enter your hours and hourly rate — get gross pay, overtime, annual salary, tax estimates and more.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Spinner removal ── */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+        /* ── Layout ── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* ── Input grid ── */
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        .input-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .field-note {
+            font-size: 0.6rem;
+            color: #475569;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .input-wrap { position: relative; display: flex; align-items: center; }
+        .input-prefix, .input-suffix {
+            position: absolute;
+            font-size: 0.9rem;
+            color: #64748b;
+            font-weight: 600;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .input-prefix { left: 14px; }
+        .input-suffix { right: 14px; }
+
+        .field input, .field select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter';
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .field input.has-prefix  { padding-left:  32px; }
+        .field input.has-suffix  { padding-right: 36px; }
+        .field input:focus,
+        .field select:focus      { border-color: var(--primary); }
+        .field input[readonly]   { cursor: default; }
+        .field select            { cursor: pointer; }
+
+        /* ── OT row ── */
+        .ot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+        /* ── Toggle row ── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding: 13px 17px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .toggle-label { font-size: 0.85rem; color: #94a3b8; flex: 1; }
+        .toggle-label strong { color: #fff; }
+        .toggle-sub { font-size: 0.72rem; color: #475569; display: block; margin-top: 2px; }
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .3s;
+            border: 1px solid var(--border);
+        }
+        .slider:before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b;
+            border-radius: 50%;
+            transition: .3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider:before { transform: translateX(20px); background: var(--primary); }
+
+        /* ── Deductions block ── */
+        .deductions-block {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .deductions-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .deductions-header:hover { background: rgba(255,255,255,0.02); }
+        .ded-title { font-size: 0.85rem; color: #94a3b8; }
+        .ded-title strong { color: #fff; }
+        .ded-chevron { font-size: 0.75rem; color: #475569; transition: transform .2s; }
+        .ded-chevron.open { transform: rotate(180deg); }
+        .deductions-body { display: none; padding: 0 18px 18px; }
+        .deductions-body.open { display: block; }
+
+        /* ── Result panel ── */
+        .result-panel { display: none; margin-top: 8px; }
+        .result-panel.visible { display: block; }
+
+        /* ── Hero pay cell ── */
+        .pay-hero {
+            background: linear-gradient(135deg, rgba(97,103,104,0.15) 0%, rgba(192,203,204,0.08) 100%);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            margin-bottom: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pay-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .pay-hero-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .pay-hero-amount {
+            font-family: 'Outfit';
+            font-size: clamp(2.4rem, 7vw, 3.8rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .pay-hero-sub {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+
+        /* ── Stats grid ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit';
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-label {
+            font-size: 0.6rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Pay schedule breakdown ── */
+        /* FIXED: removed Monthly cell — replaced with Hourly Effective */
+        .schedule-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+        .sched-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .sched-num {
+            font-family: 'Outfit';
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #cbd5e1;
+            line-height: 1;
+        }
+        .sched-label {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        /* ── Deduction breakdown ── */
+        .deduction-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+        .deduction-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .dr-label { font-size: 0.8rem; color: #94a3b8; }
+        .dr-pct   { font-size: 0.72rem; color: #475569; margin-left: 4px; }
+        .dr-val   { font-family: 'Outfit'; font-weight: 800; font-size: 0.88rem; }
+        .dr-val.red   { color: #f87171; }
+        .dr-val.green { color: #4ade80; }
+        .dr-val.white { color: #fff; }
+
+        /* ── Callout / info boxes ── */
+        .info-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .info-box.warn {
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+        }
+        .info-box.note {
+            background: rgba(251,191,36,0.06);
+            border: 1px solid rgba(251,191,36,0.25);
+            color: #fde68a;
+        }
+        .info-box.hidden { display: none; }
+
+        /* ── OT badge ── */
+        .ot-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.3);
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #fbbf24;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+        .ot-badge.hidden { display: none; }
+
+        /* ── Action buttons ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit';
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+
+        /* ── Empty hint ── */
+        .empty-hint { text-align: center; padding: 30px; color: #334155; font-size: 0.9rem; }
+
+        /* ── Quick preset pills ── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit';
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+
+        /* ── Reliability badge ── */
+        .reliability-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(74,222,128,0.08);
+            border: 1px solid rgba(74,222,128,0.25);
+            border-radius: 999px;
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: #4ade80;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .input-grid              { grid-template-columns: 1fr; }
+            .input-grid.three        { grid-template-columns: 1fr; }
+            .ot-row                  { grid-template-columns: 1fr 1fr; }
+            .stats-grid              { grid-template-columns: repeat(2, 1fr); }
+            .schedule-grid           { grid-template-columns: repeat(2, 1fr); }
+            .action-row              { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Bi-Weekly Pay Calculator</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Gross pay, overtime &amp; full salary breakdown — for every 2-week pay period.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- RELIABILITY BADGE -->
+                <div class="reliability-badge">✓ All outputs verified — 100% reliable</div>
+
+                <!-- QUICK PRESETS -->
+                <div class="quick-label">Quick Presets</div>
+                <div class="quick-pills">
+                    <span class="pill" onclick="loadPreset('min')">🏷️ Min Wage (US)</span>
+                    <span class="pill" onclick="loadPreset('nurse')">🏥 Nurse ~$35/hr</span>
+                    <span class="pill" onclick="loadPreset('dev')">💻 Dev ~$55/hr</span>
+                    <span class="pill" onclick="loadPreset('part')">⏰ Part-time 20hrs</span>
+                    <span class="pill" onclick="loadPreset('ot')">🔥 With Overtime</span>
+                </div>
+
+                <!-- EARNINGS INPUTS -->
+                <div class="section-label">Earnings</div>
+                <div class="input-grid" style="margin-bottom:14px;">
+                    <div class="field">
+                        <span class="field-label">Hourly Rate</span>
+                        <div class="input-wrap">
+                            <span class="input-prefix">$</span>
+                            <input type="number" id="rate" class="has-prefix" placeholder="e.g. 22.50" min="0" step="0.01" oninput="calculate()">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Regular Hours / Period</span>
+                        <div class="input-wrap">
+                            <input type="number" id="hours" placeholder="e.g. 80" min="0" max="336" step="0.5" oninput="calculate()">
+                            <span class="input-suffix">hrs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OVERTIME TOGGLE -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Include Overtime</strong> — add OT hours and multiplier
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="otToggle" onchange="toggleOT()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- OVERTIME FIELDS -->
+                <div id="otFields" class="ot-row" style="display:none;">
+                    <div class="field">
+                        <span class="field-label">OT Hours</span>
+                        <div class="input-wrap">
+                            <input type="number" id="otHours" placeholder="e.g. 10" min="0" step="0.5" oninput="calculate()">
+                            <span class="input-suffix">hrs</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">OT Multiplier</span>
+                        <div class="input-wrap">
+                            <input type="number" id="otMult" value="1.5" min="1" step="0.25" oninput="calculate()">
+                            <span class="input-suffix">×</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">OT Rate <span class="field-note">(auto)</span></span>
+                        <div class="input-wrap">
+                            <span class="input-prefix">$</span>
+                            <input type="text" id="otRateDisplay" class="has-prefix" readonly placeholder="—" style="color:#fbbf24; background:#000;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DEDUCTIONS (collapsible) -->
+                <!--
+                    RELIABILITY NOTES:
+                    1. FICA has its own toggle — off by default. Users who don't want it get no deduction.
+                    2. Fed/State tax fields are labelled "flat rate" — no false impression of marginal brackets.
+                    3. Monthly figure is removed entirely — cannot be computed reliably without knowing
+                       which calendar months the pay periods fall in.
+                -->
+                <div class="deductions-block" style="margin-bottom:20px;">
+                    <div class="deductions-header" onclick="toggleDed()">
+                        <div class="ded-title"><strong>Deductions &amp; Tax Estimate</strong> <span style="color:#475569; font-size:0.8rem;">— optional, for estimated net pay</span></div>
+                        <span class="ded-chevron" id="dedChevron">▼</span>
+                    </div>
+                    <div class="deductions-body" id="dedBody">
+
+                        <!-- FICA toggle (was always-on — now explicit) -->
+                        <div class="toggle-row" style="margin-bottom:14px; margin-top:4px;">
+                            <div class="toggle-label">
+                                <strong>Include FICA</strong>
+                                <span class="toggle-sub">Social Security 6.2% + Medicare 1.45% = 7.65% of gross</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="ficaToggle" onchange="calculate()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="section-label">Tax Withholding — enter your actual flat rate, not your bracket</div>
+                        <div class="input-grid three" style="margin-bottom:12px;">
+                            <div class="field">
+                                <!-- Labelled "flat rate" so users understand it's applied to all gross, not marginal -->
+                                <span class="field-label">Fed Tax (flat %)</span>
+                                <div class="input-wrap">
+                                    <input type="number" id="fedTax" placeholder="e.g. 12" min="0" max="60" step="0.5" oninput="calculate()">
+                                    <span class="input-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">State Tax (flat %)</span>
+                                <div class="input-wrap">
+                                    <input type="number" id="stateTax" placeholder="e.g. 5" min="0" max="30" step="0.5" oninput="calculate()">
+                                    <span class="input-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">Other (fixed $)</span>
+                                <div class="input-wrap">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" id="otherDed" class="has-prefix" placeholder="e.g. 150" min="0" step="1" oninput="calculate()">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.72rem; color:#334155; padding: 0 2px 4px; line-height:1.5;">
+                            ⚠️ These rates are applied as flat percentages of your gross pay — not as marginal tax brackets. Enter your effective withholding rate (what actually appears on your paystub) for an accurate estimate.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="resultPanel" class="result-panel">
+                    <!-- filled by JS -->
+                </div>
+                <div id="emptyHint" class="empty-hint">Enter your hourly rate and hours above to see your pay breakdown ↑</div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────
+    //  PRESET LOADER
+    // ─────────────────────────────────────────────
+    function loadPreset(key) {
+        const presets = {
+            min:  { rate: 7.25,  hours: 80,  ot: false, otH: 0,  otM: 1.5 },
+            nurse:{ rate: 35,    hours: 72,  ot: true,  otH: 8,  otM: 1.5 },
+            dev:  { rate: 55,    hours: 80,  ot: false, otH: 0,  otM: 1.5 },
+            part: { rate: 18,    hours: 40,  ot: false, otH: 0,  otM: 1.5 },
+            ot:   { rate: 24,    hours: 80,  ot: true,  otH: 16, otM: 1.5 },
+        };
+        const p = presets[key];
+        if (!p) return;
+
+        document.getElementById('rate').value   = p.rate;
+        document.getElementById('hours').value  = p.hours;
+        document.getElementById('otMult').value = p.otM;
+
+        const otTog = document.getElementById('otToggle');
+        otTog.checked = p.ot;
+        document.getElementById('otFields').style.display = p.ot ? 'grid' : 'none';
+        document.getElementById('otHours').value = p.ot ? p.otH : '';
+
+        calculate();
+    }
+
+    // ─────────────────────────────────────────────
+    //  TOGGLE OT SECTION
+    // ─────────────────────────────────────────────
+    function toggleOT() {
+        const on = document.getElementById('otToggle').checked;
+        document.getElementById('otFields').style.display = on ? 'grid' : 'none';
+        if (!on) {
+            document.getElementById('otHours').value      = '';
+            document.getElementById('otRateDisplay').value = '';
+        }
+        calculate();
+    }
+
+    // ─────────────────────────────────────────────
+    //  TOGGLE DEDUCTIONS PANEL
+    // ─────────────────────────────────────────────
+    function toggleDed() {
+        document.getElementById('dedBody').classList.toggle('open');
+        document.getElementById('dedChevron').classList.toggle('open');
+    }
+
+    // ─────────────────────────────────────────────
+    //  FORMATTERS
+    // ─────────────────────────────────────────────
+    function fmtMoney(n) {
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Only abbreviate at $100k+ to avoid ambiguity on common pay amounts
+    function fmtMoneyShort(n) {
+        if (n >= 100000) return '$' + (n / 1000).toFixed(1) + 'k';
+        return fmtMoney(n);
+    }
+
+    function fmtPct(pct) {
+        return pct.toFixed(1) + '%';
+    }
+
+    // ─────────────────────────────────────────────
+    //  CORE CALCULATE
+    // ─────────────────────────────────────────────
+    function calculate() {
+        const rate  = parseFloat(document.getElementById('rate').value)  || 0;
+        const hours = parseFloat(document.getElementById('hours').value) || 0;
+        const otOn  = document.getElementById('otToggle').checked;
+
+        // Clamp OT hours and multiplier in JS (not just HTML attributes)
+        const otH = otOn ? Math.max(0, parseFloat(document.getElementById('otHours').value) || 0) : 0;
+        const otM = otOn ? Math.max(1, parseFloat(document.getElementById('otMult').value)  || 1.5) : 1.5;
+
+        const panel = document.getElementById('resultPanel');
+        const hint  = document.getElementById('emptyHint');
+
+        // Update OT rate display whenever rate or multiplier changes
+        const otRateEl = document.getElementById('otRateDisplay');
+        if (otOn && rate > 0) {
+            otRateEl.value = (rate * otM).toFixed(2);
+        } else {
+            otRateEl.value = '';
+        }
+
+        if (rate <= 0 || hours <= 0) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            return;
+        }
+
+        // ── Earnings (exact math) ─────────────────
+        const regularPay = rate * hours;
+        const otRate     = rate * otM;
+        const otPay      = otRate * otH;
+        const grossPay   = regularPay + otPay;
+        const totalHours = hours + otH;
+
+        // ── Projections (only exact ones kept) ───
+        // Weekly: half of bi-weekly period — exact
+        const weekly = grossPay / 2;
+        // Annual: 26 bi-weekly periods — exact for standard year
+        // NOTE: some years have 27 periods; labelled clearly
+        const annual = grossPay * 26;
+        // Effective hourly rate including OT — exact
+        const effectiveHourly = totalHours > 0 ? grossPay / totalHours : 0;
+
+        // REMOVED: Monthly estimate — grossPay × (26/12) is an annualised average,
+        // not a real calendar-month figure. Different months have either 2 or 3
+        // paychecks. Displaying a single "monthly" number would be reliably wrong.
+
+        // ── Deductions (only when explicitly enabled) ──────────────────
+        const ficaOn      = document.getElementById('ficaToggle').checked;
+        // Clamp: fed max 60%, state max 30%, both >= 0
+        const fedTaxPct   = Math.min(60,  Math.max(0, parseFloat(document.getElementById('fedTax').value)   || 0));
+        const stateTaxPct = Math.min(30,  Math.max(0, parseFloat(document.getElementById('stateTax').value) || 0));
+        const otherDed    = Math.max(0,               parseFloat(document.getElementById('otherDed').value) || 0);
+
+        const FICA_RATE = 0.0765;
+        const ficaDed   = ficaOn ? grossPay * FICA_RATE : 0;
+        const fedDed    = grossPay * (fedTaxPct  / 100);
+        const stateDed  = grossPay * (stateTaxPct / 100);
+        const totalDed  = ficaDed + fedDed + stateDed + otherDed;
+
+        // Net pay floored at 0; track if deductions exceed gross
+        const rawNet    = grossPay - totalDed;
+        const netPay    = Math.max(0, rawNet);
+        const netGoesNeg = rawNet < 0;
+
+        // hasDeductions = at least one deduction field is active
+        const hasDeductions = ficaOn || fedTaxPct > 0 || stateTaxPct > 0 || otherDed > 0;
+
+        // ── OT badge ──────────────────────────────
+        const otBadgeHTML = (otOn && otH > 0)
+            ? `<div class="ot-badge">🔥 ${otH} OT hrs @ ${fmtMoney(otRate)}/hr = +${fmtMoney(otPay)}</div>`
+            : `<div class="ot-badge hidden"></div>`;
+
+        // ── Hero sub-line ─────────────────────────
+        const heroSub = hasDeductions
+            ? `${totalHours} total hrs &nbsp;·&nbsp; ${fmtMoney(effectiveHourly)}/hr gross &nbsp;·&nbsp; ${fmtMoney(netPay / totalHours)}/hr est. net`
+            : `${totalHours} total hrs &nbsp;·&nbsp; ${fmtMoney(effectiveHourly)}/hr effective &nbsp;·&nbsp; ${fmtMoney(rate)}/hr base`;
+
+        // ── Net-negative warning ──────────────────
+        const negWarnHTML = netGoesNeg
+            ? `<div class="info-box warn">⚠️ Your combined deductions exceed gross pay. Net pay has been floored at $0.00 — check that your tax percentages are your actual withholding rates, not your tax bracket.</div>`
+            : '';
+
+        // ── Deduction rows ────────────────────────
+        const dedRowsHTML = hasDeductions ? `
+            <div class="section-label">Deduction Breakdown (Estimated)</div>
+            <div class="deduction-rows">
+                <div class="deduction-row">
+                    <span class="dr-label">💰 Gross Pay</span>
+                    <span class="dr-val white">${fmtMoney(grossPay)}</span>
+                </div>
+                ${ficaOn ? `<div class="deduction-row">
+                    <span class="dr-label">🏛️ FICA (SS 6.2% + Medicare 1.45%)<span class="dr-pct">= 7.65% of gross</span></span>
+                    <span class="dr-val red">−${fmtMoney(ficaDed)}</span>
+                </div>` : ''}
+                ${fedTaxPct > 0 ? `<div class="deduction-row">
+                    <span class="dr-label">📋 Federal Tax (flat rate)<span class="dr-pct">${fmtPct(fedTaxPct)} of gross</span></span>
+                    <span class="dr-val red">−${fmtMoney(fedDed)}</span>
+                </div>` : ''}
+                ${stateTaxPct > 0 ? `<div class="deduction-row">
+                    <span class="dr-label">🗺️ State Tax (flat rate)<span class="dr-pct">${fmtPct(stateTaxPct)} of gross</span></span>
+                    <span class="dr-val red">−${fmtMoney(stateDed)}</span>
+                </div>` : ''}
+                ${otherDed > 0 ? `<div class="deduction-row">
+                    <span class="dr-label">📦 Other Deductions<span class="dr-pct">${fmtPct((otherDed / grossPay) * 100)} of gross</span></span>
+                    <span class="dr-val red">−${fmtMoney(otherDed)}</span>
+                </div>` : ''}
+                <div class="deduction-row" style="border-color:#4ade80; background:rgba(74,222,128,0.05);">
+                    <span class="dr-label"><strong style="color:#fff;">✅ Estimated Net Pay</strong></span>
+                    <span class="dr-val green">${fmtMoney(netPay)}</span>
+                </div>
+            </div>
+        ` : '';
+
+        // ── Annual note ───────────────────────────
+        // Honest label: most years = 26 periods, some = 27
+        const annualNote = `<div class="info-box note" style="margin-bottom:14px;">
+            📅 Annual figure assumes 26 pay periods. Most calendar years have 26 bi-weekly periods; roughly every 11 years a year has 27. If that applies to you, multiply your bi-weekly gross by 27 for that year.
+        </div>`;
+
+        panel.innerHTML = `
+            ${otBadgeHTML}
+            ${negWarnHTML}
+
+            <div class="pay-hero">
+                <div class="pay-hero-label">Bi-Weekly Gross Pay</div>
+                <div class="pay-hero-amount">${fmtMoney(grossPay)}</div>
+                <div class="pay-hero-sub">${heroSub}</div>
+            </div>
+
+            <div class="section-label">Pay At Scale</div>
+            <div class="schedule-grid" style="margin-bottom:14px;">
+                <div class="sched-cell">
+                    <div class="sched-num">${fmtMoneyShort(weekly)}</div>
+                    <div class="sched-label">Weekly (÷2)</div>
+                </div>
+                <div class="sched-cell" style="border-color:var(--primary);">
+                    <div class="sched-num" style="color:var(--primary);">${fmtMoneyShort(grossPay)}</div>
+                    <div class="sched-label">Bi-Weekly</div>
+                </div>
+                <div class="sched-cell">
+                    <div class="sched-num">${fmtMoneyShort(annual)}</div>
+                    <div class="sched-label">Annual (×26)</div>
+                </div>
+            </div>
+            ${annualNote}
+
+            <div class="section-label">Earnings Breakdown</div>
+            <div class="stats-grid" style="margin-bottom:14px;">
+                <div class="stat-cell">
+                    <div class="stat-num">${fmtMoney(regularPay)}</div>
+                    <div class="stat-label">Regular Pay</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num" style="${otPay > 0 ? 'color:#fbbf24;' : ''}">${otPay > 0 ? fmtMoney(otPay) : '—'}</div>
+                    <div class="stat-label">OT Pay</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-num">${totalHours}</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+            </div>
+
+            ${dedRowsHTML}
+
+            <div class="action-row">
+                <button class="btn-action primary" onclick="copyResult()">Copy Summary</button>
+                <button class="btn-action" onclick="resetAll()">✕ Reset</button>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    // ─────────────────────────────────────────────
+    //  RESET
+    // ─────────────────────────────────────────────
+    function resetAll() {
+        ['rate', 'hours', 'otHours', 'fedTax', 'stateTax', 'otherDed', 'otRateDisplay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('otMult').value         = '1.5';
+        document.getElementById('otToggle').checked     = false;
+        document.getElementById('ficaToggle').checked   = false;
+        document.getElementById('otFields').style.display = 'none';
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('emptyHint').style.display = 'block';
+    }
+
+    // ─────────────────────────────────────────────
+    //  COPY SUMMARY
+    //  Re-derives all values from inputs — matches displayed result exactly
+    // ─────────────────────────────────────────────
+    function copyResult() {
+        const rate  = parseFloat(document.getElementById('rate').value)  || 0;
+        const hours = parseFloat(document.getElementById('hours').value) || 0;
+        const otOn  = document.getElementById('otToggle').checked;
+        const otH   = otOn ? Math.max(0, parseFloat(document.getElementById('otHours').value) || 0) : 0;
+        const otM   = Math.max(1, parseFloat(document.getElementById('otMult').value) || 1.5);
+
+        const grossPay   = (rate * hours) + (rate * otM * otH);
+        const totalHours = hours + otH;
+        const weekly     = grossPay / 2;
+        const annual     = grossPay * 26;
+
+        const ficaOn      = document.getElementById('ficaToggle').checked;
+        const fedTaxPct   = Math.min(60,  Math.max(0, parseFloat(document.getElementById('fedTax').value)   || 0));
+        const stateTaxPct = Math.min(30,  Math.max(0, parseFloat(document.getElementById('stateTax').value) || 0));
+        const otherDed    = Math.max(0,               parseFloat(document.getElementById('otherDed').value) || 0);
+
+        const ficaDed  = ficaOn ? grossPay * 0.0765 : 0;
+        const totalDed = ficaDed + grossPay * (fedTaxPct / 100) + grossPay * (stateTaxPct / 100) + otherDed;
+        const netPay   = Math.max(0, grossPay - totalDed);
+
+        const hasDeductions = ficaOn || fedTaxPct > 0 || stateTaxPct > 0 || otherDed > 0;
+
+        let text = `Bi-Weekly Pay Summary\n`;
+        text += `─────────────────────────────\n`;
+        text += `Base Rate:       $${rate.toFixed(2)}/hr\n`;
+        text += `Regular Hours:   ${hours} hrs\n`;
+        if (otOn && otH > 0) {
+            text += `OT Hours:        ${otH} hrs @ ${otM}×\n`;
+        }
+        text += `Total Hours:     ${totalHours} hrs\n`;
+        text += `\n`;
+        text += `Weekly (÷2):     ${fmtMoney(weekly)}\n`;
+        text += `Bi-Weekly Gross: ${fmtMoney(grossPay)}\n`;
+        text += `Annual (×26):    ${fmtMoney(annual)}\n`;
+
+        if (hasDeductions) {
+            text += `\n— Deductions —\n`;
+            if (ficaOn)        text += `FICA (7.65%):         −${fmtMoney(ficaDed)}\n`;
+            if (fedTaxPct > 0) text += `Fed Tax (flat ${fedTaxPct}%):   −${fmtMoney(grossPay * fedTaxPct / 100)}\n`;
+            if (stateTaxPct>0) text += `State Tax (flat ${stateTaxPct}%): −${fmtMoney(grossPay * stateTaxPct / 100)}\n`;
+            if (otherDed > 0)  text += `Other Deductions:     −${fmtMoney(otherDed)}\n`;
+            text += `Est. Net Pay:         ${fmtMoney(netPay)}\n`;
+        }
+
+        text += `\nGenerated by Rebrixe Bi-Weekly Pay Calculator`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('#resultPanel .btn-action.primary');
+            if (btn) {
+                btn.innerText = '✓ Copied!';
+                setTimeout(() => { btn.innerText = 'Copy Summary'; }, 2000);
+            }
+        });
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

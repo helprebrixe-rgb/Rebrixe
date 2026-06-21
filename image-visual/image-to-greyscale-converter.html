@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image to Greyscale Converter — Luminance vs Average Method | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Convert any image to true greyscale. Compare luminance (perceptual) vs average method side by side. Free, browser-only — your image never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Method selector */
+        .method-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .method-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+        .method-btn {
+            padding: 16px 18px; border-radius: var(--radius-md); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; text-align: left;
+            font-family: 'Outfit', sans-serif;
+        }
+        .method-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .method-btn.active { border-color: var(--primary); background: var(--primary-dim); }
+        .method-btn.active .method-name { color: var(--primary); }
+        .method-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 4px; }
+        .method-name { font-size: 0.9rem; font-weight: 700; color: var(--text-sec); margin-bottom: 4px; transition: color 0.18s; }
+        .method-formula { font-size: 0.65rem; font-family: 'Fira Code', monospace; color: var(--text-dim); margin-bottom: 6px; }
+        .method-desc { font-size: 0.72rem; color: var(--text-dim); line-height: 1.5; }
+
+        /* Compare toggle */
+        .compare-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .compare-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+        .toggle-switch { width: 36px; height: 20px; background: var(--surface); border: 1px solid var(--border-mid); border-radius: 99px; position: relative; transition: background 0.2s; flex-shrink: 0; }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-dim); transition: all 0.2s; }
+        .compare-toggle.on .toggle-switch { background: var(--primary-dim); border-color: var(--primary-border); }
+        .compare-toggle.on .toggle-switch::after { left: 18px; background: var(--primary); }
+        .compare-label { font-size: 0.78rem; font-weight: 700; color: var(--text-sec); }
+        .compare-hint { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Output section */
+        .output-section { display: none; }
+        .output-section.visible { display: block; }
+
+        /* Single result */
+        .result-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .result-title { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+        .result-badge { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 10px; border-radius: 99px; }
+        .badge-lum { background: rgba(255,214,0,0.1); color: var(--primary); border: 1px solid var(--primary-border); }
+        .badge-avg { background: rgba(170,255,0,0.08); color: var(--success); border: 1px solid rgba(170,255,0,0.2); }
+        .canvas-wrap { background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; border: 1px solid var(--border-mid); max-height: 380px; }
+        .canvas-wrap canvas { max-width: 100%; max-height: 380px; object-fit: contain; display: block; }
+        .result-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+        .stat-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; }
+        .stat-chip .sc-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 2px; }
+        .stat-chip .sc-val { font-size: 0.8rem; font-weight: 700; font-family: 'Fira Code', monospace; color: var(--primary); }
+        .dl-btn { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; }
+        .dl-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Compare layout */
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .compare-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+        .compare-item .canvas-wrap { max-height: 260px; }
+        .compare-item canvas { max-height: 260px; }
+
+        /* Insight box */
+        .insight-box { background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-start; }
+        .insight-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+        .insight-text { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .insight-text strong { color: var(--primary); font-weight: 700; }
+
+        /* Edu section */
+        .edu-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .edu-title { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+        .edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .edu-block { background: var(--surface); border-radius: var(--radius-sm); padding: 14px 16px; }
+        .edu-block h4 { font-size: 0.78rem; font-weight: 700; margin-bottom: 6px; }
+        .edu-block h4.lum { color: var(--primary); }
+        .edu-block h4.avg { color: var(--success); }
+        .edu-block p { font-size: 0.72rem; color: var(--text-dim); line-height: 1.6; }
+        .edu-block code { font-family: 'Fira Code', monospace; font-size: 0.68rem; background: var(--card); padding: 2px 6px; border-radius: 4px; color: var(--accent); display: block; margin-top: 6px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .method-grid, .compare-grid, .edu-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="adjust-enhance.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image to Greyscale</h1>
+                <p class="tool-page-sub">True greyscale conversion — choose luminance (perceptual) or average method. See the difference instantly.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Method selector -->
+                <div class="method-card">
+                    <div class="section-label">Choose Conversion Method</div>
+                    <div class="method-grid">
+                        <button class="method-btn active" id="btnLum" onclick="setMethod('luminance')">
+                            <div class="method-label">Recommended</div>
+                            <div class="method-name">Luminance (Perceptual)</div>
+                            <div class="method-formula">0.299R + 0.587G + 0.114B</div>
+                            <div class="method-desc">Mimics how human eyes perceive brightness. Greens feel brighter to us, blues darker — this formula accounts for that.</div>
+                        </button>
+                        <button class="method-btn" id="btnAvg" onclick="setMethod('average')">
+                            <div class="method-label">Simple</div>
+                            <div class="method-name">Average</div>
+                            <div class="method-formula">(R + G + B) / 3</div>
+                            <div class="method-desc">Treats all colour channels equally. Faster to understand, but produces flat, unnatural-looking results on most photos.</div>
+                        </button>
+                    </div>
+                    <div class="compare-row">
+                        <label class="compare-toggle" id="compareToggle" onclick="toggleCompare()">
+                            <div class="toggle-switch"></div>
+                            <span class="compare-label">Side-by-side compare</span>
+                        </label>
+                        <span class="compare-hint">— see both methods at once</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doConvert()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">◑</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Convert to Greyscale</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()" style="display:none;">⬇ Download</button>
+                </div>
+
+                <!-- Output -->
+                <div class="output-section" id="outputSection">
+
+                    <!-- Insight callout -->
+                    <div class="insight-box" id="insightBox">
+                        <span class="insight-icon">💡</span>
+                        <p class="insight-text" id="insightText"></p>
+                    </div>
+
+                    <!-- Single result -->
+                    <div id="singleResult">
+                        <div class="result-card">
+                            <div class="result-header">
+                                <span class="result-title" id="singleTitle">Luminance Result</span>
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <span class="result-badge badge-lum" id="singleBadge">Perceptual</span>
+                                    <button class="dl-btn" onclick="doDownload()">⬇ Download PNG</button>
+                                </div>
+                            </div>
+                            <div class="canvas-wrap"><canvas id="canvasSingle"></canvas></div>
+                            <div class="result-stats" id="singleStats"></div>
+                        </div>
+                    </div>
+
+                    <!-- Compare result -->
+                    <div id="compareResult" style="display:none;">
+                        <div class="compare-grid">
+                            <div class="compare-item">
+                                <div class="result-header">
+                                    <span class="result-title">Luminance</span>
+                                    <div style="display:flex;gap:8px;align-items:center;">
+                                        <span class="result-badge badge-lum">Perceptual</span>
+                                        <button class="dl-btn" onclick="doDownloadCanvas('canvasLum','luminance')">⬇</button>
+                                    </div>
+                                </div>
+                                <div class="canvas-wrap"><canvas id="canvasLum"></canvas></div>
+                            </div>
+                            <div class="compare-item">
+                                <div class="result-header">
+                                    <span class="result-title">Average</span>
+                                    <div style="display:flex;gap:8px;align-items:center;">
+                                        <span class="result-badge badge-avg">Simple</span>
+                                        <button class="dl-btn" onclick="doDownloadCanvas('canvasAvg','average')">⬇</button>
+                                    </div>
+                                </div>
+                                <div class="canvas-wrap"><canvas id="canvasAvg"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="result-stats" id="compareStats" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;"></div>
+                    </div>
+
+                    <!-- Educational section -->
+                    <div class="edu-section">
+                        <div class="edu-title">Why does the method matter?</div>
+                        <div class="edu-grid">
+                            <div class="edu-block">
+                                <h4 class="lum">Luminance method — how eyes actually work</h4>
+                                <p>Human eyes have more green-sensitive cones (~55%) than red (~30%) or blue (~15%). A pure green looks 3× brighter to us than a pure blue at the same intensity. The luminance formula (ITU-R BT.601) is built on decades of vision science research.</p>
+                                <code>gray = 0.299R + 0.587G + 0.114B</code>
+                            </div>
+                            <div class="edu-block">
+                                <h4 class="avg">Average method — mathematically simple, visually off</h4>
+                                <p>Averaging all three channels feels logical but ignores biology. A bright blue sky and a bright green field get equal weight, even though your eye perceives them very differently. The result looks flat and slightly "wrong" even if you can't put your finger on why.</p>
+                                <code>gray = (R + G + B) / 3</code>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let method = 'luminance', compareMode = false;
+    let lastLumURL = null, lastAvgURL = null, lastSingleURL = null;
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('outputSection').classList.remove('visible');
+                document.getElementById('btnDownload').style.display = 'none';
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null;
+        lastLumURL = lastAvgURL = lastSingleURL = null;
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function setMethod(m) {
+        method = m;
+        document.getElementById('btnLum').classList.toggle('active', m === 'luminance');
+        document.getElementById('btnAvg').classList.toggle('active', m === 'average');
+    }
+
+    function toggleCompare() {
+        compareMode = !compareMode;
+        document.getElementById('compareToggle').classList.toggle('on', compareMode);
+    }
+
+    // ─── CONVERT ───────────────────────────────────────────────────────────────
+    function toGreyscale(canvas, img, meth) {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = id.data;
+        for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            const gray = meth === 'luminance'
+                ? Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+                : Math.round((r + g + b) / 3);
+            d[i] = d[i+1] = d[i+2] = gray;
+        }
+        ctx.putImageData(id, 0, 0);
+        return canvas.toDataURL('image/png');
+    }
+
+    function doConvert() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        const outEl = document.getElementById('outputSection');
+        outEl.classList.add('visible');
+
+        if (compareMode) {
+            // Render both
+            lastLumURL = toGreyscale(document.getElementById('canvasLum'), origImg, 'luminance');
+            lastAvgURL = toGreyscale(document.getElementById('canvasAvg'), origImg, 'average');
+            document.getElementById('singleResult').style.display = 'none';
+            document.getElementById('compareResult').style.display = 'block';
+            document.getElementById('btnDownload').style.display = 'none';
+
+            const compareStats = document.getElementById('compareStats');
+            compareStats.innerHTML = statChips(origImg.naturalWidth, origImg.naturalHeight, 'Both outputs', 'PNG');
+
+            showInsight('compare');
+        } else {
+            lastSingleURL = toGreyscale(document.getElementById('canvasSingle'), origImg, method);
+            document.getElementById('singleResult').style.display = 'block';
+            document.getElementById('compareResult').style.display = 'none';
+            document.getElementById('btnDownload').style.display = 'block';
+
+            const isLum = method === 'luminance';
+            document.getElementById('singleTitle').textContent = isLum ? 'Luminance Result' : 'Average Result';
+            document.getElementById('singleBadge').textContent = isLum ? 'Perceptual' : 'Simple';
+            document.getElementById('singleBadge').className = 'result-badge ' + (isLum ? 'badge-lum' : 'badge-avg');
+            document.getElementById('singleStats').innerHTML = statChips(origImg.naturalWidth, origImg.naturalHeight, isLum ? 'Luminance' : 'Average', 'PNG');
+
+            showInsight(method);
+        }
+
+        outEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Converted! ✓', 'success');
+    }
+
+    function showInsight(m) {
+        const box = document.getElementById('insightText');
+        const insights = {
+            luminance: 'You chose <strong>Luminance</strong> — this is what professionals use. Because the human eye is far more sensitive to green light than red or blue, this formula weights each channel accordingly. Your result will look natural and match how the scene actually felt to the eye.',
+            average: 'You chose <strong>Average</strong> — the simplified method. It\'s mathematically clean but biologically incorrect. Notice how skin tones and green foliage may look slightly off compared to Luminance. Switch to compare mode to see the difference side by side.',
+            compare: 'Comparing both methods — notice the <strong>Luminance</strong> result preserves natural tonal contrast (skin, sky, foliage look right), while <strong>Average</strong> treats all colours equally, often producing a flatter, less natural result. The difference is most visible on images with strong red or green subjects.'
+        };
+        box.innerHTML = insights[m];
+    }
+
+    function statChips(w, h, method, fmt) {
+        return `
+            <div class="stat-chip"><div class="sc-label">Dimensions</div><div class="sc-val">${w} × ${h}</div></div>
+            <div class="stat-chip"><div class="sc-label">Method</div><div class="sc-val">${method}</div></div>
+            <div class="stat-chip"><div class="sc-label">Format</div><div class="sc-val">${fmt}</div></div>
+            <div class="stat-chip"><div class="sc-label">Channels</div><div class="sc-val">Greyscale</div></div>
+        `;
+    }
+
+    // ─── DOWNLOAD ──────────────────────────────────────────────────────────────
+    function doDownload() {
+        const url = lastSingleURL;
+        if (!url) return;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        triggerDownload(url, `${base}_greyscale_${method}.png`);
+    }
+
+    function doDownloadCanvas(canvasId, meth) {
+        const url = canvasId === 'canvasLum' ? lastLumURL : lastAvgURL;
+        if (!url) return;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        triggerDownload(url, `${base}_greyscale_${meth}.png`);
+    }
+
+    function triggerDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

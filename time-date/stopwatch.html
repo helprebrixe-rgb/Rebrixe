@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stopwatch | Rebrixe</title>
+    <meta name="description" content="Clean stopwatch with lap recording, lap splits, best/worst lap tracking, and export. No ads, no fluff — just a fast, precise stopwatch.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Stopwatch",
+      "description": "Clean stopwatch with lap recording, lap splits, best/worst lap tracking, and export. No ads, no fluff — just a fast, precise stopwatch.",
+      "url": "https://rebrixe.com/time-date/stopwatch",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Rebrixe",
+        "url": "https://Rebrixe.com"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://Rebrixe.com"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Time Date",
+          "item": "https://rebrixe.com/time-date"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Timers Focus Tools",
+          "item": "https://rebrixe.com/time-date/timers-focus-tools"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Stopwatch",
+          "item": "https://rebrixe.com/time-date/stopwatch"
+        }
+      ]
+    }
+  ]
+}
+</script>
+    <style>
+        /* ── Layout ── */
+        .tool-wrap {
+            max-width: 680px;
+            margin: 40px auto;
+        }
+
+        /* ── Watch face ── */
+        .watch-face {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 40px 32px 32px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        /* Time: HH:MM:SS */
+        .time-display {
+            font-family: 'Outfit', monospace;
+            font-size: clamp(3.2rem, 12vw, 5.5rem);
+            font-weight: 900;
+            letter-spacing: -3px;
+            color: #fff;
+            line-height: 1;
+            margin-bottom: 6px;
+            font-variant-numeric: tabular-nums;
+            transition: color .2s;
+            /* Prevent layout shift as digits change width */
+            font-feature-settings: "tnum";
+        }
+        .time-display.running { color: var(--primary); }
+
+        /* Centiseconds — two digits, always */
+        .cs-display {
+            font-family: 'Outfit', monospace;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 2px;
+            margin-bottom: 28px;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum";
+            transition: color .2s;
+        }
+        .cs-display.running { color: rgba(145,162,155,0.7); }
+
+        /* Status pill */
+        .status-pill {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 4px 14px;
+            border-radius: 999px;
+            margin-bottom: 28px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #475569;
+            transition: background .2s, border-color .2s, color .2s;
+        }
+        .status-pill.running { background: rgba(145,162,155,0.12); border-color: var(--primary); color: var(--primary); }
+        .status-pill.paused  { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+
+        /* ── Controls ── */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 16px 10px;
+            border-radius: 16px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: transform .18s, background .18s, box-shadow .18s, color .18s;
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); background: rgba(255,255,255,0.08); color: #fff; }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .btn-start {
+            background: linear-gradient(135deg, #3a6b4a, #5aa86e);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(90,168,110,0.25);
+        }
+        .btn-start:hover:not(:disabled) { box-shadow: 0 8px 24px rgba(90,168,110,0.4); }
+
+        .btn-pause {
+            background: rgba(251,191,36,0.1);
+            border-color: rgba(251,191,36,0.3);
+            color: #fbbf24;
+        }
+        .btn-pause:hover:not(:disabled) { background: rgba(251,191,36,0.18); }
+
+        .btn-lap {
+            background: rgba(255,255,255,0.06);
+            border-color: var(--border);
+            color: #cbd5e1;
+        }
+
+        .btn-reset {
+            background: rgba(239,68,68,0.08);
+            border-color: rgba(239,68,68,0.2);
+            color: #f87171;
+        }
+        .btn-reset:hover:not(:disabled) { background: rgba(239,68,68,0.15); }
+
+        /* ── Lap section ── */
+        .lap-section {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .lap-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .lap-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+        }
+        .lap-count-badge {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            background: rgba(145,152,155,0.1);
+            border: 1px solid var(--border);
+            padding: 2px 10px;
+            border-radius: 999px;
+        }
+
+        /* Stats bar */
+        .lap-stats {
+            display: none;
+            grid-template-columns: 1fr 1fr 1fr;
+            border-bottom: 1px solid var(--border);
+        }
+        .lap-stats.visible { display: grid; }
+        .lstat {
+            padding: 12px 10px;
+            text-align: center;
+            border-right: 1px solid var(--border);
+        }
+        .lstat:last-child { border-right: none; }
+        .lstat-val {
+            font-family: 'Outfit', monospace;
+            font-weight: 800;
+            font-size: 0.88rem;
+            color: #cbd5e1;
+            font-variant-numeric: tabular-nums;
+        }
+        .lstat-val.best  { color: #4ade80; }
+        .lstat-val.worst { color: #f87171; }
+        .lstat-label {
+            font-size: 0.55rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #334155;
+            margin-top: 3px;
+        }
+
+        /* Lap list */
+        .lap-list {
+            max-height: 280px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .lap-item {
+            display: grid;
+            grid-template-columns: 44px 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            transition: background .15s;
+        }
+        .lap-item:last-child { border-bottom: none; }
+        .lap-item:hover { background: rgba(255,255,255,0.02); }
+        .lap-item.best-lap  { background: rgba(74,222,128,0.04); }
+        .lap-item.worst-lap { background: rgba(248,113,113,0.04); }
+
+        .lap-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.78rem;
+            color: #334155;
+        }
+        .lap-tag {
+            font-size: 0.55rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 2px 7px;
+            border-radius: 999px;
+        }
+        .tag-best  { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+        .tag-worst { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+        .tag-empty { visibility: hidden; font-size: 0.55rem; padding: 2px 7px; }
+
+        .lap-split {
+            font-family: 'Outfit', monospace;
+            font-weight: 800;
+            font-size: 0.88rem;
+            color: #94a3b8;
+            font-variant-numeric: tabular-nums;
+        }
+        .lap-total {
+            font-family: 'Outfit', monospace;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #334155;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .empty-laps {
+            padding: 32px;
+            text-align: center;
+            color: #334155;
+            font-size: 0.85rem;
+        }
+
+        /* Export row */
+        .export-row {
+            display: flex;
+            gap: 8px;
+            padding: 14px 16px;
+            border-top: 1px solid var(--border);
+        }
+        .btn-export {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: #64748b;
+            transition: background .18s, color .18s, border-color .18s, transform .18s;
+            user-select: none;
+        }
+        .btn-export:hover:not(:disabled) {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border-color: #fff;
+            transform: translateY(-1px);
+        }
+        .btn-export:disabled { opacity: 0.25; cursor: not-allowed; }
+
+        /* ── Limitations notice ── */
+        .limitations {
+            margin-top: 24px;
+            padding: 16px 20px;
+            background: rgba(251,191,36,0.04);
+            border: 1px solid rgba(251,191,36,0.15);
+            border-radius: 14px;
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .limitations-title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #fbbf24;
+            margin-bottom: 8px;
+            opacity: 0.7;
+        }
+        .limitations li {
+            margin-bottom: 4px;
+            padding-left: 4px;
+        }
+        .limitations li::marker { color: rgba(251,191,36,0.3); }
+
+        /* ── Responsive ── */
+        @media (max-width: 500px) {
+            .controls { grid-template-columns: 1fr 1fr; }
+            .lap-item { grid-template-columns: 36px 1fr auto; }
+            .lap-total { display: none; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="timers-focus-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:8px;">Stopwatch</h1>
+            <p style="color:#64748b; font-size:0.9rem;">Lap splits, best/worst tracking &amp; one-click export. Nothing more, nothing less.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- Watch face -->
+            <div class="watch-face">
+                <div class="time-display" id="timeDisplay">00:00:00</div>
+                <div class="cs-display"   id="csDisplay">.00</div>
+                <div class="status-pill"  id="statusPill">Stopped</div>
+                <div class="controls">
+                    <button class="btn btn-start" id="btnStartPause" onclick="handleStartPause()">▶ Start</button>
+                    <button class="btn btn-lap"   id="btnLap"        onclick="recordLap()" disabled>⊕ Lap</button>
+                    <button class="btn btn-reset" id="btnReset"      onclick="handleReset()" disabled>✕ Reset</button>
+                </div>
+            </div>
+
+            <!-- Laps -->
+            <div class="lap-section">
+                <div class="lap-header">
+                    <span class="lap-title">Lap Times</span>
+                    <span class="lap-count-badge" id="lapCountBadge">0 laps</span>
+                </div>
+
+                <div class="lap-stats" id="lapStats">
+                    <div class="lstat">
+                        <div class="lstat-val best"  id="statBest">—</div>
+                        <div class="lstat-label">Best</div>
+                    </div>
+                    <div class="lstat">
+                        <div class="lstat-val worst" id="statWorst">—</div>
+                        <div class="lstat-label">Worst</div>
+                    </div>
+                    <div class="lstat">
+                        <div class="lstat-val"       id="statAvg">—</div>
+                        <div class="lstat-label">Average</div>
+                    </div>
+                </div>
+
+                <div class="lap-list" id="lapList">
+                    <div class="empty-laps" id="emptyLaps">Hit <strong>⊕ Lap</strong> while running to record splits</div>
+                </div>
+
+                <div class="export-row">
+                    <button class="btn-export" id="btnCopy"  onclick="exportLaps('copy')" disabled>📋 Copy</button>
+                    <button class="btn-export" id="btnTxt"   onclick="exportLaps('txt')"  disabled>⬇ .txt</button>
+                    <button class="btn-export" id="btnCsv"   onclick="exportLaps('csv')"  disabled>⬇ .csv</button>
+                    <button class="btn-export" id="btnClear" onclick="clearLaps()"         disabled>🗑 Clear</button>
+                </div>
+            </div>
+
+            <!-- Limitations notice -->
+            <div class="limitations">
+                <div class="limitations-title">⚠ What this tool does not do</div>
+                <ul>
+                    <li><strong>No background timing:</strong> If you close or reload this tab, all lap data and the running timer are permanently lost. There is no session persistence.</li>
+                    <li><strong>Display precision is centiseconds (1/100 s), not milliseconds (1/1000 s)</strong> — the internal clock is accurate to the millisecond, but we display only 2 decimal places. Sub-centisecond differences are not shown.</li>
+                    <li><strong>Copy to clipboard requires HTTPS</strong> and browser permission. On HTTP or if permission is denied, Copy will show an error. Use .txt or .csv export instead.</li>
+                    <li><strong>Laps cannot be rearranged or edited</strong> after they are recorded. To correct a mistake, use Clear Laps.</li>
+                    <li><strong>No countdown or target time.</strong> This is a forward-only stopwatch.</li>
+                </ul>
+            </div>
+
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────────
+    // STATE — single source of truth
+    // ─────────────────────────────────────────────────────────────────
+    const state = {
+        running:   false,
+        startTime: 0,     // Date.now() snapshot when started/resumed
+        elapsed:   0,     // accumulated ms at last pause
+        lapStart:  0,     // elapsed at the last lap-mark (or 0 at reset)
+        laps:      [],    // [{ split: ms, total: ms }, ...]
+        raf:       null,  // requestAnimationFrame handle
+        titleInterval: null,
+    };
+
+    // ─────────────────────────────────────────────────────────────────
+    // FORMATTING — pure functions, no side-effects
+    // ─────────────────────────────────────────────────────────────────
+
+    /** Zero-pad n to `z` digits */
+    function pad(n, z = 2) {
+        return String(Math.floor(n)).padStart(z, '0');
+    }
+
+    /**
+     * Break milliseconds into display parts.
+     * Returns { hms: "HH:MM:SS" | "MM:SS", cs: "CC" }
+     * where CC = centiseconds (always 2 digits, 00–99)
+     */
+    function parseMsToDisplay(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const cs  = Math.floor((ms % 1000) / 10);   // 0–99
+        const h   = Math.floor(totalSec / 3600);
+        const m   = Math.floor((totalSec % 3600) / 60);
+        const s   = totalSec % 60;
+        const hms = h > 0
+            ? `${pad(h)}:${pad(m)}:${pad(s)}`
+            : `${pad(m)}:${pad(s)}`;
+        return { hms, cs: pad(cs) };
+    }
+
+    /** Full formatted string for export / stats, e.g. "01:23.45" */
+    function fmtFull(ms) {
+        const { hms, cs } = parseMsToDisplay(ms);
+        return `${hms}.${cs}`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // DOM HELPERS
+    // ─────────────────────────────────────────────────────────────────
+    function el(id) { return document.getElementById(id); }
+
+    function setDisabled(id, value) {
+        el(id).disabled = value;
+    }
+
+    function setStatus(modifier, text) {
+        const pill = el('statusPill');
+        pill.className = 'status-pill' + (modifier ? ' ' + modifier : '');
+        pill.textContent = text;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // RENDER — only touch the DOM here
+    // ─────────────────────────────────────────────────────────────────
+    function renderTime(ms) {
+        const { hms, cs } = parseMsToDisplay(ms);
+        el('timeDisplay').textContent = hms;
+        el('csDisplay').textContent   = '.' + cs;
+    }
+
+    function renderLaps() {
+        const laps  = state.laps;
+        const count = laps.length;
+
+        // Badge
+        el('lapCountBadge').textContent = `${count} lap${count !== 1 ? 's' : ''}`;
+
+        // Export/clear buttons
+        const hasLaps = count > 0;
+        ['btnCopy', 'btnTxt', 'btnCsv', 'btnClear'].forEach(id => setDisabled(id, !hasLaps));
+
+        if (!hasLaps) {
+            el('lapStats').classList.remove('visible');
+            el('lapList').innerHTML = '';
+            el('lapList').appendChild(el('emptyLaps'));
+            el('emptyLaps').style.display = 'block';
+            return;
+        }
+
+        el('emptyLaps').style.display = 'none';
+
+        // ── Stats (only meaningful with 2+ laps) ──
+        const splits  = laps.map(l => l.split);
+        const bestMs  = Math.min(...splits);
+        const worstMs = Math.max(...splits);
+        const avgMs   = splits.reduce((a, b) => a + b, 0) / splits.length;
+
+        // Best/worst indices (first occurrence if tied)
+        const bestIdx  = splits.indexOf(bestMs);
+        const worstIdx = splits.indexOf(worstMs);
+
+        if (count >= 2) {
+            el('lapStats').classList.add('visible');
+            el('statBest').textContent  = fmtFull(bestMs);
+            el('statWorst').textContent = fmtFull(worstMs);
+            el('statAvg').textContent   = fmtFull(Math.round(avgMs));
+        } else {
+            // Single lap: show avg only; best/worst meaningless
+            el('lapStats').classList.add('visible');
+            el('statBest').textContent  = '—';
+            el('statWorst').textContent = '—';
+            el('statAvg').textContent   = fmtFull(laps[0].split);
+        }
+
+        // ── Lap rows — newest first ──
+        el('lapList').innerHTML = [...laps].reverse().map((lap, ri) => {
+            const origIdx = count - 1 - ri;
+            const isBest  = count >= 2 && origIdx === bestIdx;
+            const isWorst = count >= 2 && origIdx === worstIdx;
+            const rowCls  = isBest ? ' best-lap' : isWorst ? ' worst-lap' : '';
+            const tag     = isBest
+                ? `<span class="lap-tag tag-best">best</span>`
+                : isWorst
+                    ? `<span class="lap-tag tag-worst">worst</span>`
+                    : `<span class="lap-tag tag-empty" aria-hidden="true">—</span>`;
+
+            return `<div class="lap-item${rowCls}" role="row">
+                <span class="lap-num">#${origIdx + 1}</span>
+                ${tag}
+                <span class="lap-split">${fmtFull(lap.split)}</span>
+                <span class="lap-total">${fmtFull(lap.total)}</span>
+            </div>`;
+        }).join('');
+
+        // Scroll to top so newest lap is always visible
+        el('lapList').scrollTop = 0;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // RAF LOOP — never reads from DOM, only writes via renderTime()
+    // ─────────────────────────────────────────────────────────────────
+    function tick() {
+        const now = state.elapsed + (Date.now() - state.startTime);
+        renderTime(now);
+        state.raf = requestAnimationFrame(tick);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // CONTROLS
+    // ─────────────────────────────────────────────────────────────────
+    function handleStartPause() {
+        if (!state.running) {
+            // ── Start / Resume ──
+            state.startTime = Date.now();
+            state.running   = true;
+            state.raf       = requestAnimationFrame(tick);
+
+            el('btnStartPause').textContent = '⏸ Pause';
+            el('btnStartPause').className   = 'btn btn-pause';
+            setStatus('running', 'Running');
+            setDisabled('btnLap',   false);
+            setDisabled('btnReset', false);
+            el('timeDisplay').classList.add('running');
+            el('csDisplay').classList.add('running');
+        } else {
+            // ── Pause ──
+            cancelAnimationFrame(state.raf);
+            state.raf     = null;
+            // Snapshot elapsed at the exact moment of pause
+            state.elapsed = state.elapsed + (Date.now() - state.startTime);
+            state.running = false;
+
+            // Render the frozen time immediately
+            renderTime(state.elapsed);
+
+            el('btnStartPause').textContent = '▶ Resume';
+            el('btnStartPause').className   = 'btn btn-start';
+            setStatus('paused', 'Paused');
+            el('timeDisplay').classList.remove('running');
+            el('csDisplay').classList.remove('running');
+
+            // Disable Lap while paused — recording a lap while paused
+            // would produce a zero-duration split, which is meaningless.
+            setDisabled('btnLap', true);
+        }
+    }
+
+    function handleReset() {
+        // Cancel any running animation
+        if (state.raf !== null) {
+            cancelAnimationFrame(state.raf);
+            state.raf = null;
+        }
+
+        // Reset ALL state
+        state.running   = false;
+        state.startTime = 0;
+        state.elapsed   = 0;
+        state.lapStart  = 0;
+        state.laps      = [];   // FIX: original forgot to clear laps on reset
+
+        // Reset display
+        renderTime(0);
+        el('timeDisplay').classList.remove('running');
+        el('csDisplay').classList.remove('running');
+
+        el('btnStartPause').textContent = '▶ Start';
+        el('btnStartPause').className   = 'btn btn-start';
+
+        setStatus('', 'Stopped');
+        setDisabled('btnLap',   true);
+        setDisabled('btnReset', true);
+
+        renderLaps();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // LAPS
+    // ─────────────────────────────────────────────────────────────────
+    function recordLap() {
+        // Guard: only record when actually running
+        // (btnLap is also disabled when paused, but defence-in-depth)
+        if (!state.running) return;
+
+        const currentElapsed = state.elapsed + (Date.now() - state.startTime);
+        const split = currentElapsed - state.lapStart;
+        state.lapStart = currentElapsed;
+
+        // Guard: reject zero or negative splits (shouldn't happen, but be safe)
+        if (split <= 0) return;
+
+        state.laps.push({ split, total: currentElapsed });
+        renderLaps();
+    }
+
+    function clearLaps() {
+        state.laps     = [];
+        state.lapStart = state.running
+            ? state.elapsed + (Date.now() - state.startTime)
+            : state.elapsed;
+        renderLaps();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // EXPORT
+    // ─────────────────────────────────────────────────────────────────
+    function getTotalElapsed() {
+        // Always compute current total, whether running or paused
+        return state.running
+            ? state.elapsed + (Date.now() - state.startTime)
+            : state.elapsed;
+    }
+
+    function computeBestWorst() {
+        const splits  = state.laps.map(l => l.split);
+        const bestMs  = splits.length > 1 ? Math.min(...splits) : null;
+        const worstMs = splits.length > 1 ? Math.max(...splits) : null;
+        return { bestMs, worstMs };
+    }
+
+    function buildText() {
+        const { bestMs, worstMs } = computeBestWorst();
+        const totalMs = getTotalElapsed();
+        const lines = [
+            'Rebrixe Stopwatch Export',
+            `Total Time: ${fmtFull(totalMs)}`,
+            '─'.repeat(40),
+        ];
+        state.laps.forEach((l, i) => {
+            const tag = bestMs !== null && l.split === bestMs  ? ' ★ best'
+                      : worstMs !== null && l.split === worstMs ? ' ✗ worst'
+                      : '';
+            lines.push(
+                `Lap ${String(i + 1).padStart(3, ' ')}  |  Split: ${fmtFull(l.split)}  |  Total: ${fmtFull(l.total)}${tag}`
+            );
+        });
+        return lines.join('\n');
+    }
+
+    function buildCsv() {
+        const { bestMs, worstMs } = computeBestWorst();
+        const rows = ['Lap,Split,Total,Tag'];
+        state.laps.forEach((l, i) => {
+            const tag = bestMs !== null && l.split === bestMs  ? 'best'
+                      : worstMs !== null && l.split === worstMs ? 'worst'
+                      : '';
+            rows.push(`${i + 1},${fmtFull(l.split)},${fmtFull(l.total)},${tag}`);
+        });
+        return rows.join('\n');
+    }
+
+    function exportLaps(type) {
+        if (state.laps.length === 0) return; // guard
+
+        if (type === 'copy') {
+            // Clipboard requires secure context (HTTPS) — show clear error if unavailable
+            if (!navigator.clipboard || !window.isSecureContext) {
+                const btn = el('btnCopy');
+                btn.textContent = '✗ HTTPS only';
+                setTimeout(() => btn.textContent = '📋 Copy', 2500);
+                return;
+            }
+            navigator.clipboard.writeText(buildText()).then(() => {
+                const btn = el('btnCopy');
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => btn.textContent = '📋 Copy', 2000);
+            }).catch(() => {
+                const btn = el('btnCopy');
+                btn.textContent = '✗ Blocked';
+                setTimeout(() => btn.textContent = '📋 Copy', 2500);
+            });
+            return;
+        }
+
+        const isCsv    = type === 'csv';
+        const content  = isCsv ? buildCsv() : buildText();
+        const mime     = isCsv ? 'text/csv;charset=utf-8;' : 'text/plain;charset=utf-8;';
+        const filename = `Rebrixe-stopwatch-laps.${isCsv ? 'csv' : 'txt'}`;
+
+        try {
+            const blob = new Blob([content], { type: mime });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            // Delay revoke to ensure download starts before the URL is released
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+            alert('Download failed. Please try the Copy option instead.');
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE TITLE — uses Page Visibility API to avoid wasted work
+    // ─────────────────────────────────────────────────────────────────
+    const BASE_TITLE = 'Stopwatch with Lap Timer | Rebrixe';
+
+    function updateTitle() {
+        if (state.running && !document.hidden) {
+            const { hms } = parseMsToDisplay(state.elapsed + (Date.now() - state.startTime));
+            document.title = `${hms} — Stopwatch | Rebrixe`;
+        } else if (!state.running) {
+            document.title = BASE_TITLE;
+        }
+        // If hidden + running: leave title as-is (no unnecessary computation)
+    }
+
+    state.titleInterval = setInterval(updateTitle, 500);
+
+    // Stop RAF when tab is hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && state.running) {
+            // Snapshot elapsed but keep state.running = true
+            // so resume works correctly when tab is shown again.
+            // RAF automatically stops firing when tab is hidden in most browsers,
+            // but we cancel explicitly to be safe on all engines.
+            cancelAnimationFrame(state.raf);
+            state.raf = null;
+        } else if (!document.hidden && state.running && state.raf === null) {
+            // Tab is visible again — resume RAF
+            // startTime was set when we started/resumed, so elapsed + (now - startTime) is still correct
+            state.raf = requestAnimationFrame(tick);
+        }
+    });
+
+    // Cancel RAF on page unload
+    window.addEventListener('pagehide', () => {
+        if (state.raf !== null) cancelAnimationFrame(state.raf);
+        clearInterval(state.titleInterval);
+    });
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

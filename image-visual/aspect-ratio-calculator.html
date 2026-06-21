@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aspect Ratio Calculator — Get Width & Height for Any Ratio | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Calculate width and height for any aspect ratio. Enter a dimension, pick 16:9, 4:3, 1:1, 9:16 or custom. Upload an image to detect its ratio instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--text-dim); text-decoration: none; margin-bottom: 32px; transition: color 0.2s; }
+        .back-btn:hover { color: var(--primary); }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.88rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.7rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.82rem; }
+
+        /* Upload strip */
+        .upload-strip {
+            display: flex; align-items: center; gap: 12px; background: var(--card);
+            border: 1.5px dashed rgba(255,214,0,0.2); border-radius: var(--radius-md);
+            padding: 14px 18px; cursor: pointer; margin-bottom: 22px; transition: border-color 0.2s, background 0.2s;
+        }
+        .upload-strip:hover { border-color: rgba(255,214,0,0.5); background: var(--primary-dim); }
+        .upload-strip.drag-over { border-color: var(--primary); background: var(--primary-dim); }
+        .upload-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .upload-text { font-size: 0.82rem; color: var(--text-sec); }
+        .upload-text strong { color: var(--primary); font-weight: 700; }
+        .upload-detected { display: none; align-items: center; gap: 10px; }
+        .upload-detected.visible { display: flex; }
+        .det-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .det-info { font-size: 0.8rem; color: var(--text-sec); }
+        .det-ratio { font-size: 1rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .det-clear { margin-left: auto; font-size: 0.7rem; color: var(--text-dim); border: 1px solid var(--border); background: transparent; border-radius: 7px; padding: 5px 10px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s; }
+        .det-clear:hover { color: var(--primary); border-color: var(--primary-border); }
+        #imgFileInput { display: none; }
+
+        /* Preset ratios */
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 12px; }
+        .presets-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+        .preset-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; font-family: 'Outfit', sans-serif; min-width: 72px;
+        }
+        .preset-btn:hover, .preset-btn.active { border-color: var(--primary-border); background: var(--primary-dim); }
+        .preset-ratio { font-size: 0.8rem; font-weight: 800; font-family: 'Fira Code', monospace; color: var(--text); transition: color 0.18s; }
+        .preset-label { font-size: 0.6rem; color: var(--text-dim); font-weight: 600; transition: color 0.18s; }
+        .preset-btn:hover .preset-ratio, .preset-btn.active .preset-ratio { color: var(--primary); }
+        .preset-btn:hover .preset-label, .preset-btn.active .preset-label { color: rgba(255,214,0,0.6); }
+
+        /* Main calculator card */
+        .calc-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 18px; }
+
+        /* Ratio input row */
+        .ratio-row { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+        .ratio-part { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+        .ratio-sep { font-size: 1.4rem; font-weight: 800; color: var(--text-dim); padding-top: 18px; flex-shrink: 0; }
+        .field-label { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.8px; }
+        .num-input {
+            background: var(--surface); border: 1px solid var(--border-mid); color: var(--text);
+            font-family: 'Fira Code', monospace; font-size: 1.15rem; font-weight: 600;
+            padding: 11px 14px; border-radius: var(--radius-sm); outline: none; width: 100%; transition: border-color 0.2s;
+        }
+        .num-input:focus { border-color: var(--primary); }
+        .num-input.highlight { border-color: rgba(170,255,0,0.4); background: rgba(170,255,0,0.03); }
+
+        /* Dimension row */
+        .dim-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+        .dim-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px; position: relative; }
+        .lock-icon { position: absolute; right: 10px; bottom: 11px; font-size: 0.85rem; opacity: 0.35; cursor: pointer; transition: opacity 0.2s; user-select: none; }
+        .lock-icon:hover { opacity: 0.8; }
+        .lock-icon.locked { opacity: 1; color: var(--primary); }
+        .dim-eq { font-size: 1.1rem; color: var(--text-dim); padding-bottom: 12px; flex-shrink: 0; }
+
+        /* Swap button */
+        .swap-btn { padding: 11px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 0.9rem; transition: all 0.2s; font-family: 'Outfit', sans-serif; align-self: flex-end; flex-shrink: 0; }
+        .swap-btn:hover { border-color: var(--primary-border); color: var(--primary); transform: rotate(90deg); }
+
+        /* Result visual */
+        .ratio-visual-wrap { display: flex; justify-content: center; margin: 18px 0 14px; }
+        .ratio-visual { background: var(--surface); border: 1px solid var(--border-mid); border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; min-width: 40px; min-height: 24px; }
+        .ratio-visual::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,214,0,0.06) 0%, transparent 60%); }
+        .ratio-visual-label { font-size: 0.72rem; font-weight: 700; color: rgba(255,214,0,0.5); font-family: 'Fira Code', monospace; z-index: 1; }
+
+        /* Result row */
+        .result-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .result-pill {
+            flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+            transition: border-color 0.2s;
+        }
+        .result-pill.changed { border-color: rgba(170,255,0,0.3); animation: pulse-border 0.4s ease; }
+        @keyframes pulse-border { 0%,100% { border-color: rgba(170,255,0,0.3); } 50% { border-color: var(--success); } }
+        .res-val { font-size: 1.2rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .res-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; margin-top: 2px; }
+        .copy-val-btn { font-size: 0.7rem; color: var(--text-dim); background: transparent; border: none; cursor: pointer; padding: 4px 6px; border-radius: 5px; transition: all 0.18s; font-family: 'Outfit', sans-serif; }
+        .copy-val-btn:hover { color: var(--primary); background: var(--primary-dim); }
+
+        /* Batch table */
+        .batch-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 18px; }
+        .batch-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+        .batch-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .batch-dim-toggle { display: flex; gap: 6px; }
+        .bdim-btn { font-size: 0.7rem; font-weight: 700; padding: 5px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .bdim-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        .batch-table { width: 100%; border-collapse: collapse; }
+        .batch-table th { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); text-align: left; padding: 6px 10px 10px; border-bottom: 1px solid var(--border); }
+        .batch-table td { font-size: 0.82rem; padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-sec); vertical-align: middle; }
+        .batch-table tr:last-child td { border-bottom: none; }
+        .batch-table tr.active-row td { color: var(--text); background: var(--primary-dim); }
+        .batch-table tr.active-row td:first-child { border-radius: 6px 0 0 6px; }
+        .batch-table tr.active-row td:last-child { border-radius: 0 6px 6px 0; }
+        .ratio-mono { font-family: 'Fira Code', monospace; font-weight: 600; color: var(--primary); font-size: 0.8rem; }
+        .dims-mono { font-family: 'Fira Code', monospace; font-size: 0.8rem; }
+        .use-tag { font-size: 0.6rem; color: var(--text-dim); }
+        .batch-copy-btn { font-size: 0.65rem; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; white-space: nowrap; }
+        .batch-copy-btn:hover { color: var(--primary); border-color: var(--primary-border); }
+
+        /* FAQ */
+        .faq-section { margin-top: 50px; }
+        .faq-heading { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .faq-item h3 { font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .faq-item p { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.76rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 10px 20px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+
+        @media (max-width: 580px) {
+            .calc-card, .batch-card { padding: 16px; }
+            .dim-row { gap: 6px; }
+            .ratio-row { gap: 6px; }
+            .result-row { gap: 8px; }
+            .presets-grid { gap: 6px; }
+            .preset-btn { min-width: 60px; padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Aspect Ratio Calculator</h1>
+                <p class="tool-page-sub">Enter any dimension — get the other. Detect from an image. See every common format at once.</p>
+                <span class="privacy-badge">100% browser-based — nothing uploaded</span>
+            </div>
+
+            <!-- Upload to detect -->
+            <div class="upload-strip" id="uploadStrip">
+                <input type="file" id="imgFileInput" accept="image/*">
+                <span class="upload-icon">🖼️</span>
+                <div class="upload-text"><strong>Drop an image</strong> to auto-detect its aspect ratio</div>
+                <div class="upload-detected" id="uploadDetected">
+                    <img class="det-thumb" id="detThumb" src="" alt="">
+                    <div>
+                        <div class="det-ratio" id="detRatio">—</div>
+                        <div class="det-info" id="detInfo"></div>
+                    </div>
+                    <button class="det-clear" id="detClear">✕ Clear</button>
+                </div>
+            </div>
+
+            <!-- Preset ratios -->
+            <div class="section-label">Common Ratios</div>
+            <div class="presets-grid" id="presetsGrid"></div>
+
+            <!-- Main calc -->
+            <div class="calc-card">
+                <div class="section-label" style="margin-bottom:16px;">Ratio</div>
+                <div class="ratio-row">
+                    <div class="ratio-part">
+                        <label class="field-label" for="ratioW">Width Part</label>
+                        <input class="num-input" type="number" id="ratioW" value="16" min="1" max="9999">
+                    </div>
+                    <div class="ratio-sep">:</div>
+                    <div class="ratio-part">
+                        <label class="field-label" for="ratioH">Height Part</label>
+                        <input class="num-input" type="number" id="ratioH" value="9" min="1" max="9999">
+                    </div>
+                </div>
+
+                <div class="section-label" style="margin-bottom:12px;">Dimensions</div>
+                <div class="dim-row">
+                    <div class="dim-group">
+                        <label class="field-label" for="dimW">Width (px)</label>
+                        <input class="num-input" type="number" id="dimW" placeholder="1920" min="1">
+                        <span class="lock-icon" id="lockW" title="Lock width">🔓</span>
+                    </div>
+                    <div class="dim-eq">→</div>
+                    <div class="dim-group">
+                        <label class="field-label" for="dimH">Height (px)</label>
+                        <input class="num-input" type="number" id="dimH" placeholder="1080" min="1">
+                        <span class="lock-icon" id="lockH" title="Lock height">🔓</span>
+                    </div>
+                    <button class="swap-btn" id="swapBtn" title="Swap ratio (portrait ↔ landscape)">⇄</button>
+                </div>
+
+                <!-- Visual preview -->
+                <div class="ratio-visual-wrap">
+                    <div class="ratio-visual" id="ratioVisual">
+                        <span class="ratio-visual-label" id="ratioVisualLabel">16:9</span>
+                    </div>
+                </div>
+
+                <div class="result-row">
+                    <div class="result-pill" id="pillW">
+                        <div>
+                            <div class="res-val" id="resW">1920</div>
+                            <div class="res-label">Width</div>
+                        </div>
+                        <button class="copy-val-btn" onclick="copyVal('resW', 'W')">Copy</button>
+                    </div>
+                    <div class="result-pill" id="pillH">
+                        <div>
+                            <div class="res-val" id="resH">1080</div>
+                            <div class="res-label">Height</div>
+                        </div>
+                        <button class="copy-val-btn" onclick="copyVal('resH', 'H')">Copy</button>
+                    </div>
+                    <div class="result-pill">
+                        <div>
+                            <div class="res-val" id="resRatio">16:9</div>
+                            <div class="res-label">Ratio</div>
+                        </div>
+                        <button class="copy-val-btn" onclick="copyVal('resRatio', 'ratio')">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch table -->
+            <div class="batch-card">
+                <div class="batch-header">
+                    <div class="batch-title">All ratios for this width</div>
+                    <div class="batch-dim-toggle">
+                        <button class="bdim-btn active" data-base="w" onclick="setBatchBase(this,'w')">Based on W</button>
+                        <button class="bdim-btn" data-base="h" onclick="setBatchBase(this,'h')">Based on H</button>
+                    </div>
+                </div>
+                <table class="batch-table">
+                    <thead>
+                        <tr>
+                            <th>Ratio</th>
+                            <th>Dimensions</th>
+                            <th>Use for</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchBody"></tbody>
+                </table>
+            </div>
+
+            <article class="faq-section">
+                <h2 class="faq-heading">Quick reference</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What is aspect ratio?</h3>
+                        <p>The proportional relationship between width and height. <code>16:9</code> means for every 16 units wide, it's 9 units tall — regardless of actual pixel size.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Lock width vs height</h3>
+                        <p>Click the 🔓 icon beside a dimension to lock it. When locked, changing the ratio recalculates the other side — the locked value stays fixed.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Detect from image</h3>
+                        <p>Drop any image into the top area. The tool reads its pixel dimensions and calculates the exact ratio, auto-filling the calculator.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Why does the ratio simplify?</h3>
+                        <p>Custom ratios like <code>1920:1080</code> reduce to their simplest form (<code>16:9</code>) using GCD. This shows the true proportional relationship.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    const PRESETS = [
+        { r: '16:9',  rw: 16, rh: 9,  label: 'Landscape',  use: 'YouTube, TV, Desktop' },
+        { r: '9:16',  rw: 9,  rh: 16, label: 'Portrait',   use: 'Reels, TikTok, Stories' },
+        { r: '4:3',   rw: 4,  rh: 3,  label: 'Classic',    use: 'Old TV, Presentations' },
+        { r: '3:4',   rw: 3,  rh: 4,  label: 'Portrait',   use: 'Prints, Pinterest' },
+        { r: '1:1',   rw: 1,  rh: 1,  label: 'Square',     use: 'Instagram, Avatars' },
+        { r: '21:9',  rw: 21, rh: 9,  label: 'Ultrawide',  use: 'Cinema, Monitors' },
+        { r: '4:5',   rw: 4,  rh: 5,  label: 'Portrait',   use: 'Instagram Feed' },
+        { r: '3:2',   rw: 3,  rh: 2,  label: 'Photo',      use: 'DSLR, 35mm Film' },
+        { r: '2:1',   rw: 2,  rh: 1,  label: 'Wide',       use: 'Twitter Header' },
+        { r: '5:4',   rw: 5,  rh: 4,  label: 'Monitor',    use: 'Old Monitors' },
+    ];
+
+    const BATCH_RATIOS = [
+        { r:'16:9', rw:16, rh:9,   use:'YouTube, TV' },
+        { r:'9:16', rw:9,  rh:16,  use:'Reels, Stories' },
+        { r:'4:3',  rw:4,  rh:3,   use:'Presentation' },
+        { r:'3:4',  rw:3,  rh:4,   use:'Print, Pinterest' },
+        { r:'1:1',  rw:1,  rh:1,   use:'Instagram, Avatar' },
+        { r:'21:9', rw:21, rh:9,   use:'Cinema' },
+        { r:'4:5',  rw:4,  rh:5,   use:'IG Feed' },
+        { r:'3:2',  rw:3,  rh:2,   use:'DSLR Photo' },
+        { r:'2:1',  rw:2,  rh:1,   use:'Twitter Header' },
+        { r:'16:10',rw:16, rh:10,  use:'MacBook Screen' },
+        { r:'5:4',  rw:5,  rh:4,   use:'Old Monitor' },
+        { r:'2:3',  rw:2,  rh:3,   use:'Portrait Print' },
+    ];
+
+    let lockedSide = null; // 'w' or 'h'
+    let batchBase = 'w';
+
+    // Build presets
+    const pg = document.getElementById('presetsGrid');
+    PRESETS.forEach(p => {
+        const b = document.createElement('button');
+        b.className = 'preset-btn';
+        b.innerHTML = `<span class="preset-ratio">${p.r}</span><span class="preset-label">${p.label}</span>`;
+        b.onclick = () => {
+            document.getElementById('ratioW').value = p.rw;
+            document.getElementById('ratioH').value = p.rh;
+            pg.querySelectorAll('.preset-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            recalc('ratio');
+        };
+        pg.appendChild(b);
+    });
+
+    // Inputs
+    const rW = document.getElementById('ratioW');
+    const rH = document.getElementById('ratioH');
+    const dW = document.getElementById('dimW');
+    const dH = document.getElementById('dimH');
+
+    rW.addEventListener('input', () => recalc('ratio'));
+    rH.addEventListener('input', () => recalc('ratio'));
+    dW.addEventListener('input', () => { if (lockedSide !== 'w') recalc('w'); });
+    dH.addEventListener('input', () => { if (lockedSide !== 'h') recalc('h'); });
+
+    // Lock buttons
+    document.getElementById('lockW').addEventListener('click', () => toggleLock('w'));
+    document.getElementById('lockH').addEventListener('click', () => toggleLock('h'));
+
+    function toggleLock(side) {
+        lockedSide = lockedSide === side ? null : side;
+        ['w','h'].forEach(s => {
+            const el = document.getElementById('lock' + s.toUpperCase());
+            el.textContent = (lockedSide === s) ? '🔒' : '🔓';
+            el.classList.toggle('locked', lockedSide === s);
+        });
+    }
+
+    // Swap ratio
+    document.getElementById('swapBtn').addEventListener('click', () => {
+        const tw = rW.value; rW.value = rH.value; rH.value = tw;
+        recalc('ratio');
+    });
+
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+    function recalc(source) {
+        const rw = parseFloat(rW.value) || 16;
+        const rh = parseFloat(rH.value) || 9;
+        let w = parseFloat(dW.value);
+        let h = parseFloat(dH.value);
+
+        if (source === 'ratio' || source === 'w') {
+            if (source === 'w' && w > 0) {
+                h = Math.round(w * rh / rw);
+                dH.value = h;
+            } else if (source === 'ratio') {
+                if (lockedSide === 'h' && h > 0) {
+                    w = Math.round(h * rw / rh);
+                    dW.value = w;
+                } else if (w > 0) {
+                    h = Math.round(w * rh / rw);
+                    dH.value = h;
+                } else if (h > 0) {
+                    w = Math.round(h * rw / rh);
+                    dW.value = w;
+                } else {
+                    w = 1920; h = Math.round(w * rh / rw);
+                    dW.value = w; dH.value = h;
+                }
+            }
+        } else if (source === 'h') {
+            if (h > 0) {
+                w = Math.round(h * rw / rh);
+                dW.value = w;
+            }
+        }
+
+        // Simplified ratio
+        if (w > 0 && h > 0) {
+            const g = gcd(w, h);
+            document.getElementById('resRatio').textContent = `${w/g}:${h/g}`;
+        }
+
+        document.getElementById('resW').textContent = w > 0 ? w : '—';
+        document.getElementById('resH').textContent = h > 0 ? h : '—';
+        updateVisual(rw, rh);
+        updateBatch(w, h);
+        highlightPreset(rw, rh);
+
+        // Pulse
+        ['pillW','pillH'].forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.remove('changed');
+            void el.offsetWidth;
+            el.classList.add('changed');
+        });
+    }
+
+    function updateVisual(rw, rh) {
+        const vis = document.getElementById('ratioVisual');
+        const MAX_W = 200, MAX_H = 120;
+        let vw, vh;
+        if (rw / rh > MAX_W / MAX_H) { vw = MAX_W; vh = Math.round(MAX_W * rh / rw); }
+        else { vh = MAX_H; vw = Math.round(MAX_H * rw / rh); }
+        vw = Math.max(vw, 30); vh = Math.max(vh, 20);
+        vis.style.width = vw + 'px';
+        vis.style.height = vh + 'px';
+        document.getElementById('ratioVisualLabel').textContent = `${rw}:${rh}`;
+        document.getElementById('resRatio').textContent = `${rw}:${rh}`;
+    }
+
+    function updateBatch(baseW, baseH) {
+        const tbody = document.getElementById('batchBody');
+        const currentRW = parseFloat(rW.value) || 16;
+        const currentRH = parseFloat(rH.value) || 9;
+        const g = gcd(currentRW, currentRH);
+        const simRW = currentRW / g, simRH = currentRH / g;
+
+        tbody.innerHTML = BATCH_RATIOS.map(row => {
+            let bw, bh;
+            if (batchBase === 'w' && baseW > 0) {
+                bw = baseW; bh = Math.round(baseW * row.rh / row.rw);
+            } else if (batchBase === 'h' && baseH > 0) {
+                bh = baseH; bw = Math.round(baseH * row.rw / row.rh);
+            } else {
+                bw = 1920; bh = Math.round(1920 * row.rh / row.rw);
+            }
+            const isActive = (row.rw === simRW && row.rh === simRH);
+            return `<tr class="${isActive ? 'active-row' : ''}">
+                <td><span class="ratio-mono">${row.r}</span></td>
+                <td><span class="dims-mono">${bw} × ${bh}</span></td>
+                <td><span class="use-tag">${row.use}</span></td>
+                <td><button class="batch-copy-btn" onclick="copyText('${bw} × ${bh}')">Copy</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function highlightPreset(rw, rh) {
+        document.querySelectorAll('.preset-btn').forEach((b, i) => {
+            b.classList.toggle('active', PRESETS[i].rw === rw && PRESETS[i].rh === rh);
+        });
+    }
+
+    function setBatchBase(btn, base) {
+        batchBase = base;
+        document.querySelectorAll('.bdim-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const w = parseFloat(dW.value); const h = parseFloat(dH.value);
+        updateBatch(w, h);
+    }
+
+    // Upload / detect
+    const strip = document.getElementById('uploadStrip');
+    const fi = document.getElementById('imgFileInput');
+    const detected = document.getElementById('uploadDetected');
+
+    strip.addEventListener('click', e => { if (!e.target.closest('#uploadDetected')) fi.click(); });
+    strip.addEventListener('dragover', e => { e.preventDefault(); strip.classList.add('drag-over'); });
+    strip.addEventListener('dragleave', () => strip.classList.remove('drag-over'));
+    strip.addEventListener('drop', e => { e.preventDefault(); strip.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) handleImgFile(f); });
+    fi.addEventListener('change', () => { if (fi.files[0]) handleImgFile(fi.files[0]); });
+    document.getElementById('detClear').addEventListener('click', e => { e.stopPropagation(); clearDetected(); });
+
+    function handleImgFile(file) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                const iw = img.naturalWidth, ih = img.naturalHeight;
+                const g = gcd(iw, ih);
+                const srw = iw / g, srh = ih / g;
+                document.getElementById('detThumb').src = ev.target.result;
+                document.getElementById('detRatio').textContent = `${srw}:${srh}`;
+                document.getElementById('detInfo').textContent = `${iw} × ${ih} px`;
+                strip.querySelector('.upload-text').style.display = 'none';
+                strip.querySelector('.upload-icon').style.display = 'none';
+                detected.classList.add('visible');
+                // Apply to calculator
+                rW.value = srw; rH.value = srh;
+                dW.value = iw; dH.value = ih;
+                recalc('ratio');
+                showToast(`Detected ${srw}:${srh} ratio`, 'success');
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearDetected() {
+        detected.classList.remove('visible');
+        strip.querySelector('.upload-text').style.display = '';
+        strip.querySelector('.upload-icon').style.display = '';
+        fi.value = '';
+    }
+
+    function copyVal(id, label) {
+        const val = document.getElementById(id).textContent;
+        copyText(val);
+        showToast(`${label} copied: ${val}`, 'success');
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).catch(() => {
+            const t = document.createElement('textarea');
+            t.value = text; document.body.appendChild(t); t.select();
+            document.execCommand('copy'); document.body.removeChild(t);
+        });
+        showToast(`Copied: ${text}`, 'success');
+    }
+
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // Init
+    dW.value = 1920;
+    recalc('w');
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

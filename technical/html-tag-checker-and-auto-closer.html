@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HTML Tag Checker & Auto-Closer | Fix Unclosed Tags | Rebrixe</title>
+    <meta name="description" content="Instantly find unclosed, mismatched, and broken HTML tags in your code. Auto-fix unclosed tags, see a full tag audit report, and copy clean HTML — free, no signup.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Mode Toggle ── */
+        .mode-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin: 20px 0 28px;
+        }
+        .mode-btn {
+            padding: 8px 20px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .mode-btn.active { background: #f97316; color: #000; }
+
+        /* ── Workspace ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin-bottom: 40px;
+            width: 100%;
+        }
+
+        .config-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 24px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+            min-width: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 0.63rem;
+            font-weight: 800;
+            color: #f97316;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+            letter-spacing: 1px;
+        }
+
+        /* ── Textarea ── */
+        .code-area {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+            resize: vertical;
+            min-height: 320px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+            tab-size: 2;
+        }
+        .code-area:focus { border-color: #f97316; }
+        .code-area::placeholder { color: #334155; }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            padding: 10px 14px;
+            background: rgba(249,115,22,0.05);
+            border: 1px solid rgba(249,115,22,0.15);
+            border-radius: 10px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .stat { font-size: 0.72rem; color: #64748b; font-family: 'Fira Code', monospace; }
+        .stat strong { color: #f97316; }
+
+        /* ── Issue list ── */
+        .issue-list { list-style: none; padding: 0; margin: 0; }
+        .issue-item {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 9px 12px;
+            border-radius: 9px;
+            margin-bottom: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .issue-item:hover { filter: brightness(1.2); }
+        .issue-err  { background: rgba(231,76,60,0.1);  border: 1px solid rgba(231,76,60,0.25); }
+        .issue-warn { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.25); }
+        .issue-ok   { background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2);  }
+        .issue-info { background: rgba(22,211,249,0.08);border: 1px solid rgba(22,211,249,0.2);  }
+
+        .issue-icon { font-size: 0.9rem; flex-shrink: 0; }
+        .issue-text { color: #cbd5e1; }
+        .issue-line { color: #64748b; font-size: 0.68rem; margin-left: auto; flex-shrink: 0; }
+        .issue-tag  { color: #f97316; font-weight: 700; }
+
+        /* ── Output area (fixed HTML) ── */
+        .output-wrap {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            min-height: 200px;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        #fixedOutput {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.75;
+            margin: 0;
+            color: #e2e8f0;
+        }
+
+        /* Inline highlight colors */
+        .hl-tag   { color: #f97316; }
+        .hl-attr  { color: #86efac; }
+        .hl-val   { color: #93c5fd; }
+        .hl-cmt   { color: #475569; }
+        .hl-doc   { color: #c084fc; }
+        .hl-added { background: rgba(46,204,113,0.18); color: #4ade80; border-radius: 3px; }
+        .hl-err   { background: rgba(231,76,60,0.2);  color: #f87171; border-radius: 3px; text-decoration: underline wavy #e74c3c; }
+
+        /* ── Action row ── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #f97316; color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+
+        /* ── Audit summary badges ── */
+        .audit-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            min-height: 28px;
+        }
+        .badge {
+            font-size: 0.66rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+        .b-err  { background: rgba(231,76,60,0.12);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .b-warn { background: rgba(249,115,22,0.12); color: #f97316; border: 1px solid rgba(249,115,22,0.3); }
+        .b-ok   { background: rgba(46,204,113,0.12); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+
+        /* ── Options strip ── */
+        .options-strip {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .toggle-row input[type="checkbox"] {
+            accent-color: #f97316;
+            width: 14px; height: 14px;
+            cursor: pointer;
+        }
+        .toggle-row label {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-transform: none;
+            letter-spacing: 0;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── Tag map ── */
+        .tag-map {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .tag-chip {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.68rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-weight: 700;
+        }
+        .tc-open   { background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+        .tc-closed { background: rgba(46,204,113,0.12); color: #4ade80; border: 1px solid rgba(46,204,113,0.25); }
+        .tc-void   { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+        .tc-bad    { background: rgba(231,76,60,0.15);  color: #f87171; border: 1px solid rgba(231,76,60,0.3); }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin: 16px 0 8px;
+        }
+
+        /* ── No issues placeholder ── */
+        .placeholder-msg {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            color: #334155;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            text-align: center;
+            gap: 8px;
+        }
+        .placeholder-msg span { font-size: 2rem; }
+
+        /* ── Format hint ── */
+        .format-hint {
+            font-size: 0.7rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-top: 14px;
+            padding: 10px 13px;
+            background: rgba(249,115,22,0.03);
+            border-radius: 10px;
+            border-left: 3px solid #f97316;
+        }
+        .format-hint code {
+            color: #f97316;
+            background: rgba(249,115,22,0.1);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* ── FAQ ── */
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: #f97316; background: rgba(249,115,22,0.1); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .brand-title { font-size: 2.1rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="dev-tools.html" class="back-btn">← Back to Dev Tools</a>
+        <h1 class="brand-title" style="text-align:center;">HTML Tag Checker</h1>
+        <p style="opacity:0.6;font-weight:500;text-align:center;">Find unclosed, mismatched &amp; broken tags instantly — then auto-fix with one click.</p>
+
+        <!-- Mode toggle -->
+        <div style="text-align:center;">
+            <div class="mode-toggle">
+                <button class="mode-btn active" onclick="setMode('check')">🔍 Check &amp; Audit</button>
+                <button class="mode-btn" onclick="setMode('fix')">🔧 Auto-Fix</button>
+            </div>
+        </div>
+
+        <div class="workspace-grid">
+
+            <!-- LEFT: Input -->
+            <div class="config-card">
+                <label>Paste Your HTML</label>
+                <textarea class="code-area" id="htmlInput" placeholder="Paste your HTML here…&#10;&#10;&lt;div&gt;&#10;  &lt;p&gt;Hello &lt;span&gt;world&lt;/div&gt;&#10;&lt;/p&gt;" oninput="run()" spellcheck="false"></textarea>
+
+                <div class="options-strip" style="margin-top:12px;">
+                    <div class="toggle-row">
+                        <input type="checkbox" id="optVoid" checked onchange="run()">
+                        <label>Warn on self-closing void tags</label>
+                    </div>
+                    <div class="toggle-row">
+                        <input type="checkbox" id="optDeprecated" checked onchange="run()">
+                        <label>Flag deprecated tags</label>
+                    </div>
+                    <div class="toggle-row">
+                        <input type="checkbox" id="optNested" checked onchange="run()">
+                        <label>Detect illegal nesting</label>
+                    </div>
+                </div>
+
+                <div class="section-label">Tag Map</div>
+                <div class="tag-map" id="tagMap">
+                    <span style="font-size:0.7rem;color:#334155;font-family:'Inter',sans-serif;">Tags will appear here…</span>
+                </div>
+            </div>
+
+            <!-- RIGHT: Results -->
+            <div class="config-card" id="rightPanel">
+
+                <!-- Check mode -->
+                <div id="checkPanel">
+                    <label>Audit Report</label>
+                    <div class="audit-badges" id="auditBadges">
+                        <span class="badge b-ok">Paste HTML to start</span>
+                    </div>
+                    <div class="stats-bar" id="statsBar">
+                        <span class="stat">Tags: <strong id="stTags">0</strong></span>
+                        <span class="stat">Open: <strong id="stOpen">0</strong></span>
+                        <span class="stat">Closed: <strong id="stClose">0</strong></span>
+                        <span class="stat">Errors: <strong id="stErr">0</strong></span>
+                        <span class="stat">Warnings: <strong id="stWarn">0</strong></span>
+                    </div>
+                    <ul class="issue-list" id="issueList">
+                        <li class="placeholder-msg"><span>🏷️</span>No issues found yet.<br>Paste HTML on the left.</li>
+                    </ul>
+                </div>
+
+                <!-- Fix mode -->
+                <div id="fixPanel" style="display:none;">
+                    <label>Fixed HTML</label>
+                    <div class="stats-bar" id="fixStats">
+                        <span class="stat">Auto-closed: <strong id="stFixed">0</strong></span>
+                        <span class="stat">Removed: <strong id="stRemoved">0</strong></span>
+                        <span class="stat">Lines: <strong id="stFixLines">0</strong></span>
+                    </div>
+                    <div class="output-wrap">
+                        <code id="fixedOutput"><span style="color:#334155">Fixed HTML will appear here…</span></code>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn btn-primary" id="copyFixBtn" onclick="copyFixed()">COPY FIXED HTML</button>
+                        <button class="btn btn-ghost" onclick="downloadFixed()">DOWNLOAD .html</button>
+                        <button class="btn btn-ghost" onclick="pasteFixed()">PASTE BACK ↩</button>
+                    </div>
+                    <div class="format-hint">
+                        <strong>What was auto-fixed:</strong> unclosed block tags are closed at the right nesting level. Mismatched close tags are corrected. Stray close-only tags are removed. <code>&lt;!DOCTYPE&gt;</code> is preserved as-is.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO content -->
+        <article style="text-align:left;">
+            <h2>Why Unclosed HTML Tags Break Your Layout</h2>
+            <p style="color:#64748b;font-size:0.85rem;line-height:1.7;">Browsers try to self-heal broken HTML, but the recovery is unpredictable — what looks fine in Chrome may collapse in Safari or show broken layout in emails and CMS previews.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>The silent layout killer</h3>
+                    <p>A missing <code>&lt;/div&gt;</code> inside a CMS template can push your footer into the sidebar or collapse an entire section — with zero error messages in the browser console.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Void vs non-void tags</h3>
+                    <p>Tags like <code>&lt;br&gt;</code>, <code>&lt;img&gt;</code>, <code>&lt;input&gt;</code> are void — they can't have children and don't need closing. Writing <code>&lt;br/&gt;</code> is fine in XHTML; plain <code>&lt;br&gt;</code> is correct in HTML5.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Nesting rules matter</h3>
+                    <p>You can't put a <code>&lt;div&gt;</code> inside a <code>&lt;p&gt;</code> — the browser will auto-close the <code>&lt;p&gt;</code> first, breaking your intended structure. Inline inside block is fine; block inside inline is not.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Email HTML is stricter</h3>
+                    <p>Email clients don't self-heal like browsers. An unclosed <code>&lt;td&gt;</code> or <code>&lt;table&gt;</code> in an email template will render completely differently across Gmail, Outlook, and Apple Mail.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Deprecated tags still work — for now</h3>
+                    <p>Tags like <code>&lt;center&gt;</code>, <code>&lt;font&gt;</code>, <code>&lt;marquee&gt;</code> still render but are removed from the spec. Browsers can drop support any release. Migrate to CSS equivalents.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Auto-fix caveats</h3>
+                    <p>Auto-fix is safe for standard HTML. For complex templates with server-side tags (<code>{% %}</code>, <code>&lt;?php ?&gt;</code>), always review the diff — template syntax can confuse parsers.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ═══════════════ CONSTANTS ═══════════════ */
+    const VOID_TAGS = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+    const DEPRECATED = new Set(['acronym','applet','basefont','big','blink','center','dir','font','frame','frameset','isindex','listing','marquee','menu','nobr','noembed','noframes','plaintext','rb','rtc','s','spacer','strike','tt','u','xmp']);
+    // Tags that cannot contain block elements
+    const INLINE_ONLY = new Set(['a','abbr','b','bdi','bdo','cite','code','data','dfn','em','i','kbd','label','mark','q','rp','rt','ruby','s','samp','small','span','strong','sub','sup','time','u','var','wbr']);
+    const BLOCK_TAGS  = new Set(['address','article','aside','blockquote','dd','details','dialog','div','dl','dt','fieldset','figcaption','figure','footer','form','h1','h2','h3','h4','h5','h6','header','hgroup','hr','li','main','nav','ol','p','pre','section','summary','table','ul']);
+
+    let mode = 'check';
+    let lastFixed = '';
+    let lastIssues = [];
+
+    /* ═══════════════ MODE ═══════════════ */
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.mode-btn').forEach((b,i) => b.classList.toggle('active', ['check','fix'][i] === m));
+        document.getElementById('checkPanel').style.display = m === 'check' ? '' : 'none';
+        document.getElementById('fixPanel').style.display   = m === 'fix'   ? '' : 'none';
+        run();
+    }
+
+    /* ═══════════════ TOKENIZER ═══════════════ */
+    function tokenize(html) {
+        const tokens = [];
+        const re = /<!--[\s\S]*?-->|<!DOCTYPE[^>]*>|<\/([a-zA-Z][a-zA-Z0-9]*)\s*>|<([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^>]*?)?)\s*(\/?)>|([^<]+)/gi;
+        let m;
+        let line = 1, lastIdx = 0;
+        while ((m = re.exec(html)) !== null) {
+            // count lines up to match
+            line += (html.slice(lastIdx, m.index).match(/\n/g)||[]).length;
+            lastIdx = m.index;
+            if (m[0].startsWith('<!--')) {
+                tokens.push({type:'comment', raw:m[0], line});
+            } else if (m[0].startsWith('<!')) {
+                tokens.push({type:'doctype', raw:m[0], line});
+            } else if (m[1]) {
+                tokens.push({type:'close', tag:m[1].toLowerCase(), raw:m[0], line});
+            } else if (m[2]) {
+                const tag = m[2].toLowerCase();
+                const selfClose = !!m[4] || VOID_TAGS.has(tag);
+                tokens.push({type: selfClose ? 'void' : 'open', tag, attrs:m[3], raw:m[0], line});
+            } else if (m[5]) {
+                tokens.push({type:'text', raw:m[5], line});
+            }
+        }
+        return tokens;
+    }
+
+    /* ═══════════════ CHECKER ═══════════════ */
+    function check(html) {
+        const tokens = tokenize(html);
+        const issues = [];
+        const stack  = [];   // open tag stack [{tag, line}]
+        const optVoid       = document.getElementById('optVoid').checked;
+        const optDeprecated = document.getElementById('optDeprecated').checked;
+        const optNested     = document.getElementById('optNested').checked;
+
+        let openCount = 0, closeCount = 0, voidCount = 0;
+
+        tokens.forEach(tok => {
+            if (tok.type === 'open') {
+                openCount++;
+                if (optDeprecated && DEPRECATED.has(tok.tag)) {
+                    issues.push({sev:'warn', msg:`Deprecated tag`, tag:`<${tok.tag}>`, line:tok.line, detail:'Replace with a CSS equivalent'});
+                }
+                if (optNested && stack.length && INLINE_ONLY.has(stack[stack.length-1].tag) && BLOCK_TAGS.has(tok.tag)) {
+                    issues.push({sev:'err', msg:`Block inside inline`, tag:`<${tok.tag}> inside <${stack[stack.length-1].tag}>`, line:tok.line, detail:'Block elements cannot be nested in inline elements'});
+                }
+                stack.push({tag:tok.tag, line:tok.line});
+
+            } else if (tok.type === 'close') {
+                closeCount++;
+                if (stack.length === 0) {
+                    issues.push({sev:'err', msg:'Stray closing tag (no matching open)', tag:`</${tok.tag}>`, line:tok.line});
+                } else if (stack[stack.length-1].tag === tok.tag) {
+                    stack.pop(); // correct match
+                } else {
+                    // Look back for the match
+                    const matchIdx = [...stack].reverse().findIndex(s => s.tag === tok.tag);
+                    if (matchIdx === -1) {
+                        issues.push({sev:'err', msg:'Closing tag with no matching open', tag:`</${tok.tag}>`, line:tok.line});
+                    } else {
+                        // Everything above it was not closed
+                        const unclosed = stack.splice(stack.length - matchIdx - 1);
+                        unclosed.slice(0, -1).forEach(u => {
+                            issues.push({sev:'err', msg:`Tag closed out of order (missed closing </${u.tag}>)`, tag:`<${u.tag}>`, line:u.line, detail:`Opened on line ${u.line}, but </${tok.tag}> closed first`});
+                        });
+                        stack.pop(); // pop the matched one
+                    }
+                }
+
+            } else if (tok.type === 'void') {
+                voidCount++;
+                if (optVoid && tok.raw.endsWith('/>') && !['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'].includes(tok.tag)) {
+                    issues.push({sev:'warn', msg:'Non-void tag self-closed with />', tag:`<${tok.tag}/>`, line:tok.line, detail:'Omit the / for non-void tags in HTML5'});
+                }
+            }
+        });
+
+        // Anything left in stack = unclosed
+        stack.forEach(s => {
+            issues.push({sev:'err', msg:'Unclosed tag — never closed', tag:`<${s.tag}>`, line:s.line, detail:`Opened on line ${s.line} but never closed`});
+        });
+
+        return {issues, tokens, openCount, closeCount, voidCount, stackLeft: stack.length};
+    }
+
+    /* ═══════════════ AUTO-FIXER ═══════════════ */
+    function autoFix(html) {
+        const tokens = tokenize(html);
+        const stack  = [];
+        let out = '';
+        let fixed = 0, removed = 0;
+
+        tokens.forEach(tok => {
+            if (tok.type === 'open') {
+                out += tok.raw;
+                stack.push(tok.tag);
+            } else if (tok.type === 'close') {
+                if (stack.length && stack[stack.length-1] === tok.tag) {
+                    out += tok.raw;
+                    stack.pop();
+                } else {
+                    const matchIdx = [...stack].reverse().findIndex(s => s === tok.tag);
+                    if (matchIdx === -1) {
+                        // Stray close — remove
+                        removed++;
+                    } else {
+                        // Close all tags above it, then close this one
+                        const above = stack.splice(stack.length - matchIdx - 1);
+                        above.slice(0, -1).forEach(t => { out += `</${t}>`; fixed++; });
+                        out += tok.raw; // close the matched
+                        stack.pop();
+                    }
+                }
+            } else {
+                out += tok.raw;
+            }
+        });
+
+        // Close anything still open
+        [...stack].reverse().forEach(t => { out += `</${t}>`; fixed++; });
+
+        return {html: out, fixed, removed};
+    }
+
+    /* ═══════════════ TAG MAP ═══════════════ */
+    function buildTagMap(tokens) {
+        const counts = {};
+        const types  = {};
+        tokens.forEach(t => {
+            if (t.type === 'open' || t.type === 'close' || t.type === 'void') {
+                counts[t.tag] = (counts[t.tag]||0) + 1;
+                if (!types[t.tag]) types[t.tag] = t.type;
+            }
+        });
+        return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,30).map(([tag, cnt]) => {
+            let cls = 'tc-open';
+            if (VOID_TAGS.has(tag)) cls = 'tc-void';
+            else if (DEPRECATED.has(tag)) cls = 'tc-bad';
+            return `<span class="tag-chip ${cls}" title="${cnt} occurrence${cnt>1?'s':''}">&lt;${tag}&gt; ×${cnt}</span>`;
+        }).join('');
+    }
+
+    /* ═══════════════ HIGHLIGHT (for fix output) ═══════════════ */
+    function highlightHTML(html) {
+        return html
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-cmt">$1</span>')
+            .replace(/(&lt;!DOCTYPE[^&]*?&gt;)/gi, '<span class="hl-doc">$1</span>')
+            .replace(/(&lt;\/?[a-zA-Z][a-zA-Z0-9]*)((?:\s+[^&]*?)?)\s*(\/?&gt;)/g, (m, tag, attrs, end) => {
+                const attrStr = attrs.replace(/([a-zA-Z-:]+)(\s*=\s*)(["'][^"']*["'])/g,
+                    '<span class="hl-attr">$1</span>$2<span class="hl-val">$3</span>');
+                return `<span class="hl-tag">${tag}</span>${attrStr}${end}`;
+            });
+    }
+
+    /* ═══════════════ MAIN RUN ═══════════════ */
+    function run() {
+        const html = document.getElementById('htmlInput').value;
+
+        if (!html.trim()) {
+            document.getElementById('issueList').innerHTML = '<li class="placeholder-msg"><span>🏷️</span>Paste HTML on the left.</li>';
+            document.getElementById('auditBadges').innerHTML = '<span class="badge b-ok">Paste HTML to start</span>';
+            document.getElementById('tagMap').innerHTML = '<span style="font-size:0.7rem;color:#334155;font-family:\'Inter\',sans-serif;">Tags will appear here…</span>';
+            resetStats();
+            return;
+        }
+
+        const {issues, tokens, openCount, closeCount, voidCount} = check(html);
+        lastIssues = issues;
+
+        // Tag map
+        document.getElementById('tagMap').innerHTML = buildTagMap(tokens) || '<span style="font-size:0.7rem;color:#334155;">No tags found</span>';
+
+        // Stats
+        const errs  = issues.filter(i=>i.sev==='err').length;
+        const warns = issues.filter(i=>i.sev==='warn').length;
+        document.getElementById('stTags').textContent  = openCount + closeCount + voidCount;
+        document.getElementById('stOpen').textContent  = openCount;
+        document.getElementById('stClose').textContent = closeCount;
+        document.getElementById('stErr').textContent   = errs;
+        document.getElementById('stWarn').textContent  = warns;
+
+        // Badges
+        const badges = [];
+        if (errs)  badges.push(`<span class="badge b-err">${errs} Error${errs>1?'s':''}</span>`);
+        if (warns) badges.push(`<span class="badge b-warn">${warns} Warning${warns>1?'s':''}</span>`);
+        if (!errs && !warns) badges.push(`<span class="badge b-ok">✓ No issues found</span>`);
+        document.getElementById('auditBadges').innerHTML = badges.join('');
+
+        // Issue list
+        if (issues.length === 0) {
+            document.getElementById('issueList').innerHTML = '<li class="placeholder-msg"><span>✅</span>Looks clean! No issues detected.</li>';
+        } else {
+            document.getElementById('issueList').innerHTML = issues.map(iss => `
+                <li class="issue-item ${iss.sev==='err'?'issue-err':'issue-warn'}">
+                    <span class="issue-icon">${iss.sev==='err'?'✖':'⚠'}</span>
+                    <span class="issue-text">${esc(iss.msg)} — <span class="issue-tag">${esc(iss.tag||'')}</span>${iss.detail?`<br><span style="color:#475569;font-size:0.68rem;">${esc(iss.detail)}</span>`:''}
+                    </span>
+                    <span class="issue-line">L${iss.line||'?'}</span>
+                </li>
+            `).join('');
+        }
+
+        // Fix panel
+        if (mode === 'fix') {
+            const {html: fixed, fixed: fCnt, removed: rCnt} = autoFix(html);
+            lastFixed = fixed;
+            document.getElementById('stFixed').textContent    = fCnt;
+            document.getElementById('stRemoved').textContent  = rCnt;
+            document.getElementById('stFixLines').textContent = fixed.split('\n').length;
+            document.getElementById('fixedOutput').innerHTML  = highlightHTML(fixed);
+        }
+    }
+
+    function resetStats() {
+        ['stTags','stOpen','stClose','stErr','stWarn'].forEach(id => document.getElementById(id).textContent = '0');
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ═══════════════ COPY / DOWNLOAD ═══════════════ */
+    async function copyFixed() {
+        if (!lastFixed) return;
+        await navigator.clipboard.writeText(lastFixed);
+        const btn = document.getElementById('copyFixBtn');
+        btn.textContent = '✓ COPIED'; btn.classList.add('success');
+        setTimeout(() => { btn.textContent = 'COPY FIXED HTML'; btn.classList.remove('success'); }, 1600);
+    }
+
+    function downloadFixed() {
+        if (!lastFixed) return;
+        const blob = new Blob([lastFixed], {type:'text/html'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'fixed.html'; a.click();
+    }
+
+    function pasteFixed() {
+        if (!lastFixed) return;
+        document.getElementById('htmlInput').value = lastFixed;
+        setMode('check');
+        run();
+    }
+    </script>
+</body>
+</html>

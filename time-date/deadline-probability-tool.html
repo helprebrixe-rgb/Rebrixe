@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadline Probability Tool | Rebrixe</title>
+    <meta name="description" content="Enter your deadline, tasks remaining, and daily capacity to get a mathematically sound probability score, burndown chart, and recovery recommendations.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── layout ── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── inputs ── */
+        .inputs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .input-box { display: flex; flex-direction: column; gap: 8px; }
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .input-sub { font-size: 0.65rem; color: #475569; margin-top: -4px; }
+
+        input[type="date"],
+        input[type="number"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+        }
+        input[type="date"]:focus,
+        input[type="number"]:focus { border-color: var(--primary); }
+        input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
+
+        /* ── advanced panel ── */
+        .adv-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: #475569;
+            cursor: pointer;
+            margin-bottom: 14px;
+            user-select: none;
+            width: fit-content;
+        }
+        .adv-toggle:hover { color: #94a3b8; }
+        .adv-panel {
+            display: none;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+            padding: 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+        .adv-panel.open { display: grid; }
+
+        /* ── results section ── */
+        .risk-section { display: none; margin-top: 8px; }
+        .risk-section.visible { display: block; }
+
+        /* ── hero card ── */
+        .risk-hero {
+            border-radius: 20px;
+            padding: 28px 24px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            transition: background 0.4s, border-color 0.4s;
+        }
+        .risk-hero.green  { background: rgba(34,197,94,0.06);  border-color: rgba(34,197,94,0.25); }
+        .risk-hero.yellow { background: rgba(234,179,8,0.06);  border-color: rgba(234,179,8,0.25); }
+        .risk-hero.orange { background: rgba(249,115,22,0.07); border-color: rgba(249,115,22,0.3); }
+        .risk-hero.red    { background: rgba(239,68,68,0.08);  border-color: rgba(239,68,68,0.35); }
+
+        .risk-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+        .risk-label-sm {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .risk-pct {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(3rem, 9vw, 5rem);
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -3px;
+            transition: color 0.3s;
+        }
+        .risk-pct.green  { color: #4ade80; }
+        .risk-pct.yellow { color: #fbbf24; }
+        .risk-pct.orange { color: #fb923c; }
+        .risk-pct.red    { color: #f87171; }
+
+        .risk-verdict {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-top: 6px;
+        }
+        .risk-verdict.green  { color: #4ade80; }
+        .risk-verdict.yellow { color: #fbbf24; }
+        .risk-verdict.orange { color: #fb923c; }
+        .risk-verdict.red    { color: #f87171; }
+
+        /* ── meter bar ── */
+        .meter-wrap { flex: 1; min-width: 200px; }
+        .meter-bar-bg {
+            height: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        .meter-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+        }
+        .meter-bar-fill.green  { background: linear-gradient(90deg,#16a34a,#4ade80); }
+        .meter-bar-fill.yellow { background: linear-gradient(90deg,#d97706,#fbbf24); }
+        .meter-bar-fill.orange { background: linear-gradient(90deg,#c2410c,#fb923c); }
+        .meter-bar-fill.red    { background: linear-gradient(90deg,#991b1b,#f87171); }
+        .meter-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        /* ── capacity breakdown notice ── */
+        .capacity-notice {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-bottom: 14px;
+            line-height: 1.6;
+        }
+        .capacity-notice strong { color: #94a3b8; }
+
+        /* ── stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4,1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.6rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            font-weight: 600;
+        }
+
+        /* ── burndown chart ── */
+        .chart-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 18px 12px;
+            margin-bottom: 14px;
+        }
+        .chart-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        canvas#burnChart { width: 100% !important; height: 120px !important; }
+
+        /* ── risk factors ── */
+        .factors-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .factor-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+        .factor-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .factor-dot.good   { background: #4ade80; box-shadow: 0 0 6px #4ade8066; }
+        .factor-dot.warn   { background: #fbbf24; box-shadow: 0 0 6px #fbbf2466; }
+        .factor-dot.danger { background: #f87171; box-shadow: 0 0 6px #f8717166; }
+        .factor-text { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
+        .factor-text strong { color: #fff; }
+
+        /* ── recovery suggestions ── */
+        .recovery-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .recovery-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        .rec-item {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+        .rec-item:last-child { margin-bottom: 0; }
+        .rec-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+        .rec-item strong { color: #e2e8f0; }
+
+        /* ── actions ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        .empty-hint { text-align: center; padding: 30px; color: #334155; font-size: 0.9rem; }
+
+        @media (max-width: 640px) {
+            .tool-card { padding: 20px; }
+            .inputs-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2,1fr); }
+            .factors-wrap { grid-template-columns: 1fr; }
+            .adv-panel { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="date-calculators.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Deadline Probability Tool</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Enter your deadline and remaining work — get a mathematically grounded probability score with risk breakdown and recovery tips.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- MAIN INPUTS -->
+                <div class="inputs-grid">
+                    <div class="input-box">
+                        <span class="input-label">Deadline Date</span>
+                        <input type="date" id="deadlineDate" oninput="calculate()">
+                    </div>
+                    <div class="input-box">
+                        <span class="input-label">Tasks Remaining</span>
+                        <span class="input-sub">Total tasks left to complete</span>
+                        <input type="number" id="tasksLeft" min="1" placeholder="e.g. 24" oninput="calculate()">
+                    </div>
+                    <div class="input-box">
+                        <span class="input-label">Tasks Per Day</span>
+                        <span class="input-sub">Raw daily output before adjustments</span>
+                        <input type="number" id="tasksPerDay" min="0.1" step="0.5" placeholder="e.g. 3" oninput="calculate()">
+                    </div>
+                </div>
+
+                <!-- ADVANCED TOGGLE -->
+                <div class="adv-toggle" onclick="toggleAdv(this)">
+                    <span id="advArrow">▶</span> Advanced options (buffer days, task complexity, interruption rate)
+                </div>
+                <div class="adv-panel" id="advPanel">
+                    <div class="input-box">
+                        <span class="input-label">Buffer Days</span>
+                        <span class="input-sub">Days you want before deadline</span>
+                        <input type="number" id="bufferDays" min="0" value="0" oninput="calculate()">
+                    </div>
+                    <div class="input-box">
+                        <span class="input-label">Task Complexity</span>
+                        <span class="input-sub">Effort multiplier (1 = normal)</span>
+                        <input type="number" id="complexity" min="0.5" max="5" step="0.1" value="1" oninput="calculate()">
+                    </div>
+                    <div class="input-box">
+                        <span class="input-label">Interruption Rate %</span>
+                        <span class="input-sub">% of day lost to meetings/blocks</span>
+                        <input type="number" id="interruption" min="0" max="90" value="20" oninput="calculate()">
+                    </div>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="riskSection" class="risk-section">
+
+                    <!-- HERO -->
+                    <div class="risk-hero" id="riskHero">
+                        <div class="risk-top">
+                            <div class="risk-score-wrap">
+                                <div class="risk-label-sm">Completion Probability</div>
+                                <div class="risk-pct" id="riskPct">--</div>
+                                <div class="risk-verdict" id="riskVerdict"></div>
+                            </div>
+                            <div class="meter-wrap">
+                                <div class="risk-label-sm" style="margin-bottom:8px;">Risk Meter</div>
+                                <div class="meter-bar-bg">
+                                    <div class="meter-bar-fill" id="meterFill" style="width:0%"></div>
+                                </div>
+                                <div class="meter-ticks">
+                                    <span>Critical</span><span>High</span><span>Medium</span><span>Safe</span>
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b; margin-top:10px;" id="riskSummary"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAPACITY BREAKDOWN -->
+                    <div class="capacity-notice" id="capacityNotice"></div>
+
+                    <!-- STATS -->
+                    <div class="stats-grid">
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statDaysLeft">--</div>
+                            <div class="stat-lbl">Days Left</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statNeeded">--</div>
+                            <div class="stat-lbl">Tasks/Day Needed</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statFinishDate">--</div>
+                            <div class="stat-lbl">Est. Finish</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statSlack">--</div>
+                            <div class="stat-lbl">Slack Days</div>
+                        </div>
+                    </div>
+
+                    <!-- BURNDOWN CHART -->
+                    <div class="chart-wrap">
+                        <div class="chart-title">📉 Projected Burndown vs Required Pace</div>
+                        <canvas id="burnChart"></canvas>
+                    </div>
+
+                    <!-- RISK FACTORS -->
+                    <div class="factors-wrap" id="factorsWrap"></div>
+
+                    <!-- RECOVERY SUGGESTIONS -->
+                    <div class="recovery-wrap" id="recoveryWrap">
+                        <div class="recovery-title">💡 Recommendations</div>
+                        <div id="recList"></div>
+                    </div>
+
+                    <!-- ACTIONS -->
+                    <div class="action-row">
+                        <button class="btn-action primary" onclick="copyResult()">Copy Summary</button>
+                        <button class="btn-action" onclick="resetAll()">✕ Reset</button>
+                    </div>
+
+                </div>
+
+                <div id="emptyHint" class="empty-hint">Fill in your deadline and task details above to see your probability score ↑</div>
+
+            </div><!-- /tool-card -->
+        </div><!-- /tool-wrap -->
+    </div><!-- /container -->
+
+    <footer></footer>
+
+    <script>
+    /* ─────────────────────────────────────────────────────────────
+       BURNDOWN CHART  (pure canvas, no external lib)
+       Draws two lines:
+         • Projected pace  — based on effectiveRate
+         • Required pace   — based on needed (tasks/day to hit deadline)
+    ───────────────────────────────────────────────────────────── */
+    function drawBurndown(totalDays, tasksLeft, effectiveRate, needed) {
+        const canvas = document.getElementById('burnChart');
+        const ctx    = canvas.getContext('2d');
+        const dpr    = window.devicePixelRatio || 1;
+        const w      = canvas.offsetWidth || 780;
+        const h      = 120;
+        canvas.width  = w * dpr;
+        canvas.height = h * dpr;
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, w, h);
+
+        const pts = Math.min(totalDays, 60);
+        if (pts < 2) return;
+
+        const pad = { l:36, r:16, t:10, b:24 };
+        const cw  = w - pad.l - pad.r;
+        const ch  = h - pad.t - pad.b;
+
+        /* subtle grid */
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth   = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ch * (i / 4);
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+        }
+
+        /* y-axis labels */
+        ctx.fillStyle  = '#334155';
+        ctx.font       = '9px Inter, sans-serif';
+        ctx.textAlign  = 'right';
+        ctx.fillText(tasksLeft, pad.l - 4, pad.t + 8);
+        ctx.fillText('0',       pad.l - 4, pad.t + ch + 4);
+
+        const xPos   = i  => pad.l + (i / pts) * cw;
+        /* remaining tasks at day i for each pace */
+        const yProj  = i  => pad.t + ch - Math.max(0, Math.min(1, (effectiveRate * i) / tasksLeft)) * ch;
+        const yReq   = i  => pad.t + ch - Math.max(0, Math.min(1, (needed       * i) / tasksLeft)) * ch;
+
+        /* required pace — dashed, muted amber */
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(251,191,36,0.4)';
+        ctx.lineWidth   = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i <= pts; i++) {
+            i === 0 ? ctx.moveTo(xPos(i), yReq(i)) : ctx.lineTo(xPos(i), yReq(i));
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        /* projected pace — solid, color by safety */
+        const ratio     = effectiveRate / (needed || 1);
+        const lineColor = ratio >= 1 ? '#4ade80' : ratio >= 0.75 ? '#fbbf24' : '#f87171';
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth   = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= pts; i++) {
+            i === 0 ? ctx.moveTo(xPos(i), yProj(i)) : ctx.lineTo(xPos(i), yProj(i));
+        }
+        ctx.stroke();
+
+        /* labels */
+        const labelDay = Math.max(2, Math.floor(pts * 0.12));
+        ctx.font      = 'bold 9px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = lineColor;
+        ctx.fillText('Your pace', xPos(labelDay) + 4, yProj(labelDay) - 5);
+        ctx.fillStyle = 'rgba(251,191,36,0.7)';
+        ctx.fillText('Required',  xPos(labelDay) + 4, yReq(labelDay)  + 12);
+
+        /* x-axis labels */
+        ctx.fillStyle = '#334155';
+        ctx.font      = '9px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Today',    pad.l,          h - 4);
+        ctx.fillText('Deadline', w - pad.r,      h - 4);
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       PROBABILITY MODEL
+       Uses a continuous logistic (sigmoid) function centred on
+       ratio = 1.0 (pace exactly equals requirement).
+
+       Formula: P = 1 / (1 + e^(-k * (ratio - 1)))
+       k = steepness constant — tuned so:
+         ratio 1.5  → ~95 %
+         ratio 1.0  → ~50 %
+         ratio 0.5  → ~5  %
+
+       This produces a smooth, monotone curve with no hard cliffs.
+       Result is clamped to [2, 98] to avoid false certainty.
+    ───────────────────────────────────────────────────────────── */
+    function calcProbability(ratio) {
+        if (!isFinite(ratio) || ratio <= 0) return 2;
+        const k    = 5.5;                                   /* steepness */
+        const raw  = 1 / (1 + Math.exp(-k * (ratio - 1))); /* 0–1 */
+        const pct  = Math.round(raw * 100);
+        return Math.max(2, Math.min(98, pct));
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       MAIN CALCULATE
+    ───────────────────────────────────────────────────────────── */
+    function calculate() {
+        const deadlineVal  = document.getElementById('deadlineDate').value;
+        const tasksLeftVal = parseFloat(document.getElementById('tasksLeft').value);
+        const tpdVal       = parseFloat(document.getElementById('tasksPerDay').value);
+
+        if (!deadlineVal || !tasksLeftVal || isNaN(tasksLeftVal) || !tpdVal || isNaN(tpdVal) || tpdVal <= 0) {
+            document.getElementById('riskSection').classList.remove('visible');
+            document.getElementById('emptyHint').style.display = 'block';
+            return;
+        }
+
+        const buffer       = Math.max(0, parseInt(document.getElementById('bufferDays').value)    || 0);
+        const complexity   = Math.max(0.5, parseFloat(document.getElementById('complexity').value) || 1);
+        const interruption = Math.min(90, Math.max(0, parseFloat(document.getElementById('interruption').value) || 0));
+
+        const today    = new Date(); today.setHours(0, 0, 0, 0);
+        const deadline = new Date(deadlineVal + 'T00:00:00'); /* force local midnight, avoid timezone shift */
+
+        const totalDays     = Math.round((deadline - today) / 864e5);
+        const daysAvailable = Math.max(0, totalDays - buffer);
+
+        /* effective rate:
+           Start from raw tpdVal.
+           1. Apply interruption: fraction of the day that is productive.
+           2. Apply complexity:   each task takes 'complexity' times as long.
+           Both reduce output independently, so effects compound correctly. */
+        const interruptionFactor = 1 - (interruption / 100);   /* e.g. 0.8 at 20 % */
+        const effectiveRate      = tpdVal * interruptionFactor / complexity;
+
+        /* tasks lost per day due to each factor (for the capacity notice) */
+        const lostToInterruption = tpdVal - tpdVal * interruptionFactor;         /* from raw */
+        const lostToComplexity   = tpdVal * interruptionFactor - effectiveRate;  /* from post-interruption */
+
+        if (totalDays <= 0) {
+            renderResult({
+                prob: 2, totalDays, daysAvailable,
+                tasksLeft: tasksLeftVal, effectiveRate,
+                needed: Infinity, ratio: 0,
+                daysToFinish: Infinity, slackDays: -Infinity,
+                finishDate: null, deadline,
+                tpdVal, interruption, complexity,
+                lostToInterruption, lostToComplexity
+            });
+            return;
+        }
+
+        if (daysAvailable === 0) {
+            renderResult({
+                prob: 2, totalDays, daysAvailable,
+                tasksLeft: tasksLeftVal, effectiveRate,
+                needed: Infinity, ratio: 0,
+                daysToFinish: effectiveRate > 0 ? Math.ceil(tasksLeftVal / effectiveRate) : Infinity,
+                slackDays: -Infinity,
+                finishDate: effectiveRate > 0 ? new Date(today.getTime() + Math.ceil(tasksLeftVal / effectiveRate) * 864e5) : null,
+                deadline, tpdVal, interruption, complexity,
+                lostToInterruption, lostToComplexity
+            });
+            return;
+        }
+
+        const needed       = tasksLeftVal / daysAvailable;   /* exact tasks/day required */
+        const ratio        = effectiveRate / needed;           /* >1 safe, <1 risky */
+        const prob         = calcProbability(ratio);
+
+        const daysToFinish = effectiveRate > 0
+            ? Math.ceil(tasksLeftVal / effectiveRate)
+            : Infinity;
+        const finishDate   = effectiveRate > 0
+            ? new Date(today.getTime() + daysToFinish * 864e5)
+            : null;
+        const slackDays    = daysAvailable - daysToFinish;   /* negative = overrun */
+
+        renderResult({
+            prob, totalDays, daysAvailable,
+            tasksLeft: tasksLeftVal, effectiveRate,
+            needed, ratio, daysToFinish, slackDays,
+            finishDate, deadline, tpdVal, interruption, complexity,
+            lostToInterruption, lostToComplexity
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       RENDER RESULT  — pure display logic, no recalculation
+    ───────────────────────────────────────────────────────────── */
+    function renderResult(d) {
+        const {
+            prob, totalDays, daysAvailable, tasksLeft,
+            effectiveRate, needed, ratio, daysToFinish, slackDays,
+            finishDate, deadline, tpdVal, interruption, complexity,
+            lostToInterruption, lostToComplexity
+        } = d;
+
+        const lvl = prob >= 75 ? 'green' : prob >= 50 ? 'yellow' : prob >= 25 ? 'orange' : 'red';
+        const verdicts = {
+            green:  '✅ On Track',
+            yellow: '⚠️ Tight but Possible',
+            orange: '🔶 High Risk',
+            red:    '🚨 Deadline at Serious Risk'
+        };
+
+        /* hero */
+        document.getElementById('riskHero').className   = `risk-hero ${lvl}`;
+        const pctEl = document.getElementById('riskPct');
+        pctEl.textContent = prob + '%';
+        pctEl.className   = `risk-pct ${lvl}`;
+        const vEl = document.getElementById('riskVerdict');
+        vEl.textContent = verdicts[lvl];
+        vEl.className   = `risk-verdict ${lvl}`;
+
+        const fill = document.getElementById('meterFill');
+        fill.style.width = prob + '%';
+        fill.className   = `meter-bar-fill ${lvl}`;
+
+        const finishStr = !finishDate ? 'Never'
+            : finishDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+
+        document.getElementById('riskSummary').textContent =
+            `At your effective pace (${effectiveRate.toFixed(2)} tasks/day) you finish in ` +
+            (isFinite(daysToFinish) ? daysToFinish + ' days' : '∞ days') +
+            `. Deadline is in ${totalDays} day${totalDays !== 1 ? 's' : ''}.`;
+
+        /* capacity breakdown notice — shows exactly where capacity went */
+        const pctUsable = Math.round((effectiveRate / tpdVal) * 100);
+        let noticeHTML = `<strong>Capacity breakdown:</strong> You entered <strong>${tpdVal} tasks/day</strong>. `;
+        if (interruption > 0) {
+            noticeHTML += `Interruptions (${interruption}%) remove <strong>${lostToInterruption.toFixed(2)} tasks/day</strong>. `;
+        }
+        if (complexity > 1) {
+            noticeHTML += `Complexity ×${complexity} removes a further <strong>${lostToComplexity.toFixed(2)} tasks/day</strong>. `;
+        }
+        noticeHTML += `Effective working rate: <strong>${effectiveRate.toFixed(2)} tasks/day</strong> (${pctUsable}% of stated capacity).`;
+        document.getElementById('capacityNotice').innerHTML = noticeHTML;
+
+        /* stats */
+        document.getElementById('statDaysLeft').textContent   = totalDays > 0 ? totalDays : '0';
+        document.getElementById('statNeeded').textContent     = isFinite(needed) ? needed.toFixed(2) : '—';
+        document.getElementById('statFinishDate').textContent = finishStr;
+
+        const slackEl = document.getElementById('statSlack');
+        if (!isFinite(slackDays)) {
+            slackEl.textContent = '—';
+            slackEl.style.color = '#f87171';
+        } else {
+            const slackRounded = Math.floor(Math.abs(slackDays));
+            slackEl.textContent = slackDays < 0 ? `-${slackRounded}` : `+${slackRounded}`;
+            slackEl.style.color = slackDays < 0 ? '#f87171' : slackDays < 3 ? '#fbbf24' : '#4ade80';
+        }
+
+        /* burndown chart */
+        setTimeout(() => {
+            if (isFinite(needed) && totalDays > 0) {
+                drawBurndown(totalDays, tasksLeft, effectiveRate, needed);
+            }
+        }, 50);
+
+        /* risk factors */
+        const factors = [];
+
+        if (totalDays <= 0) {
+            factors.push({ cls:'danger', text:'<strong>Deadline has passed</strong> — no days remaining.' });
+        } else if (daysAvailable === 0) {
+            factors.push({ cls:'danger', text:'<strong>No working days available</strong> after applying buffer.' });
+        } else {
+            /* factor 1: pace vs requirement */
+            factors.push({
+                cls: ratio >= 1 ? 'good' : ratio >= 0.8 ? 'warn' : 'danger',
+                text: ratio >= 1
+                    ? `Effective pace <strong>${effectiveRate.toFixed(2)}/day</strong> exceeds requirement of ${needed.toFixed(2)}/day`
+                    : `Effective pace <strong>${effectiveRate.toFixed(2)}/day</strong> is below the <strong>${needed.toFixed(2)}/day</strong> required`
+            });
+
+            /* factor 2: slack */
+            if (isFinite(slackDays)) {
+                factors.push({
+                    cls: slackDays >= 3 ? 'good' : slackDays >= 0 ? 'warn' : 'danger',
+                    text: slackDays < 0
+                        ? `<strong>Overrun by ${Math.abs(Math.floor(slackDays))} day(s)</strong> at current pace`
+                        : slackDays < 3
+                        ? `Only <strong>${Math.floor(slackDays)} day(s)</strong> of slack — any disruption puts you over`
+                        : `<strong>${Math.floor(slackDays)} days</strong> of buffer above deadline`
+                });
+            }
+
+            /* factor 3: interruption */
+            factors.push({
+                cls: interruption <= 20 ? 'good' : interruption <= 40 ? 'warn' : 'danger',
+                text: `Interruption rate <strong>${interruption}%</strong> — ${
+                    interruption === 0 ? 'no capacity lost to interruptions' :
+                    interruption <= 20 ? 'manageable drag on output' :
+                    interruption <= 40 ? 'moderate drag on capacity' :
+                                         'severe drag on capacity'}`
+            });
+
+            /* factor 4: complexity */
+            factors.push({
+                cls: complexity <= 1.2 ? 'good' : complexity <= 2 ? 'warn' : 'danger',
+                text: `Complexity multiplier <strong>×${complexity}</strong> — ${
+                    complexity <= 1.2 ? 'normal effort' :
+                    complexity <= 2   ? 'heavier than average' :
+                                        'high-complexity tasks'}`
+            });
+        }
+
+        document.getElementById('factorsWrap').innerHTML = factors.map(f =>
+            `<div class="factor-item">
+               <div class="factor-dot ${f.cls}"></div>
+               <div class="factor-text">${f.text}</div>
+             </div>`
+        ).join('');
+
+        /* recovery recommendations */
+        const recs = [];
+
+        if (!isFinite(needed) || totalDays <= 0) {
+            recs.push({ icon:'📅', text:'<strong>The deadline has passed or no working time remains.</strong> Negotiate a new date or confirm scope is already complete.' });
+        } else if (slackDays < 0 && isFinite(slackDays)) {
+            /* overrun: calculate exactly how many extra tasks/day are needed */
+            const gap        = needed - effectiveRate;               /* exact deficit in tasks/day */
+            /* tasks to cut: how many tasks would bring daysToFinish down to daysAvailable */
+            const tasksToCut = Math.ceil(tasksLeft - effectiveRate * daysAvailable);
+            /* realistic new deadline */
+            const newDeadline = finishDate
+                ? finishDate.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+                : 'unknown';
+
+            recs.push({ icon:'⚡', text:`<strong>Increase daily output</strong> by <strong>${gap.toFixed(2)} tasks/day</strong> to hit the deadline at current complexity and interruption levels.` });
+            recs.push({ icon:'✂️', text:`<strong>Scope cut:</strong> Removing <strong>${tasksToCut} task${tasksToCut !== 1 ? 's' : ''}</strong> from the backlog would make the deadline achievable at your current effective pace.` });
+            recs.push({ icon:'📅', text:`<strong>Negotiate the deadline</strong> — at current pace, realistic finish is <strong>${newDeadline}</strong>.` });
+
+        } else if (isFinite(slackDays) && slackDays < 3) {
+            recs.push({ icon:'🛡️', text:`<strong>Protect your calendar.</strong> With only ${Math.floor(slackDays)} day(s) of slack, a single disruption puts you over. Block focus time now.` });
+            recs.push({ icon:'🏃', text:'<strong>Front-load tasks</strong> — tackle the most complex items first to avoid a crunch at the end.' });
+        } else {
+            recs.push({ icon:'✅', text:'You have comfortable buffer. <strong>Maintain pace</strong> and check in every 3–5 days to ensure nothing slips.' });
+            recs.push({ icon:'📦', text:'Consider batching similar tasks to protect focus time and preserve your slack margin.' });
+        }
+
+        if (interruption > 30) {
+            /* lost tasks/day computed from raw tpdVal — correct base */
+            const lostPerDay = (tpdVal * (interruption / 100)).toFixed(2);
+            recs.push({ icon:'🤫', text:`<strong>Reduce interruptions.</strong> Your ${interruption}% rate removes <strong>${lostPerDay} tasks/day</strong> from your raw capacity (${tpdVal}/day). Block 2–3 hour focus windows daily.` });
+        }
+
+        document.getElementById('recList').innerHTML = recs.map(r =>
+            `<div class="rec-item"><span class="rec-icon">${r.icon}</span><span>${r.text}</span></div>`
+        ).join('');
+
+        document.getElementById('riskSection').classList.add('visible');
+        document.getElementById('emptyHint').style.display = 'none';
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       UI HELPERS
+    ───────────────────────────────────────────────────────────── */
+    function toggleAdv(el) {
+        const panel = document.getElementById('advPanel');
+        const open  = panel.classList.toggle('open');
+        document.getElementById('advArrow').textContent = open ? '▼' : '▶';
+        if (open) calculate();
+    }
+
+    function resetAll() {
+        ['deadlineDate', 'tasksLeft', 'tasksPerDay'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+        document.getElementById('bufferDays').value   = '0';
+        document.getElementById('complexity').value   = '1';
+        document.getElementById('interruption').value = '20';
+        document.getElementById('riskSection').classList.remove('visible');
+        document.getElementById('emptyHint').style.display = 'block';
+    }
+
+    function copyResult() {
+        const prob     = document.getElementById('riskPct').textContent;
+        const verdict  = document.getElementById('riskVerdict').textContent;
+        const days     = document.getElementById('statDaysLeft').textContent;
+        const needed   = document.getElementById('statNeeded').textContent;
+        const finish   = document.getElementById('statFinishDate').textContent;
+        const slack    = document.getElementById('statSlack').textContent;
+        const deadDate = document.getElementById('deadlineDate').value;
+        const notice   = document.getElementById('capacityNotice').innerText;
+
+        const text = [
+            'Deadline Probability Report',
+            `Deadline: ${deadDate}`,
+            '',
+            `Completion Probability: ${prob}`,
+            `Verdict: ${verdict}`,
+            '',
+            `Days Left: ${days}`,
+            `Required Pace: ${needed} tasks/day`,
+            `Est. Finish: ${finish}`,
+            `Slack: ${slack} days`,
+            '',
+            notice
+        ].join('\n');
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('.btn-action.primary');
+            btn.innerText = '✓ Copied!';
+            setTimeout(() => { btn.innerText = 'Copy Summary'; }, 2000);
+        });
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

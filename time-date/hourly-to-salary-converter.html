@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hourly ↔ Salary Converter | Rebrixe</title>
+    <meta name="description" content="Convert hourly wage to annual salary instantly. Country-specific work hours, overtime rates, and full pay breakdown included.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ─── Layout ─────────────────────────────────────────── */
+        .tool-wrap  { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ─── Mode toggle ─────────────────────────────────────── */
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 4px;
+            margin-bottom: 28px;
+        }
+        .mode-tab {
+            padding: 11px;
+            text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #475569;
+            border-radius: 11px;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+            user-select: none;
+        }
+        .mode-tab.active {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            color: #000;
+        }
+
+        /* ─── Input grid ─────────────────────────────────────── */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+
+        .input-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+
+        .input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-prefix {
+            position: absolute;
+            left: 16px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #64748b;
+            pointer-events: none;
+            z-index: 1;
+            /* multi-char symbols (S$, AED) need smaller text */
+            max-width: 40px;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+        }
+        .input-wrap input,
+        .input-wrap select {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 15px 16px 15px 44px; /* generous left for S$ / AED */
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            -moz-appearance: textfield;
+        }
+        .input-wrap input::-webkit-outer-spin-button,
+        .input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .input-wrap input:focus,
+        .input-wrap select:focus  { border-color: var(--primary); }
+
+        /* selects don't use the prefix, so pull padding back */
+        .input-wrap select {
+            padding-left: 16px;
+            appearance: none;
+            color-scheme: dark;
+        }
+
+        .country-hint {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 4px;
+            min-height: 1.1em; /* prevent layout shift */
+        }
+
+        /* ─── Quick presets ───────────────────────────────────── */
+        .quick-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .pill:hover {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(139,148,152,0.08);
+        }
+
+        /* ─── Result panel ────────────────────────────────────── */
+        .result-panel { display: none; margin-top: 8px; }
+        .result-panel.visible { display: block; }
+
+        /* Hero */
+        .result-hero {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            margin-bottom: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+        .result-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+        .hero-amount {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.4rem, 6vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: -2px;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .hero-sub {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+
+        /* Breakdown grid */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .bd-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 10px;
+            text-align: center;
+        }
+        .bd-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            color: #fff;
+            line-height: 1;
+            word-break: break-all;
+        }
+        .bd-unit {
+            font-size: 0.58rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
+        /* Overtime panel */
+        .ot-panel {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+        }
+        .ot-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+        .ot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .ot-cell { text-align: center; }
+        .ot-rate {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .ot-val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #fff;
+        }
+        .ot-footnote {
+            margin-top: 12px;
+            font-size: 0.78rem;
+            color: #475569;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        /* Action row */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .15s;
+        }
+        .btn-action:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            color: #000;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+
+        .empty-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        /* ─── Responsive ─────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 20px 16px; }
+            .input-grid { grid-template-columns: 1fr; }
+            .breakdown-grid { grid-template-columns: repeat(2, 1fr); }
+            .ot-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.4rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Hourly ↔ Salary Converter
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Convert any hourly rate to annual salary — or reverse it. Country hours, overtime &amp; full pay breakdown included.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- MODE TOGGLE -->
+                <div class="mode-tabs">
+                    <div class="mode-tab active" id="tab-h2s" onclick="setMode('h2s')">Hourly → Salary</div>
+                    <div class="mode-tab"        id="tab-s2h" onclick="setMode('s2h')">Salary → Hourly</div>
+                </div>
+
+                <!-- INPUTS -->
+                <div class="input-grid">
+
+                    <!-- Main value input -->
+                    <div class="input-group">
+                        <span class="input-label" id="mainInputLabel">Hourly Rate</span>
+                        <div class="input-wrap">
+                            <span class="input-prefix" id="mainPrefix">$</span>
+                            <input
+                                type="number"
+                                id="mainInput"
+                                placeholder="e.g. 45"
+                                min="0"
+                                step="0.01"
+                                oninput="calculate()"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Country / work hours -->
+                    <div class="input-group">
+                        <span class="input-label">Country / Work Hours</span>
+                        <div class="input-wrap">
+                            <select id="countrySelect" onchange="onCountryChange()">
+                                <option value="us"     data-h="40">🇺🇸 United States — 40 hrs/wk</option>
+                                <option value="uk"     data-h="37.5">🇬🇧 United Kingdom — 37.5 hrs/wk</option>
+                                <option value="ca"     data-h="40">🇨🇦 Canada — 40 hrs/wk</option>
+                                <option value="au"     data-h="38">🇦🇺 Australia — 38 hrs/wk</option>
+                                <option value="de"     data-h="39">🇩🇪 Germany — 39 hrs/wk</option>
+                                <option value="fr"     data-h="35">🇫🇷 France — 35 hrs/wk</option>
+                                <option value="in"     data-h="48">🇮🇳 India — 48 hrs/wk</option>
+                                <option value="jp"     data-h="40">🇯🇵 Japan — 40 hrs/wk</option>
+                                <option value="sg"     data-h="44">🇸🇬 Singapore — 44 hrs/wk</option>
+                                <option value="ae"     data-h="48">🇦🇪 UAE — 48 hrs/wk</option>
+                                <option value="br"     data-h="44">🇧🇷 Brazil — 44 hrs/wk</option>
+                                <option value="nl"     data-h="36">🇳🇱 Netherlands — 36 hrs/wk</option>
+                                <option value="custom" data-h="">✏️ Custom hours</option>
+                            </select>
+                        </div>
+                        <span class="country-hint" id="countryHint"></span>
+                    </div>
+
+                    <!-- Custom hours row (shown only when "custom" selected) -->
+                    <div class="input-group" id="customHrsGroup" style="display:none;">
+                        <span class="input-label">Hours per Week</span>
+                        <div class="input-wrap">
+                            <input
+                                type="number"
+                                id="customHrs"
+                                placeholder="e.g. 40"
+                                min="1"
+                                max="168"
+                                value="40"
+                                oninput="calculate()"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Currency -->
+                    <div class="input-group">
+                        <span class="input-label">Currency</span>
+                        <div class="input-wrap">
+                            <select id="currencySelect" onchange="onCurrencyChange()">
+                                <option value="$"   data-sym="$">$  — USD / CAD / AUD</option>
+                                <option value="£"   data-sym="£">£  — GBP</option>
+                                <option value="€"   data-sym="€">€  — EUR</option>
+                                <option value="₹"   data-sym="₹">₹  — INR</option>
+                                <option value="¥"   data-sym="¥">¥  — JPY / CNY</option>
+                                <option value="S$"  data-sym="S$">S$ — SGD</option>
+                                <option value="AED" data-sym="AED">AED — Dirham</option>
+                                <option value="R$"  data-sym="R$">R$ — BRL</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div><!-- /.input-grid -->
+
+                <!-- QUICK PRESETS (h2s only, hidden in s2h) -->
+                <div id="presetsBlock">
+                    <div class="quick-label">Quick Presets</div>
+                    <div class="quick-pills" id="pillsRow">
+                        <!-- built by buildPills() so currency symbol stays in sync -->
+                    </div>
+                </div>
+
+                <!-- RESULT -->
+                <div id="resultPanel" class="result-panel"></div>
+                <div id="emptyHint"  class="empty-hint">Enter a rate above to see the full breakdown ↑</div>
+
+            </div><!-- /.tool-card -->
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════════════════════ */
+    let mode = 'h2s'; // 'h2s' | 's2h'
+
+    /* Preset definitions — rate is always hourly */
+    const PRESETS = [
+        { rate: 15,  label: 'Min Wage (US)' },
+        { rate: 25,  label: 'Entry Level'   },
+        { rate: 45,  label: 'Mid-level'     },
+        { rate: 75,  label: 'Senior'        },
+        { rate: 100, label: 'Consultant'    },
+        { rate: 150, label: 'Specialist'    },
+    ];
+
+    /* ═══════════════════════════════════════════════════════════
+       HELPERS
+    ═══════════════════════════════════════════════════════════ */
+
+    /** Current currency symbol — never returns an empty string. */
+    function getSym() {
+        return document.getElementById('currencySelect').value || '$';
+    }
+
+    /**
+     * Format a number with a currency symbol.
+     * Handles multi-char symbols (S$, AED) with a space separator.
+     * No trailing ".00" for whole numbers; two decimals for fractional.
+     * K/M shorthand for large values.
+     */
+    function fmt(n, sym) {
+        if (!isFinite(n)) return sym + '—';
+        sym = sym || getSym();
+        const sep = sym.length > 1 ? sym + ' ' : sym;
+
+        if (n >= 1_000_000) {
+            const m = n / 1_000_000;
+            return sep + (Number.isInteger(m) ? m : m.toFixed(2)) + 'M';
+        }
+        if (n >= 1_000) {
+            return sep + Math.round(n).toLocaleString();
+        }
+        // Below 1000: show cents only if there actually are cents
+        return sep + (Number.isInteger(n) ? n.toString() : n.toFixed(2));
+    }
+
+    /** Hours per week from the current country/custom selection. Always a positive number. */
+    function getHrsPerWeek() {
+        const sel = document.getElementById('countrySelect');
+        if (sel.value === 'custom') {
+            const v = parseFloat(document.getElementById('customHrs').value);
+            return (isFinite(v) && v > 0) ? v : 40;
+        }
+        const h = parseFloat(sel.options[sel.selectedIndex].dataset.h);
+        return isFinite(h) ? h : 40;
+    }
+
+    /** Hours per year = hrsPerWeek × 52 */
+    function getHrsPerYear() {
+        return getHrsPerWeek() * 52;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MODE
+    ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * Switch between h2s and s2h.
+     * @param {string} m   - 'h2s' or 's2h'
+     * @param {number} [prefill] - optional value to put in the input after switching
+     */
+    function setMode(m, prefill) {
+        mode = m;
+        document.getElementById('tab-h2s').classList.toggle('active', m === 'h2s');
+        document.getElementById('tab-s2h').classList.toggle('active', m === 's2h');
+
+        const label = m === 'h2s' ? 'Hourly Rate' : 'Annual Salary';
+        const ph    = m === 'h2s' ? 'e.g. 45'    : 'e.g. 95000';
+        document.getElementById('mainInputLabel').textContent = label;
+        document.getElementById('mainInput').placeholder      = ph;
+
+        if (prefill !== undefined && prefill !== null) {
+            document.getElementById('mainInput').value = prefill;
+        } else {
+            document.getElementById('mainInput').value = '';
+        }
+
+        // Show presets only in h2s mode
+        document.getElementById('presetsBlock').style.display = m === 'h2s' ? '' : 'none';
+
+        calculate();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       COUNTRY
+    ═══════════════════════════════════════════════════════════ */
+
+    function onCountryChange() {
+        const sel      = document.getElementById('countrySelect');
+        const isCustom = sel.value === 'custom';
+        document.getElementById('customHrsGroup').style.display = isCustom ? '' : 'none';
+        updateCountryHint();
+        calculate();
+    }
+
+    function updateCountryHint() {
+        const sel      = document.getElementById('countrySelect');
+        const isCustom = sel.value === 'custom';
+        const hint     = document.getElementById('countryHint');
+        if (isCustom) {
+            hint.textContent = 'Enter your actual weekly hours below';
+        } else {
+            const hpw  = getHrsPerWeek();
+            const hpy  = hpw * 52;
+            hint.textContent = `${hpw} hrs/week × 52 weeks = ${hpy.toLocaleString()} hrs/year`;
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CURRENCY
+    ═══════════════════════════════════════════════════════════ */
+
+    function onCurrencyChange() {
+        const sym = getSym();
+        document.getElementById('mainPrefix').textContent = sym;
+        buildPills(); // update preset labels with new symbol
+        calculate();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PRESETS
+    ═══════════════════════════════════════════════════════════ */
+
+    function buildPills() {
+        const sym  = getSym();
+        const sep  = sym.length > 1 ? sym + ' ' : sym;
+        const row  = document.getElementById('pillsRow');
+        row.innerHTML = PRESETS.map(p =>
+            `<span class="pill" onclick="setPreset(${p.rate})">${sep}${p.rate}/hr — ${p.label}</span>`
+        ).join('');
+    }
+
+    function setPreset(rate) {
+        if (mode !== 'h2s') setMode('h2s');
+        document.getElementById('mainInput').value = rate;
+        calculate();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SWAP (reverse mode)  — FIX: compute derived value BEFORE setMode clears the input
+    ═══════════════════════════════════════════════════════════ */
+
+    function swapMode() {
+        const raw     = parseFloat(document.getElementById('mainInput').value);
+        const hrsYear = getHrsPerYear();
+        let   prefill;
+
+        if (isFinite(raw) && raw > 0) {
+            if (mode === 'h2s') {
+                // hourly → annual
+                const annual = raw * hrsYear;
+                prefill = Math.round(annual);
+            } else {
+                // annual → hourly
+                const hourly = raw / hrsYear;
+                prefill = parseFloat(hourly.toFixed(2));
+            }
+        }
+
+        setMode(mode === 'h2s' ? 's2h' : 'h2s', prefill);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESET
+    ═══════════════════════════════════════════════════════════ */
+
+    function resetTool() {
+        document.getElementById('mainInput').value = '';
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('emptyHint').style.display = 'block';
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       COPY SUMMARY
+    ═══════════════════════════════════════════════════════════ */
+
+    function copyResult() {
+        const raw = parseFloat(document.getElementById('mainInput').value);
+        if (!isFinite(raw) || raw <= 0) return;
+
+        const sym      = getSym();
+        const sep      = sym.length > 1 ? sym + ' ' : sym;
+        const hrsYear  = getHrsPerYear();
+        const hrsWeek  = getHrsPerWeek();
+        const hourly   = mode === 'h2s' ? raw : raw / hrsYear;
+        const annual   = mode === 'h2s' ? raw * hrsYear : raw;
+        const monthly  = annual / 12;
+        const weekly   = annual / 52;
+        const daily    = annual / (52 * 5);
+
+        const lines = [
+            'Hourly ↔ Salary Summary',
+            '─────────────────────────',
+            `Hourly Rate  : ${sep}${hourly.toFixed(2)}/hr`,
+            `Annual       : ${fmt(annual, sym)}`,
+            `Monthly      : ${fmt(monthly, sym)}`,
+            `Bi-weekly    : ${fmt(annual / 26, sym)}`,
+            `Weekly       : ${fmt(weekly, sym)}`,
+            `Daily        : ${fmt(daily, sym)}`,
+            '─────────────────────────',
+            `Overtime 1.5×: ${sep}${(hourly * 1.5).toFixed(2)}/hr`,
+            `Overtime 2×  : ${sep}${(hourly * 2).toFixed(2)}/hr`,
+            '─────────────────────────',
+            `Based on ${hrsWeek} hrs/week × 52 weeks`,
+            'Generated on Rebrixe.com',
+        ];
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            const btn = document.getElementById('copyBtn');
+            if (!btn) return;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Summary'; }, 2000);
+        }).catch(() => {
+            // Clipboard API can fail in some browsers; fail silently
+        });
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CALCULATE  (core logic)
+    ═══════════════════════════════════════════════════════════ */
+
+    function calculate() {
+        const raw   = parseFloat(document.getElementById('mainInput').value);
+        const panel = document.getElementById('resultPanel');
+        const hint  = document.getElementById('emptyHint');
+        const sym   = getSym();
+
+        if (!isFinite(raw) || raw <= 0) {
+            panel.classList.remove('visible');
+            panel.innerHTML = '';
+            hint.style.display = 'block';
+            return;
+        }
+
+        const hrsYear = getHrsPerYear();
+        const hrsWeek = getHrsPerWeek();
+
+        /* ── Derived values ────────────────────────────────── */
+        const hourly   = mode === 'h2s' ? raw : raw / hrsYear;
+        const annual   = mode === 'h2s' ? raw * hrsYear : raw;
+        const monthly  = annual / 12;
+        const biweekly = annual / 26;
+        const weekly   = annual / 52;
+        const daily    = annual / (52 * 5); // Mon–Fri, 5-day week
+
+        /* Validate derived values are sensible */
+        if (!isFinite(annual) || !isFinite(hourly)) {
+            hint.textContent = 'Something went wrong — please check your inputs.';
+            hint.style.display = 'block';
+            panel.classList.remove('visible');
+            return;
+        }
+
+        /* ── Overtime ─────────────────────────────────────── */
+        const ot1x  = hourly;
+        const ot15  = hourly * 1.5;
+        const ot2x  = hourly * 2;
+        // Extra annual earnings if working 5 hrs/wk OT at 1.5×
+        const otBonus5 = ot15 * 5 * 52;
+
+        /* ── Hero ─────────────────────────────────────────── */
+        const heroLabel = mode === 'h2s' ? 'Annual Salary' : 'Equivalent Hourly Rate';
+        const heroVal   = mode === 'h2s'
+            ? fmt(annual, sym)
+            : (sym.length > 1 ? sym + ' ' : sym) + hourly.toFixed(2);
+        const heroSub   = mode === 'h2s'
+            ? `Based on ${hrsWeek} hrs/week × 52 weeks = ${hrsYear.toLocaleString()} paid hours/year`
+            : `${fmt(annual, sym)}/year ÷ ${hrsYear.toLocaleString()} hrs`;
+
+        /* ── Build HTML ───────────────────────────────────── */
+        panel.innerHTML = `
+            <div class="result-hero">
+                <div class="hero-label">${heroLabel}</div>
+                <div class="hero-amount">${heroVal}</div>
+                <div class="hero-sub">${heroSub}</div>
+            </div>
+
+            <div class="breakdown-grid">
+                <div class="bd-cell">
+                    <div class="bd-num">${fmt(monthly,  sym)}</div>
+                    <div class="bd-unit">Monthly</div>
+                </div>
+                <div class="bd-cell">
+                    <div class="bd-num">${fmt(biweekly, sym)}</div>
+                    <div class="bd-unit">Bi-weekly</div>
+                </div>
+                <div class="bd-cell">
+                    <div class="bd-num">${fmt(weekly,   sym)}</div>
+                    <div class="bd-unit">Weekly</div>
+                </div>
+                <div class="bd-cell">
+                    <div class="bd-num">${fmt(daily,    sym)}</div>
+                    <div class="bd-unit">Daily (5-day)</div>
+                </div>
+            </div>
+
+            <div class="ot-panel">
+                <div class="ot-title">⚡ Overtime Rates — per hour</div>
+                <div class="ot-grid">
+                    <div class="ot-cell">
+                        <div class="ot-rate">Regular (1×)</div>
+                        <div class="ot-val">${(sym.length > 1 ? sym + ' ' : sym) + ot1x.toFixed(2)}/hr</div>
+                    </div>
+                    <div class="ot-cell">
+                        <div class="ot-rate">Time &amp; Half (1.5×)</div>
+                        <div class="ot-val" style="color:var(--primary)">${(sym.length > 1 ? sym + ' ' : sym) + ot15.toFixed(2)}/hr</div>
+                    </div>
+                    <div class="ot-cell">
+                        <div class="ot-rate">Double Time (2×)</div>
+                        <div class="ot-val">${(sym.length > 1 ? sym + ' ' : sym) + ot2x.toFixed(2)}/hr</div>
+                    </div>
+                </div>
+                <div class="ot-footnote">
+                    📌 5 hrs/week overtime at 1.5× adds
+                    <strong style="color:var(--primary)">${fmt(otBonus5, sym)}/year</strong>
+                    to your income.
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button id="copyBtn"  class="btn-action primary" onclick="copyResult()">Copy Summary</button>
+                <button               class="btn-action"         onclick="swapMode()">⇄ Reverse</button>
+                <button               class="btn-action"         onclick="resetTool()">✕ Reset</button>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════════════════════ */
+    (function init() {
+        updateCountryHint();
+        onCurrencyChange(); // syncs prefix + builds pills
+    })();
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

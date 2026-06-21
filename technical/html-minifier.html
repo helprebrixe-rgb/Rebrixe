@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Minifier | Strip Code Bloat | Rebrixe</title>
+    <meta name="description" content="Reduce your HTML file size by stripping unnecessary whitespace, comments, and redundant code with our HTML Minifier. Optimize your web pages for faster load times and improved SEO. Free & instant.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -3px;
+            background: linear-gradient(90deg, var(--primary), #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        @media (max-width: 800px) {
+            .editor-grid { grid-template-columns: 1fr; }
+            .stats-container { grid-template-columns: 1fr; gap: 10px; }
+            .options-grid { grid-template-columns: 1fr 1fr; }
+            .btn-panel { flex-wrap: wrap; }
+        }
+
+        .pane { display: flex; flex-direction: column; gap: 8px; }
+        .pane-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .char-count { font-size: 0.67rem; color: #475569; font-weight: 400; }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            color: var(--primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        textarea:focus { border-color: var(--primary); box-shadow: 0 0 18px rgba(0,242,255,0.05); }
+        textarea[readonly] {
+            background: rgba(0,0,0,0.6);
+            color: #4ade80;
+            cursor: default;
+        }
+
+        /* Options panel */
+        .options-panel {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+        .options-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin-bottom: 12px;
+            text-align: left;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .opt-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .opt-item input[type="checkbox"] { display: none; }
+        .opt-toggle {
+            width: 36px;
+            height: 20px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .opt-toggle::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #475569;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .opt-item input:checked + .opt-toggle {
+            background: rgba(0,242,255,0.15);
+            border-color: var(--primary);
+        }
+        .opt-item input:checked + .opt-toggle::after {
+            transform: translateX(16px);
+            background: var(--primary);
+        }
+        .opt-text {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            line-height: 1.3;
+        }
+        .opt-text strong { display: block; color: #cbd5e1; font-size: 0.73rem; }
+
+        /* Stats */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 16px;
+        }
+        .stat-card { text-align: center; }
+        .stat-label { font-size: 0.62rem; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 1px; }
+        .stat-value { display: block; font-size: 1.15rem; font-family: 'Fira Code'; color: #fff; margin-top: 4px; }
+        .stat-value.highlight { color: var(--primary); font-weight: 800; }
+        .stat-value.saving-good { color: #00ff66; }
+        .stat-value.saving-ok   { color: #ffaa00; }
+        .stat-value.saving-low  { color: #94a3b8; }
+
+        /* Warning */
+        .warn-banner {
+            display: none;
+            font-size: 0.71rem;
+            color: #fbbf24;
+            background: rgba(251,191,36,0.05);
+            border: 1px solid rgba(251,191,36,0.15);
+            border-radius: 10px;
+            padding: 9px 14px;
+            margin-bottom: 14px;
+            text-align: left;
+        }
+        .warn-banner.visible { display: block; }
+
+        .minifier-notice {
+            font-size: 0.71rem;
+            color: #475569;
+            background: rgba(255,170,0,0.03);
+            border: 1px solid rgba(255,170,0,0.08);
+            border-radius: 10px;
+            padding: 9px 14px;
+            margin-bottom: 18px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .minifier-notice strong { color: #ffaa00; }
+
+        .btn-panel { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-panel .gen-btn { flex: 1; min-width: 110px; }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <nav class="nav-container"></nav>
+
+    <main class="container">
+        <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+
+        <section class="tool-card" style="text-align:center;">
+            <h1 class="brand-title">HTML Minifier</h1>
+            <p style="opacity:0.6; margin-bottom:22px; font-weight:500;">Strip bloat from production markup. Faster pages, better scores.</p>
+
+            <!-- Options -->
+            <div class="options-panel">
+                <div class="options-title">Minification Options</div>
+                <div class="options-grid">
+                    <label class="opt-item">
+                        <input type="checkbox" id="optComments" checked>
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Remove Comments</strong>Strips <!-- ... --></span>
+                    </label>
+                    <label class="opt-item">
+                        <input type="checkbox" id="optWhitespace" checked>
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Collapse Whitespace</strong>Merge runs of spaces</span>
+                    </label>
+                    <label class="opt-item">
+                        <input type="checkbox" id="optAttrQuotes">
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Remove Optional Quotes</strong>class=nav → class=nav</span>
+                    </label>
+                    <label class="opt-item">
+                        <input type="checkbox" id="optInlineJS" checked>
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Minify Inline JS</strong>Collapse script blocks</span>
+                    </label>
+                    <label class="opt-item">
+                        <input type="checkbox" id="optInlineCSS" checked>
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Minify Inline CSS</strong>Collapse style blocks</span>
+                    </label>
+                    <label class="opt-item">
+                        <input type="checkbox" id="optDoctype" checked>
+                        <span class="opt-toggle"></span>
+                        <span class="opt-text"><strong>Normalize DOCTYPE</strong>Lowercase &amp; trim</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Editors -->
+            <div class="editor-grid">
+                <div class="pane">
+                    <div class="pane-label">
+                        Source HTML
+                        <span class="char-count" id="inputCount">0 B</span>
+                    </div>
+                    <textarea id="htmlInput"
+                        placeholder="<!-- Paste your HTML here... -->"
+                        oninput="onInputChange()"></textarea>
+                </div>
+                <div class="pane">
+                    <div class="pane-label">
+                        Minified Output
+                        <span class="char-count" id="outputCount">0 B</span>
+                    </div>
+                    <textarea id="htmlOutput" readonly
+                        placeholder="<!-- Minified result will appear here... -->"></textarea>
+                </div>
+            </div>
+
+            <!-- Validation warning -->
+            <div class="warn-banner" id="warnBanner"></div>
+
+            <!-- Stats -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">Original Size</span>
+                    <span id="origSize" class="stat-value">—</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Minified Size</span>
+                    <span id="minSize" class="stat-value">—</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Savings</span>
+                    <span id="savings" class="stat-value highlight">—</span>
+                </div>
+            </div>
+
+            <div class="minifier-notice">
+                <strong>Note:</strong> Inline <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> blocks are minified separately — attribute values, URLs, and event handlers are never corrupted. For full AST-level tree-shaking, pair with a build tool like Vite or Parcel.
+            </div>
+
+            <div class="btn-panel">
+                <button class="gen-btn" onclick="minifyHTML()">▶ Minify</button>
+                <button class="gen-btn" onclick="copyOutput(this)">Copy Output</button>
+                <button class="gen-btn" onclick="downloadOutput()">↓ Download .html</button>
+                <button class="gen-btn" style="background:rgba(255,0,0,0.05);color:#ff4d4d;border-color:rgba(255,0,0,0.1);" onclick="clearAll()">Clear</button>
+            </div>
+        </section>
+
+        <article class="seo-content">
+            <h2>Why Minify HTML?</h2>
+            <p>Every byte you send over the wire costs time. On mobile connections, bloated markup delays First Contentful Paint and hurts your Core Web Vitals score — which Google uses directly as a ranking signal. HTML minification removes everything a browser doesn't need: comments, redundant whitespace, and optional quotes that inflate file size without changing how the page renders.</p>
+
+            <div class="faq-grid" style="margin-top:40px;">
+                <div class="faq-item">
+                    <h3>What gets removed?</h3>
+                    <p>HTML comments, inter-tag whitespace, redundant attribute quotes, and optional closing tags for elements like <code>&lt;li&gt;</code> and <code>&lt;p&gt;</code>. Inline <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> blocks are compressed independently without corrupting string literals.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is it safe for production?</h3>
+                    <p>Yes — with one rule: always keep your original source file. Minification is not reversible. Pair this tool with version control or keep a <code>/src</code> folder of clean originals for development.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>100% Private</h3>
+                    <p>Your markup is processed entirely inside your browser using JavaScript. Nothing is uploaded to a server, logged, or cached. Close the tab and it's gone.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+
+    <script src="/nav.js"></script>
+    <script>
+        // @ts-nocheck
+        // ── Utilities ──────────────────────────────────────────────────────────
+        function formatBytes(b) {
+            if (b === 0) return '0 B';
+            const k = 1024, s = ['B','KB','MB'];
+            const i = Math.floor(Math.log(b) / Math.log(k));
+            return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + s[i];
+        }
+
+        function byteSize(str) { return new Blob([str]).size; }
+
+        function onInputChange() {
+            document.getElementById('inputCount').textContent = formatBytes(byteSize(document.getElementById('htmlInput').value));
+            document.getElementById('warnBanner').classList.remove('visible');
+        }
+
+        // ── Quick structural validation ────────────────────────────────────────
+        function quickValidate(html) {
+            const warnings = [];
+            const voidTags = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+            const selfClose = html.match(/<([a-z][a-z0-9]*)\s*\/>/gi) || [];
+            selfClose.forEach(t => {
+                const tag = t.match(/<([a-z][a-z0-9]*)/i)[1].toLowerCase();
+                if (!voidTags.has(tag)) warnings.push(`Self-closing non-void tag: &lt;${tag}/&gt; — may behave unexpectedly.`);
+            });
+            if ((html.match(/<script/gi) || []).length !== (html.match(/<\/script>/gi) || []).length)
+                warnings.push('Mismatched &lt;script&gt; tags detected.');
+            if ((html.match(/<style/gi) || []).length !== (html.match(/<\/style>/gi) || []).length)
+                warnings.push('Mismatched &lt;style&gt; tags detected.');
+            return warnings;
+        }
+
+        // ── Safe inline CSS minifier ───────────────────────────────────────────
+        function minifyCSS(css) {
+            return css
+                .replace(/\/\*[\s\S]*?\*\//g, '')   // block comments
+                .replace(/\s*([{}:;,>+~])\s*/g, '$1')
+                .replace(/;\}/g, '}')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        // ── Safe inline JS minifier (same engine as JS tool) ──────────────────
+        function minifyJS(code) {
+    const SP = '\x00S\x00', stored = [];
+    code = code.replace(/(["'`])(?:(?!\1)[^\\]|\\.)*\1/g, m => {
+        stored.push(m); return SP + (stored.length - 1) + '\x00';
+    });
+    code = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    code = code.replace(/\s+/g, ' ')
+        .replace(/ ?([{}()[\];,+\-*/%=<>!&|^~?:]) ?/g, '$1')
+        .replace(/(return|typeof|instanceof|void|delete|throw|new|in|of)(?=[a-zA-Z$_([\"'`\]])/g, '$1 ')
+        .trim();
+    code = code.replace(new RegExp(SP.replace(/\x00/g,'\\x00') + '(\\d+)\\x00','g'), (_, i) => stored[+i]);
+    return code;
+}
+
+        // ── Core HTML minifier ─────────────────────────────────────────────────
+        function minifyHTML() {
+            const raw = document.getElementById('htmlInput').value;
+            if (!raw.trim()) return;
+
+            const opts = {
+                comments:    document.getElementById('optComments').checked,
+                whitespace:  document.getElementById('optWhitespace').checked,
+                attrQuotes:  document.getElementById('optAttrQuotes').checked,
+                inlineJS:    document.getElementById('optInlineJS').checked,
+                inlineCSS:   document.getElementById('optInlineCSS').checked,
+                doctype:     document.getElementById('optDoctype').checked
+            };
+
+            // Show warnings
+            const warns = quickValidate(raw);
+            const wb = document.getElementById('warnBanner');
+            if (warns.length) {
+                wb.innerHTML = '⚠ ' + warns.join('<br>⚠ ');
+                wb.classList.add('visible');
+            } else {
+                wb.classList.remove('visible');
+            }
+
+            let out = raw;
+
+            try {
+                // 1. Normalize DOCTYPE
+                if (opts.doctype) out = out.replace(/<!DOCTYPE[^>]*>/i, '<!DOCTYPE html>');
+
+                // 2. Protect and optionally minify <script> blocks
+                const scripts = [];
+                out = out.replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/gi, (_, open, body, close) => {
+                    const content = opts.inlineJS ? minifyJS(body) : body;
+                    scripts.push(open + content + close);
+                    return '\x00SCRIPT' + (scripts.length - 1) + '\x00';
+                });
+
+                // 3. Protect and optionally minify <style> blocks
+                const styles = [];
+                out = out.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (_, open, body, close) => {
+                    const content = opts.inlineCSS ? minifyCSS(body) : body;
+                    styles.push(open + content + close);
+                    return '\x00STYLE' + (styles.length - 1) + '\x00';
+                });
+
+                // 4. Protect attribute values so their inner spaces/quotes are safe
+                const attrs = [];
+                out = out.replace(/=("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, (_, val) => {
+                    attrs.push(val);
+                    return '=\x00ATTR' + (attrs.length - 1) + '\x00';
+                });
+
+                // 5. Remove HTML comments (not IE conditionals)
+                if (opts.comments) out = out.replace(/<!--(?!\[if)[\s\S]*?-->/g, '');
+
+                // 6. Collapse whitespace between tags
+                if (opts.whitespace) {
+    out = out
+        .replace(/>\s+</g, '><')           // between tags
+        .replace(/\s{2,}/g, ' ')           // multiple spaces to one
+        .replace(/^[ \t]+|[ \t]+$/gm, '')  // leading/trailing per line
+        .replace(/\n+/g, '')               // newlines
+        .trim();
+}
+
+                // 7. Remove optional attribute quotes (safe simple values only)
+                if (opts.attrQuotes) {
+                    out = out.replace(/=\x00ATTR(\d+)\x00/g, (_, i) => {
+                        const v = attrs[+i];
+                        const inner = v.slice(1, -1);
+                        // Only remove quotes if value is safe: alphanumeric, dash, underscore, dot
+                        return /^[a-zA-Z0-9_\-\.]+$/.test(inner) ? '=' + inner : '=' + v;
+                    });
+                    // Restore any remaining protected attrs
+                    out = out.replace(/=\x00ATTR(\d+)\x00/g, (_, i) => '=' + attrs[+i]);
+                } else {
+                    out = out.replace(/=\x00ATTR(\d+)\x00/g, (_, i) => '=' + attrs[+i]);
+                }
+
+                // 8. Restore scripts and styles
+                out = out.replace(/\x00SCRIPT(\d+)\x00/g, (_, i) => scripts[+i]);
+                out = out.replace(/\x00STYLE(\d+)\x00/g,  (_, i) => styles[+i]);
+
+            } catch(e) {
+                document.getElementById('htmlOutput').value = '<!-- Minification error: ' + e.message + ' -->';
+                return;
+            }
+
+            document.getElementById('htmlOutput').value = out;
+
+            const origBytes = byteSize(raw);
+            const miniBytes = byteSize(out);
+            const pct = origBytes > 0 ? Math.round(((origBytes - miniBytes) / origBytes) * 100) : 0;
+
+            document.getElementById('origSize').textContent = formatBytes(origBytes);
+            document.getElementById('minSize').textContent  = formatBytes(miniBytes);
+            document.getElementById('outputCount').textContent = formatBytes(miniBytes);
+
+            const savEl = document.getElementById('savings');
+            savEl.textContent = pct + '%';
+            savEl.className = 'stat-value highlight ' + (pct >= 30 ? 'saving-good' : pct >= 10 ? 'saving-ok' : 'saving-low');
+        }
+
+        // ── Actions ────────────────────────────────────────────────────────────
+        function copyOutput(btn) {
+            const out = document.getElementById('htmlOutput').value;
+            if (!out || out.startsWith('<!--')) { btn.innerText = 'Nothing to copy'; setTimeout(() => btn.innerText = 'Copy Output', 1500); return; }
+            navigator.clipboard.writeText(out).then(() => {
+                btn.innerText = '✓ COPIED!';
+                setTimeout(() => btn.innerText = 'Copy Output', 1500);
+            }).catch(() => { btn.innerText = 'Copy failed'; setTimeout(() => btn.innerText = 'Copy Output', 1500); });
+        }
+
+        function downloadOutput() {
+            const out = document.getElementById('htmlOutput').value;
+            if (!out || out.startsWith('<!--')) return;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' }));
+            a.download = 'minified.html';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function clearAll() {
+            ['htmlInput','htmlOutput'].forEach(id => document.getElementById(id).value = '');
+            ['origSize','minSize','savings'].forEach(id => document.getElementById(id).textContent = '—');
+            document.getElementById('savings').className = 'stat-value highlight';
+            document.getElementById('inputCount').textContent  = '0 B';
+            document.getElementById('outputCount').textContent = '0 B';
+            document.getElementById('warnBanner').classList.remove('visible');
+        }
+    </script>
+</body>
+</html>

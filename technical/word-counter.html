@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Word Counter – Live Character & Sentence Analyzer | Rebrixe</title>
+    <meta name="description" content="Free live word, character, sentence and paragraph counter with reading/speaking time estimates and keyword frequency. No signup needed.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Page header ── */
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #0bb5b5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px;
+            text-align: center;
+        }
+        .tool-sub {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-bottom: 28px;
+        }
+
+        /* ── Main grid ── */
+        .wc-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        /* ── Textarea card ── */
+        .card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(12px);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+        .tb-btn {
+            padding: 6px 13px;
+            border-radius: 8px;
+            border: 1px solid rgba(22, 230, 249, 0.3);
+            background: rgba(22, 230, 249, 0.07);
+            color: #16dbf9;
+            font-size: 0.68rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: 0.18s;
+            letter-spacing: 0.3px;
+        }
+        .tb-btn:hover { background: rgba(22, 230, 249, 0.18); }
+        .tb-btn:focus-visible { outline: 2px solid #16dbf9; outline-offset: 2px; }
+        .tb-btn.copied { background: #2ecc71; color: #000; border-color: #2ecc71; }
+        .tb-sep { color: rgba(255,255,255,0.1); font-size: 1rem; }
+
+        #mainText {
+            width: 100%;
+            min-height: 340px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.84rem;
+            line-height: 1.75;
+            resize: vertical;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #mainText:focus { border-color: #16e6f9; }
+        #mainText::placeholder { color: #334155; }
+
+        /* ── Stats sidebar ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+        .stat-box .val {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #16eef9;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .stat-box .lbl {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .stat-box.wide {
+            grid-column: span 2;
+        }
+
+        /* ── Time estimates ── */
+        .time-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .time-pill {
+            flex: 1;
+            background: rgba(22,238,249,0.06);
+            border: 1px solid rgba(22,238,249,0.18);
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 0.68rem;
+        }
+        .time-pill .t-val {
+            font-family: 'Fira Code', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+            display: block;
+        }
+        .time-pill .t-lbl {
+            color: #475569;
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+        }
+        .time-note {
+            font-size: 0.62rem;
+            color: #334155;
+            margin: 8px 0 0;
+            line-height: 1.5;
+        }
+
+        /* ── Section label ── */
+        .sec-lbl {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin: 16px 0 8px;
+        }
+        .sec-lbl:first-child { margin-top: 0; }
+
+        /* ── Top keywords ── */
+        .kw-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .kw-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+            font-family: 'Fira Code', monospace;
+        }
+        .kw-word { color: #e2e8f0; width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+        .kw-bar-wrap { flex: 1; background: rgba(255,255,255,0.05); border-radius: 4px; height: 5px; }
+        .kw-bar { height: 5px; border-radius: 4px; background: #16dbf9; transition: width 0.3s; }
+        .kw-count { color: #475569; font-size: 0.65rem; width: 28px; text-align: right; flex-shrink: 0; }
+        .kw-empty { font-size: 0.72rem; color: #334155; font-family: 'Fira Code', monospace; }
+
+        /* ── Word goal ── */
+        .goal-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .goal-row input[type="number"] {
+            width: 90px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 10px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            outline: none;
+        }
+        .goal-row input:focus { border-color: #16e6f9; }
+        .goal-row label {
+            font-size: 0.65rem;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .goal-progress-wrap {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            height: 6px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        .goal-progress { height: 6px; border-radius: 8px; background: #2ecc71; transition: width 0.3s, background 0.3s; }
+        .goal-pct { font-size: 0.65rem; color: #64748b; font-family: 'Fira Code', monospace; }
+
+        /* ── Limitations note ── */
+        .limits-card {
+            margin-top: 20px;
+        }
+        .limits-card .sec-lbl { margin-bottom: 10px; }
+        .limits-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.74rem;
+            color: #94a3b8;
+            line-height: 1.7;
+        }
+        .limits-list li { margin-bottom: 6px; }
+        .limits-list li:last-child { margin-bottom: 0; }
+        .limits-list code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.7rem;
+            color: #16dbf9;
+            background: rgba(22,219,249,0.08);
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 860px) {
+            .wc-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="diagnostics-strings.html" class="back-btn">← Back to Dev Tools</a>
+
+    <h1 class="tool-title">Word Counter</h1>
+    <p class="tool-sub">Live text analysis — words, characters, sentences, reading time &amp; keyword frequency</p>
+
+    <div class="wc-grid">
+
+        <!-- ── LEFT: Editor ── -->
+        <div class="card">
+            <div class="toolbar">
+                <button class="tb-btn" onclick="loadSample()">Load Sample</button>
+                <button class="tb-btn" onclick="clearText()">Clear</button>
+                <span class="tb-sep">|</span>
+                <button class="tb-btn" id="copyBtn" onclick="copyText()">Copy Text</button>
+                <button class="tb-btn" onclick="removeExtraSpaces()">Trim Spaces</button>
+                <button class="tb-btn" onclick="removeDuplicateLines()">Dedupe Lines</button>
+            </div>
+
+            <textarea id="mainText" placeholder="Paste or type your text here… stats update live as you type." oninput="analyze()"></textarea>
+        </div>
+
+        <!-- ── RIGHT: Stats ── -->
+        <div>
+            <!-- Core counts -->
+            <div class="card" style="margin-bottom:14px;">
+                <div class="stat-grid">
+                    <div class="stat-box"><div class="val" id="sWords">0</div><div class="lbl">Words</div></div>
+                    <div class="stat-box"><div class="val" id="sChars">0</div><div class="lbl">Characters</div></div>
+                    <div class="stat-box"><div class="val" id="sCharsNoSp">0</div><div class="lbl">Chars (no spaces)</div></div>
+                    <div class="stat-box"><div class="val" id="sSentences">0</div><div class="lbl">Sentences</div></div>
+                    <div class="stat-box"><div class="val" id="sParas">0</div><div class="lbl">Paragraphs</div></div>
+                    <div class="stat-box"><div class="val" id="sLines">0</div><div class="lbl">Lines</div></div>
+                    <div class="stat-box wide"><div class="val" id="sUnique">0</div><div class="lbl">Unique Words</div></div>
+                </div>
+
+                <!-- Avg sentence / word length -->
+                <div class="stat-grid" style="margin-bottom:0;">
+                    <div class="stat-box"><div class="val" id="sAvgW">0</div><div class="lbl">Avg word length</div></div>
+                    <div class="stat-box"><div class="val" id="sAvgS">0</div><div class="lbl">Avg sentence length</div></div>
+                </div>
+            </div>
+
+            <!-- Time estimates -->
+            <div class="card" style="margin-bottom:14px;">
+                <div class="sec-lbl">Estimated Time</div>
+                <div class="time-row">
+                    <div class="time-pill">
+                        <span class="t-val" id="tRead">0s</span>
+                        <span class="t-lbl">Reading</span>
+                    </div>
+                    <div class="time-pill">
+                        <span class="t-val" id="tSpeak">0s</span>
+                        <span class="t-lbl">Speaking</span>
+                    </div>
+                    <div class="time-pill">
+                        <span class="t-val" id="tScan">0s</span>
+                        <span class="t-lbl">Skimming</span>
+                    </div>
+                </div>
+                <p class="time-note">Based on fixed averages: 238 wpm reading, 150 wpm speaking, 600 wpm skimming. These rates are not adjustable and won't match every reader.</p>
+            </div>
+
+            <!-- Word goal -->
+            <div class="card" style="margin-bottom:14px;">
+                <div class="sec-lbl">Word Goal</div>
+                <div class="goal-row">
+                    <input type="number" id="goalInput" placeholder="500" min="1" step="1" oninput="updateGoal()">
+                    <label>Target words</label>
+                </div>
+                <div class="goal-progress-wrap">
+                    <div class="goal-progress" id="goalBar" style="width:0%"></div>
+                </div>
+                <div class="goal-pct" id="goalPct">Set a target above</div>
+            </div>
+
+            <!-- Keyword frequency -->
+            <div class="card">
+                <div class="sec-lbl">Top Keywords</div>
+                <div class="kw-list" id="kwList">
+                    <div class="kw-empty">Start typing to see keywords…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Limitations ── -->
+    <div class="card limits-card">
+        <div class="sec-lbl">Good to know — how this tool counts things</div>
+        <ul class="limits-list">
+            <li><strong>Sentences</strong> are counted by splitting on <code>. ! ?</code> followed by a space or end of text. Abbreviations like "Mr." or "e.g." and decimals like "3.14" will be counted as sentence breaks — this counter doesn't know the difference.</li>
+            <li><strong>Words</strong> are counted as whitespace-separated chunks, so things like "well-known" or "don't" count as one word, and a lone "—" or "*" counts as a word too.</li>
+            <li><strong>Reading, speaking, and skimming times</strong> use fixed speeds (238 / 150 / 600 words per minute) that are hardcoded and can't be changed — they're rough averages, not personalized.</li>
+            <li><strong>Keyword frequency</strong> ignores ~70 common English stopwords (the, and, is, etc.) and words shorter than 3 letters. It is English-only and case-insensitive.</li>
+            <li><strong>Dedupe Lines</strong> compares lines after trimming leading/trailing spaces — two lines that differ only by spacing are treated as duplicates, and only the first occurrence is kept.</li>
+            <li>A previous version of this tool included a Flesch readability score and a keyword heatmap overlay. Both were removed: accurate syllable counting needs a dictionary lookup that's too heavy for a lightweight client-side tool, and the heatmap's text-overlay alignment broke across browsers and font sizes. We'd rather not show those than show numbers that look precise but aren't.</li>
+        </ul>
+    </div>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+<script>
+/* ── Word/char/sentence stopwords ── */
+const STOPWORDS = new Set('a an the and or but in on at to for of with is are was were be been being have has had do does did will would could should may might must shall can i you he she it we they me him her us them my your his its our their what which who this that these those not no nor so yet both either neither one two from by about'.split(' '));
+
+/* ── Core analysis ── */
+function analyze() {
+    const raw = document.getElementById('mainText').value;
+    const trimmed = raw.trim();
+
+    // Words: split on whitespace, drop empty entries (handles empty input correctly)
+    const words = trimmed === '' ? [] : trimmed.split(/\s+/).filter(w => w.length > 0);
+    const wordCount = words.length;
+
+    // Characters
+    const chars = raw.length;
+    const charsNoSp = raw.replace(/\s/g, '').length;
+
+    // Sentences: count runs ending in . ! or ? (one or more), each treated as one sentence end
+    const sentenceMatches = trimmed === '' ? [] : (trimmed.match(/[.!?]+/g) || []);
+    let sentences = sentenceMatches.length;
+    // If there's text but no terminator, still count it as one sentence
+    if (trimmed !== '' && sentences === 0) sentences = 1;
+
+    // Paragraphs: blocks separated by one or more blank lines
+    const paras = trimmed === '' ? 0 : trimmed.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0).length;
+
+    // Lines: non-empty lines
+    const lines = trimmed === '' ? 0 : raw.split('\n').filter(l => l.trim().length > 0).length;
+
+    // Unique words (alphabetic + apostrophes, lowercased)
+    const cleanWords = words.map(w => w.toLowerCase().replace(/[^a-z']/g, ''));
+    const meaningfulWords = cleanWords.filter(w => w.length > 0);
+    const uniqueCount = new Set(meaningfulWords).size;
+
+    // Averages
+    const avgWLen = wordCount > 0 ? (charsNoSp / wordCount).toFixed(1) : '0';
+    const avgSLen = sentences > 0 ? (wordCount / sentences).toFixed(1) : '0';
+
+    // Time estimates (fixed wpm)
+    const readSec  = Math.round((wordCount / 238) * 60);
+    const speakSec = Math.round((wordCount / 150) * 60);
+    const skimSec  = Math.round((wordCount / 600) * 60);
+
+    // Update DOM
+    set('sWords', wordCount);
+    set('sChars', chars);
+    set('sCharsNoSp', charsNoSp);
+    set('sSentences', sentences);
+    set('sParas', paras);
+    set('sLines', lines);
+    set('sUnique', uniqueCount);
+    set('sAvgW', avgWLen);
+    set('sAvgS', avgSLen);
+    set('tRead', fmtTime(readSec));
+    set('tSpeak', fmtTime(speakSec));
+    set('tScan', fmtTime(skimSec));
+
+    updateGoal(wordCount);
+    renderKeywords(meaningfulWords);
+}
+
+function set(id, val) {
+    document.getElementById(id).textContent = val;
+}
+
+function fmtTime(sec) {
+    if (sec < 60) return sec + 's';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+/* ── Goal ── */
+function updateGoal(wordCount) {
+    const wc = wordCount !== undefined
+        ? wordCount
+        : (document.getElementById('mainText').value.trim().split(/\s+/).filter(w => w.length > 0).length);
+
+    const goalRaw = document.getElementById('goalInput').value;
+    const goal = parseInt(goalRaw, 10);
+
+    if (!goalRaw || isNaN(goal) || goal <= 0) {
+        document.getElementById('goalBar').style.width = '0%';
+        document.getElementById('goalPct').textContent = 'Set a target above';
+        return;
+    }
+
+    const pct = Math.min(100, Math.round((wc / goal) * 100));
+    const bar = document.getElementById('goalBar');
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 100 ? '#2ecc71' : '#16dbf9';
+    document.getElementById('goalPct').textContent = `${wc} / ${goal} words — ${pct}%`;
+}
+
+/* ── Keywords ── */
+function renderKeywords(meaningfulWords) {
+    const freq = {};
+    meaningfulWords.forEach(w => {
+        if (w.length > 2 && !STOPWORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
+    });
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const wrap = document.getElementById('kwList');
+
+    if (!sorted.length) {
+        wrap.innerHTML = '<div class="kw-empty">Start typing to see keywords…</div>';
+        return;
+    }
+
+    const max = sorted[0][1];
+    wrap.innerHTML = sorted.map(([w, c]) => {
+        const safeWord = w.replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+        const barWidth = Math.round((c / max) * 100);
+        return `<div class="kw-row">
+            <span class="kw-word">${safeWord}</span>
+            <div class="kw-bar-wrap"><div class="kw-bar" style="width:${barWidth}%"></div></div>
+            <span class="kw-count">×${c}</span>
+        </div>`;
+    }).join('');
+}
+
+/* ── Toolbar actions ── */
+function clearText() {
+    document.getElementById('mainText').value = '';
+    document.getElementById('goalInput').value = '';
+    analyze();
+}
+
+function copyText() {
+    const text = document.getElementById('mainText').value;
+    const btn = document.getElementById('copyBtn');
+
+    const showCopied = () => {
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = original;
+            btn.classList.remove('copied');
+        }, 1200);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+            fallbackCopy(text, showCopied);
+        });
+    } else {
+        fallbackCopy(text, showCopied);
+    }
+}
+
+function fallbackCopy(text, onSuccess) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        onSuccess();
+    } catch (e) {
+        // Copy not supported in this context — silently no-op
+    }
+    document.body.removeChild(ta);
+}
+
+function removeExtraSpaces() {
+    const ta = document.getElementById('mainText');
+    ta.value = ta.value
+        .replace(/[ \t]+/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    analyze();
+}
+
+function removeDuplicateLines() {
+    const ta = document.getElementById('mainText');
+    const seen = new Set();
+    ta.value = ta.value
+        .split('\n')
+        .filter(line => {
+            const key = line.trim();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .join('\n');
+    analyze();
+}
+
+function loadSample() {
+    document.getElementById('mainText').value = `The art of writing is the art of discovering what you believe. Good writing is rewriting. Every first draft is an act of courage, and every revision is an act of discipline.
+
+Words are the tools of thought. Choose them with care, arrange them with intention, and let them carry the weight of meaning without unnecessary decoration. Clarity is the highest form of cleverness.
+
+Readers don't have time to decode ambiguity. They come to your text looking for one thing: value. Give it to them immediately. Respect their attention. Every sentence should earn its place.`;
+    analyze();
+}
+
+/* ── Boot ── */
+analyze();
+</script>
+</body>
+</html>

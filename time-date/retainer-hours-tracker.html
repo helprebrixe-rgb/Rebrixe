@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retainer Hours Tracker | Rebrixe</title>
+    <meta name="description" content="Track retainer hours for multiple clients. Log work sessions, see hours remaining, get burn rate warnings, and export usage reports — no account needed.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap { max-width: 900px; margin: 40px auto; }
+
+        /* ── Tabs ── */
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+        }
+        .tab-btn.active {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid var(--border);
+        }
+        .tab-btn:hover:not(.active) { color: #cbd5e1; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Cards ── */
+        .card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 28px;
+            margin-bottom: 16px;
+        }
+
+        /* ── Section labels ── */
+        .slabel {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        /* ── Form ── */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-row.tri { grid-template-columns: 2fr 1fr 1fr; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--primary);
+        }
+        .field input, .field select {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 12px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color .2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .field input:focus, .field select:focus { border-color: var(--primary); }
+        .field select { color-scheme: dark; cursor: pointer; }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: transform .2s, box-shadow .2s, background .2s, color .2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            color: #000;
+            border-color: transparent;
+            box-shadow: 0 4px 16px rgba(145,152,155,0.25);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(145,152,155,0.35); }
+        .btn-ghost { background: rgba(255,255,255,0.04); color: #94a3b8; }
+        .btn-ghost:hover { background: rgba(255,255,255,0.09); color: #fff; }
+        .btn-danger { background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.25); }
+        .btn-danger:hover { background: rgba(239,68,68,0.15); }
+        .btn-sm { padding: 7px 14px; font-size: 0.7rem; }
+
+        /* ── Client list ── */
+        .client-list { display: flex; flex-direction: column; gap: 12px; }
+        .client-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 20px 22px;
+            transition: border-color .2s;
+        }
+        .client-card:hover { border-color: rgba(255,255,255,0.12); }
+        .client-card.warn  { border-color: rgba(251,191,36,0.35); }
+        .client-card.crit  { border-color: rgba(239,68,68,0.4); }
+
+        .client-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
+            gap: 12px;
+        }
+        .client-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+        .client-meta { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+        .client-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        /* ── Progress ── */
+        .prog-wrap { margin-bottom: 12px; }
+        .prog-labels { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .prog-used { font-size: 0.72rem; color: #94a3b8; }
+        .prog-remain { font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 800; }
+        .prog-remain.ok   { color: #4ade80; }
+        .prog-remain.warn { color: #fbbf24; }
+        .prog-remain.crit { color: #ef4444; }
+
+        .prog-track { height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+        .prog-fill { height: 100%; border-radius: 999px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+        .prog-fill.ok   { background: linear-gradient(90deg, #166534, #4ade80); }
+        .prog-fill.warn { background: linear-gradient(90deg, #92400e, #fbbf24); }
+        .prog-fill.crit { background: linear-gradient(90deg, #7f1d1d, #ef4444); }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 10px 8px;
+            text-align: center;
+        }
+        .stat-num { font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 900; color: #fff; line-height: 1; }
+        .stat-lbl { font-size: 0.55rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-top: 4px; }
+
+        /* ── Log entries inside client card ── */
+        .log-toggle {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            padding: 0;
+            transition: color .2s;
+        }
+        .log-toggle:hover { color: #94a3b8; }
+        .log-entries {
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            display: none;
+        }
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            gap: 10px;
+        }
+        .log-entry:last-child { border-bottom: none; }
+        .log-desc { font-size: 0.78rem; color: #94a3b8; flex: 1; word-break: break-word; }
+        .log-date { font-size: 0.7rem; color: #475569; white-space: nowrap; }
+        .log-hrs { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.85rem; color: var(--primary); white-space: nowrap; }
+        .log-del { background: none; border: none; color: #334155; cursor: pointer; font-size: 0.8rem; padding: 2px 4px; transition: color .2s; }
+        .log-del:hover { color: #ef4444; }
+
+        /* ── Empty state ── */
+        .empty { text-align: center; padding: 40px 20px; color: #334155; font-size: 0.85rem; }
+        .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+        /* ── Overview ── */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .ov-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+        }
+        .ov-num { font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -1px; }
+        .ov-lbl { font-size: 0.62rem; color: #64748b; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; margin-top: 6px; }
+
+        /* ── Alerts ── */
+        .alert-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+        }
+        .alert-item.warn { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); color: #fbbf24; }
+        .alert-item.crit { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
+        .alert-item.ok   { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2); color: #4ade80; }
+
+        /* ── Export ── */
+        .export-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1e293b;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            z-index: 2000;
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ── Modal ── */
+        .modal-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 999;
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-bg.open { display: flex; }
+        .modal {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 28px;
+            width: 100%;
+            max-width: 420px;
+            margin: 16px;
+        }
+        .modal-title { font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 18px; }
+        .modal-body { color: #94a3b8; font-size: 0.85rem; margin: 0; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+        /* ── Inline validation ── */
+        .field-error { font-size: 0.68rem; color: #ef4444; margin-top: 2px; display: none; }
+        .field.invalid input, .field.invalid select { border-color: #ef4444; }
+        .field.invalid .field-error { display: block; }
+
+        @media (max-width: 640px) {
+            .form-row, .form-row.tri { grid-template-columns: 1fr; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .overview-grid { grid-template-columns: repeat(2, 1fr); }
+            .export-row { flex-direction: column; }
+            .client-actions { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="growth-tools">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:8px;">Retainer Hours Tracker</h1>
+            <p style="color:#64748b; font-size:0.93rem;">Budget hours per client, log sessions, never blow a retainer again.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- TABS -->
+            <div class="tab-bar" role="tablist">
+                <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-clients"  onclick="switchTab('clients')">📋 Clients</button>
+                <button class="tab-btn"         role="tab" aria-selected="false" aria-controls="tab-log"     onclick="switchTab('log')">⏱ Log Work</button>
+                <button class="tab-btn"         role="tab" aria-selected="false" aria-controls="tab-overview" onclick="switchTab('overview')">📊 Overview</button>
+            </div>
+
+            <!-- ══ TAB: CLIENTS ══ -->
+            <div class="tab-panel active" id="tab-clients" role="tabpanel">
+
+                <div class="card">
+                    <div class="slabel" id="clientFormLabel">Add Client</div>
+
+                    <div class="form-row tri">
+                        <div class="field" id="f-clientName">
+                            <label for="clientName">Client Name</label>
+                            <input type="text" id="clientName" placeholder="e.g. Acme Corp" maxlength="80" autocomplete="off">
+                            <span class="field-error">Name is required.</span>
+                        </div>
+                        <div class="field" id="f-clientHours">
+                            <label for="clientHours">Monthly Hours</label>
+                            <input type="number" id="clientHours" placeholder="20" min="0.5" max="9999" step="0.5">
+                            <span class="field-error">Enter a positive number.</span>
+                        </div>
+                        <div class="field">
+                            <label for="clientRate">Rate / hr (optional)</label>
+                            <input type="number" id="clientRate" placeholder="75" min="0" max="99999" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="field">
+                            <label for="clientWarn">Warn when below</label>
+                            <select id="clientWarn">
+                                <option value="20">20% remaining</option>
+                                <option value="25" selected>25% remaining</option>
+                                <option value="30">30% remaining</option>
+                                <option value="50">50% remaining</option>
+                            </select>
+                        </div>
+                        <div class="field" id="f-clientReset">
+                            <label for="clientReset">Reset on day of month</label>
+                            <input type="number" id="clientReset" placeholder="1" min="1" max="28" step="1" value="1">
+                            <span class="field-error">Enter a day between 1–28.</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" id="saveClientBtn" onclick="saveClient()">+ Add Client</button>
+                        <button class="btn btn-ghost"   id="cancelEditBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
+                    </div>
+                </div>
+
+                <div class="slabel" style="margin-top:4px;">Your Clients</div>
+                <div class="client-list" id="clientList"></div>
+            </div>
+
+            <!-- ══ TAB: LOG WORK ══ -->
+            <div class="tab-panel" id="tab-log" role="tabpanel">
+                <div class="card">
+                    <div class="slabel">Log a Work Session</div>
+                    <div class="form-row">
+                        <div class="field" id="f-logClient">
+                            <label for="logClient">Client</label>
+                            <select id="logClient">
+                                <option value="">— select client —</option>
+                            </select>
+                            <span class="field-error">Select a client.</span>
+                        </div>
+                        <div class="field" id="f-logDate">
+                            <label for="logDate">Date</label>
+                            <input type="date" id="logDate">
+                            <span class="field-error">Pick a date.</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field" id="f-logHours">
+                            <label for="logHours">Hours Spent</label>
+                            <input type="number" id="logHours" placeholder="1.5" min="0.1" max="24" step="0.1">
+                            <span class="field-error">Enter hours between 0.1–24.</span>
+                        </div>
+                        <div class="field">
+                            <label for="logDesc">Task / Description</label>
+                            <input type="text" id="logDesc" placeholder="e.g. Strategy call + deck" maxlength="200" autocomplete="off">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="logWorkBtn" onclick="logWork()">Log Hours →</button>
+                </div>
+
+                <div class="slabel" style="margin-top:4px;">Recent Sessions</div>
+                <div class="card" id="recentLogList">
+                    <div class="empty"><div class="empty-icon">📭</div>No sessions logged yet.</div>
+                </div>
+            </div>
+
+            <!-- ══ TAB: OVERVIEW ══ -->
+            <div class="tab-panel" id="tab-overview" role="tabpanel">
+                <div class="overview-grid">
+                    <div class="ov-box"><div class="ov-num" id="ovClients">0</div><div class="ov-lbl">Active Clients</div></div>
+                    <div class="ov-box"><div class="ov-num" id="ovBudget">0h</div><div class="ov-lbl">Total Budget</div></div>
+                    <div class="ov-box"><div class="ov-num" id="ovUsed">0h</div><div class="ov-lbl">Hours Used</div></div>
+                    <div class="ov-box"><div class="ov-num" id="ovRemain">0h</div><div class="ov-lbl">Hours Left</div></div>
+                    <div class="ov-box"><div class="ov-num" id="ovRevenue">—</div><div class="ov-lbl">Revenue Tracked</div></div>
+                    <div class="ov-box"><div class="ov-num" id="ovBurn">—</div><div class="ov-lbl">Avg Daily Burn</div></div>
+                </div>
+
+                <div id="alertList" class="alert-list"></div>
+
+                <div class="slabel">Export Data</div>
+                <div class="card">
+                    <div class="export-row">
+                        <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+                        <button class="btn btn-ghost" onclick="exportText()">📋 Copy as Text</button>
+                        <button class="btn btn-danger btn-sm" onclick="openResetModal()">Reset All Data</button>
+                    </div>
+                    <p style="font-size:0.73rem;color:#334155;margin-top:12px;margin-bottom:0;">
+                        All data is stored in your browser only — nothing is sent anywhere.
+                    </p>
+                </div>
+            </div>
+
+        </div><!-- /.tool-wrap -->
+    </div><!-- /.container -->
+
+    <!-- RESET CONFIRM MODAL -->
+    <div class="modal-bg" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetTitle" onclick="handleModalBgClick(event)">
+        <div class="modal">
+            <div class="modal-title" id="resetTitle">⚠️ Reset all data?</div>
+            <p class="modal-body">This will permanently delete all clients and logged sessions. There is no undo.</p>
+            <div class="modal-actions">
+                <button class="btn btn-danger" style="flex:1" onclick="doReset()">Yes, delete everything</button>
+                <button class="btn btn-ghost"  style="flex:1" onclick="closeResetModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast" aria-live="polite"></div>
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       RETAINER HOURS TRACKER — v2 (bulletproof rewrite)
+       Fixes applied vs v1:
+         1. Status logic bug (warn threshold was inverted)
+         2. XSS: all user strings sanitised before innerHTML injection
+         3. Timezone-safe date comparison (local YYYY-MM-DD strings only)
+         4. Consistent form reset including clientWarn
+         5. Log tab dropdown always fresh on switchTab
+         6. Log entries in client card now show current-cycle sessions only,
+            matching the session count label
+         7. Log deletion preserves open/closed state of other cards
+         8. navigator.clipboard fallback for non-HTTPS environments
+         9. resetDay server-side clamped to 1–28 on save
+        10. Stronger uid using crypto.randomUUID when available
+        11. Modal closes on backdrop click
+        12. logDate defaults to today at render time (not just init)
+        13. Inline field validation with descriptive error messages
+        14. Removed textarea (unused in original)
+    ═══════════════════════════════════════════════════════════════ */
+
+    // ── Storage ────────────────────────────────────────────────────
+    const STORE_KEY = 'Rebrixe_retainer_v2';
+
+    /** @type {{ clients: Client[], logs: Log[] }} */
+    let state = { clients: [], logs: [] };
+
+    function loadState() {
+        try {
+            const raw = localStorage.getItem(STORE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                // Validate shape so corrupt storage doesn't crash us
+                if (Array.isArray(parsed.clients) && Array.isArray(parsed.logs)) {
+                    state = parsed;
+                }
+            }
+        } catch (_) { /* start fresh if storage is corrupt */ }
+    }
+
+    function saveState() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+
+    /** Cryptographically stronger uid; falls back to timestamp+random */
+    function uid() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+    }
+
+    /** Returns today as 'YYYY-MM-DD' in LOCAL time */
+    function todayLocal() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    /** Format hours as "4h" or "4.5h" */
+    function fmtH(h) {
+        const n = parseFloat(h) || 0;
+        return n % 1 === 0 ? n + 'h' : n.toFixed(1) + 'h';
+    }
+
+    /** Safely escape HTML to prevent XSS */
+    function esc(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Return the start date of the CURRENT billing cycle for a client,
+     * as a 'YYYY-MM-DD' string. Comparison is string-based (safe across timezones).
+     */
+    function cycleStartStr(client) {
+        const resetDay = Math.min(28, Math.max(1, parseInt(client.resetDay) || 1));
+        const now = new Date();
+        const todayDay = now.getDate();
+        const todayMonth = now.getMonth();
+        const todayYear = now.getFullYear();
+
+        let year, month;
+        if (todayDay >= resetDay) {
+            year = todayYear;
+            month = todayMonth;
+        } else {
+            // Cycle started last month
+            if (todayMonth === 0) { year = todayYear - 1; month = 11; }
+            else { year = todayYear; month = todayMonth - 1; }
+        }
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(resetDay).padStart(2, '0')}`;
+    }
+
+    /** Hours used for a client in the current billing cycle */
+    function hoursUsed(clientId) {
+        const client = state.clients.find(c => c.id === clientId);
+        if (!client) return 0;
+        const start = cycleStartStr(client);
+        return state.logs
+            .filter(l => l.clientId === clientId && l.date >= start)
+            .reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
+    }
+
+    /** All logs for a client in current cycle, newest first */
+    function cycleLogsForClient(clientId) {
+        const client = state.clients.find(c => c.id === clientId);
+        if (!client) return [];
+        const start = cycleStartStr(client);
+        return state.logs
+            .filter(l => l.clientId === clientId && l.date >= start)
+            .sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    /**
+     * Compute status for a client given remaining percentage.
+     * c.warn = "warn me when below X%"
+     * 'crit' ≤ 10%, 'warn' ≤ c.warn%, else 'ok'
+     */
+    function statusFor(remPct, warnThreshold) {
+        if (remPct <= 10) return 'crit';
+        if (remPct <= warnThreshold) return 'warn';
+        return 'ok';
+    }
+
+    // ── Toast notification ─────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    }
+
+    // ── Validation helpers ─────────────────────────────────────────
+    function setFieldValid(fieldId, valid) {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        el.classList.toggle('invalid', !valid);
+    }
+
+    function validateClientForm() {
+        const name  = document.getElementById('clientName').value.trim();
+        const hours = parseFloat(document.getElementById('clientHours').value);
+        const reset = parseInt(document.getElementById('clientReset').value);
+
+        let ok = true;
+        setFieldValid('f-clientName',  name.length > 0);
+        setFieldValid('f-clientHours', !isNaN(hours) && hours > 0);
+        setFieldValid('f-clientReset', !isNaN(reset) && reset >= 1 && reset <= 28);
+
+        if (!name)                          ok = false;
+        if (isNaN(hours) || hours <= 0)    ok = false;
+        if (isNaN(reset) || reset < 1 || reset > 28) ok = false;
+        return ok;
+    }
+
+    function validateLogForm() {
+        const clientId = document.getElementById('logClient').value;
+        const date     = document.getElementById('logDate').value;
+        const hours    = parseFloat(document.getElementById('logHours').value);
+
+        let ok = true;
+        setFieldValid('f-logClient', !!clientId);
+        setFieldValid('f-logDate',   !!date);
+        setFieldValid('f-logHours',  !isNaN(hours) && hours > 0 && hours <= 24);
+
+        if (!clientId)                           ok = false;
+        if (!date)                               ok = false;
+        if (isNaN(hours) || hours <= 0 || hours > 24) ok = false;
+        return ok;
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────
+    function switchTab(name) {
+        const names = ['clients', 'log', 'overview'];
+        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+            const active = names[i] === name;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', String(active));
+        });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+
+        if (name === 'log') {
+            refreshLogClientDropdown();
+            // Always show today's date, not stale init value
+            document.getElementById('logDate').value = todayLocal();
+            renderRecentLogs();
+        }
+        if (name === 'overview') renderOverview();
+    }
+
+    // ── Client CRUD ────────────────────────────────────────────────
+    let editingId = null;
+
+    function saveClient() {
+        if (!validateClientForm()) return;
+
+        const name  = document.getElementById('clientName').value.trim();
+        const hours = parseFloat(document.getElementById('clientHours').value);
+        const rate  = parseFloat(document.getElementById('clientRate').value);
+        const warn  = parseInt(document.getElementById('clientWarn').value);
+        const reset = Math.min(28, Math.max(1, parseInt(document.getElementById('clientReset').value) || 1));
+
+        const clientData = {
+            name,
+            hours,
+            rate: isNaN(rate) || rate < 0 ? 0 : rate,
+            warn: isNaN(warn) ? 25 : warn,
+            resetDay: reset
+        };
+
+        if (editingId) {
+            const idx = state.clients.findIndex(c => c.id === editingId);
+            if (idx !== -1) state.clients[idx] = { ...state.clients[idx], ...clientData };
+            editingId = null;
+            showToast('✓ Client updated');
+        } else {
+            // Check for duplicate name (case-insensitive)
+            const dupe = state.clients.some(c => c.name.toLowerCase() === name.toLowerCase());
+            if (dupe) {
+                setFieldValid('f-clientName', false);
+                document.querySelector('#f-clientName .field-error').textContent = 'A client with this name already exists.';
+                return;
+            }
+            state.clients.push({ id: uid(), ...clientData });
+            showToast('✓ Client added');
+        }
+
+        saveState();
+        resetClientForm();
+        renderClients();
+    }
+
+    function editClient(id) {
+        const c = state.clients.find(c => c.id === id);
+        if (!c) return;
+        editingId = id;
+        document.getElementById('clientName').value  = c.name;
+        document.getElementById('clientHours').value = c.hours;
+        document.getElementById('clientRate').value  = c.rate || '';
+        document.getElementById('clientWarn').value  = c.warn;
+        document.getElementById('clientReset').value = c.resetDay;
+        document.getElementById('clientFormLabel').textContent = 'Edit Client';
+        document.getElementById('saveClientBtn').textContent   = '✓ Save Changes';
+        document.getElementById('cancelEditBtn').style.display = '';
+        // Clear any prior validation states
+        ['f-clientName','f-clientHours','f-clientReset'].forEach(id => setFieldValid(id, true));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('clientName').focus();
+    }
+
+    function cancelEdit() {
+        editingId = null;
+        resetClientForm();
+    }
+
+    function deleteClient(id) {
+        if (!confirm('Delete this client and all their logged sessions? This cannot be undone.')) return;
+        state.clients = state.clients.filter(c => c.id !== id);
+        state.logs    = state.logs.filter(l => l.clientId !== id);
+        saveState();
+        renderClients();
+        showToast('Client deleted');
+    }
+
+    function resetClientForm() {
+        document.getElementById('clientName').value  = '';
+        document.getElementById('clientHours').value = '';
+        document.getElementById('clientRate').value  = '';
+        document.getElementById('clientWarn').value  = '25';
+        document.getElementById('clientReset').value = '1';
+        document.getElementById('clientFormLabel').textContent = 'Add Client';
+        document.getElementById('saveClientBtn').textContent   = '+ Add Client';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        ['f-clientName','f-clientHours','f-clientReset'].forEach(id => setFieldValid(id, true));
+    }
+
+    // ── Render clients ─────────────────────────────────────────────
+
+    /** Track which cards have their log section open */
+    const openLogs = new Set();
+
+    function renderClients() {
+        const list = document.getElementById('clientList');
+
+        if (!state.clients.length) {
+            list.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Add your first client above to get started.</div>';
+            return;
+        }
+
+        list.innerHTML = state.clients.map(c => buildClientCard(c)).join('');
+
+        // Restore open state of log sections
+        openLogs.forEach(id => {
+            const el = document.getElementById('le-' + id);
+            const arrow = document.getElementById('lt-' + id);
+            if (el && arrow) { el.style.display = 'block'; arrow.textContent = '▼'; }
+        });
+    }
+
+    function buildClientCard(c) {
+        const used    = hoursUsed(c.id);
+        const total   = parseFloat(c.hours);
+        const remain  = Math.max(0, total - used);
+        const usedPct = Math.min(100, total > 0 ? (used / total) * 100 : 0);
+        const remPct  = Math.max(0, 100 - usedPct);
+        const status  = statusFor(remPct, c.warn);
+        const rev     = c.rate > 0 ? `$${(used * c.rate).toFixed(0)}` : '—';
+
+        const logs = cycleLogsForClient(c.id);
+        const logRowsHTML = logs.length
+            ? logs.slice(0, 50).map(l => `
+                <div class="log-entry">
+                    <span class="log-date">${esc(l.date)}</span>
+                    <span class="log-desc">${esc(l.desc || '—')}</span>
+                    <span class="log-hrs">−${fmtH(l.hours)}</span>
+                    <button class="log-del" onclick="deleteLog('${esc(l.id)}','${esc(c.id)}')" aria-label="Delete session" title="Delete">✕</button>
+                </div>`).join('')
+            : '<div style="font-size:.78rem;color:#334155;padding:6px 0;">No sessions this cycle.</div>';
+
+        return `
+        <div class="client-card ${status}" id="cc-${esc(c.id)}">
+            <div class="client-top">
+                <div>
+                    <div class="client-name">${esc(c.name)}</div>
+                    <div class="client-meta">${esc(String(total))}h budget · resets day ${esc(String(c.resetDay))}${c.rate > 0 ? ` · $${esc(String(c.rate))}/hr` : ''}</div>
+                </div>
+                <div class="client-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="editClient('${esc(c.id)}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteClient('${esc(c.id)}')">✕</button>
+                </div>
+            </div>
+
+            <div class="prog-wrap">
+                <div class="prog-labels">
+                    <span class="prog-used">${fmtH(used)} used of ${fmtH(total)}</span>
+                    <span class="prog-remain ${status}">${fmtH(remain)} left (${remPct.toFixed(0)}%)</span>
+                </div>
+                <div class="prog-track">
+                    <div class="prog-fill ${status}" style="width:${usedPct.toFixed(2)}%"></div>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box"><div class="stat-num">${fmtH(used)}</div><div class="stat-lbl">Used</div></div>
+                <div class="stat-box"><div class="stat-num">${fmtH(remain)}</div><div class="stat-lbl">Remaining</div></div>
+                <div class="stat-box"><div class="stat-num">${logs.length}</div><div class="stat-lbl">Sessions</div></div>
+                <div class="stat-box"><div class="stat-num">${rev}</div><div class="stat-lbl">Revenue</div></div>
+            </div>
+
+            <button class="log-toggle" onclick="toggleLog('${esc(c.id)}')" aria-expanded="false" id="lt-btn-${esc(c.id)}">
+                <span id="lt-${esc(c.id)}">▶</span>
+                ${logs.length} session${logs.length !== 1 ? 's' : ''} this cycle
+            </button>
+            <div class="log-entries" id="le-${esc(c.id)}" aria-hidden="true">${logRowsHTML}</div>
+        </div>`;
+    }
+
+    function toggleLog(id) {
+        const el    = document.getElementById('le-' + id);
+        const arrow = document.getElementById('lt-' + id);
+        const btn   = document.getElementById('lt-btn-' + id);
+        if (!el) return;
+        const isOpen = el.style.display === 'block';
+        el.style.display = isOpen ? 'none' : 'block';
+        el.setAttribute('aria-hidden', String(isOpen));
+        arrow.textContent = isOpen ? '▶' : '▼';
+        btn.setAttribute('aria-expanded', String(!isOpen));
+        if (isOpen) openLogs.delete(id); else openLogs.add(id);
+    }
+
+    // ── Log work ───────────────────────────────────────────────────
+
+    function refreshLogClientDropdown() {
+        const sel = document.getElementById('logClient');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">— select client —</option>' +
+            state.clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+        // Restore previous selection if still valid
+        if (cur && state.clients.some(c => c.id === cur)) sel.value = cur;
+    }
+
+    function logWork() {
+        if (!validateLogForm()) return;
+
+        const clientId = document.getElementById('logClient').value;
+        const date     = document.getElementById('logDate').value;
+        const hours    = parseFloat(document.getElementById('logHours').value);
+        const desc     = document.getElementById('logDesc').value.trim();
+
+        state.logs.push({ id: uid(), clientId, date, hours, desc });
+        saveState();
+
+        // Clear only hour/desc fields; keep client & date for rapid multi-logging
+        document.getElementById('logHours').value = '';
+        document.getElementById('logDesc').value  = '';
+        // Clear validation states
+        ['f-logClient','f-logDate','f-logHours'].forEach(id => setFieldValid(id, true));
+
+        renderRecentLogs();
+        renderClients();          // keep client cards live
+
+        const btn = document.getElementById('logWorkBtn');
+        const orig = btn.textContent;
+        btn.textContent = '✓ Logged!';
+        btn.disabled = true;
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+    }
+
+    function renderRecentLogs() {
+        const el = document.getElementById('recentLogList');
+        const recent = [...state.logs]
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .slice(0, 30);
+
+        if (!recent.length) {
+            el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No sessions logged yet.</div>';
+            return;
+        }
+
+        el.innerHTML = recent.map(l => {
+            const c = state.clients.find(c => c.id === l.clientId);
+            return `<div class="log-entry">
+                <span class="log-date">${esc(l.date)}</span>
+                <span class="log-desc" style="color:#cbd5e1;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c ? c.name : '?')}">${esc(c ? c.name : '?')}</span>
+                <span class="log-desc">${esc(l.desc || '—')}</span>
+                <span class="log-hrs">${fmtH(l.hours)}</span>
+                <button class="log-del" onclick="deleteLog('${esc(l.id)}', null)" aria-label="Delete session" title="Delete">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    function deleteLog(logId, clientId) {
+        state.logs = state.logs.filter(l => l.id !== logId);
+        saveState();
+        renderRecentLogs();
+        renderClients();            // openLogs Set preserves open state automatically
+    }
+
+    // ── Overview ───────────────────────────────────────────────────
+    function renderOverview() {
+        const totalBudget = state.clients.reduce((s, c) => s + parseFloat(c.hours), 0);
+        const totalUsed   = state.clients.reduce((s, c) => s + hoursUsed(c.id), 0);
+        const totalRemain = Math.max(0, totalBudget - totalUsed);
+        const totalRev    = state.clients
+            .filter(c => c.rate > 0)
+            .reduce((s, c) => s + hoursUsed(c.id) * c.rate, 0);
+
+        // Avg daily burn: sum of all logs in the current calendar month / days elapsed
+        const now = new Date();
+        const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const daysElapsed = now.getDate();
+        const monthUsed = state.logs
+            .filter(l => l.date >= monthStartStr)
+            .reduce((s, l) => s + (parseFloat(l.hours) || 0), 0);
+        const avgBurn = daysElapsed > 0 ? (monthUsed / daysElapsed).toFixed(1) + 'h/d' : '—';
+
+        document.getElementById('ovClients').textContent = state.clients.length;
+        document.getElementById('ovBudget').textContent  = fmtH(totalBudget);
+        document.getElementById('ovUsed').textContent    = fmtH(totalUsed);
+        document.getElementById('ovRemain').textContent  = fmtH(totalRemain);
+        document.getElementById('ovRevenue').textContent = totalRev > 0 ? `$${totalRev.toFixed(0)}` : '—';
+        document.getElementById('ovBurn').textContent    = avgBurn;
+
+        // Alerts
+        const alerts = [];
+        state.clients.forEach(c => {
+            const used   = hoursUsed(c.id);
+            const total  = parseFloat(c.hours);
+            if (total <= 0) return;
+            const remPct = Math.max(0, ((total - used) / total) * 100);
+            const status = statusFor(remPct, c.warn);
+            if (status === 'crit') {
+                alerts.push({ type: 'crit', msg: `<strong>${esc(c.name)}</strong> has only ${fmtH(Math.max(0, total - used))} left (${remPct.toFixed(0)}% remaining) — near the limit!` });
+            } else if (status === 'warn') {
+                alerts.push({ type: 'warn', msg: `<strong>${esc(c.name)}</strong> is below your ${c.warn}% warning threshold — ${fmtH(Math.max(0, total - used))} remaining.` });
+            }
+        });
+
+        const alertEl = document.getElementById('alertList');
+        alertEl.innerHTML = alerts.length
+            ? alerts.map(a => `<div class="alert-item ${a.type}">${a.type === 'crit' ? '🔴' : '⚠️'} ${a.msg}</div>`).join('')
+            : '<div class="alert-item ok">✅ All retainers are healthy this cycle.</div>';
+    }
+
+    // ── Export ─────────────────────────────────────────────────────
+    function exportCSV() {
+        if (!state.clients.length) { showToast('No data to export.'); return; }
+        const rows = ['Client,Date,Hours,Description,Revenue'];
+        state.logs.forEach(l => {
+            const c = state.clients.find(c => c.id === l.clientId);
+            const rev = c && c.rate > 0 ? (parseFloat(l.hours) * c.rate).toFixed(2) : '';
+            const name = c ? c.name : '';
+            // Escape CSV fields
+            const csvField = v => `"${String(v).replace(/"/g, '""')}"`;
+            rows.push([csvField(name), csvField(l.date), csvField(l.hours), csvField(l.desc || ''), csvField(rev)].join(','));
+        });
+        const blob = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `retainer-hours-${todayLocal()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    }
+
+    function exportText() {
+        if (!state.clients.length) { showToast('No data to export.'); return; }
+        const lines = ['RETAINER HOURS REPORT — ' + new Date().toLocaleDateString(), ''];
+        state.clients.forEach(c => {
+            const used  = hoursUsed(c.id);
+            const total = parseFloat(c.hours);
+            lines.push(`${c.name}: ${fmtH(used)} used / ${fmtH(total)} budget (${fmtH(Math.max(0, total - used))} remaining)`);
+            cycleLogsForClient(c.id).forEach(l => {
+                lines.push(`  ${l.date}  ${fmtH(l.hours)}  ${l.desc || '—'}`);
+            });
+            lines.push('');
+        });
+        const text = lines.join('\n');
+
+        // Robust clipboard: try modern API, fall back to execCommand
+        const copyFallback = () => {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('✓ Copied to clipboard');
+            } catch (_) { showToast('Copy failed — try CTRL+C'); }
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => showToast('✓ Copied to clipboard')).catch(copyFallback);
+        } else {
+            copyFallback();
+        }
+    }
+
+    // ── Reset modal ────────────────────────────────────────────────
+    function openResetModal()  { document.getElementById('resetModal').classList.add('open'); }
+    function closeResetModal() { document.getElementById('resetModal').classList.remove('open'); }
+    function handleModalBgClick(e) { if (e.target === e.currentTarget) closeResetModal(); }
+
+    function doReset() {
+        state = { clients: [], logs: [] };
+        openLogs.clear();
+        saveState();
+        closeResetModal();
+        renderClients();
+        renderOverview();
+        showToast('All data cleared');
+    }
+
+    // ── Init ───────────────────────────────────────────────────────
+    loadState();
+    document.getElementById('logDate').value = todayLocal();
+    refreshLogClientDropdown();
+    renderClients();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

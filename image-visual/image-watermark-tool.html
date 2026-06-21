@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Watermark Tool — Add Logo or Text Watermark to Photos | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add logo or text watermarks to images instantly. Control position, size, opacity, rotation. Batch watermark multiple images at once. Free, browser-only, no upload.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Mode toggle */
+        .mode-switch { display: flex; gap: 8px; justify-content: center; margin-bottom: 28px; }
+        .mode-btn {
+            padding: 9px 22px; border-radius: 99px; border: 1px solid var(--border-mid);
+            background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.18s;
+        }
+        .mode-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Drop zones row */
+        .drops-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+        .drops-row.single { grid-template-columns: 1fr; }
+
+        .drop-zone {
+            position: relative; border-radius: 18px; padding: 36px 22px 32px;
+            text-align: center; cursor: pointer; overflow: hidden;
+            background: var(--card); transition: transform 0.22s, box-shadow 0.22s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 18px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.5), rgba(255,183,0,0.12) 40%, rgba(255,255,255,0.04) 60%, rgba(255,214,0,0.35));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 12px; border: 1px dashed rgba(255,214,0,0.1); pointer-events: none; transition: border-color 0.22s; }
+        .drop-zone:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(255,214,0,0.09); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.24); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-3px); box-shadow: 0 18px 52px rgba(255,214,0,0.18), 0 0 0 2px rgba(255,214,0,0.14); }
+        .drop-zone.loaded { cursor: default; }
+        .drop-icon { font-size: 2.2rem; margin-bottom: 10px; display: block; position: relative; }
+        .drop-title { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 4px; position: relative; }
+        .drop-sub { font-size: 0.75rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; }
+
+        /* Loaded state thumbnail */
+        .dz-thumb-wrap { position: relative; display: none; }
+        .dz-thumb { width: 100%; max-height: 130px; object-fit: contain; border-radius: 8px; margin-bottom: 8px; }
+        .dz-fname { font-size: 0.72rem; font-weight: 600; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dz-change { font-size: 0.65rem; color: var(--text-dim); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; margin-top: 4px; display: inline-block; }
+        .dz-empty { display: block; }
+
+        /* Batch list */
+        .batch-list { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 20px; overflow: hidden; display: none; }
+        .batch-list.visible { display: block; }
+        .batch-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+        .batch-header-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .batch-count { font-size: 0.72rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .batch-items { max-height: 160px; overflow-y: auto; }
+        .batch-item { display: flex; align-items: center; gap: 10px; padding: 8px 18px; border-bottom: 1px solid var(--border); }
+        .batch-item:last-child { border-bottom: none; }
+        .bi-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+        .bi-name { font-size: 0.74rem; color: var(--text-sec); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bi-dims { font-size: 0.65rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .bi-remove { font-size: 0.7rem; color: var(--text-dim); cursor: pointer; padding: 4px 7px; border-radius: 5px; transition: all 0.15s; background: none; border: none; font-family: 'Outfit', sans-serif; }
+        .bi-remove:hover { color: var(--error); background: rgba(255,68,68,0.08); }
+
+        /* Controls panel */
+        .controls-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 12px; }
+
+        /* Position grid */
+        .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 200px; }
+        .pos-btn {
+            aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+            cursor: pointer; font-size: 0.7rem; color: var(--text-dim); transition: all 0.16s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .pos-btn:hover { border-color: var(--primary-border); color: var(--text-sec); }
+        .pos-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Sliders */
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+        .slider-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .slider-group label span { color: var(--primary); font-family: 'Fira Code', monospace; font-size: 0.72rem; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border-mid); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.35); }
+
+        /* Text watermark fields */
+        .text-wm-fields { display: none; }
+        .text-wm-fields.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+        .field-group { display: flex; flex-direction: column; gap: 6px; }
+        .field-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.88rem; padding: 9px 13px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .px-input:focus { border-color: var(--primary); }
+        .color-row { display: flex; align-items: center; gap: 10px; }
+        .color-swatch { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-mid); cursor: pointer; padding: 0; background: none; overflow: hidden; flex-shrink: 0; }
+        .color-swatch input[type="color"] { width: 150%; height: 150%; margin: -25%; border: none; cursor: pointer; background: none; }
+
+        /* Toggle row */
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Tile option */
+        .tile-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 7px; }
+
+        /* Preview */
+        .preview-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .preview-wrap.visible { display: block; }
+        .preview-canvas-box {
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center;
+            min-height: 180px; max-height: 380px; border: 1px solid var(--border-mid); margin-bottom: 14px;
+        }
+        .preview-canvas-box canvas { max-width: 100%; max-height: 380px; display: block; }
+        .preview-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+        .pstat { display: flex; flex-direction: column; gap: 3px; }
+        .pstat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .pstat-val { font-size: 0.82rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.32); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled .btn-main-inner { background: #333; color: #666; }
+        .btn-main:disabled { cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+        .batch-dl-note { font-size: 0.72rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+        .batch-dl-note::before { content: '💡'; }
+
+        /* Progress */
+        .progress-bar-wrap { background: var(--surface); border-radius: 99px; height: 6px; overflow: hidden; margin: 12px 0; display: none; }
+        .progress-bar-wrap.visible { display: block; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; width: 0%; transition: width 0.3s; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.79rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.76rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 11px 20px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .drops-row { grid-template-columns: 1fr; }
+            .sliders-grid { grid-template-columns: 1fr; }
+            .text-wm-fields.visible { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="text-watermark-overlay.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Watermark Tool</h1>
+                <p class="tool-page-sub">Add logo or text watermark — control position, size, opacity & rotation. Batch process multiple images at once.</p>
+                <span class="privacy-badge">Processed in your browser — images never leave your device</span>
+            </div>
+
+            <!-- Watermark type toggle -->
+            <div class="mode-switch">
+                <button class="mode-btn active" id="modeLogoBtn" onclick="setWmType('logo')">🖼️ Logo Watermark</button>
+                <button class="mode-btn" id="modeTextBtn" onclick="setWmType('text')">✏️ Text Watermark</button>
+            </div>
+
+            <!-- Drop zones -->
+            <div class="drops-row" id="dropsRow">
+                <!-- Base images drop -->
+                <div class="drop-zone" id="dzImages">
+                    <input type="file" id="fileImages" accept="image/*" multiple style="display:none">
+                    <div class="dz-empty" id="dzImagesEmpty">
+                        <span class="drop-icon">🖼️</span>
+                        <p class="drop-title">Drop image(s) here</p>
+                        <p class="drop-sub">or <span onclick="document.getElementById('fileImages').click()">browse files</span></p>
+                        <p class="drop-sub" style="margin-top:4px; font-size:0.68rem;">Supports multiple images for batch</p>
+                    </div>
+                    <div class="dz-thumb-wrap" id="dzImagesThumb">
+                        <img class="dz-thumb" id="imgThumbMain" src="" alt="">
+                        <div class="dz-fname" id="imgFname">—</div>
+                        <span class="dz-change" onclick="clearImages()">↩ Change images</span>
+                    </div>
+                </div>
+
+                <!-- Logo drop -->
+                <div class="drop-zone" id="dzLogo">
+                    <input type="file" id="fileLogo" accept="image/*" style="display:none">
+                    <div class="dz-empty" id="dzLogoEmpty">
+                        <span class="drop-icon">💎</span>
+                        <p class="drop-title">Drop your logo here</p>
+                        <p class="drop-sub">or <span onclick="document.getElementById('fileLogo').click()">browse</span></p>
+                        <p class="drop-sub" style="margin-top:4px; font-size:0.68rem;">PNG with transparency recommended</p>
+                    </div>
+                    <div class="dz-thumb-wrap" id="dzLogoThumb">
+                        <img class="dz-thumb" id="logoThumb" src="" alt="">
+                        <div class="dz-fname" id="logoFname">—</div>
+                        <span class="dz-change" onclick="clearLogo()">↩ Change logo</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch list -->
+            <div class="batch-list" id="batchList">
+                <div class="batch-header">
+                    <span class="batch-header-label">Batch Queue</span>
+                    <span class="batch-count" id="batchCount">0 images</span>
+                </div>
+                <div class="batch-items" id="batchItems"></div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-panel">
+                <!-- Position -->
+                <div class="section-label">Watermark Position</div>
+                <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+                    <div class="pos-grid" id="posGrid">
+                        <button class="pos-btn" data-pos="top-left"     onclick="setPos(this)">↖</button>
+                        <button class="pos-btn" data-pos="top-center"   onclick="setPos(this)">↑</button>
+                        <button class="pos-btn" data-pos="top-right"    onclick="setPos(this)">↗</button>
+                        <button class="pos-btn" data-pos="mid-left"     onclick="setPos(this)">←</button>
+                        <button class="pos-btn" data-pos="center"       onclick="setPos(this)">✛</button>
+                        <button class="pos-btn" data-pos="mid-right"    onclick="setPos(this)">→</button>
+                        <button class="pos-btn" data-pos="bot-left"     onclick="setPos(this)">↙</button>
+                        <button class="pos-btn" data-pos="bot-center"   onclick="setPos(this)">↓</button>
+                        <button class="pos-btn active" data-pos="bot-right" onclick="setPos(this)">↘</button>
+                    </div>
+                    <div style="flex:1; min-width:160px;">
+                        <div class="section-label" style="margin-bottom:8px;">Tile / Repeat</div>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-tile="0" onclick="setTile(this)">Single</button>
+                            <button class="tog-btn" data-tile="1" onclick="setTile(this)">Tiled</button>
+                        </div>
+                        <p class="tile-note" id="tileNote"></p>
+                    </div>
+                </div>
+
+                <!-- Sliders -->
+                <div class="sliders-grid">
+                    <div class="slider-group">
+                        <label>Opacity <span id="opacityVal">70%</span></label>
+                        <input type="range" class="ctrl-slider" id="opacitySlider" min="5" max="100" value="70" oninput="updateSlider('opacity',this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Size <span id="sizeVal">25%</span></label>
+                        <input type="range" class="ctrl-slider" id="sizeSlider" min="3" max="80" value="25" oninput="updateSlider('size',this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Rotation <span id="rotVal">0°</span></label>
+                        <input type="range" class="ctrl-slider" id="rotSlider" min="-180" max="180" value="0" oninput="updateSlider('rot',this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Margin / Padding <span id="marginVal">20px</span></label>
+                        <input type="range" class="ctrl-slider" id="marginSlider" min="0" max="120" value="20" oninput="updateSlider('margin',this.value)">
+                    </div>
+                </div>
+
+                <!-- Text watermark specific fields -->
+                <div class="text-wm-fields" id="textWmFields">
+                    <div class="field-group" style="grid-column:1/-1;">
+                        <label>Watermark Text</label>
+                        <input class="px-input" type="text" id="wmText" placeholder="© YourBrand 2025" value="© YourBrand">
+                    </div>
+                    <div class="field-group">
+                        <label>Font Size</label>
+                        <input class="px-input" type="number" id="wmFontSize" value="36" min="8" max="300">
+                    </div>
+                    <div class="field-group">
+                        <label>Font Style</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-weight="normal" onclick="setFontWeight(this)">Regular</button>
+                            <button class="tog-btn" data-weight="bold" onclick="setFontWeight(this)">Bold</button>
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>Text Color</label>
+                        <div class="color-row">
+                            <div class="color-swatch"><input type="color" id="wmColor" value="#ffffff"></div>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-tc="#ffffff" onclick="setTextColor(this,'#ffffff')">White</button>
+                                <button class="tog-btn" data-tc="#000000" onclick="setTextColor(this,'#000000')">Black</button>
+                                <button class="tog-btn" data-tc="#FFD600" onclick="setTextColor(this,'#FFD600')">Gold</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>Shadow</label>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-shadow="1" onclick="setShadow(this)">On</button>
+                            <button class="tog-btn" data-shadow="0" onclick="setShadow(this)">Off</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output format -->
+                <div style="margin-top:18px; padding-top:18px; border-top:1px solid var(--border);">
+                    <div class="section-label" style="margin-bottom:8px;">Output Format</div>
+                    <div class="toggle-row">
+                        <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview canvas -->
+            <div class="preview-wrap" id="previewWrap">
+                <div class="section-label" style="margin-bottom:14px;">Live Preview</div>
+                <div class="preview-canvas-box">
+                    <canvas id="previewCanvas"></canvas>
+                </div>
+                <div class="preview-stats">
+                    <div class="pstat"><span class="pstat-label">Dimensions</span><span class="pstat-val" id="pDims">—</span></div>
+                    <div class="pstat"><span class="pstat-label">Format</span><span class="pstat-val" id="pFmt">—</span></div>
+                    <div class="pstat"><span class="pstat-label">Images</span><span class="pstat-val" id="pCount">—</span></div>
+                    <div class="pstat"><span class="pstat-label">WM Type</span><span class="pstat-val" id="pWmType">—</span></div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="action-row">
+                <button class="btn-main" id="btnApply" onclick="applyWatermark()">
+                    <div class="btn-main-inner">
+                        <span style="font-size:1.1rem;">💧</span>
+                        <span style="font-weight:800; font-size:0.92rem;" id="applyBtnLabel">Apply Watermark</span>
+                    </div>
+                </button>
+                <button class="btn-secondary" id="btnDownload" onclick="downloadResult()" style="display:none;">⬇ Download</button>
+            </div>
+            <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+            <p class="batch-dl-note" id="batchNote" style="display:none;">Batch mode: all images will be downloaded as individual files with <code>_wm</code> suffix.</p>
+
+        </div><!-- /container -->
+
+        <!-- FAQ -->
+        <div class="container" style="padding-top:0;">
+            <article class="faq-section">
+                <h2 class="faq-heading">Why photographers & sellers love this</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Batch watermarking</h3>
+                        <p>Drop 50 product photos at once. One click applies your logo or text to every image and downloads them individually — saves hours every week.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>PNG logo transparency</h3>
+                        <p>Upload a <code>.png</code> logo with a transparent background and it composites cleanly over any image — no white box, no messy edges.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Text with shadow</h3>
+                        <p>Text watermarks include an optional drop shadow so they stay readable on both light and dark images — no more invisible white text.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Tiled / repeating</h3>
+                        <p>Enable <code>Tiled</code> mode to cover the entire image with a repeating watermark grid — makes it much harder to crop out or remove.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs in your browser via <code>Canvas API</code>. No server, no upload, no account. Watermark confidential work without any risk.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Full control</h3>
+                        <p>9-point position grid, custom size %, opacity, rotation, and padding margin. Dial it in exactly how you need it — not just a one-size preset.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    const state = {
+        images: [],          // [{file, dataURL, img, name}]
+        logoFile: null, logoDataURL: null, logoImg: null,
+        wmType: 'logo',      // 'logo' | 'text'
+        position: 'bot-right',
+        tiled: false,
+        opacity: 0.70,
+        size: 0.25,          // fraction of base image's shorter side
+        rotation: 0,
+        margin: 20,
+        textStr: '© YourBrand',
+        fontSize: 36,
+        fontWeight: 'normal',
+        textColor: '#ffffff',
+        textShadow: true,
+        outputFmt: 'jpeg',
+        resultURLs: [],      // [{name, url}]
+    };
+
+    // ─── WM TYPE ───────────────────────────────────────────────────────────────
+    function setWmType(t) {
+        state.wmType = t;
+        document.getElementById('modeLogoBtn').classList.toggle('active', t === 'logo');
+        document.getElementById('modeTextBtn').classList.toggle('active', t === 'text');
+        document.getElementById('dzLogo').style.display = t === 'logo' ? '' : 'none';
+        document.getElementById('textWmFields').classList.toggle('visible', t === 'text');
+        document.getElementById('dropsRow').classList.toggle('single', t === 'text');
+        refreshPreview();
+    }
+
+    // ─── FILE LOADING ──────────────────────────────────────────────────────────
+    setupDrop('dzImages', 'fileImages', true);
+    setupDrop('dzLogo',   'fileLogo',  false);
+
+    function setupDrop(dzId, inputId, multi) {
+        const dz = document.getElementById(dzId);
+        const fi = document.getElementById(inputId);
+        fi.multiple = multi;
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+        dz.addEventListener('drop', e => {
+            e.preventDefault(); dz.classList.remove('drag-over');
+            const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+            if (!files.length) { showToast('Drop image files only', 'error'); return; }
+            multi ? loadImages(files) : loadLogo(files[0]);
+        });
+        dz.addEventListener('click', e => { if (e.target.classList.contains('dz-change') || e.target.tagName === 'SPAN' && e.target.parentElement.classList.contains('drop-sub')) return; fi.click(); });
+        fi.addEventListener('change', () => {
+            if (!fi.files.length) return;
+            multi ? loadImages([...fi.files]) : loadLogo(fi.files[0]);
+            fi.value = '';
+        });
+    }
+
+    function loadImages(files) {
+        state.images = []; state.resultURLs = [];
+        document.getElementById('btnDownload').style.display = 'none';
+        let loaded = 0;
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    state.images.push({ file, dataURL: e.target.result, img, name: file.name });
+                    loaded++;
+                    if (loaded === files.length) { onImagesLoaded(); }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function onImagesLoaded() {
+        const first = state.images[0];
+        document.getElementById('dzImagesEmpty').style.display = 'none';
+        document.getElementById('dzImagesThumb').style.display = 'block';
+        document.getElementById('imgThumbMain').src = first.dataURL;
+        document.getElementById('imgFname').textContent = state.images.length > 1 ? `${state.images.length} images selected` : first.name;
+        renderBatchList();
+        refreshPreview();
+        updateApplyBtn();
+    }
+
+    function renderBatchList() {
+        const n = state.images.length;
+        if (n < 2) { document.getElementById('batchList').classList.remove('visible'); return; }
+        document.getElementById('batchList').classList.add('visible');
+        document.getElementById('batchCount').textContent = n + ' images';
+        const container = document.getElementById('batchItems');
+        container.innerHTML = '';
+        state.images.forEach((item, i) => {
+            const img = new Image(); img.src = item.dataURL;
+            const row = document.createElement('div'); row.className = 'batch-item';
+            row.innerHTML = `<img class="bi-thumb" src="${item.dataURL}"><span class="bi-name">${item.name}</span><span class="bi-dims">${item.img.naturalWidth}×${item.img.naturalHeight}</span><button class="bi-remove" onclick="removeImage(${i})">✕</button>`;
+            container.appendChild(row);
+        });
+        document.getElementById('batchNote').style.display = 'flex';
+    }
+
+    function removeImage(i) {
+        state.images.splice(i, 1);
+        if (!state.images.length) { clearImages(); return; }
+        onImagesLoaded();
+    }
+
+    function clearImages() {
+        state.images = []; state.resultURLs = [];
+        document.getElementById('dzImagesEmpty').style.display = 'block';
+        document.getElementById('dzImagesThumb').style.display = 'none';
+        document.getElementById('batchList').classList.remove('visible');
+        document.getElementById('previewWrap').classList.remove('visible');
+        document.getElementById('btnDownload').style.display = 'none';
+        document.getElementById('batchNote').style.display = 'none';
+        updateApplyBtn();
+    }
+
+    function loadLogo(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                state.logoImg = img; state.logoDataURL = e.target.result; state.logoFile = file;
+                document.getElementById('dzLogoEmpty').style.display = 'none';
+                document.getElementById('dzLogoThumb').style.display = 'block';
+                document.getElementById('logoThumb').src = e.target.result;
+                document.getElementById('logoFname').textContent = file.name;
+                refreshPreview();
+                updateApplyBtn();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearLogo() {
+        state.logoImg = null; state.logoDataURL = null; state.logoFile = null;
+        document.getElementById('dzLogoEmpty').style.display = 'block';
+        document.getElementById('dzLogoThumb').style.display = 'none';
+        document.getElementById('btnDownload').style.display = 'none';
+        refreshPreview(); updateApplyBtn();
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function setPos(btn) {
+        document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); state.position = btn.dataset.pos; refreshPreview();
+    }
+    function setTile(btn) {
+        document.querySelectorAll('[data-tile]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); state.tiled = btn.dataset.tile === '1';
+        document.getElementById('tileNote').textContent = state.tiled ? 'Watermark repeats across the entire image.' : '';
+        // disable position grid when tiled
+        document.getElementById('posGrid').style.opacity = state.tiled ? '0.3' : '1';
+        document.getElementById('posGrid').style.pointerEvents = state.tiled ? 'none' : '';
+        refreshPreview();
+    }
+    function updateSlider(type, val) {
+        val = parseFloat(val);
+        if (type === 'opacity') { state.opacity = val / 100; document.getElementById('opacityVal').textContent = val + '%'; }
+        if (type === 'size')    { state.size = val / 100;    document.getElementById('sizeVal').textContent = val + '%'; }
+        if (type === 'rot')     { state.rotation = val;      document.getElementById('rotVal').textContent = val + '°'; }
+        if (type === 'margin')  { state.margin = val;        document.getElementById('marginVal').textContent = val + 'px'; }
+        refreshPreview();
+    }
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.outputFmt = btn.dataset.fmt; document.getElementById('pFmt').textContent = state.outputFmt.toUpperCase(); }
+    function setFontWeight(btn) { document.querySelectorAll('[data-weight]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.fontWeight = btn.dataset.weight; refreshPreview(); }
+    function setTextColor(btn, color) { document.querySelectorAll('[data-tc]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.textColor = color; document.getElementById('wmColor').value = color; refreshPreview(); }
+    function setShadow(btn) { document.querySelectorAll('[data-shadow]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); state.textShadow = btn.dataset.shadow === '1'; refreshPreview(); }
+    document.getElementById('wmText').addEventListener('input', e => { state.textStr = e.target.value; refreshPreview(); });
+    document.getElementById('wmFontSize').addEventListener('input', e => { state.fontSize = parseInt(e.target.value) || 36; refreshPreview(); });
+    document.getElementById('wmColor').addEventListener('input', e => { state.textColor = e.target.value; document.querySelectorAll('[data-tc]').forEach(b => b.classList.remove('active')); refreshPreview(); });
+
+    // ─── CANVAS RENDER ─────────────────────────────────────────────────────────
+    function renderToCanvas(baseImg, canvas) {
+        const W = baseImg.naturalWidth, H = baseImg.naturalHeight;
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(baseImg, 0, 0, W, H);
+        ctx.globalAlpha = state.opacity;
+
+        if (state.wmType === 'logo' && state.logoImg) {
+            const wmW = Math.round(Math.min(W, H) * state.size);
+            const ratio = state.logoImg.naturalWidth / state.logoImg.naturalHeight;
+            const wmH = Math.round(wmW / ratio);
+            if (state.tiled) {
+                drawTiledLogo(ctx, W, H, wmW, wmH);
+            } else {
+                const [x, y] = getPos(W, H, wmW, wmH);
+                drawRotated(ctx, () => ctx.drawImage(state.logoImg, -wmW/2, -wmH/2, wmW, wmH), x + wmW/2, y + wmH/2);
+            }
+        } else if (state.wmType === 'text') {
+            const txt = state.textStr || '© Watermark';
+            const fs = state.fontSize;
+            ctx.font = `${state.fontWeight} ${fs}px Outfit, sans-serif`;
+            const metrics = ctx.measureText(txt);
+            const tw = metrics.width, th = fs * 1.2;
+            if (state.tiled) {
+                drawTiledText(ctx, W, H, txt, fs, tw, th);
+            } else {
+                const [x, y] = getPos(W, H, tw, th);
+                drawRotated(ctx, () => {
+                    if (state.textShadow) { ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 6; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; }
+                    ctx.fillStyle = state.textColor;
+                    ctx.font = `${state.fontWeight} ${fs}px Outfit, sans-serif`;
+                    ctx.fillText(txt, -tw/2, th/4);
+                    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+                }, x + tw/2, y + th/2);
+            }
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function getPos(W, H, wmW, wmH) {
+        const m = state.margin;
+        const map = {
+            'top-left':    [m, m],
+            'top-center':  [(W - wmW)/2, m],
+            'top-right':   [W - wmW - m, m],
+            'mid-left':    [m, (H - wmH)/2],
+            'center':      [(W - wmW)/2, (H - wmH)/2],
+            'mid-right':   [W - wmW - m, (H - wmH)/2],
+            'bot-left':    [m, H - wmH - m],
+            'bot-center':  [(W - wmW)/2, H - wmH - m],
+            'bot-right':   [W - wmW - m, H - wmH - m],
+        };
+        return map[state.position] || map['bot-right'];
+    }
+
+    function drawRotated(ctx, drawFn, cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(state.rotation * Math.PI / 180);
+        drawFn();
+        ctx.restore();
+    }
+
+    function drawTiledLogo(ctx, W, H, wmW, wmH) {
+        const gapX = wmW * 1.5, gapY = wmH * 1.5;
+        for (let y = 0; y < H + wmH; y += gapY) {
+            for (let x = 0; x < W + wmW; x += gapX) {
+                drawRotated(ctx, () => ctx.drawImage(state.logoImg, -wmW/2, -wmH/2, wmW, wmH), x, y);
+            }
+        }
+    }
+
+    function drawTiledText(ctx, W, H, txt, fs, tw, th) {
+        const gapX = tw * 2, gapY = th * 3;
+        for (let y = 0; y < H + th; y += gapY) {
+            for (let x = 0; x < W + tw; x += gapX) {
+                drawRotated(ctx, () => {
+                    if (state.textShadow) { ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; }
+                    ctx.fillStyle = state.textColor;
+                    ctx.font = `${state.fontWeight} ${fs}px Outfit, sans-serif`;
+                    ctx.fillText(txt, -tw/2, th/4);
+                    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+                }, x, y);
+            }
+        }
+    }
+
+    // ─── LIVE PREVIEW ──────────────────────────────────────────────────────────
+    let previewTimer = null;
+    function refreshPreview() {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(_doPreview, 80);
+    }
+
+    function _doPreview() {
+        if (!state.images.length) return;
+        if (state.wmType === 'logo' && !state.logoImg) return;
+        const canvas = document.getElementById('previewCanvas');
+        renderToCanvas(state.images[0].img, canvas);
+        document.getElementById('previewWrap').classList.add('visible');
+        document.getElementById('pDims').textContent = `${state.images[0].img.naturalWidth} × ${state.images[0].img.naturalHeight}`;
+        document.getElementById('pFmt').textContent = state.outputFmt.toUpperCase();
+        document.getElementById('pCount').textContent = state.images.length;
+        document.getElementById('pWmType').textContent = state.wmType === 'logo' ? 'Logo' : 'Text';
+    }
+
+    // ─── APPLY & DOWNLOAD ──────────────────────────────────────────────────────
+    function updateApplyBtn() {
+        const ready = state.images.length && (state.wmType === 'text' || state.logoImg);
+        document.getElementById('applyBtnLabel').textContent = state.images.length > 1 ? `Apply to ${state.images.length} Images` : 'Apply Watermark';
+    }
+
+    async function applyWatermark() {
+        if (!state.images.length) { showToast('Upload at least one image first', 'error'); return; }
+        if (state.wmType === 'logo' && !state.logoImg) { showToast('Upload a logo image first', 'error'); return; }
+        if (state.wmType === 'text' && !state.textStr.trim()) { showToast('Enter watermark text first', 'error'); return; }
+
+        const mime = state.outputFmt === 'png' ? 'image/png' : state.outputFmt === 'webp' ? 'image/webp' : 'image/jpeg';
+        const ext  = state.outputFmt === 'jpeg' ? 'jpg' : state.outputFmt;
+        const prog = document.getElementById('progressWrap');
+        const bar  = document.getElementById('progressBar');
+        prog.classList.add('visible'); bar.style.width = '0%';
+
+        state.resultURLs = [];
+        const offscreen = document.createElement('canvas');
+
+        for (let i = 0; i < state.images.length; i++) {
+            renderToCanvas(state.images[i].img, offscreen);
+            const url = offscreen.toDataURL(mime, state.outputFmt === 'png' ? undefined : 0.92);
+            const base = state.images[i].name.replace(/\.[^.]+$/, '');
+            state.resultURLs.push({ name: `${base}_wm.${ext}`, url });
+            bar.style.width = Math.round(((i + 1) / state.images.length) * 100) + '%';
+            await new Promise(r => setTimeout(r, 10)); // let UI breathe
+        }
+
+        prog.classList.remove('visible');
+        // update preview with result
+        document.getElementById('previewImg') && null;
+        _doPreview();
+        document.getElementById('btnDownload').style.display = 'block';
+        showToast(state.resultURLs.length > 1 ? `${state.resultURLs.length} images ready!` : 'Watermark applied! ✓', 'success');
+    }
+
+    function downloadResult() {
+        if (!state.resultURLs.length) return;
+        state.resultURLs.forEach(({name, url}) => {
+            const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+        });
+        showToast(state.resultURLs.length > 1 ? 'All files downloading…' : 'Downloaded!', 'success');
+    }
+
+    // ─── TOAST ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // init
+    setWmType('logo');
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

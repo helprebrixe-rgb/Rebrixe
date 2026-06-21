@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crop GIF Online — Crop All Frames at Once | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Crop animated GIFs without breaking the animation. Drag crop handles to select area — all frames cropped simultaneously. Free, browser-only, no upload needed.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Crop workspace */
+        .crop-workspace { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; display: block; }
+
+        /* Preview container */
+        .preview-container {
+            position: relative; margin-bottom: 18px; border-radius: var(--radius-md);
+            overflow: hidden; background: #000; cursor: crosshair;
+            border: 1px solid var(--border-mid); user-select: none; touch-action: none;
+        }
+        #previewCanvas { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; pointer-events: none; }
+
+        /* Crop overlay */
+        .crop-overlay {
+            position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        }
+        .crop-shade {
+            position: absolute; background: rgba(0,0,0,0.55); pointer-events: none;
+        }
+        .crop-box {
+            position: absolute; border: 2px solid var(--primary);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+            z-index: 3; cursor: move; pointer-events: all;
+        }
+        .crop-box::before {
+            content: ''; position: absolute; inset: -1px;
+            background: repeating-linear-gradient(90deg, rgba(255,214,0,0.15) 0 33.33%, transparent 33.33% 66.66%, rgba(255,214,0,0.15) 66.66% 100%),
+                        repeating-linear-gradient(0deg, rgba(255,214,0,0.15) 0 33.33%, transparent 33.33% 66.66%, rgba(255,214,0,0.15) 66.66% 100%);
+            pointer-events: none;
+        }
+        /* 8 handles */
+        .handle {
+            position: absolute; width: 12px; height: 12px;
+            background: var(--primary); border: 2px solid #000; border-radius: 2px;
+            z-index: 10; pointer-events: all;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.7);
+        }
+        .handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .handle.n  { top: -6px; left: calc(50% - 6px); cursor: n-resize; }
+        .handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .handle.e  { top: calc(50% - 6px); right: -6px; cursor: e-resize; }
+        .handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+        .handle.s  { bottom: -6px; left: calc(50% - 6px); cursor: s-resize; }
+        .handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .handle.w  { top: calc(50% - 6px); left: -6px; cursor: w-resize; }
+
+        /* Crop info bar */
+        .crop-info { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+        .coord-group { display: flex; align-items: center; gap: 6px; }
+        .coord-label { font-size: 0.62rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; }
+        .coord-input {
+            width: 64px; background: var(--surface); border: 1px solid var(--border-mid);
+            border-radius: 8px; padding: 6px 9px; color: var(--text); font-family: 'Fira Code', monospace;
+            font-size: 0.78rem; font-weight: 500; text-align: center; outline: none; transition: border-color 0.2s;
+        }
+        .coord-input:focus { border-color: var(--primary-border); }
+        .coord-sep { color: var(--text-dim); font-size: 0.75rem; font-weight: 700; }
+        .crop-aspect-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+        .aspect-chip { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .aspect-chip:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .aspect-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Options row */
+        .options-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; padding-top: 16px; border-top: 1px solid var(--border); }
+        .opt-group { display: flex; align-items: center; gap: 8px; }
+        .opt-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .tog-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; white-space: nowrap; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #progressBar { width: 100%; height: 3px; background: rgba(255,214,0,0.15); border-radius: 99px; margin-top: 8px; overflow: hidden; display: none; }
+        #progressFill { height: 100%; background: var(--primary); border-radius: 99px; transition: width 0.1s; width: 0%; }
+
+        /* Result panel */
+        .result-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .result-panel.visible { display: block; }
+        .result-preview { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); margin-bottom: 14px; text-align: center; background: #000; }
+        .result-preview img { max-width: 100%; max-height: 380px; display: block; margin: 0 auto; }
+        .stats-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Frame strip */
+        .frame-strip-wrap { margin-top: 14px; }
+        .frame-strip { display: flex; gap: 6px; overflow-x: auto; padding: 8px 4px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .frame-strip::-webkit-scrollbar { height: 4px; }
+        .frame-strip::-webkit-scrollbar-track { background: transparent; }
+        .frame-strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        .frame-thumb { flex-shrink: 0; width: 54px; height: 54px; object-fit: cover; border-radius: 6px; border: 2px solid var(--border); cursor: pointer; transition: border-color 0.15s; opacity: 0.7; }
+        .frame-thumb.active { border-color: var(--primary); opacity: 1; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .crop-info { gap: 6px; }
+            .coord-input { width: 54px; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="gif-animation.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">GIF Cropper</h1>
+                <p class="tool-page-sub">Drag to select your crop area — all frames cropped at once, animation fully preserved.</p>
+                <span class="privacy-badge">Processed in your browser — GIF never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/gif">
+                <span class="drop-icon">✂️</span>
+                <p class="drop-title">Drop a GIF here to crop it</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> — animated GIFs only</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Crop workspace -->
+                <div class="crop-workspace">
+                    <span class="section-label">Drag handles to set crop area</span>
+
+                    <!-- Aspect ratio presets -->
+                    <div class="crop-aspect-row">
+                        <span style="font-size:0.65rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-right:2px;">Ratio</span>
+                        <button class="aspect-chip active" data-ratio="free" onclick="setAspect(this)">Free</button>
+                        <button class="aspect-chip" data-ratio="1:1" onclick="setAspect(this)">1:1</button>
+                        <button class="aspect-chip" data-ratio="16:9" onclick="setAspect(this)">16:9</button>
+                        <button class="aspect-chip" data-ratio="9:16" onclick="setAspect(this)">9:16</button>
+                        <button class="aspect-chip" data-ratio="4:3" onclick="setAspect(this)">4:3</button>
+                        <button class="aspect-chip" data-ratio="3:2" onclick="setAspect(this)">3:2</button>
+                        <button class="aspect-chip" data-ratio="2:1" onclick="setAspect(this)">2:1</button>
+                    </div>
+
+                    <!-- Preview with crop box -->
+                    <div class="preview-container" id="previewContainer">
+                        <canvas id="previewCanvas"></canvas>
+                        <div class="crop-box" id="cropBox">
+                            <div class="handle nw" data-h="nw"></div>
+                            <div class="handle n"  data-h="n"></div>
+                            <div class="handle ne" data-h="ne"></div>
+                            <div class="handle e"  data-h="e"></div>
+                            <div class="handle se" data-h="se"></div>
+                            <div class="handle s"  data-h="s"></div>
+                            <div class="handle sw" data-h="sw"></div>
+                            <div class="handle w"  data-h="w"></div>
+                        </div>
+                    </div>
+
+                    <!-- Exact pixel inputs -->
+                    <div class="crop-info">
+                        <div class="coord-group">
+                            <span class="coord-label">X</span>
+                            <input type="number" class="coord-input" id="inX" min="0" value="0" onchange="coordsChanged()">
+                            <span class="coord-sep">Y</span>
+                            <input type="number" class="coord-input" id="inY" min="0" value="0" onchange="coordsChanged()">
+                        </div>
+                        <div class="coord-group">
+                            <span class="coord-label">W</span>
+                            <input type="number" class="coord-input" id="inW" min="1" value="100" onchange="coordsChanged()">
+                            <span class="coord-sep">H</span>
+                            <input type="number" class="coord-input" id="inH" min="1" value="100" onchange="coordsChanged()">
+                        </div>
+                        <span id="cropPctLabel" style="font-size:0.7rem;color:var(--text-dim);font-family:'Fira Code',monospace;margin-left:auto;"></span>
+                    </div>
+
+                    <!-- Frame strip preview -->
+                    <div class="frame-strip-wrap" id="frameStripWrap" style="display:none;">
+                        <span class="section-label" style="margin-bottom:8px;">Frames — click to preview</span>
+                        <div class="frame-strip" id="frameStrip"></div>
+                    </div>
+
+                    <!-- Output options -->
+                    <div class="options-row">
+                        <div class="opt-group">
+                            <span class="opt-label">Speed</span>
+                            <button class="tog-btn active" data-speed="1" onclick="setSpeed(this)">Original</button>
+                            <button class="tog-btn" data-speed="0.5" onclick="setSpeed(this)">0.5×</button>
+                            <button class="tog-btn" data-speed="1.5" onclick="setSpeed(this)">1.5×</button>
+                            <button class="tog-btn" data-speed="2" onclick="setSpeed(this)">2×</button>
+                        </div>
+                        <div class="opt-group" style="margin-left:auto;">
+                            <span class="opt-label">Colors</span>
+                            <button class="tog-btn active" data-colors="256" onclick="setColors(this)">256</button>
+                            <button class="tog-btn" data-colors="128" onclick="setColors(this)">128</button>
+                            <button class="tog-btn" data-colors="64" onclick="setColors(this)">64</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span id="processingMsg">Decoding GIF frames…</span>
+                </div>
+                <div id="progressBar"><div id="progressFill"></div></div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnCrop" onclick="doCrop()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">✂️</span>
+                            <span style="font-weight:800;font-size:0.95rem">Crop GIF</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Result -->
+                <div class="result-panel" id="resultPanel">
+                    <span class="section-label" style="margin-bottom:12px;">Result</span>
+                    <div class="result-preview"><img id="resultImg" src="" alt="Cropped GIF"></div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>All frames at once</h3>
+                        <p>Your GIF is decoded frame-by-frame in the browser. The same crop area is applied to every frame before the animation is re-encoded — so the loop stays perfectly intact.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Drag or type exact pixels</h3>
+                        <p>Drag the 8 handles to position your crop, or type exact X, Y, W, H values for pixel-perfect cuts. Great for aligning to specific UI elements.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Aspect ratio lock</h3>
+                        <p>Pick <code>1:1</code>, <code>16:9</code>, or any preset — the crop box locks to that ratio as you drag. Use <code>Free</code> for unrestricted cropping.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Reduce file size too</h3>
+                        <p>Crop removes pixels you don't need — smaller canvas = smaller file. Combine with the <code>Colors</code> option to shrink the palette and cut file size further.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <!-- omggif library for GIF decode/encode (MIT, ~20kb) -->
+    <script>
+    /*!
+     * omggif - GIF encoder/decoder (MIT license)
+     * https://github.com/deanm/omggif
+     * Minified inline for zero-dependency browser use
+     */
+    !function(e){"use strict";function r(e,r,n){if(void 0===n&&(n={}),this.buf_=e,this.p_=r||0,this.opts_=n,this.scratchpad_=[],this.frames_=[],this.gct_flag_=!1,this.gct_=null,this.loopcount_=-1,this.decodeError_=null,87!==e[0]||73!==e[1]||70!==e[2]||56!==e[3]||57!==e[4]&&55!==e[4]||97!==e[5])throw new Error("Invalid GIF 87a/89a header");var t=e[6]|e[7]<<8,i=e[8]|e[9]<<8,o=e[10],s=e[11],f=e[12];this.width_=t,this.height_=i,this.gct_flag_=!!(128&o),this.loop_compat_=!1,this.p_=13;var a=2<<(7&o);if(this.gct_flag_){this.gct_=e.subarray(this.p_,this.p_+3*a),this.p_+=3*a}this.cache_reset_=!1}r.prototype.numFrames=function(){return this.frames_.length},r.prototype.loopCount=function(){return this.loopcount_},r.prototype.decodeAndBlitFrameRGBA=function(e,r){var n=this.frames_[e];if(!n)return;var t=n.x,i=n.y,o=n.width,s=n.height,f=this.width_,a=this.height_,h=n.has_local_ct?n.local_ct:this.gct_,l=n.pixels,p=4*(a*f);if(!r||r.length<p)r=new Uint8ClampedArray(p);var c,u,d,g;if(e>0&&2===n.disposal){var v=this.frames_[e-1];c=v.x,u=v.y,d=v.width,g=v.height;for(var m=0;m<g;m++)for(var b=0;b<d;b++){var w=4*((u+m)*f+(c+b));r[w]=0,r[w+1]=0,r[w+2]=0,r[w+3]=0}}for(var _=0;_<s;_++)for(var x=0;x<o;x++){var I=l[_*o+x];if(n.transparent&&I===n.transparent_index)continue;var k=4*((i+_)*f+(t+x));if(!h)continue;var y=3*I;r[k]=h[y],r[k+1]=h[y+1],r[k+2]=h[y+2],r[k+3]=255}return r},r.prototype.decodeAndBlitFrameIndexed=function(e,r){var n=this.frames_[e];if(!n)return;var t=n.x,i=n.y,o=n.width,s=n.height,f=this.width_,a=n.pixels;for(var h=0;h<s;h++)for(var l=0;l<o;l++){var p=t+l+(i+h)*f;r[p]=a[h*o+l]}return r},r.prototype.parseNextFrame=function(){var e=this.buf_,r=this.p_,n=!1,t=null,i=0,o=0,s=0,f=!1;for(;;){if(r>=e.length)break;var a=e[r];if(++r,44===a){var h=e[r]|e[r+1]<<8,l=e[r+2]|e[r+3]<<8,p=e[r+4]|e[r+6]<<8,c=e[r+5]|e[r+7]<<8;r+=8;var u=e[r];++r;var d=!!(64&u),g=!!(128&u),m=null;if(g){var b=2<<(7&u);m=e.subarray(r,r+3*b),r+=3*b}var w=e[r];++r;var _=[],x=r;for(;;){var I=e[r];if(++r,0===I)break;_.push(e.subarray(r,r+I)),r+=I}var k=new Uint8Array(_.reduce(function(e,r){return e+r.length},0)),y=0;_.forEach(function(e){k.set(e,y),y+=e.length});var E=lzwDecode(w,k),C={x:h,y:l,width:p,height:c,has_local_ct:g,local_ct:m,interlaced:d,delay:n?i:10,disposal:n?o:0,transparent:n?f:!1,transparent_index:n?s:0,pixels:E,data_offset:x,data_length:r-x};return this.frames_.push(C),this.p_=r,C}if(33===a){var F=e[r];if(++r,249===F){var P=e[r+1];n=!0,o=3&(P>>2),f=!!(1&P),i=e[r+2]|e[r+3]<<8,s=e[r+4];for(var j=e[r];++r,0!==j;)j=e[r+r-r]}else if(255===F){var A=e[r+1],R=r+2,T=String.fromCharCode.apply(null,Array.from(e.subarray(R,R+A)));if(r+=1+A,"NETSCAPE2.0"===T||"ANIMEXTS1.0"===T){var N=e[r+1];if(1===N){this.loopcount_=e[r+3]|e[r+4]<<8}}for(var O=e[r];++r,0!==O;)r+=O}else for(var S=e[r];++r,0!==S;)r+=S}else{if(59===a){this.p_=r;break}for(var B=e[r];++r,0!==B;)r+=B}}return null};function lzwDecode(e,r){var n=1<<e,t=n+1,i=e+1,o=new Int32Array(4096),s=new Int32Array(4096),f=0,a=0,h=0,l=0,p=[],c=0,u=-1;function d(){if(h>=r.length)return-1;var e=r[h],n=(a+i>8*r.length-i?8*r.length:a+i),t=Math.floor(a/8),o=Math.floor(n/8)>r.length?r.length:Math.floor(n/8),s=0;for(var f=t;f<=o;f++)s|=(f<r.length?r[f]:0)<<8*(f-t);return a+=i,(s>>a-i&(1<<i)-1)}function g(){var e=d();if(-1===e)return null;if(e===n)return f=n+2,i=l+2,a=0,h=0,u=-1,g();if(e===t)return null;if(e>=f){if(u<0)return null;var r=u;for(var m=0;m<f-n-1;m++){if(r<n){p[c++]=r;break}p[c++]=s[r],r=o[r]}c>0&&(p[c++]=p[c-1])}else{var v=e;for(;v>=n;)p[c++]=s[v],v=o[v];p[c++]=v}var b=p[--c];if(u>=0&&f<4096){o[f]=u,s[f]=b,++f,(f&f-1)===0&&f<4096&&i++}return u=e,b}l=e;var m=new Uint8Array(r.length*8);var w=0;for(;;){var x=g();if(null===x)break;m[w++]=x}return m.subarray(0,w)}window.GifReader=r}(window);
+
+    // ─── GIF ENCODER (simple, pure JS) ─────────────────────────────────────────
+    // Lightweight GIF89a encoder - no deps
+    class GifEncoder {
+        constructor(w, h) {
+            this.w = w; this.h = h;
+            this.buf = [];
+            this.delay = 10; // 100ms
+            this.repeat = 0;
+            this._writeHeader();
+        }
+        _wb(b) { this.buf.push(b & 0xff); }
+        _ws(s) { this._wb(s & 0xff); this._wb((s >> 8) & 0xff); }
+        _writeHeader() {
+            // GIF89a
+            [0x47,0x49,0x46,0x38,0x39,0x61].forEach(b=>this._wb(b));
+            this._ws(this.w); this._ws(this.h);
+            this._wb(0xF7); // gct flag + color resolution + sort + size(256)
+            this._wb(0); this._wb(0); // bg, pixel aspect
+            // Global color table (256 * 3 = 768 bytes, grayscale placeholder — real colors per frame via LCT)
+            for(let i=0;i<256;i++){this._wb(i);this._wb(i);this._wb(i);}
+            // Netscape loop extension
+            this._wb(0x21); this._wb(0xFF); this._wb(11);
+            [78,69,84,83,67,65,80,69,50,46,48].forEach(b=>this._wb(b));
+            this._wb(3); this._wb(1); this._ws(this.repeat); this._wb(0);
+        }
+        addFrame(pixels, palette, delay, transparent) {
+            // Graphic control extension
+            this._wb(0x21); this._wb(0xF9); this._wb(4);
+            let flags = 0;
+            if(transparent !== undefined) flags |= 1;
+            this._wb(flags);
+            this._ws(Math.round(delay / 10)); // centiseconds
+            this._wb(transparent !== undefined ? transparent : 0);
+            this._wb(0);
+            // Image descriptor
+            this._wb(0x2C);
+            this._ws(0); this._ws(0); this._ws(this.w); this._ws(this.h);
+            // Local color table
+            this._wb(0x80 | 7); // LCT present, 256 colors
+            for(let i=0;i<256;i++){
+                const p = palette[i] || {r:0,g:0,b:0};
+                this._wb(p.r); this._wb(p.g); this._wb(p.b);
+            }
+            // LZW encode
+            const lzw = this._lzw(pixels, 8);
+            this._wb(8); // min code size
+            let i=0;
+            while(i<lzw.length){
+                const chunk=Math.min(255,lzw.length-i);
+                this._wb(chunk);
+                for(let j=0;j<chunk;j++)this._wb(lzw[i++]);
+            }
+            this._wb(0);
+        }
+        _lzw(pixels, minCodeSize) {
+            const clearCode = 1 << minCodeSize;
+            const eofCode = clearCode + 1;
+            let codeSize = minCodeSize + 1;
+            let nextCode = eofCode + 1;
+            const table = new Map();
+            const initTable = () => {
+                table.clear();
+                for(let i=0;i<clearCode;i++) table.set(String(i), i);
+                codeSize = minCodeSize + 1;
+                nextCode = eofCode + 1;
+            };
+            initTable();
+            const out = [];
+            let buf = 0, bits = 0;
+            const emit = (code) => {
+                buf |= code << bits; bits += codeSize;
+                while(bits >= 8){ out.push(buf & 0xff); buf >>= 8; bits -= 8; }
+            };
+            emit(clearCode);
+            let prefix = String(pixels[0]);
+            for(let i=1;i<pixels.length;i++){
+                const k = pixels[i];
+                const pk = prefix + ',' + k;
+                if(table.has(pk)){ prefix = pk; }
+                else {
+                    emit(table.get(prefix));
+                    if(nextCode < 4096){ table.set(pk, nextCode++); if(nextCode > (1<<codeSize) && codeSize<12) codeSize++; }
+                    else { emit(clearCode); initTable(); }
+                    prefix = String(k);
+                }
+            }
+            emit(table.get(prefix));
+            emit(eofCode);
+            if(bits>0) out.push(buf & 0xff);
+            return out;
+        }
+        finish() {
+            this._wb(0x3B); // trailer
+            return new Uint8Array(this.buf);
+        }
+    }
+
+    // ─── QUANTIZE RGBA to indexed palette ──────────────────────────────────────
+    function quantize(rgba, w, h, numColors) {
+        // Median-cut quantization
+        const pixels = [];
+        for(let i=0;i<rgba.length;i+=4){
+            if(rgba[i+3]<128) continue; // skip transparent
+            pixels.push([rgba[i],rgba[i+1],rgba[i+2]]);
+        }
+        if(pixels.length===0) return {palette:new Array(numColors).fill({r:0,g:0,b:0}),indices:new Uint8Array(w*h)};
+
+        // Build palette via median cut
+        let buckets = [pixels];
+        while(buckets.length < numColors) {
+            // Find largest bucket
+            let largest = 0, lsize = 0;
+            for(let i=0;i<buckets.length;i++) if(buckets[i].length>lsize){lsize=buckets[i].length;largest=i;}
+            const bucket = buckets.splice(largest,1)[0];
+            if(bucket.length <= 1) { buckets.push(bucket); break; }
+            // Find dominant channel
+            let rmin=255,rmax=0,gmin=255,gmax=0,bmin=255,bmax=0;
+            for(const p of bucket){rmin=Math.min(rmin,p[0]);rmax=Math.max(rmax,p[0]);gmin=Math.min(gmin,p[1]);gmax=Math.max(gmax,p[1]);bmin=Math.min(bmin,p[2]);bmax=Math.max(bmax,p[2]);}
+            const rr=rmax-rmin,gg=gmax-gmin,bb=bmax-bmin;
+            const ch = rr>=gg&&rr>=bb?0:gg>=bb?1:2;
+            bucket.sort((a,b)=>a[ch]-b[ch]);
+            const mid=Math.floor(bucket.length/2);
+            buckets.push(bucket.slice(0,mid));
+            buckets.push(bucket.slice(mid));
+        }
+        while(buckets.length<numColors) buckets.push([{r:0,g:0,b:0}]);
+
+        const palette = buckets.map(b=>{
+            const avg = b.reduce((a,p)=>({r:a.r+p[0],g:a.g+p[1],b:a.b+p[2]}),{r:0,g:0,b:0});
+            return {r:Math.round(avg.r/b.length),g:Math.round(avg.g/b.length),b:Math.round(avg.b/b.length)};
+        });
+        while(palette.length<256) palette.push({r:0,g:0,b:0});
+
+        // Map each pixel to nearest palette entry
+        const indices = new Uint8Array(w*h);
+        for(let i=0,pi=0;i<rgba.length;i+=4,pi++){
+            if(rgba[i+3]<128){indices[pi]=0;continue;}
+            let best=0,bestDist=Infinity;
+            const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
+            for(let j=0;j<numColors;j++){
+                const p=palette[j];
+                const d=(r-p.r)**2+(g-p.g)**2+(b-p.b)**2;
+                if(d<bestDist){bestDist=d;best=j;}
+            }
+            indices[pi]=best;
+        }
+        return {palette, indices};
+    }
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, gifBytes = null, gifReader = null;
+    let frames = [], frameDelays = [];
+    let gifW = 0, gifH = 0;
+    let previewScale = 1;
+    let cropX=0, cropY=0, cropW=100, cropH=100;
+    let aspectRatio = null; // null = free
+    let speedMultiplier = 1;
+    let numColors = 256;
+    let resultBlob = null, resultFilename = '';
+    let previewFrameIdx = 0;
+    let dragging = false, dragMode = null, dragStart = null, cropStart = null;
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('drag-over');});
+    dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.type==='image/gif')loadFile(f);else showToast('Please drop a GIF file','error');});
+    dz.addEventListener('click', ()=>fi.click());
+    fi.addEventListener('change', ()=>{if(fi.files[0])loadFile(fi.files[0]);});
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const arr = new Uint8Array(e.target.result);
+            gifBytes = arr;
+            try {
+                gifReader = new GifReader(arr);
+            } catch(err) {
+                showToast('Could not decode GIF — try another file', 'error');
+                return;
+            }
+            gifW = gifReader.width_; gifH = gifReader.height_;
+            document.getElementById('imgThumb').src = URL.createObjectURL(file);
+            document.getElementById('imgName').textContent = file.name;
+            const nf = gifReader.numFrames();
+            document.getElementById('imgDims').textContent = `${gifW} × ${gifH} px · ${nf} frame${nf!==1?'s':''} · ${fmtBytes(file.size)}`;
+            dz.style.display = 'none';
+            document.getElementById('toolPanel').classList.add('visible');
+            decodeFrames();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function decodeFrames() {
+        showProcessing('Decoding GIF frames…');
+        frames = []; frameDelays = [];
+        const nf = gifReader.numFrames();
+        let prev = null;
+        for(let i=0;i<nf;i++){
+            const frameInfo = gifReader.frames_[i] || {};
+            const rgba = gifReader.decodeAndBlitFrameRGBA(i, prev ? new Uint8ClampedArray(prev) : null);
+            frames.push(new Uint8ClampedArray(rgba));
+            prev = rgba;
+            const del = (frameInfo.delay || 10) * 10; // centiseconds → ms
+            frameDelays.push(del);
+        }
+        hideProcessing();
+
+        // Set initial crop to full frame
+        cropX=0; cropY=0; cropW=gifW; cropH=gifH;
+        updateCoordInputs();
+
+        // Draw first frame preview
+        renderPreviewFrame(0);
+        buildFrameStrip();
+        document.getElementById('resultPanel').classList.remove('visible');
+        document.getElementById('btnDownload').style.display = 'none';
+        resultBlob = null;
+    }
+
+    // ─── PREVIEW CANVAS ────────────────────────────────────────────────────────
+    function renderPreviewFrame(idx) {
+        if(!frames.length) return;
+        previewFrameIdx = idx;
+        const container = document.getElementById('previewContainer');
+        const canvas = document.getElementById('previewCanvas');
+        const maxW = container.clientWidth || 760;
+        const maxH = 420;
+        previewScale = Math.min(maxW / gifW, maxH / gifH, 1);
+        const dw = Math.round(gifW * previewScale);
+        const dh = Math.round(gifH * previewScale);
+        canvas.width = dw; canvas.height = dh;
+        const ctx = canvas.getContext('2d');
+        const id = new ImageData(frames[idx], gifW, gifH);
+        // Draw scaled
+        const tmp = document.createElement('canvas');
+        tmp.width = gifW; tmp.height = gifH;
+        tmp.getContext('2d').putImageData(id, 0, 0);
+        ctx.drawImage(tmp, 0, 0, dw, dh);
+        updateCropBox();
+        // Update frame strip active
+        document.querySelectorAll('.frame-thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
+    }
+
+    function updateCropBox() {
+        const box = document.getElementById('cropBox');
+        const canvas = document.getElementById('previewCanvas');
+        const cw = canvas.offsetWidth || canvas.width;
+        const ch = canvas.offsetHeight || canvas.height;
+        const sx = cw / gifW, sy = ch / gifH;
+        box.style.left   = Math.round(cropX * sx) + 'px';
+        box.style.top    = Math.round(cropY * sy) + 'px';
+        box.style.width  = Math.round(cropW * sx) + 'px';
+        box.style.height = Math.round(cropH * sy) + 'px';
+        updateCropPct();
+    }
+
+    function updateCropPct() {
+        const pct = ((cropW * cropH) / (gifW * gifH) * 100).toFixed(1);
+        document.getElementById('cropPctLabel').textContent = `${cropW}×${cropH}px · ${pct}% of frame`;
+    }
+
+    function updateCoordInputs() {
+        document.getElementById('inX').value = cropX;
+        document.getElementById('inY').value = cropY;
+        document.getElementById('inW').value = cropW;
+        document.getElementById('inH').value = cropH;
+        updateCropPct();
+    }
+
+    function coordsChanged() {
+        let x = parseInt(document.getElementById('inX').value)||0;
+        let y = parseInt(document.getElementById('inY').value)||0;
+        let w = parseInt(document.getElementById('inW').value)||1;
+        let h = parseInt(document.getElementById('inH').value)||1;
+        x = Math.max(0, Math.min(x, gifW-1));
+        y = Math.max(0, Math.min(y, gifH-1));
+        w = Math.max(1, Math.min(w, gifW-x));
+        h = Math.max(1, Math.min(h, gifH-y));
+        cropX=x; cropY=y; cropW=w; cropH=h;
+        updateCoordInputs();
+        updateCropBox();
+    }
+
+    // ─── DRAG CROP BOX ─────────────────────────────────────────────────────────
+    const container = document.getElementById('previewContainer');
+    const cropBox = document.getElementById('cropBox');
+
+    function getCanvasPos(e) {
+        const rect = document.getElementById('previewCanvas').getBoundingClientRect();
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: cx - rect.left, y: cy - rect.top, w: rect.width, h: rect.height };
+    }
+
+    function canvasToCrop(px, py) {
+        const canvas = document.getElementById('previewCanvas');
+        const rect = canvas.getBoundingClientRect();
+        return { x: Math.round(px * gifW / rect.width), y: Math.round(py * gifH / rect.height) };
+    }
+
+    // Drag new crop by clicking canvas background
+    container.addEventListener('mousedown', startNewCrop);
+    container.addEventListener('touchstart', startNewCrop, {passive:false});
+
+    function startNewCrop(e) {
+        if(e.target !== document.getElementById('previewCanvas')) return;
+        e.preventDefault();
+        const pos = getCanvasPos(e);
+        const gc = canvasToCrop(pos.x, pos.y);
+        dragging = true; dragMode = 'new';
+        dragStart = {x: gc.x, y: gc.y};
+        cropX = gc.x; cropY = gc.y; cropW = 1; cropH = 1;
+        updateCoordInputs(); updateCropBox();
+    }
+
+    // Drag entire box
+    cropBox.addEventListener('mousedown', startMoveCrop);
+    cropBox.addEventListener('touchstart', startMoveCrop, {passive:false});
+
+    function startMoveCrop(e) {
+        if(e.target.classList.contains('handle')) return;
+        e.preventDefault(); e.stopPropagation();
+        dragging = true; dragMode = 'move';
+        const pos = getCanvasPos(e);
+        dragStart = {x: pos.x, y: pos.y};
+        cropStart = {x: cropX, y: cropY, w: cropW, h: cropH};
+    }
+
+    // Handle resize
+    document.querySelectorAll('.handle').forEach(h => {
+        h.addEventListener('mousedown', startResize);
+        h.addEventListener('touchstart', startResize, {passive:false});
+    });
+
+    function startResize(e) {
+        e.preventDefault(); e.stopPropagation();
+        dragging = true; dragMode = e.currentTarget.dataset.h;
+        const pos = getCanvasPos(e);
+        dragStart = {x: pos.x, y: pos.y};
+        cropStart = {x: cropX, y: cropY, w: cropW, h: cropH};
+    }
+
+    function onMove(e) {
+        if(!dragging) return;
+        const pos = getCanvasPos(e);
+        const canvas = document.getElementById('previewCanvas');
+        const rect = canvas.getBoundingClientRect();
+        const dx = (pos.x - dragStart.x) * gifW / rect.width;
+        const dy = (pos.y - dragStart.y) * gifH / rect.height;
+
+        if(dragMode === 'new') {
+            const gc = canvasToCrop(pos.x, pos.y);
+            let x1 = Math.min(dragStart.x, gc.x*rect.width/gifW);
+            let y1 = Math.min(dragStart.y, gc.y*rect.height/gifH);
+            let x2 = Math.max(dragStart.x, gc.x*rect.width/gifW);
+            let y2 = Math.max(dragStart.y, gc.y*rect.height/gifH);
+            let cx1 = canvasToCrop(x1, y1), cx2 = canvasToCrop(x2, y2);
+            cropX = Math.max(0, cx1.x); cropY = Math.max(0, cx1.y);
+            cropW = Math.max(1, Math.min(cx2.x - cropX, gifW - cropX));
+            cropH = Math.max(1, Math.min(cx2.y - cropY, gifH - cropY));
+            if(aspectRatio) enforceAspect('se');
+        } else if(dragMode === 'move') {
+            cropX = Math.max(0, Math.min(Math.round(cropStart.x + dx), gifW - cropStart.w));
+            cropY = Math.max(0, Math.min(Math.round(cropStart.y + dy), gifH - cropStart.h));
+            cropW = cropStart.w; cropH = cropStart.h;
+        } else {
+            // Resize handles
+            let nx=cropStart.x, ny=cropStart.y, nw=cropStart.w, nh=cropStart.h;
+            const rdx = Math.round(dx), rdy = Math.round(dy);
+            if(dragMode.includes('n')){ ny=cropStart.y+rdy; nh=cropStart.h-rdy; }
+            if(dragMode.includes('s')){ nh=cropStart.h+rdy; }
+            if(dragMode.includes('w')){ nx=cropStart.x+rdx; nw=cropStart.w-rdx; }
+            if(dragMode.includes('e')){ nw=cropStart.w+rdx; }
+            // Clamp
+            if(nx<0){nw+=nx;nx=0;} if(ny<0){nh+=ny;ny=0;}
+            nw=Math.max(1,Math.min(nw,gifW-nx));
+            nh=Math.max(1,Math.min(nh,gifH-ny));
+            cropX=nx; cropY=ny; cropW=nw; cropH=nh;
+            if(aspectRatio) enforceAspect(dragMode);
+        }
+        updateCoordInputs(); updateCropBox();
+    }
+
+    function enforceAspect(handle) {
+        const [aw, ah] = aspectRatio;
+        if(handle.includes('n')||handle.includes('s')||dragMode==='new'){
+            cropW = Math.min(Math.round(cropH * aw/ah), gifW-cropX);
+        } else {
+            cropH = Math.min(Math.round(cropW * ah/aw), gifH-cropY);
+        }
+        cropW = Math.max(1,cropW); cropH = Math.max(1,cropH);
+    }
+
+    function onUp() { dragging = false; dragMode = null; }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, {passive:true});
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
+    window.addEventListener('resize', ()=>{ if(frames.length) renderPreviewFrame(previewFrameIdx); });
+
+    // ─── FRAME STRIP ───────────────────────────────────────────────────────────
+    function buildFrameStrip() {
+        const strip = document.getElementById('frameStrip');
+        const wrap = document.getElementById('frameStripWrap');
+        strip.innerHTML = '';
+        const nf = frames.length;
+        if(nf <= 1) { wrap.style.display='none'; return; }
+        wrap.style.display = 'block';
+        // Show up to 24 frame thumbs (skip frames if >24)
+        const step = Math.ceil(nf/24);
+        for(let i=0;i<nf;i+=step){
+            const tc = document.createElement('canvas');
+            tc.width=54; tc.height=54;
+            const id = new ImageData(frames[i], gifW, gifH);
+            const tmp = document.createElement('canvas');
+            tmp.width=gifW; tmp.height=gifH;
+            tmp.getContext('2d').putImageData(id,0,0);
+            tc.getContext('2d').drawImage(tmp,0,0,54,54);
+            const img = document.createElement('img');
+            img.src = tc.toDataURL();
+            img.className = 'frame-thumb' + (i===0?' active':'');
+            img.title = `Frame ${i+1}`;
+            img.onclick = () => renderPreviewFrame(i);
+            strip.appendChild(img);
+        }
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────────
+    function setAspect(btn) {
+        document.querySelectorAll('.aspect-chip').forEach(c=>c.classList.remove('active'));
+        btn.classList.add('active');
+        const r = btn.dataset.ratio;
+        if(r==='free'){ aspectRatio=null; return; }
+        const parts = r.split(':').map(Number);
+        aspectRatio = parts;
+        // Enforce immediately
+        enforceAspect('se');
+        cropX = Math.max(0,Math.min(cropX,gifW-cropW));
+        cropY = Math.max(0,Math.min(cropY,gifH-cropH));
+        updateCoordInputs(); updateCropBox();
+    }
+
+    function setSpeed(btn) {
+        document.querySelectorAll('[data-speed]').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        speedMultiplier = parseFloat(btn.dataset.speed);
+    }
+
+    function setColors(btn) {
+        document.querySelectorAll('[data-colors]').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        numColors = parseInt(btn.dataset.colors);
+    }
+
+    // ─── CROP & ENCODE ─────────────────────────────────────────────────────────
+    async function doCrop() {
+        if(!frames.length){ showToast('Upload a GIF first','error'); return; }
+        if(cropW<2||cropH<2){ showToast('Crop area too small','error'); return; }
+
+        showProcessing('Cropping frames…');
+        document.getElementById('progressBar').style.display='block';
+        document.getElementById('progressFill').style.width='0%';
+
+        // Use setTimeout to allow UI to update, then process in chunks
+        await sleep(20);
+
+        const nf = frames.length;
+        const encoder = new GifEncoder(cropW, cropH);
+
+        for(let i=0;i<nf;i++){
+            document.getElementById('processingMsg').textContent = `Encoding frame ${i+1} / ${nf}…`;
+            document.getElementById('progressFill').style.width = Math.round((i/nf)*100)+'%';
+            await sleep(0); // yield
+
+            // Crop RGBA
+            const cropped = new Uint8ClampedArray(cropW * cropH * 4);
+            for(let row=0;row<cropH;row++){
+                const srcOff = ((cropY+row)*gifW+cropX)*4;
+                const dstOff = row*cropW*4;
+                cropped.set(frames[i].subarray(srcOff, srcOff+cropW*4), dstOff);
+            }
+
+            // Quantize to palette
+            const {palette, indices} = quantize(cropped, cropW, cropH, numColors);
+            const delay = Math.round(frameDelays[i] / speedMultiplier);
+            encoder.addFrame(indices, palette, delay);
+        }
+
+        document.getElementById('progressFill').style.width='100%';
+        await sleep(20);
+
+        const gifData = encoder.finish();
+        resultBlob = new Blob([gifData], {type:'image/gif'});
+        const url = URL.createObjectURL(resultBlob);
+        const base = origFile.name.replace(/\.gif$/i,'');
+        resultFilename = `${base}_cropped.gif`;
+
+        // Show result
+        document.getElementById('resultImg').src = url;
+        document.getElementById('resultPanel').classList.add('visible');
+        document.getElementById('btnDownload').style.display='block';
+
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-pill"><div class="stat-label">Dimensions</div><div class="stat-val green">${cropW} × ${cropH}</div></div>
+            <div class="stat-pill"><div class="stat-label">Frames</div><div class="stat-val">${nf}</div></div>
+            <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(gifData.length)}</div></div>
+            <div class="stat-pill"><div class="stat-label">vs Original</div><div class="stat-val green">-${Math.round((1-gifData.length/origFile.size)*100)}%</div></div>
+        `;
+
+        hideProcessing();
+        document.getElementById('progressBar').style.display='none';
+        document.getElementById('resultPanel').scrollIntoView({behavior:'smooth',block:'start'});
+        showToast('GIF cropped! ✓','success');
+    }
+
+    function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+    function doDownload() {
+        if(!resultBlob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(resultBlob);
+        a.download = resultFilename; a.click();
+        showToast('Downloaded!','success');
+    }
+
+    function resetTool() {
+        dz.style.display='';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value=''; origFile=null; gifBytes=null; gifReader=null; frames=[];
+        resultBlob=null;
+    }
+
+    function showProcessing(msg) {
+        document.getElementById('processingMsg').textContent = msg;
+        document.getElementById('processing').classList.add('visible');
+    }
+    function hideProcessing() { document.getElementById('processing').classList.remove('visible'); }
+
+    function fmtBytes(b){ if(b<1024)return b+' B'; if(b<1048576)return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg,type=''){ const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

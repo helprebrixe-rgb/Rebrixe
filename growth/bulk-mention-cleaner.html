@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Mention Cleaner | Rebrixe</title>
+    <meta name="description" content="Clean up social media posts by removing @mentions, #hashtags and other unwanted elements. Free & instant. Perfect for cross-platform reposting.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+
+        /* ── HEADER ── */
+        .tool-header { text-align: center; margin-bottom: 36px; }
+        .tool-header h1 { font-family: 'Outfit'; font-size: 2.5rem; margin-bottom: 8px; }
+        .tool-header p { color: #64748b; font-size: 0.95rem; }
+        .ai-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,0,127,0.1); border: 1px solid rgba(255,0,127,0.25);
+            border-radius: 20px; padding: 4px 14px; font-size: 0.72rem;
+            color: var(--accent); font-weight: 600; margin-top: 10px;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .ai-badge::before { content: '●'; animation: pulse-dot 1.4s infinite; }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ── OPTIONS BAR ── */
+        .options-bar {
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+            margin-bottom: 22px;
+        }
+        .opt-chip {
+            display: flex; align-items: center; gap: 7px;
+            background: #0d1117; border: 1.5px solid var(--border);
+            border-radius: 10px; padding: 8px 16px; cursor: pointer;
+            font-size: 0.8rem; font-weight: 600; color: #94a3b8;
+            transition: all 0.2s; user-select: none;
+        }
+        .opt-chip input[type="checkbox"] { display: none; }
+        .opt-chip .chip-icon { font-size: 1rem; }
+        .opt-chip.active {
+            border-color: var(--accent); color: #fff;
+            background: rgba(255,0,127,0.08);
+        }
+        .opt-chip:hover { border-color: #475569; color: #fff; }
+
+        /* ── MAIN CARD ── */
+        .cleaner-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 30px; margin-bottom: 30px;
+        }
+
+        /* ── EDITOR AREA ── */
+        .editor-wrap { position: relative; margin-bottom: 18px; }
+        textarea {
+            width: 100%; height: 200px; background: #000; border: 2px solid var(--border);
+            border-radius: 12px; color: #fff; padding: 18px 20px 40px 20px;
+            font-family: 'Inter'; font-size: 0.95rem; resize: vertical; outline: none;
+            transition: border-color 0.25s; line-height: 1.6;
+        }
+        textarea:focus { border-color: var(--accent); }
+        textarea::placeholder { color: #334155; }
+        .char-count {
+            position: absolute; bottom: 12px; right: 16px;
+            font-size: 0.68rem; color: #334155; pointer-events: none;
+        }
+        .char-count.warn { color: #f59e0b; }
+
+        /* ── ACTIONS ── */
+        .actions-row {
+            display: flex; gap: 10px; align-items: center;
+            flex-wrap: wrap; justify-content: center; margin-bottom: 24px;
+        }
+        .btn-main {
+            background: var(--accent); color: white; border: none;
+            padding: 14px 40px; border-radius: 12px; font-weight: 800;
+            cursor: pointer; font-family: 'Outfit'; text-transform: uppercase;
+            letter-spacing: 1px; transition: all 0.25s; font-size: 0.9rem;
+        }
+        .btn-main:hover { transform: scale(1.03); box-shadow: 0 0 22px rgba(255,0,127,0.35); }
+        .btn-main:active { transform: scale(0.98); }
+        .btn-sec {
+            background: transparent; color: #64748b; border: 1.5px solid var(--border);
+            padding: 14px 22px; border-radius: 12px; font-weight: 600;
+            cursor: pointer; font-family: 'Inter'; transition: all 0.2s; font-size: 0.82rem;
+        }
+        .btn-sec:hover { border-color: #475569; color: #cbd5e1; }
+
+        /* ── PROCESSING ANIMATION ── */
+        .processing-bar {
+            height: 3px; background: var(--border); border-radius: 2px;
+            overflow: hidden; margin-bottom: 18px; display: none;
+        }
+        .processing-bar.active { display: block; }
+        .processing-fill {
+            height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #ff6eb4);
+            border-radius: 2px; transition: width 0.5s ease;
+        }
+
+        /* ── AI STATUS ── */
+        .ai-status {
+            text-align: center; font-size: 0.75rem; color: #475569;
+            margin-bottom: 14px; min-height: 18px; transition: color 0.3s;
+            font-style: italic;
+        }
+        .ai-status.active { color: var(--accent); }
+
+        /* ── OUTPUT ── */
+        .output-wrap { position: relative; }
+        .output-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; color: #475569; margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .output-label .removed-badge {
+            background: rgba(255,0,127,0.12); border: 1px solid rgba(255,0,127,0.2);
+            border-radius: 6px; padding: 2px 10px; color: var(--accent);
+            font-size: 0.65rem; display: none;
+        }
+        .output-label .removed-badge.show { display: inline-block; }
+        .output-box {
+            width: 100%; min-height: 120px; background: #200d1f;
+            padding: 18px 20px; border-radius: 12px; border: 1px solid var(--border);
+            font-size: 0.95rem; color: #cbd5e1; line-height: 1.65;
+            position: relative; transition: border-color 0.25s; cursor: pointer;
+        }
+        .output-box.has-content:hover { border-color: var(--accent); }
+        .output-box.empty { color: #334155; font-style: italic; }
+        .copy-hint {
+            position: absolute; bottom: 10px; right: 14px;
+            font-size: 0.65rem; color: #334155; pointer-events: none;
+        }
+        .output-box.has-content .copy-hint { color: #475569; }
+
+        /* ── STATS ROW ── */
+        .stats-row {
+            display: flex; gap: 20px; flex-wrap: wrap;
+            margin-top: 16px; justify-content: center;
+        }
+        .stat-pill {
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 16px;
+            font-size: 0.75rem; color: #475569;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            min-width: 90px;
+        }
+        .stat-pill .stat-num {
+            font-family: 'Outfit'; font-size: 1.2rem; font-weight: 800; color: #fff;
+        }
+        .stat-pill .stat-num.accent { color: var(--accent); }
+
+        /* ── PREVIEW TOGGLE ── */
+        .preview-toggle {
+            display: flex; border: 1px solid var(--border);
+            border-radius: 10px; overflow: hidden; margin-bottom: 16px;
+            width: fit-content;
+        }
+        .p-tab {
+            padding: 7px 18px; font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;
+            background: transparent; border: none; color: #475569;
+            transition: all 0.2s; font-family: 'Inter';
+        }
+        .p-tab.active { background: var(--accent); color: #fff; }
+
+        /* ── DIFF VIEW ── */
+        .diff-view { display: none; }
+        .diff-view.show { display: block; }
+        .diff-out { display: none; }
+        .diff-out.show { display: block; }
+        .diff-removed { color: #f87171; text-decoration: line-through; opacity: 0.7; }
+        .diff-kept { color: #cbd5e1; }
+
+        /* ── UNDO STRIP ── */
+        .undo-bar {
+            display: none; background: #0d1117; border: 1px solid #1e293b;
+            border-radius: 10px; padding: 10px 16px;
+            font-size: 0.78rem; color: #64748b;
+            align-items: center; justify-content: space-between;
+            margin-top: 12px;
+        }
+        .undo-bar.show { display: flex; }
+        .undo-link {
+            color: var(--accent); cursor: pointer; font-weight: 700;
+            text-decoration: none; background: none; border: none;
+            font-family: 'Inter'; font-size: 0.78rem;
+        }
+        .undo-link:hover { text-decoration: underline; }
+
+        /* ── SEO SECTION ── */
+        .seo-section { border-top: 1px solid var(--border); padding-top: 44px; }
+        .seo-section h2 { font-family: 'Outfit'; margin-bottom: 8px; font-size: 1.5rem; }
+        .seo-intro { color: #64748b; font-size: 0.88rem; margin-bottom: 28px; line-height: 1.7; max-width: 700px; }
+        .seo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
+        .seo-box {
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 16px; padding: 22px;
+        }
+        .seo-box h4 {
+            font-family: 'Outfit'; color: var(--accent); margin-bottom: 10px;
+            text-transform: uppercase; font-size: 0.78rem; letter-spacing: 1px;
+        }
+        .seo-box p { font-size: 0.84rem; color: #94a3b8; line-height: 1.75; }
+
+        /* ── HOW IT WORKS ── */
+        .how-section { margin-top: 50px; }
+        .how-section h2 { font-family: 'Outfit'; margin-bottom: 24px; font-size: 1.5rem; }
+        .steps { display: flex; gap: 0; flex-wrap: wrap; }
+        .step {
+            flex: 1; min-width: 160px; display: flex; flex-direction: column;
+            align-items: flex-start; padding: 20px; position: relative;
+        }
+        .step:not(:last-child)::after {
+            content: '→'; position: absolute; right: -4px; top: 28px;
+            color: #334155; font-size: 1.2rem;
+        }
+        .step-num {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(255,0,127,0.12); border: 1px solid rgba(255,0,127,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Outfit'; font-weight: 800; font-size: 0.85rem;
+            color: var(--accent); margin-bottom: 12px;
+        }
+        .step h5 { font-family: 'Outfit'; font-size: 0.9rem; margin-bottom: 6px; color: #fff; }
+        .step p { font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+
+        @media (max-width: 700px) {
+            .seo-grid { grid-template-columns: 1fr; }
+            .step:not(:last-child)::after { display: none; }
+            .steps { flex-direction: column; }
+            .tool-header h1 { font-size: 1.9rem; }
+        }
+        @media (max-width: 500px) {
+            .actions-row { flex-direction: column; width: 100%; }
+            .btn-main, .btn-sec { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="text-formatting.html" class="back-btn">back to tools</a>
+
+        <header class="tool-header">
+            <h1>Bulk Mention Cleaner</h1>
+            <p>Sanitize content for cross-platform reposting in one click.</p>
+            <span class="ai-badge">Smart Pattern Detection Active</span>
+        </header>
+
+        <!-- OPTIONS CHIPS -->
+        <div class="options-bar" id="optionsBar">
+            <label class="opt-chip active" id="chip-mentions">
+                <input type="checkbox" id="opt-mentions" checked onchange="syncChip(this)">
+                <span class="chip-icon">@</span> @Mentions
+            </label>
+            <label class="opt-chip" id="chip-hashtags">
+                <input type="checkbox" id="opt-hashtags" onchange="syncChip(this)">
+                <span class="chip-icon">#</span> #Hashtags
+            </label>
+            <label class="opt-chip" id="chip-urls">
+                <input type="checkbox" id="opt-urls" onchange="syncChip(this)">
+                <span class="chip-icon">🔗</span> URLs
+            </label>
+            <label class="opt-chip" id="chip-emojis">
+                <input type="checkbox" id="opt-emojis" onchange="syncChip(this)">
+                <span class="chip-icon">😄</span> Emojis
+            </label>
+            <label class="opt-chip" id="chip-extra-lines">
+                <input type="checkbox" id="opt-extra-lines" onchange="syncChip(this)">
+                <span class="chip-icon">↵</span> Extra Blank Lines
+            </label>
+        </div>
+
+        <section class="cleaner-card">
+            <!-- INPUT -->
+            <div class="editor-wrap">
+                <textarea id="mentionInput"
+                    placeholder="Paste your post here... e.g. 'Thanks @jack and @elon for the inspiration! Check out https://twitter.com #growth #productivity 🚀'"
+                    oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="charCount">0 chars</div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="actions-row">
+                <button class="btn-main" onclick="runCleaner()">Clean Content</button>
+                <button class="btn-sec" onclick="clearAll()">Clear</button>
+                <button class="btn-sec" onclick="pasteFromClipboard()">Paste</button>
+            </div>
+
+            <!-- PROCESSING BAR + AI STATUS -->
+            <div class="processing-bar" id="processingBar">
+                <div class="processing-fill" id="processingFill"></div>
+            </div>
+            <div class="ai-status" id="aiStatus"></div>
+
+            <!-- PREVIEW TOGGLE -->
+            <div class="preview-toggle">
+                <button class="p-tab active" id="tabClean" onclick="switchTab('clean')">Cleaned</button>
+                <button class="p-tab" id="tabDiff" onclick="switchTab('diff')">Show Changes</button>
+            </div>
+
+            <!-- OUTPUT LABEL -->
+            <div class="output-label">
+                <span>Output</span>
+                <span class="removed-badge" id="removedBadge"></span>
+            </div>
+
+            <!-- CLEAN OUTPUT -->
+            <div class="output-wrap">
+                <div class="output-box empty diff-out show" id="cleanOutput" onclick="copyCleaned()">
+                    Your cleaned text will appear here...
+                    <span class="copy-hint">click to copy</span>
+                </div>
+                <div class="output-box empty diff-view" id="diffOutput">
+                    Difference view will appear here...
+                </div>
+            </div>
+
+            <!-- UNDO BAR -->
+            <div class="undo-bar" id="undoBar">
+                <span>Last clean applied.</span>
+                <button class="undo-link" onclick="undoClean()">↩ Undo</button>
+            </div>
+
+            <!-- STATS -->
+            <div class="stats-row" id="statsRow" style="display:none;">
+                <div class="stat-pill">
+                    <span class="stat-num accent" id="statMentions">0</span>
+                    <span>Mentions</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num accent" id="statHashtags">0</span>
+                    <span>Hashtags</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num accent" id="statUrls">0</span>
+                    <span>URLs</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num accent" id="statEmojis">0</span>
+                    <span>Emojis</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num" id="statBefore">0</span>
+                    <span>Chars Before</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num" id="statAfter">0</span>
+                    <span>Chars After</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="how-section">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <h5>Paste Your Post</h5>
+                    <p>Drop in any social media content — threads, LinkedIn posts, tweets, captions, or raw text logs.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <h5>Pick What to Remove</h5>
+                    <p>Toggle which patterns to strip: @mentions, #hashtags, URLs, emojis, or trailing blank lines.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <h5>Smart Clean</h5>
+                    <p>Pattern detection runs across the entire text and auto-corrects double spaces left behind.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">4</div>
+                    <h5>Copy & Repost</h5>
+                    <p>One tap copies the cleaned output to your clipboard — ready for wherever you're reposting.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEO SECTION -->
+        <section class="seo-section" style="margin-top: 50px;">
+            <h2>The Reposting Workflow</h2>
+            <p class="seo-intro">Every platform has its own culture, syntax, and expectations. Content that works brilliantly on Twitter becomes clunky and unprofessional the moment it lands on LinkedIn or a company blog. Our Bulk Mention Cleaner bridges that gap — stripping every platform-specific artifact so your ideas travel cleanly, without the baggage of their original home.</p>
+            <div class="seo-grid">
+                <div class="seo-box">
+                    <h4>Handle Stripping</h4>
+                    <p>When reposting a Twitter thread to a blog, newsletter, or LinkedIn article, raw <span style="color:#fff">@username</span> handles look broken and amateurish to readers who have no context for who those people are. Our tool scans the entire text for every valid @mention pattern — including underscores and numbers — and removes all of them in a single pass. It then automatically tightens up the whitespace left behind so your sentences still read naturally. The result is neutral, platform-agnostic prose that looks intentional, not copy-pasted.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Hashtag Removal</h4>
+                    <p>Hashtags are discovery tools on Instagram, Twitter, and TikTok — but on LinkedIn, email newsletters, and blog posts, they read as noise. Worse, a post littered with <span style="color:#fff">#growth #hustle #motivationmonday</span> signals low effort and low quality to professional audiences who encounter that content in a different context. Our hashtag removal mode is surgical: it strips the entire tag (the # symbol plus the word following it) without leaving orphan punctuation or awkward gaps. Your original message stays intact — just cleaner.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>URL Cleanup</h4>
+                    <p>Long tracking URLs, affiliate links, and raw Twitter or Instagram shortlinks embedded in a post are a liability when you repurpose that content. They expose internal campaign parameters, expire after a set time, or simply look ugly in editorial copy. The URL removal mode identifies all hyperlinks — whether they start with http, https, or www — and removes them completely. This is invaluable when you're creating a clean archive of your posts, drafting a portfolio piece from a thread, or handing copy over to a designer who doesn't need dead links cluttering the text.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Privacy First</h4>
+                    <p>Sharing screenshots of Slack conversations, Discord threads, or DM exchanges almost always exposes the handles of people who never consented to be publicly identified. Instead of manually hunting for every <span style="color:#fff">@username</span> in a long text dump and risk missing one, run the entire block through our cleaner. Every handle is removed in one pass — whether the text is 100 words or 10,000. This makes the tool indispensable for community managers, HR teams, researchers, and journalists who need to share conversational data responsibly while protecting participant anonymity.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>LinkedIn Ready</h4>
+                    <p>The LinkedIn "Broetry" format — a hook line, a wall of one-line paragraphs, and a closing call-to-action buried in tags — performs on the feed but reads terribly everywhere else. When you want to repurpose that content into a genuine thought leadership piece, article, or case study, you need to strip out the tag-heavy intros and excessive @tagging of collaborators. Our tool removes that entire layer in seconds, leaving you with the actual ideas you can reshape into long-form copy. Clean inputs make clean outputs — and clean outputs make better impressions on an enterprise audience.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Whitespace & Formatting</h4>
+                    <p>One of the most insidious side effects of manual mention deletion is broken spacing. Remove a mention from the middle of a sentence and you're left with a double space that most writers don't notice until a client or editor points it out. Remove a standalone mention at the start of a line and you end up with a blank paragraph that throws off the document's rhythm. Our algorithm corrects both: it collapses multiple consecutive spaces into one, and it removes extraneous blank lines when you enable the "Extra Blank Lines" option. The output isn't just stripped — it's truly polished and publication-ready.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer style="margin-top: 100px; padding: 60px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b; font-size: 0.8rem;">
+        © 2026 Rebrixe Engine. All processing is 100% Client-Side.
+    </footer>
+
+    <script>
+        // ── STATE ──
+        let lastInput = '';
+        let lastCleaned = '';
+        let currentTab = 'clean';
+
+        // ── CHIP SYNC ──
+        function syncChip(checkbox) {
+            const id = checkbox.id.replace('opt-', 'chip-');
+            const chip = document.getElementById(id);
+            if (checkbox.checked) chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+
+        // ── CHAR COUNT ──
+        function updateCharCount(ta) {
+            const el = document.getElementById('charCount');
+            const len = ta.value.length;
+            el.textContent = len.toLocaleString() + ' chars';
+            el.className = 'char-count' + (len > 2800 ? ' warn' : '');
+        }
+
+        // ── PASTE ──
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const ta = document.getElementById('mentionInput');
+                ta.value = text;
+                updateCharCount(ta);
+            } catch(e) {
+                document.getElementById('mentionInput').focus();
+            }
+        }
+
+        // ── CLEAR ──
+        function clearAll() {
+            document.getElementById('mentionInput').value = '';
+            updateCharCount(document.getElementById('mentionInput'));
+            const out = document.getElementById('cleanOutput');
+            out.textContent = 'Your cleaned text will appear here...';
+            out.innerHTML += '<span class="copy-hint">click to copy</span>';
+            out.classList.add('empty');
+            document.getElementById('diffOutput').textContent = 'Difference view will appear here...';
+            document.getElementById('diffOutput').classList.add('empty');
+            document.getElementById('statsRow').style.display = 'none';
+            document.getElementById('undoBar').classList.remove('show');
+            document.getElementById('aiStatus').textContent = '';
+            document.getElementById('aiStatus').classList.remove('active');
+            document.getElementById('removedBadge').classList.remove('show');
+            document.getElementById('processingBar').classList.remove('active');
+            lastInput = ''; lastCleaned = '';
+        }
+
+        // ── FAKE AI PROCESSING ──
+        const aiPhrases = [
+            'Scanning for mention patterns…',
+            'Identifying @handles across text…',
+            'Detecting platform-specific artifacts…',
+            'Removing tagged elements…',
+            'Correcting whitespace…',
+            'Finalizing clean output…'
+        ];
+
+        function runFakeAI(callback) {
+            const bar = document.getElementById('processingBar');
+            const fill = document.getElementById('processingFill');
+            const status = document.getElementById('aiStatus');
+            bar.classList.add('active');
+            status.classList.add('active');
+            fill.style.width = '0%';
+
+            let step = 0;
+            const steps = [15, 35, 55, 72, 88, 100];
+
+            function next() {
+                if (step >= steps.length) {
+                    setTimeout(() => {
+                        bar.classList.remove('active');
+                        fill.style.width = '0%';
+                        status.classList.remove('active');
+                        status.textContent = '';
+                        callback();
+                    }, 180);
+                    return;
+                }
+                fill.style.width = steps[step] + '%';
+                status.textContent = aiPhrases[step] || '';
+                step++;
+                setTimeout(next, 100 + Math.random() * 80);
+            }
+            next();
+        }
+
+        // ── MAIN CLEANER ──
+        function runCleaner() {
+            const input = document.getElementById('mentionInput').value;
+            if (!input.trim()) return;
+
+            runFakeAI(() => {
+                lastInput = input;
+                applyClean(input);
+            });
+        }
+
+        function applyClean(input) {
+            const removeMentions  = document.getElementById('opt-mentions').checked;
+            const removeHashtags  = document.getElementById('opt-hashtags').checked;
+            const removeUrls      = document.getElementById('opt-urls').checked;
+            const removeEmojis    = document.getElementById('opt-emojis').checked;
+            const removeExtraLines= document.getElementById('opt-extra-lines').checked;
+
+            const mentionRegex = /@[A-Za-z0-9_]+/g;
+            const hashtagRegex = /#[A-Za-z0-9_\u00C0-\u024F]+/g;
+            const urlRegex     = /https?:\/\/[^\s]+|www\.[^\s]+/g;
+            const emojiRegex   = /[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FEFF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}]/gu;
+
+            // Count each type (always count, regardless of option)
+            const mCount = (input.match(mentionRegex) || []).length;
+            const hCount = (input.match(hashtagRegex) || []).length;
+            const uCount = (input.match(urlRegex) || []).length;
+            const eCount = (input.match(emojiRegex) || []).length;
+
+            let cleaned = input;
+            if (removeMentions)   cleaned = cleaned.replace(mentionRegex, '');
+            if (removeHashtags)   cleaned = cleaned.replace(hashtagRegex, '');
+            if (removeUrls)       cleaned = cleaned.replace(urlRegex, '');
+            if (removeEmojis)     cleaned = cleaned.replace(emojiRegex, '');
+            if (removeExtraLines) cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+            // Fix double-spaces left behind
+            cleaned = cleaned.replace(/[ \t]{2,}/g, ' ');
+            // Fix spaces before punctuation
+            cleaned = cleaned.replace(/ ([,\.!?;:])/g, '$1');
+            // Trim each line
+            cleaned = cleaned.split('\n').map(l => l.trim()).join('\n');
+            // Final trim
+            cleaned = cleaned.trim();
+
+            lastCleaned = cleaned;
+
+            // Update clean output
+            const out = document.getElementById('cleanOutput');
+            out.textContent = cleaned || 'Text is empty after cleaning!';
+            out.innerHTML += '<span class="copy-hint">click to copy</span>';
+            out.classList.remove('empty');
+            out.style.borderColor = 'var(--accent)';
+
+            // Build diff
+            buildDiff(input, {
+                mentions: removeMentions, hashtags: removeHashtags,
+                urls: removeUrls, emojis: removeEmojis
+            });
+
+            // Stats
+            const removedTotal = (removeMentions ? mCount : 0)
+                + (removeHashtags ? hCount : 0)
+                + (removeUrls ? uCount : 0)
+                + (removeEmojis ? eCount : 0);
+
+            document.getElementById('statMentions').textContent = removeMentions ? mCount : '–';
+            document.getElementById('statHashtags').textContent = removeHashtags ? hCount : '–';
+            document.getElementById('statUrls').textContent     = removeUrls ? uCount : '–';
+            document.getElementById('statEmojis').textContent   = removeEmojis ? eCount : '–';
+            document.getElementById('statBefore').textContent   = input.length.toLocaleString();
+            document.getElementById('statAfter').textContent    = cleaned.length.toLocaleString();
+            document.getElementById('statsRow').style.display   = 'flex';
+
+            const badge = document.getElementById('removedBadge');
+            badge.textContent = removedTotal + ' item' + (removedTotal !== 1 ? 's' : '') + ' removed';
+            badge.classList.add('show');
+
+            document.getElementById('undoBar').classList.add('show');
+
+            if (currentTab === 'diff') switchTab('diff', true);
+        }
+
+        // ── DIFF VIEW ──
+        function buildDiff(original, opts) {
+            const patterns = [];
+            if (opts.mentions)  patterns.push(/@[A-Za-z0-9_]+/g);
+            if (opts.hashtags)  patterns.push(/#[A-Za-z0-9_\u00C0-\u024F]+/g);
+            if (opts.urls)      patterns.push(/https?:\/\/[^\s]+|www\.[^\s]+/g);
+            if (opts.emojis)    patterns.push(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FEFF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}]/gu);
+
+            if (!patterns.length) {
+                document.getElementById('diffOutput').textContent = 'No removal options selected.';
+                return;
+            }
+
+            // Combined regex
+            const combined = new RegExp(
+                patterns.map(p => p.source).join('|'),
+                patterns.reduce((f, p) => f + (p.flags.includes('u') ? 'u' : ''), 'g')
+            );
+
+            let html = '';
+            let last = 0;
+            const escaped = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+            combined.lastIndex = 0;
+            let m;
+            while ((m = combined.exec(original)) !== null) {
+                html += '<span class="diff-kept">' + escaped(original.slice(last, m.index)) + '</span>';
+                html += '<span class="diff-removed">' + escaped(m[0]) + '</span>';
+                last = m.index + m[0].length;
+            }
+            html += '<span class="diff-kept">' + escaped(original.slice(last)) + '</span>';
+
+            const diffEl = document.getElementById('diffOutput');
+            diffEl.innerHTML = html;
+            diffEl.classList.remove('empty');
+        }
+
+        // ── TAB SWITCH ──
+        function switchTab(tab, silent) {
+            currentTab = tab;
+            const cleanOut  = document.getElementById('cleanOutput');
+            const diffOut   = document.getElementById('diffOutput');
+            const tabClean  = document.getElementById('tabClean');
+            const tabDiff   = document.getElementById('tabDiff');
+
+            if (tab === 'clean') {
+                cleanOut.classList.add('show'); cleanOut.classList.remove('diff-view');
+                diffOut.classList.remove('show'); diffOut.classList.add('diff-view');
+                tabClean.classList.add('active'); tabDiff.classList.remove('active');
+            } else {
+                cleanOut.classList.remove('show'); cleanOut.classList.add('diff-view');
+                diffOut.classList.add('show'); diffOut.classList.remove('diff-view');
+                tabDiff.classList.add('active'); tabClean.classList.remove('active');
+            }
+        }
+
+        // ── UNDO ──
+        function undoClean() {
+            if (!lastInput) return;
+            const ta = document.getElementById('mentionInput');
+            ta.value = lastInput;
+            updateCharCount(ta);
+            const out = document.getElementById('cleanOutput');
+            out.textContent = 'Your cleaned text will appear here...';
+            out.innerHTML += '<span class="copy-hint">click to copy</span>';
+            out.classList.add('empty');
+            out.style.borderColor = '';
+            document.getElementById('diffOutput').textContent = 'Difference view will appear here...';
+            document.getElementById('diffOutput').classList.add('empty');
+            document.getElementById('statsRow').style.display = 'none';
+            document.getElementById('undoBar').classList.remove('show');
+            document.getElementById('removedBadge').classList.remove('show');
+            lastInput = ''; lastCleaned = '';
+        }
+
+        // ── COPY ──
+        function copyCleaned() {
+            const out = document.getElementById('cleanOutput');
+            if (out.classList.contains('empty')) return;
+            const text = lastCleaned;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const prev = out.innerHTML;
+                out.innerHTML = '<strong style="color:var(--accent)">COPIED! ✅</strong>';
+                setTimeout(() => { out.innerHTML = prev; }, 1300);
+            }).catch(() => {
+                // Fallback select
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            });
+        }
+
+        // ── INIT ──
+        // Set default tab display
+        switchTab('clean', true);
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

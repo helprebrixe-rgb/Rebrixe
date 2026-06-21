@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Comparison Tool — Compare Two Images Side by Side | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Compare two images side by side with a drag divider. Spot differences instantly, check metadata, pixel dimensions, file size. Free, browser-only — images never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Upload grid */
+        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+        .drop-zone {
+            position: relative; border-radius: 18px; padding: 36px 20px 32px;
+            text-align: center; cursor: pointer; overflow: hidden;
+            background: var(--card); transition: transform 0.22s, box-shadow 0.22s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 18px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.5), rgba(255,183,0,0.12) 40%, rgba(255,255,255,0.04) 60%, rgba(255,214,0,0.35));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 7px; border-radius: 12px; border: 1px dashed rgba(255,214,0,0.1); pointer-events: none; transition: border-color 0.22s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(255,214,0,0.09), 0 4px 14px rgba(0,0,0,0.35); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.25); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-3px); box-shadow: 0 18px 50px rgba(255,214,0,0.18), 0 0 0 2px rgba(255,214,0,0.18); }
+        .drop-zone.has-image::after { border-color: rgba(170,255,0,0.2); }
+        .drop-icon { font-size: 2.2rem; margin-bottom: 10px; display: block; transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-4px) scale(1.08); }
+        .drop-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 5px; }
+        .drop-title { font-size: 0.9rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .drop-sub { font-size: 0.75rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.3); }
+
+        /* Preview thumbnail inside drop zone */
+        .dz-preview { display: none; flex-direction: column; align-items: center; gap: 8px; }
+        .dz-preview.show { display: flex; }
+        .dz-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .dz-thumb { width: 100%; max-height: 120px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-mid); }
+        .dz-fname { font-size: 0.7rem; font-weight: 700; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .dz-dims { font-size: 0.65rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .dz-change { font-size: 0.65rem; font-weight: 700; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; cursor: pointer; font-family: 'Outfit', sans-serif; margin-top: 2px; transition: all 0.18s; }
+        .dz-change:hover { border-color: var(--primary); color: var(--primary); }
+
+        input[type=file] { display: none; }
+
+        /* Mode tabs */
+        .mode-bar { display: flex; gap: 7px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+        .section-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-right: 4px; }
+        .mode-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .mode-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .mode-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Compare area */
+        .compare-area { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; display: none; }
+        .compare-area.visible { display: block; }
+
+        /* Slider mode */
+        .slider-wrap { position: relative; cursor: ew-resize; user-select: none; touch-action: none; background: #000; min-height: 200px; }
+        .slider-wrap canvas { display: block; width: 100%; height: auto; max-height: 460px; pointer-events: none; }
+        .divider-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary); transform: translateX(-50%); pointer-events: none; z-index: 3; box-shadow: 0 0 12px rgba(255,214,0,0.5); }
+        .divider-handle { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; background: var(--primary); border-radius: 50%; z-index: 4; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #000; box-shadow: 0 2px 16px rgba(0,0,0,0.55); pointer-events: none; }
+        .lbl { position: absolute; top: 10px; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 3px 10px; border-radius: 99px; background: rgba(0,0,0,0.65); z-index: 5; pointer-events: none; backdrop-filter: blur(4px); }
+        .lbl-a { left: 10px; color: var(--text-sec); }
+        .lbl-b { right: 10px; color: var(--primary); }
+
+        /* Side-by-side mode */
+        .sbs-wrap { display: grid; grid-template-columns: 1fr 1fr; background: #000; }
+        .sbs-pane { position: relative; overflow: hidden; max-height: 460px; }
+        .sbs-pane canvas { display: block; width: 100%; height: auto; max-height: 460px; }
+        .sbs-divider { width: 2px; background: var(--border-mid); flex-shrink: 0; }
+        .sbs-lbl { position: absolute; top: 10px; left: 10px; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 3px 10px; border-radius: 99px; background: rgba(0,0,0,0.65); z-index: 2; backdrop-filter: blur(4px); color: var(--text-sec); }
+        .sbs-pane:last-child .sbs-lbl { color: var(--primary); }
+
+        /* Diff mode */
+        .diff-wrap { position: relative; background: #000; text-align: center; }
+        .diff-wrap canvas { display: block; width: 100%; height: auto; max-height: 460px; margin: 0 auto; }
+        .diff-legend { display: flex; gap: 16px; justify-content: center; padding: 10px; background: var(--surface); font-size: 0.7rem; color: var(--text-sec); font-weight: 600; flex-wrap: wrap; }
+        .diff-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+        /* Zoom controls */
+        .zoom-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+        .zoom-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--card); color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; flex-shrink: 0; }
+        .zoom-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+        .zoom-val { font-size: 0.72rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 38px; text-align: center; }
+        .zoom-hint { font-size: 0.68rem; color: var(--text-dim); margin-left: auto; }
+
+        /* Metadata panel */
+        .meta-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 16px; display: none; }
+        .meta-panel.visible { display: block; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .meta-col { display: flex; flex-direction: column; gap: 6px; }
+        .meta-col-title { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .meta-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .meta-key { font-size: 0.72rem; color: var(--text-dim); }
+        .meta-val { font-size: 0.75rem; font-weight: 700; color: var(--text); font-family: 'Fira Code', monospace; text-align: right; }
+        .meta-val.diff { color: var(--error); }
+        .meta-val.same { color: var(--success); }
+        .meta-val.highlight { color: var(--primary); }
+
+        /* Match score */
+        .match-bar { display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 16px; flex-wrap: wrap; display: none; }
+        .match-bar.visible { display: flex; }
+        .match-label { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); }
+        .match-track { flex: 1; min-width: 120px; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .match-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--error), var(--accent), var(--success)); transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+        .match-pct { font-size: 0.9rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .match-desc { font-size: 0.72rem; color: var(--text-sec); }
+
+        /* Diff stats */
+        .diff-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; display: none; }
+        .diff-stats.visible { display: flex; }
+        .dstat { flex: 1; min-width: 90px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .dstat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .dstat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 22px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.42) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.55s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(255,180,0,0.3), 0 4px 10px rgba(255,180,0,0.15); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled .btn-main-inner { opacity: 0.35; cursor: not-allowed; }
+        .btn-sec { padding: 13px 20px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-sec:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 12px 16px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 700; color: var(--primary); margin-bottom: 14px; }
+        .processing.visible { display: flex; }
+        .spin { width: 15px; height: 15px; border: 2px solid rgba(255,214,0,0.18); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.65s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 11px 20px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 52px; }
+        .faq-heading { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.4px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 11px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .faq-item h3 { font-size: 0.83rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .faq-item p { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.76rem; background: var(--surface); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .upload-grid { grid-template-columns: 1fr; }
+            .meta-grid { grid-template-columns: 1fr; }
+            .sbs-wrap { grid-template-columns: 1fr; }
+            .sbs-pane:last-child { display: none; } /* slider mode on mobile */
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+    <main>
+        <div class="container">
+            <a href="metadata-analysis.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Comparison</h1>
+                <p class="tool-page-sub">Upload two images — drag the divider, compare side-by-side, or see a pixel diff. Metadata & similarity score included.</p>
+                <span class="privacy-badge">100% in-browser — images never leave your device</span>
+            </div>
+
+            <!-- Upload pair -->
+            <div class="upload-grid">
+                <!-- Image A -->
+                <div class="drop-zone" id="dzA" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(this)" ondrop="onDrop(event,'A')">
+                    <input type="file" id="fileA" accept="image/*" onchange="loadFile('A',this.files[0])">
+                    <div class="dz-placeholder" id="phA">
+                        <span class="drop-icon">🖼</span>
+                        <div class="drop-label">Image A</div>
+                        <div class="drop-title">Original / Before</div>
+                        <div class="drop-sub">Drop or <span onclick="document.getElementById('fileA').click()">browse</span></div>
+                    </div>
+                    <div class="dz-preview" id="prevA">
+                        <img class="dz-thumb" id="thumbA" src="" alt="">
+                        <div class="dz-fname" id="fnameA">—</div>
+                        <div class="dz-dims" id="fdimsA">—</div>
+                        <button class="dz-change" onclick="clearFile('A',event)">↩ Change</button>
+                    </div>
+                </div>
+                <!-- Image B -->
+                <div class="drop-zone" id="dzB" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(this)" ondrop="onDrop(event,'B')">
+                    <input type="file" id="fileB" accept="image/*" onchange="loadFile('B',this.files[0])">
+                    <div class="dz-placeholder" id="phB">
+                        <span class="drop-icon">🖼</span>
+                        <div class="drop-label">Image B</div>
+                        <div class="drop-title">Edited / After</div>
+                        <div class="drop-sub">Drop or <span onclick="document.getElementById('fileB').click()">browse</span></div>
+                    </div>
+                    <div class="dz-preview" id="prevB">
+                        <img class="dz-thumb" id="thumbB" src="" alt="">
+                        <div class="dz-fname" id="fnameB">—</div>
+                        <div class="dz-dims" id="fdimsB">—</div>
+                        <button class="dz-change" onclick="clearFile('B',event)">↩ Change</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode bar + compare btn -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+                <div class="mode-bar" id="modeBar" style="margin-bottom:0;">
+                    <span class="section-label">View</span>
+                    <button class="mode-btn active" data-mode="slider" onclick="setMode(this)">⟺ Slider</button>
+                    <button class="mode-btn" data-mode="sbs" onclick="setMode(this)">⧉ Side by Side</button>
+                    <button class="mode-btn" data-mode="diff" onclick="setMode(this)">◈ Pixel Diff</button>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px;">
+                    <button class="btn-main" id="btnCompare" onclick="doCompare()" style="flex:none;min-width:auto;">
+                        <div class="btn-main-inner" style="padding:12px 20px;font-size:0.88rem;">
+                            <span>🔍</span><span>Compare</span>
+                        </div>
+                    </button>
+                    <button class="btn-sec" id="btnSwap" onclick="swapImages()" title="Swap A ↔ B" style="padding:12px 14px;">⇄</button>
+                </div>
+            </div>
+
+            <!-- Processing -->
+            <div class="processing" id="processing"><div class="spin"></div><span>Analysing images…</span></div>
+
+            <!-- Match score bar -->
+            <div class="match-bar" id="matchBar">
+                <span class="match-label">Similarity</span>
+                <div class="match-track"><div class="match-fill" id="matchFill" style="width:0%"></div></div>
+                <span class="match-pct" id="matchPct">—</span>
+                <span class="match-desc" id="matchDesc">—</span>
+            </div>
+
+            <!-- Diff stats -->
+            <div class="diff-stats" id="diffStats">
+                <div class="dstat"><div class="dstat-label">Changed Pixels</div><div class="dstat-val" id="dstatChanged">—</div></div>
+                <div class="dstat"><div class="dstat-label">% of Image</div><div class="dstat-val" id="dstatPct">—</div></div>
+                <div class="dstat"><div class="dstat-label">Avg Δ Color</div><div class="dstat-val" id="dstatAvg">—</div></div>
+                <div class="dstat"><div class="dstat-label">Max Δ Color</div><div class="dstat-val" id="dstatMax">—</div></div>
+            </div>
+
+            <!-- Compare area -->
+            <div class="compare-area" id="compareArea">
+                <!-- Slider mode -->
+                <div id="modeSlider" class="slider-wrap" id="sliderWrap">
+                    <canvas id="sliderCanvas"></canvas>
+                    <div class="divider-line" id="divLine"></div>
+                    <div class="divider-handle" id="divHandle">◀▶</div>
+                    <span class="lbl lbl-a">A</span>
+                    <span class="lbl lbl-b">B</span>
+                </div>
+                <!-- Side-by-side mode -->
+                <div id="modeSbs" class="sbs-wrap" style="display:none;">
+                    <div class="sbs-pane" style="border-right:2px solid var(--border-mid);">
+                        <canvas id="sbsCanvasA"></canvas>
+                        <span class="sbs-lbl">A — Original</span>
+                    </div>
+                    <div class="sbs-pane">
+                        <canvas id="sbsCanvasB"></canvas>
+                        <span class="sbs-lbl" style="color:var(--primary);">B — Edited</span>
+                    </div>
+                </div>
+                <!-- Diff mode -->
+                <div id="modeDiff" style="display:none;">
+                    <div class="diff-wrap"><canvas id="diffCanvas"></canvas></div>
+                    <div class="diff-legend">
+                        <span><span class="diff-dot" style="background:#ff4444;"></span>Pixels added / brighter in B</span>
+                        <span><span class="diff-dot" style="background:#4488ff;"></span>Pixels removed / darker in B</span>
+                        <span><span class="diff-dot" style="background:#222;"></span>No change</span>
+                    </div>
+                </div>
+                <!-- Zoom bar -->
+                <div class="zoom-bar">
+                    <button class="zoom-btn" onclick="changeZoom(-0.25)">−</button>
+                    <span class="zoom-val" id="zoomVal">100%</span>
+                    <button class="zoom-btn" onclick="changeZoom(0.25)">+</button>
+                    <button class="zoom-btn" onclick="resetZoom()" title="Reset zoom" style="width:auto;padding:0 8px;font-size:0.65rem;">FIT</button>
+                    <span class="zoom-hint">Drag to pan when zoomed in</span>
+                </div>
+            </div>
+
+            <!-- Metadata panel -->
+            <div class="meta-panel" id="metaPanel">
+                <div class="section-label" style="margin-bottom:14px;">Metadata Comparison</div>
+                <div class="meta-grid">
+                    <div class="meta-col">
+                        <div class="meta-col-title">Image A</div>
+                        <div id="metaColA"></div>
+                    </div>
+                    <div class="meta-col">
+                        <div class="meta-col-title">Image B</div>
+                        <div id="metaColB"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Drag-divider slider</h3>
+                        <p>Drag the golden line left and right to reveal either image — great for before/after editing comparisons or spotting subtle retouching.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Pixel Diff mode</h3>
+                        <p>Every changed pixel is highlighted in <code>red</code> (brighter in B) or <code>blue</code> (darker in B). Useful for catching compression artifacts, watermarks, or hidden edits.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Similarity score</h3>
+                        <p>Calculated from the average per-channel difference across all pixels. <code>100%</code> = identical files. Below <code>90%</code> means visible differences.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Runs entirely via the <code>Canvas API</code>. No upload, no server, no tracking. Works offline once loaded.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    const state = { A: null, B: null }; // { img, file, dataURL, w, h }
+    let currentMode = 'slider';
+    let divPct = 50, isDragging = false;
+    let zoom = 1, panX = 0, panY = 0, isPanning = false, panStart = null;
+    let comparedCanvasA = null, comparedCanvasB = null; // full-res canvases for current compare
+
+    // ── DROP ZONE HANDLERS ─────────────────────────────────────────────────────
+    function onDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); }
+    function onDragLeave(el) { el.classList.remove('drag-over'); }
+    function onDrop(e, side) {
+        e.preventDefault();
+        document.getElementById('dz'+side).classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(side, f);
+        else showToast('Please drop an image file', 'error');
+    }
+
+    function loadFile(side, file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                state[side] = { img, file, dataURL: ev.target.result, w: img.naturalWidth, h: img.naturalHeight };
+                document.getElementById('thumb'+side).src = ev.target.result;
+                document.getElementById('fname'+side).textContent = file.name;
+                document.getElementById('fdims'+side).textContent = `${img.naturalWidth} × ${img.naturalHeight} · ${fmtBytes(file.size)}`;
+                document.getElementById('ph'+side).style.display = 'none';
+                document.getElementById('prev'+side).classList.add('show');
+                document.getElementById('dz'+side).classList.add('has-image');
+                if (state.A && state.B) showToast('Both images ready — hit Compare ✓', 'success');
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearFile(side, e) {
+        e.stopPropagation();
+        state[side] = null;
+        document.getElementById('fileA' === 'file'+side ? 'fileA' : 'fileB').value = '';
+        document.getElementById('ph'+side).style.display = '';
+        document.getElementById('prev'+side).classList.remove('show');
+        document.getElementById('dz'+side).classList.remove('has-image');
+        document.getElementById('compareArea').classList.remove('visible');
+        document.getElementById('metaPanel').classList.remove('visible');
+        document.getElementById('matchBar').classList.remove('visible');
+        document.getElementById('diffStats').classList.remove('visible');
+    }
+
+    function swapImages() {
+        if (!state.A && !state.B) return;
+        const tmp = state.A; state.A = state.B; state.B = tmp;
+        ['A','B'].forEach(side => {
+            if (state[side]) {
+                document.getElementById('thumb'+side).src = state[side].dataURL;
+                document.getElementById('fname'+side).textContent = state[side].file.name;
+                document.getElementById('fdims'+side).textContent = `${state[side].w} × ${state[side].h} · ${fmtBytes(state[side].file.size)}`;
+                document.getElementById('ph'+side).style.display = 'none';
+                document.getElementById('prev'+side).classList.add('show');
+                document.getElementById('dz'+side).classList.add('has-image');
+            } else {
+                document.getElementById('ph'+side).style.display = '';
+                document.getElementById('prev'+side).classList.remove('show');
+                document.getElementById('dz'+side).classList.remove('has-image');
+            }
+        });
+        showToast('Images swapped ⇄');
+    }
+
+    // ── MODE ───────────────────────────────────────────────────────────────────
+    function setMode(btn) {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        if (comparedCanvasA) renderCurrentMode();
+    }
+
+    // ── COMPARE ────────────────────────────────────────────────────────────────
+    function doCompare() {
+        if (!state.A || !state.B) { showToast('Upload both images first', 'error'); return; }
+        document.getElementById('processing').classList.add('visible');
+
+        setTimeout(() => {
+            // Normalise to same size (use A's dimensions, scale B)
+            const W = state.A.w, H = state.A.h;
+
+            const cA = document.createElement('canvas'); cA.width = W; cA.height = H;
+            cA.getContext('2d').drawImage(state.A.img, 0, 0, W, H);
+
+            const cB = document.createElement('canvas'); cB.width = W; cB.height = H;
+            cB.getContext('2d').drawImage(state.B.img, 0, 0, W, H);
+
+            comparedCanvasA = cA;
+            comparedCanvasB = cB;
+
+            // Compute diff stats
+            const dataA = cA.getContext('2d').getImageData(0, 0, W, H).data;
+            const dataB = cB.getContext('2d').getImageData(0, 0, W, H).data;
+            const totalPx = W * H;
+            let changed = 0, totalDiff = 0, maxDiff = 0;
+            const THRESHOLD = 8;
+            for (let i = 0; i < dataA.length; i += 4) {
+                const dr = Math.abs(dataA[i] - dataB[i]);
+                const dg = Math.abs(dataA[i+1] - dataB[i+1]);
+                const db = Math.abs(dataA[i+2] - dataB[i+2]);
+                const avg = (dr + dg + db) / 3;
+                if (avg > THRESHOLD) changed++;
+                totalDiff += avg;
+                if (avg > maxDiff) maxDiff = avg;
+            }
+            const avgDiff = totalDiff / totalPx;
+            const similarity = Math.max(0, 100 - (avgDiff / 255 * 100)).toFixed(1);
+            const changedPct = (changed / totalPx * 100).toFixed(2);
+
+            // Match bar
+            document.getElementById('matchFill').style.width = similarity + '%';
+            document.getElementById('matchPct').textContent = similarity + '%';
+            document.getElementById('matchDesc').textContent =
+                similarity >= 99 ? 'Virtually identical' :
+                similarity >= 95 ? 'Nearly identical — minor tweaks' :
+                similarity >= 85 ? 'Similar — noticeable changes' :
+                similarity >= 60 ? 'Moderate differences' : 'Significantly different';
+            document.getElementById('matchBar').classList.add('visible');
+
+            // Diff stats
+            document.getElementById('dstatChanged').textContent = changed.toLocaleString();
+            document.getElementById('dstatPct').textContent = changedPct + '%';
+            document.getElementById('dstatAvg').textContent = avgDiff.toFixed(1);
+            document.getElementById('dstatMax').textContent = maxDiff.toFixed(0);
+            document.getElementById('diffStats').classList.add('visible');
+
+            // Metadata panel
+            renderMeta(W, H);
+
+            // Render visual
+            zoom = 1; panX = 0; panY = 0;
+            document.getElementById('zoomVal').textContent = '100%';
+            renderCurrentMode();
+
+            document.getElementById('compareArea').classList.add('visible');
+            document.getElementById('metaPanel').classList.add('visible');
+            document.getElementById('processing').classList.remove('visible');
+            document.getElementById('compareArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast('Comparison ready ✓', 'success');
+        }, 30);
+    }
+
+    function renderCurrentMode() {
+        document.getElementById('modeSlider').style.display = currentMode === 'slider' ? '' : 'none';
+        document.getElementById('modeSbs').style.display = currentMode === 'sbs' ? '' : 'none';
+        document.getElementById('modeDiff').style.display = currentMode === 'diff' ? '' : 'none';
+
+        if (currentMode === 'slider') renderSlider();
+        else if (currentMode === 'sbs') renderSbs();
+        else renderDiff();
+    }
+
+    // ── SLIDER RENDER ──────────────────────────────────────────────────────────
+    function renderSlider() {
+        const wrap = document.getElementById('modeSlider');
+        const canvas = document.getElementById('sliderCanvas');
+        const dW = wrap.clientWidth || 800;
+        const aspect = comparedCanvasA.height / comparedCanvasA.width;
+        const dH = Math.min(460, Math.round(dW * aspect));
+        canvas.width = dW; canvas.height = dH;
+        const ctx = canvas.getContext('2d');
+        const splitX = Math.round(dW * divPct / 100);
+        ctx.drawImage(comparedCanvasA, 0, 0, dW, dH);
+        ctx.save(); ctx.beginPath(); ctx.rect(splitX, 0, dW - splitX, dH); ctx.clip();
+        ctx.drawImage(comparedCanvasB, 0, 0, dW, dH);
+        ctx.restore();
+        document.getElementById('divLine').style.left = splitX + 'px';
+        document.getElementById('divHandle').style.left = splitX + 'px';
+    }
+
+    // Slider drag
+    const sliderWrap = document.getElementById('modeSlider');
+    function getSX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+    sliderWrap.addEventListener('mousedown', e => { isDragging = true; e.preventDefault(); });
+    sliderWrap.addEventListener('touchstart', () => isDragging = true, { passive: true });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging || currentMode !== 'slider') return;
+        const rect = sliderWrap.getBoundingClientRect();
+        divPct = Math.max(2, Math.min(98, (getSX(e) - rect.left) / rect.width * 100));
+        renderSlider();
+    });
+    window.addEventListener('touchmove', e => {
+        if (!isDragging || currentMode !== 'slider') return;
+        const rect = sliderWrap.getBoundingClientRect();
+        divPct = Math.max(2, Math.min(98, (getSX(e) - rect.left) / rect.width * 100));
+        renderSlider();
+    }, { passive: true });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('touchend', () => isDragging = false);
+
+    // ── SIDE-BY-SIDE RENDER ────────────────────────────────────────────────────
+    function renderSbs() {
+        ['A','B'].forEach((s, i) => {
+            const c = document.getElementById('sbsCanvas'+s);
+            const src = s === 'A' ? comparedCanvasA : comparedCanvasB;
+            const pane = c.parentElement;
+            const dW = pane.clientWidth || 400;
+            const aspect = src.height / src.width;
+            const dH = Math.min(460, Math.round(dW * aspect));
+            c.width = dW; c.height = dH;
+            c.getContext('2d').drawImage(src, 0, 0, dW, dH);
+        });
+    }
+
+    // ── DIFF RENDER ────────────────────────────────────────────────────────────
+    function renderDiff() {
+        const W = comparedCanvasA.width, H = comparedCanvasA.height;
+        const dataA = comparedCanvasA.getContext('2d').getImageData(0, 0, W, H);
+        const dataB = comparedCanvasB.getContext('2d').getImageData(0, 0, W, H);
+        const dW = document.getElementById('modeDiff').clientWidth || 800;
+        const aspect = H / W;
+        const dH = Math.min(460, Math.round(dW * aspect));
+        const dc = document.getElementById('diffCanvas');
+        dc.width = dW; dc.height = dH;
+        const ctx = dc.getContext('2d');
+
+        // Build diff canvas at full res, then scale
+        const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+        const tCtx = tmp.getContext('2d');
+        const out = tCtx.createImageData(W, H);
+        const a = dataA.data, b = dataB.data, o = out.data;
+        for (let i = 0; i < a.length; i += 4) {
+            const dr = b[i] - a[i], dg = b[i+1] - a[i+1], db = b[i+2] - a[i+2];
+            const mag = (Math.abs(dr) + Math.abs(dg) + Math.abs(db)) / 3;
+            if (mag < 8) { o[i]=20; o[i+1]=20; o[i+2]=20; o[i+3]=255; }
+            else if (dr + dg + db > 0) { o[i]=255; o[i+1]=Math.round(mag*0.8); o[i+2]=68; o[i+3]=255; }
+            else { o[i]=68; o[i+1]=Math.round(mag*0.8); o[i+2]=255; o[i+3]=255; }
+        }
+        tCtx.putImageData(out, 0, 0);
+        ctx.drawImage(tmp, 0, 0, dW, dH);
+    }
+
+    // ── METADATA ───────────────────────────────────────────────────────────────
+    function renderMeta(normW, normH) {
+        const A = state.A, B = state.B;
+        const rows = [
+            { label: 'Filename', a: A.file.name, b: B.file.name },
+            { label: 'File Size', a: fmtBytes(A.file.size), b: fmtBytes(B.file.size), numeric: true, va: A.file.size, vb: B.file.size },
+            { label: 'Dimensions', a: `${A.w} × ${A.h}`, b: `${B.w} × ${B.h}`, same: A.w===B.w && A.h===B.h },
+            { label: 'Aspect Ratio', a: ratio(A.w,A.h), b: ratio(B.w,B.h), same: ratio(A.w,A.h)===ratio(B.w,B.h) },
+            { label: 'Megapixels', a: (A.w*A.h/1e6).toFixed(2)+' MP', b: (B.w*B.h/1e6).toFixed(2)+' MP' },
+            { label: 'File Type', a: A.file.type||'unknown', b: B.file.type||'unknown', same: A.file.type===B.file.type },
+            { label: 'Compared At', a: `${normW} × ${normH}`, b: `${normW} × ${normH}`, same: true },
+        ];
+        let colA = '', colB = '';
+        rows.forEach(r => {
+            let clsA = '', clsB = '';
+            if (r.same === true) { clsA = clsB = 'same'; }
+            else if (r.same === false) { clsA = clsB = 'diff'; }
+            else if (r.numeric) {
+                if (r.va < r.vb) { clsA = 'highlight'; clsB = 'diff'; }
+                else if (r.va > r.vb) { clsA = 'diff'; clsB = 'highlight'; }
+                else { clsA = clsB = 'same'; }
+            }
+            colA += `<div class="meta-row"><span class="meta-key">${r.label}</span><span class="meta-val ${clsA}">${r.a}</span></div>`;
+            colB += `<div class="meta-row"><span class="meta-key">${r.label}</span><span class="meta-val ${clsB}">${r.b}</span></div>`;
+        });
+        document.getElementById('metaColA').innerHTML = colA;
+        document.getElementById('metaColB').innerHTML = colB;
+    }
+
+    function ratio(w, h) {
+        const g = gcd(w, h);
+        const rw = w/g, rh = h/g;
+        if (rw > 20 || rh > 20) return (w/h).toFixed(2)+':1';
+        return rw+':'+rh;
+    }
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+    // ── ZOOM ───────────────────────────────────────────────────────────────────
+    function changeZoom(delta) {
+        zoom = Math.max(0.25, Math.min(4, zoom + delta));
+        document.getElementById('zoomVal').textContent = Math.round(zoom*100) + '%';
+        // For simplicity, zoom just rescales the canvas rendering
+        if (comparedCanvasA) renderCurrentMode();
+    }
+    function resetZoom() { zoom = 1; panX = 0; panY = 0; document.getElementById('zoomVal').textContent = '100%'; if (comparedCanvasA) renderCurrentMode(); }
+
+    // ── RESIZE ─────────────────────────────────────────────────────────────────
+    window.addEventListener('resize', () => { if (comparedCanvasA) renderCurrentMode(); });
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b+' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

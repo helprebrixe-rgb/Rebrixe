@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Square Image Maker — Crop or Pad Any Image to Perfect Square | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Force any image into a perfect square for Instagram profiles, eCommerce product photos and more. Crop center, pad with solid colour, or blur background. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.88rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Options card */
+        .options-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 12px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 8px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Size selector */
+        .size-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+        .size-chip { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Fira Code', monospace; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: all 0.18s; }
+        .size-chip.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .size-chip:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Custom size input */
+        .custom-size-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.95rem; font-weight: 500; padding: 9px 13px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 120px; }
+        .px-input:focus { border-color: var(--primary); }
+        .input-label { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.7px; display: block; margin-bottom: 5px; }
+
+        /* Pad colour row */
+        .pad-options { display: none; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .pad-options.visible { display: block; }
+        .color-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .color-swatch { width: 30px; height: 30px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; transition: all 0.18s; flex-shrink: 0; }
+        .color-swatch.active { border-color: var(--primary); transform: scale(1.15); }
+        .color-picker-wrap { position: relative; }
+        .color-picker-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px dashed var(--border-mid); cursor: pointer; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; transition: border-color 0.18s; }
+        .color-picker-btn:hover { border-color: var(--primary); }
+        #customColorPicker { position: absolute; opacity: 0; width: 30px; height: 30px; top: 0; left: 0; cursor: pointer; }
+
+        /* Blur options — only shown when blur mode */
+        .blur-options { display: none; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); align-items: center; gap: 12px; }
+        .blur-options.visible { display: flex; }
+        .blur-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .blur-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .blur-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 40px; text-align: right; }
+
+        /* Format row */
+        .opts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; position: relative; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary.visible { display: block; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Preview panel */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-top: 18px; display: none; }
+        .preview-panel.visible { display: block; }
+        .preview-inner { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .preview-box {
+            flex-shrink: 0; width: 180px; height: 180px;
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border-mid);
+        }
+        .preview-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .preview-meta { flex: 1; min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ps-val.green { color: var(--success); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+        @media (max-width: 560px) {
+            .opts-grid { grid-template-columns: 1fr; gap: 14px; }
+            .preview-box { width: 140px; height: 140px; }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Square Image Maker</h1>
+                <p class="tool-page-sub">Force any image into a perfect square — crop center, pad with colour, or blur background.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">⬜</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Method + Size in one card -->
+                <div class="options-card">
+                    <div class="section-label" style="margin-bottom:12px;">Square Method</div>
+                    <div class="toggle-row" id="methodRow">
+                        <button class="tog-btn active" data-method="crop" onclick="setMethod(this)">✂️ Crop Center</button>
+                        <button class="tog-btn" data-method="pad" onclick="setMethod(this)">🎨 Pad with Colour</button>
+                        <button class="tog-btn" data-method="blur" onclick="setMethod(this)">✨ Blur Background</button>
+                    </div>
+
+                    <!-- Pad colour options -->
+                    <div class="pad-options" id="padOptions">
+                        <div class="section-label" style="margin-bottom:10px;">Pad Colour</div>
+                        <div class="color-row" id="colorRow">
+                            <div class="color-swatch active" style="background:#ffffff;" data-color="#ffffff" onclick="setSwatchColor(this)" title="White"></div>
+                            <div class="color-swatch" style="background:#000000;" data-color="#000000" onclick="setSwatchColor(this)" title="Black"></div>
+                            <div class="color-swatch" style="background:#f0f0f0;" data-color="#f0f0f0" onclick="setSwatchColor(this)" title="Light Grey"></div>
+                            <div class="color-swatch" style="background:#1a1a1a;" data-color="#1a1a1a" onclick="setSwatchColor(this)" title="Dark Grey"></div>
+                            <div class="color-swatch" style="background:#ffe0b2;" data-color="#ffe0b2" onclick="setSwatchColor(this)" title="Cream"></div>
+                            <div class="color-swatch" style="background:#e3f2fd;" data-color="#e3f2fd" onclick="setSwatchColor(this)" title="Light Blue"></div>
+                            <div class="color-picker-wrap" title="Custom colour">
+                                <div class="color-picker-btn"></div>
+                                <input type="color" id="customColorPicker" value="#ffffff" oninput="setCustomColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blur intensity -->
+                    <div class="blur-options" id="blurOptions">
+                        <div class="section-label" style="margin-bottom:0; white-space:nowrap;">Blur Amount</div>
+                        <input type="range" class="blur-slider" id="blurSlider" min="4" max="40" value="18" oninput="document.getElementById('blurVal').textContent=this.value+'px'">
+                        <span class="blur-val" id="blurVal">18px</span>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- Output size -->
+                    <div class="section-label" style="margin-bottom:10px;">Output Size</div>
+                    <div class="size-grid" id="sizeGrid">
+                        <button class="size-chip active" data-size="source" onclick="setSize(this)">Source size</button>
+                        <button class="size-chip" data-size="1080" onclick="setSize(this)">1080 px</button>
+                        <button class="size-chip" data-size="800" onclick="setSize(this)">800 px</button>
+                        <button class="size-chip" data-size="500" onclick="setSize(this)">500 px</button>
+                        <button class="size-chip" data-size="400" onclick="setSize(this)">400 px</button>
+                        <button class="size-chip" data-size="320" onclick="setSize(this)">320 px</button>
+                    </div>
+                    <div class="custom-size-row">
+                        <div>
+                            <label class="input-label" for="customSizePx">Custom (px)</label>
+                            <input class="px-input" type="number" id="customSizePx" placeholder="e.g. 600" min="1" max="8000">
+                        </div>
+                        <button class="tog-btn" style="margin-top:18px;" onclick="applyCustomSize()">Apply</button>
+                    </div>
+                </div>
+
+                <!-- Format -->
+                <div class="opts-grid">
+                    <div class="options-card" style="margin-bottom:0;">
+                        <div class="section-label">Output Format</div>
+                        <div class="toggle-row">
+                            <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                            <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                            <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        </div>
+                    </div>
+                    <div class="options-card" style="margin-bottom:0;">
+                        <div class="section-label">Quality — <span id="qualLabel">92%</span></div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+                            <input type="range" class="blur-slider" id="qualSlider" min="10" max="100" value="92" oninput="setQuality(this.value)">
+                            <span class="blur-val" id="qualVal">92</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row" style="margin-top:18px;">
+                    <button class="btn-main" id="btnMake" onclick="doMakeSquare()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">⬜</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Make Square</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="section-label" style="margin-bottom:16px;">Result Preview</div>
+                    <div class="preview-inner">
+                        <div class="preview-box">
+                            <img id="previewImg" src="" alt="Square result">
+                        </div>
+                        <div class="preview-meta" id="previewMeta"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why square matters</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Instagram & profile photos</h3>
+                        <p>Instagram crops profile photos to a circle from a square frame. Non-square images get awkwardly cropped. Use <code>1080×1080</code> for feed posts and <code>320×320</code> for profile pictures.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>eCommerce product shots</h3>
+                        <p>Most marketplaces — Amazon, Etsy, Shopify — require or strongly prefer square product images. <code>800×800</code> or <code>1080×1080</code> are safe choices for most platforms.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Crop vs Pad — which to use?</h3>
+                        <p><code>Crop Center</code> trims the sides to fill the frame — great for portraits and tight shots. <code>Pad with Colour</code> adds borders to preserve the full image — best for products and logos.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Blur Background trick</h3>
+                        <p>The blurred background method gives a polished, modern look — no harsh edges, no white box. Your image fills the frame and the blurred version of itself fills the padding, keeping the whole square on-brand.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null, origDataURL = null;
+    let method = 'crop';       // crop | pad | blur
+    let padColor = '#ffffff';
+    let outputSize = 'source'; // 'source' or a number (px)
+    let outputFmt = 'jpeg';
+    let quality = 0.92;
+    let blurAmount = 18;
+    let resultDataURL = null, resultFilename = '';
+
+    // ── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('previewPanel').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+    }
+
+    // ── CONTROLS ───────────────────────────────────────────────────────────────
+    function setMethod(btn) {
+        document.querySelectorAll('[data-method]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        method = btn.dataset.method;
+        document.getElementById('padOptions').classList.toggle('visible', method === 'pad');
+        document.getElementById('blurOptions').classList.toggle('visible', method === 'blur');
+    }
+
+    function setSwatchColor(el) {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        padColor = el.dataset.color;
+    }
+
+    function setCustomColor(val) {
+        padColor = val;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    }
+
+    function setSize(btn) {
+        document.querySelectorAll('.size-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputSize = btn.dataset.size;
+        document.getElementById('customSizePx').value = '';
+    }
+
+    function applyCustomSize() {
+        const v = parseInt(document.getElementById('customSizePx').value);
+        if (!v || v < 1) { showToast('Enter a valid size in pixels', 'error'); return; }
+        outputSize = v;
+        document.querySelectorAll('.size-chip').forEach(b => b.classList.remove('active'));
+        showToast(`Custom size: ${v} × ${v} px`, 'success');
+    }
+
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+    function setQuality(v) { quality = v / 100; document.getElementById('qualVal').textContent = v; document.getElementById('qualLabel').textContent = v + '%'; }
+
+    // ── CORE LOGIC ─────────────────────────────────────────────────────────────
+    function doMakeSquare() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+        blurAmount = parseInt(document.getElementById('blurSlider').value);
+
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        const side = outputSize === 'source' ? Math.max(sw, sh) : parseInt(outputSize);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = side; canvas.height = side;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        if (method === 'crop') {
+            // Center crop: scale so shorter side fills, then center
+            const scale = Math.max(side / sw, side / sh);
+            const nw = sw * scale, nh = sh * scale;
+            const ox = (side - nw) / 2, oy = (side - nh) / 2;
+            ctx.drawImage(origImg, ox, oy, nw, nh);
+
+        } else if (method === 'pad') {
+            // Fill background colour, center image scaled to fit
+            ctx.fillStyle = padColor;
+            ctx.fillRect(0, 0, side, side);
+            const scale = Math.min(side / sw, side / sh);
+            const nw = sw * scale, nh = sh * scale;
+            const ox = (side - nw) / 2, oy = (side - nh) / 2;
+            ctx.drawImage(origImg, ox, oy, nw, nh);
+
+        } else if (method === 'blur') {
+            // 1. Draw blurred stretched version as background
+            // Use a separate small canvas + CSS filter trick for blur
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = side; bgCanvas.height = side;
+            const bgCtx = bgCanvas.getContext('2d');
+            bgCtx.filter = `blur(${blurAmount}px)`;
+            // Scale to fill entire square for background
+            const bgScale = Math.max(side / sw, side / sh);
+            const bgW = sw * bgScale, bgH = sh * bgScale;
+            const bgX = (side - bgW) / 2, bgY = (side - bgH) / 2;
+            bgCtx.drawImage(origImg, bgX, bgY, bgW, bgH);
+            // Slightly darken to make foreground pop
+            bgCtx.filter = 'none';
+            bgCtx.fillStyle = 'rgba(0,0,0,0.18)';
+            bgCtx.fillRect(0, 0, side, side);
+            ctx.drawImage(bgCanvas, 0, 0);
+
+            // 2. Draw actual image centered/fitted on top
+            const scale = Math.min(side / sw, side / sh);
+            const nw = sw * scale, nh = sh * scale;
+            const ox = (side - nw) / 2, oy = (side - nh) / 2;
+            ctx.drawImage(origImg, ox, oy, nw, nh);
+        }
+
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : quality;
+        resultDataURL = canvas.toDataURL(mime, q);
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_square${side}.${ext}`;
+
+        document.getElementById('previewImg').src = resultDataURL;
+        document.getElementById('previewMeta').innerHTML = `
+            <div class="preview-stat"><span class="ps-label">Dimensions</span><span class="ps-val green">${side} × ${side} px</span></div>
+            <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(resultBytes)}</span></div>
+            <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">${outputFmt.toUpperCase()}</span></div>
+            <div class="preview-stat"><span class="ps-label">Quality</span><span class="ps-val">${outputFmt === 'png' ? 'Lossless' : Math.round(quality * 100) + '%'}</span></div>
+            <div class="preview-stat"><span class="ps-label">Method</span><span class="ps-val">${method === 'crop' ? 'Center Crop' : method === 'pad' ? 'Pad ('+padColor+')' : 'Blur BG'}</span></div>
+        `;
+
+        document.getElementById('previewPanel').classList.add('visible');
+        document.getElementById('btnDownload').classList.add('visible');
+        document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        showToast('Done! ✓', 'success');
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

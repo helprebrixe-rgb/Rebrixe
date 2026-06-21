@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Availability Heatmap | Rebrixe</title>
+    <meta name="description" content="Add teammates and time zones, see a colour-coded heatmap of who's available when. Find your team's overlap instantly — no signup needed.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool wrap ── */
+        .tool-wrap { max-width: 980px; margin: 40px auto; }
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 32px;
+        }
+
+        /* ── Section labels ── */
+        .sec-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.6px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        /* ── Add teammate form ── */
+        .add-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto;
+            gap: 10px;
+            margin-bottom: 14px;
+            align-items: end;
+        }
+        .field-group { display: flex; flex-direction: column; gap: 6px; }
+        .field-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--primary);
+        }
+        .inp {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 11px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color .2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .inp:focus { border-color: var(--primary); }
+        select.inp { cursor: pointer; }
+
+        .color-pick-wrap {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .color-dot {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: .15s;
+            flex-shrink: 0;
+        }
+        .color-dot.selected { border-color: #fff; transform: scale(1.2); }
+
+        .btn-add {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            padding: 11px 22px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: .2s;
+            align-self: end;
+        }
+        .btn-add:hover { transform: translateY(-2px); }
+
+        /* ── Hours row ── */
+        .hours-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .hours-inner { display: flex; gap: 8px; }
+
+        /* ── Team list ── */
+        .team-list { margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+        .team-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 14px;
+        }
+        .team-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .team-name { font-weight: 600; font-size: 0.88rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .team-tz { font-size: 0.75rem; color: #64748b; }
+        .team-hours { font-size: 0.72rem; color: #475569; margin-left: auto; white-space: nowrap; }
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #334155;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+            transition: color .2s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .btn-remove:hover { color: #ef4444; }
+
+        /* ── Limitation notice ── */
+        .limit-box {
+            background: rgba(234,179,8,0.06);
+            border: 1px solid rgba(234,179,8,0.2);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            line-height: 1.65;
+        }
+        .limit-box strong { color: #facc15; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
+        .limit-box ul { margin: 4px 0 0 0; padding-left: 16px; }
+        .limit-box li { margin-bottom: 3px; }
+
+        /* ── Heatmap ── */
+        .heatmap-wrap {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            position: relative; /* for tooltip stacking */
+        }
+        .heatmap-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 720px;
+            font-size: 0.7rem;
+            table-layout: fixed;
+        }
+        .heatmap-table col.label-col { width: 90px; }
+        .heatmap-table col.hour-col  { width: calc((100% - 90px) / 24); }
+
+        .heatmap-table th {
+            padding: 7px 2px;
+            color: #475569;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            font-size: 0.58rem;
+            overflow: hidden;
+        }
+        .heatmap-table td {
+            padding: 0;
+            border: 1px solid rgba(255,255,255,0.04);
+            position: relative;
+        }
+        .heatmap-table .row-label {
+            padding: 6px 10px 6px 14px;
+            color: #94a3b8;
+            font-weight: 600;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            background: rgba(0,0,0,0.3);
+            border-right: 1px solid var(--border);
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .heat-cell {
+            width: 100%;
+            height: 30px;
+            display: block;
+            transition: filter .15s;
+            cursor: default;
+        }
+        .heat-cell:hover { filter: brightness(1.5); }
+
+        /* Tooltip — appended to body to escape overflow clipping */
+        #hm-tooltip {
+            position: fixed;
+            background: #0f172a;
+            border: 1px solid var(--border, #1e293b);
+            color: #e2e8f0;
+            padding: 4px 10px;
+            border-radius: 7px;
+            font-size: 0.68rem;
+            white-space: nowrap;
+            z-index: 9999;
+            pointer-events: none;
+            display: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── Overlap chips ── */
+        .overlap-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .overlap-chip {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            flex: 1;
+            min-width: 130px;
+        }
+        .overlap-chip .oc-val {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .overlap-chip .oc-label {
+            font-size: 0.62rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        /* ── Best windows ── */
+        .best-times { margin-bottom: 20px; }
+        .best-slot {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .slot-badge {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .badge-best  { background: rgba(34,197,94,0.15);   color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+        .badge-good  { background: rgba(234,179,8,0.12);   color: #facc15; border: 1px solid rgba(234,179,8,0.3); }
+        .badge-low   { background: rgba(100,116,139,0.12); color: #64748b; border: 1px solid #1e293b; }
+        .slot-time   { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; flex: 1; }
+        .slot-count  { font-size: 0.75rem; color: #64748b; }
+
+        /* ── Legend ── */
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #64748b; }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+
+        /* ── Actions ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 11px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #334155;
+            font-size: 0.88rem;
+        }
+        .empty-state span { font-size: 2rem; display: block; margin-bottom: 10px; }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .add-row { grid-template-columns: 1fr 1fr; }
+            .btn-add { grid-column: span 2; }
+            .hours-row { grid-template-columns: 1fr; }
+            .hours-inner { flex-direction: column; }
+            .action-row { flex-direction: column; }
+            .tool-card { padding: 18px; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <!-- Body-level tooltip (escapes overflow clipping) -->
+    <div id="hm-tooltip"></div>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.4rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Team Availability Heatmap</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Add teammates + time zones → see who's free when, instantly.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- KNOWN LIMITATIONS — shown upfront -->
+                <div class="limit-box">
+                    <strong>⚠ What this tool does &amp; doesn't do — read before using</strong>
+                    <ul>
+                        <li><strong>Hourly resolution only.</strong> Half-hour and 45-minute timezone offsets (IST UTC+5:30, Nepal UTC+5:45, Adelaide UTC+9:30, Iran UTC+3:30…) are rounded to the nearest whole hour. Cells may be off by 30–45 min for people in those zones.</li>
+                        <li><strong>Today's DST rules apply.</strong> Offsets are computed from right now. If a teammate's DST changes next week, this grid won't reflect that until you reload.</li>
+                        <li><strong>No cross-midnight shifts.</strong> Work windows must start and end on the same calendar day (e.g. 9 AM–6 PM). Overnight shifts (e.g. 10 PM–6 AM) are not supported.</li>
+                        <li><strong>Work hours apply per person at add-time.</strong> You set hours before adding each person. You cannot edit them after — remove and re-add to change.</li>
+                        <li><strong>No data is saved.</strong> Refreshing the page clears everything. This tool has no accounts or persistence.</li>
+                        <li><strong>Max 10 teammates</strong> — beyond that the heatmap becomes unreadable anyway.</li>
+                    </ul>
+                </div>
+
+                <!-- ADD TEAMMATE -->
+                <div class="sec-label">Add Teammate</div>
+                <div class="add-row">
+                    <div class="field-group">
+                        <span class="field-label">Name</span>
+                        <input class="inp" id="tmName" type="text" placeholder="e.g. Priya" maxlength="24" autocomplete="off">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Time Zone</span>
+                        <select class="inp" id="tmTz"></select>
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Color</span>
+                        <div class="color-pick-wrap" id="colorPicker"></div>
+                    </div>
+                    <button class="btn-add" id="btnAdd" onclick="addTeammate()">+ Add</button>
+                </div>
+
+                <!-- WORK HOURS (per-person, set before adding) -->
+                <div class="sec-label" style="margin-top:4px;">Work Hours for This Person &amp; Display Time Zone</div>
+                <div class="hours-row">
+                    <div class="field-group">
+                        <span class="field-label">Their Work Hours (local to their TZ)</span>
+                        <div class="hours-inner">
+                            <select class="inp" id="workStart"></select>
+                            <select class="inp" id="workEnd"></select>
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Display Grid In</span>
+                        <select class="inp" id="refTz" onchange="render()"></select>
+                    </div>
+                </div>
+
+                <!-- TEAM LIST -->
+                <div class="sec-label">Team (<span id="teamCount">0</span> / 10)</div>
+                <div class="team-list" id="teamList">
+                    <div class="empty-state"><span>👥</span>No teammates yet — add one above.</div>
+                </div>
+
+                <!-- HEATMAP + RESULTS -->
+                <div id="heatmapSection" style="display:none;">
+                    <div class="sec-label">Availability Heatmap</div>
+
+                    <!-- Legend -->
+                    <div class="legend-row" id="legendRow"></div>
+
+                    <div class="heatmap-wrap" id="heatmapWrap">
+                        <table class="heatmap-table" id="heatmapTable"></table>
+                    </div>
+
+                    <!-- Overlap stats -->
+                    <div class="sec-label" style="margin-top:4px;">Overlap Stats</div>
+                    <div class="overlap-bar" id="overlapBar"></div>
+
+                    <!-- Best meeting windows -->
+                    <div class="sec-label">Best Meeting Windows</div>
+                    <div class="best-times" id="bestTimes"></div>
+
+                    <div class="action-row">
+                        <button class="btn-action primary" id="btnCopy" onclick="copyResult()">Copy Summary</button>
+                        <button class="btn-action" onclick="clearAll()">✕ Clear All</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════
+       TEAM AVAILABILITY HEATMAP — v2.0 (bulletproof rewrite)
+       Key design decisions:
+       - Offset calculation uses Intl.DateTimeFormat with 'numeric' timeZoneName
+         to get the real UTC offset string at current DST moment — no subtraction hacks.
+       - All offsets stored as MINUTES (integers) to avoid all float arithmetic.
+       - Availability matrix uses minute-resolution internally, bucketed into hour slots
+         for display — so a 5:30 offset person still maps correctly.
+       - Half-hour timezone caveat is disclosed to user (can't fix: table is hourly).
+       - Cross-midnight shifts explicitly blocked with validation.
+       - Tooltips are body-level to escape overflow:auto clipping.
+       - Removal uses data-id (UUID) not array index to prevent mis-deletion.
+    ═══════════════════════════════════════════════════════════════ */
+
+    // ── CONSTANTS ────────────────────────────────────────────────
+    const COLORS = [
+        '#f43f5e','#f97316','#eab308','#22c55e',
+        '#06b6d4','#6366f1','#a855f7','#ec4899',
+        '#14b8a6','#84cc16'
+    ];
+    const MAX_TEAM = 10;
+
+    const TZLIST = [
+        { label:'UTC−9  — Alaska',              tz:'America/Anchorage'   },
+        { label:'UTC−8  — Los Angeles / Seattle',tz:'America/Los_Angeles'},
+        { label:'UTC−7  — Denver / Phoenix',    tz:'America/Denver'      },
+        { label:'UTC−6  — Chicago / Dallas',    tz:'America/Chicago'     },
+        { label:'UTC−5  — New York / Toronto',  tz:'America/New_York'    },
+        { label:'UTC−4  — Halifax / Caracas',   tz:'America/Halifax'     },
+        { label:'UTC−3  — São Paulo / Buenos Aires',tz:'America/Sao_Paulo'},
+        { label:'UTC+0  — London / Lisbon',     tz:'Europe/London'       },
+        { label:'UTC+1  — Paris / Berlin / Rome',tz:'Europe/Paris'       },
+        { label:'UTC+2  — Cairo / Helsinki / Athens',tz:'Europe/Helsinki'},
+        { label:'UTC+3  — Moscow / Nairobi / Riyadh',tz:'Europe/Moscow'  },
+        { label:'UTC+4  — Dubai / Baku',        tz:'Asia/Dubai'          },
+        { label:'UTC+5  — Karachi / Tashkent',  tz:'Asia/Karachi'        },
+        { label:'UTC+5:30 — Mumbai / Delhi (IST)★',tz:'Asia/Kolkata'    },
+        { label:'UTC+6  — Dhaka / Almaty',      tz:'Asia/Dhaka'          },
+        { label:'UTC+7  — Bangkok / Jakarta',   tz:'Asia/Bangkok'        },
+        { label:'UTC+8  — Singapore / Shanghai / Perth',tz:'Asia/Singapore'},
+        { label:'UTC+9  — Tokyo / Seoul',       tz:'Asia/Tokyo'          },
+        { label:'UTC+10 — Sydney / Melbourne',  tz:'Australia/Sydney'    },
+        { label:'UTC+12 — Auckland / Fiji',     tz:'Pacific/Auckland'    },
+    ];
+    // ★ = half-hour offset; noted in the limitation box
+
+    // ── STATE ────────────────────────────────────────────────────
+    let team = [];          // [{id, name, tz, color, workStart, workEnd}]
+    let colorIdx = 0;
+    let selectedColor = COLORS[0];
+
+    // ── CACHED AVAILABILITY (rebuilt on every render) ────────────
+    // availability[h] = Set of team member IDs available in display-TZ hour h
+    let lastAvailability = [];
+
+    // ── HELPERS ─────────────────────────────────────────────────
+
+    /** Unique ID */
+    function uid() {
+        return Math.random().toString(36).slice(2, 9);
+    }
+
+    /** HTML-escape */
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+        );
+    }
+
+    /** Format hour (0-23) as "12:00 AM" / "3:00 PM" */
+    function fmt12(h) {
+        h = ((h % 24) + 24) % 24;
+        if (h === 0)  return '12 AM';
+        if (h === 12) return '12 PM';
+        return h < 12 ? `${h} AM` : `${h - 12} PM`;
+    }
+
+    /**
+     * Get the UTC offset in MINUTES for a given IANA timezone at the current moment.
+     * Uses Intl.DateTimeFormat with timeZoneName:'shortOffset' (e.g. "GMT+5:30")
+     * to read the actual offset string — no subtraction of Date objects,
+     * no rounding artifacts, DST-correct.
+     *
+     * Falls back to a difference-based method if shortOffset isn't supported
+     * (older browsers / Safari < 16).
+     */
+    function getOffsetMinutes(tz) {
+        try {
+            const fmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: tz,
+                timeZoneName: 'shortOffset'
+            });
+            const parts = fmt.formatToParts(new Date());
+            const tzPart = parts.find(p => p.type === 'timeZoneName');
+            if (tzPart) {
+                // e.g. "GMT+5:30", "GMT-7", "GMT+0"
+                const m = tzPart.value.match(/GMT([+-])(\d+)(?::(\d+))?/);
+                if (m) {
+                    const sign    = m[1] === '+' ? 1 : -1;
+                    const hours   = parseInt(m[2], 10);
+                    const minutes = parseInt(m[3] || '0', 10);
+                    return sign * (hours * 60 + minutes);
+                }
+                // "GMT" with no offset = UTC
+                if (tzPart.value === 'GMT') return 0;
+            }
+        } catch (_) {}
+
+        // Fallback: integer-minute difference between two locale strings
+        const now  = new Date();
+        const toMs = s => {
+            const d = new Date(s);
+            return d.getTime();
+        };
+        const local = toMs(now.toLocaleString('en-US', { timeZone: tz }));
+        const utc   = toMs(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+        return Math.round((local - utc) / 60000);
+    }
+
+    /**
+     * Convert a local clock hour (integer, 0-23) in fromTz
+     * to the nearest integer clock hour in toTz.
+     *
+     * We compute entirely in minutes to handle half-hour offsets correctly,
+     * then round to the nearest hour for the hourly grid.
+     * The ★ caveat in limitations covers the residual 30-min error.
+     */
+    function convertHour(localHour, fromTz, toTz) {
+        const fromOff = getOffsetMinutes(fromTz); // e.g. +330 for IST
+        const toOff   = getOffsetMinutes(toTz);
+        // Local hour → UTC minutes → target local minutes
+        const utcMinutes    = localHour * 60 - fromOff;
+        const targetMinutes = utcMinutes + toOff;
+        // Round to nearest hour, then wrap to 0-23
+        const h = Math.round(targetMinutes / 60);
+        return ((h % 24) + 24) % 24;
+    }
+
+    // ── INIT ─────────────────────────────────────────────────────
+    (function init() {
+        // Color picker
+        const cp = document.getElementById('colorPicker');
+        COLORS.forEach((c, i) => {
+            const d = document.createElement('div');
+            d.className = 'color-dot' + (i === 0 ? ' selected' : '');
+            d.style.background = c;
+            d.title = c;
+            d.addEventListener('click', () => {
+                selectedColor = c;
+                document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('selected'));
+                d.classList.add('selected');
+            });
+            cp.appendChild(d);
+        });
+
+        // Timezone selects
+        ['tmTz','refTz'].forEach(id => {
+            const sel = document.getElementById(id);
+            TZLIST.forEach(t => {
+                const o = new Option(t.label, t.tz);
+                sel.appendChild(o);
+            });
+            sel.value = 'Asia/Kolkata'; // default IST
+        });
+
+        // Work hours dropdowns
+        const ws = document.getElementById('workStart');
+        const we = document.getElementById('workEnd');
+        for (let h = 0; h < 24; h++) {
+            ws.appendChild(new Option(fmt12(h) + ':00', h));
+            we.appendChild(new Option(fmt12(h) + ':00', h));
+        }
+        ws.value = 9;
+        we.value = 18;
+
+        // Enter on name field
+        document.getElementById('tmName').addEventListener('keydown', e => {
+            if (e.key === 'Enter') addTeammate();
+        });
+
+        // Body-level tooltip
+        setupTooltip();
+    })();
+
+    // ── TOOLTIP (body-level, avoids overflow clipping) ─────────
+    function setupTooltip() {
+        const tip = document.getElementById('hm-tooltip');
+        document.addEventListener('mouseover', e => {
+            const cell = e.target.closest('.heat-cell');
+            if (!cell || !cell.dataset.tip) { tip.style.display = 'none'; return; }
+            tip.textContent = cell.dataset.tip;
+            tip.style.display = 'block';
+        });
+        document.addEventListener('mousemove', e => {
+            tip.style.left = (e.clientX + 12) + 'px';
+            tip.style.top  = (e.clientY - 28) + 'px';
+        });
+        document.addEventListener('mouseout', e => {
+            if (!e.target.closest('.heat-cell')) tip.style.display = 'none';
+        });
+    }
+
+    // ── ADD TEAMMATE ─────────────────────────────────────────────
+    function addTeammate() {
+        if (team.length >= MAX_TEAM) {
+            alert(`Maximum of ${MAX_TEAM} teammates reached. The heatmap would be unreadable with more.`);
+            return;
+        }
+
+        const name  = document.getElementById('tmName').value.trim();
+        const tz    = document.getElementById('tmTz').value;
+        const ws    = parseInt(document.getElementById('workStart').value, 10);
+        const we    = parseInt(document.getElementById('workEnd').value, 10);
+
+        if (!name) {
+            document.getElementById('tmName').focus();
+            return;
+        }
+
+        // Validate: no cross-midnight shifts
+        if (we <= ws) {
+            alert(
+                `Work end time (${fmt12(we)}:00) must be after work start (${fmt12(ws)}:00).\n\n` +
+                'Cross-midnight shifts (e.g. 10 PM – 6 AM) are not supported — ' +
+                'please see the limitations notice above.'
+            );
+            return;
+        }
+
+        team.push({ id: uid(), name, tz, color: selectedColor, workStart: ws, workEnd: we });
+
+        // Advance to next color automatically
+        colorIdx = (colorIdx + 1) % COLORS.length;
+        // Don't override if user manually picked that color — just move the auto-cursor
+        if (selectedColor === COLORS[colorIdx]) {
+            colorIdx = (colorIdx + 1) % COLORS.length;
+        }
+        selectedColor = COLORS[colorIdx];
+        document.querySelectorAll('.color-dot').forEach((d, i) => {
+            d.classList.toggle('selected', i === colorIdx);
+        });
+
+        document.getElementById('tmName').value = '';
+        document.getElementById('tmName').focus();
+
+        renderTeamList();
+        render();
+    }
+
+    // ── REMOVE TEAMMATE (by stable ID, not array index) ─────────
+    function removeTeammate(id) {
+        team = team.filter(m => m.id !== id);
+        renderTeamList();
+        render();
+    }
+
+    // ── TEAM LIST ────────────────────────────────────────────────
+    function renderTeamList() {
+        const list = document.getElementById('teamList');
+        document.getElementById('teamCount').textContent = team.length;
+        document.getElementById('btnAdd').disabled = team.length >= MAX_TEAM;
+
+        if (!team.length) {
+            list.innerHTML = '<div class="empty-state"><span>👥</span>No teammates yet — add one above.</div>';
+            return;
+        }
+
+        list.innerHTML = team.map(m => {
+            const tzLabel = (TZLIST.find(t => t.tz === m.tz)?.label || m.tz).replace('★','').trim();
+            return `
+            <div class="team-item">
+                <div class="team-dot" style="background:${m.color}"></div>
+                <span class="team-name" title="${esc(m.name)}">${esc(m.name)}</span>
+                <span class="team-tz">${esc(tzLabel)}</span>
+                <span class="team-hours">${fmt12(m.workStart)}–${fmt12(m.workEnd)} local</span>
+                <button class="btn-remove" onclick="removeTeammate('${m.id}')" title="Remove ${esc(m.name)}">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    // ── BUILD AVAILABILITY MATRIX ────────────────────────────────
+    /**
+     * Returns availability[h] = array of member IDs available during display-TZ hour h.
+     * Computed with minute-level precision, bucketed into hours.
+     *
+     * Each person's work window [workStart, workEnd) is iterated hour-by-hour.
+     * Their local hour is converted to display-TZ hour via integer-minute arithmetic.
+     * A Set per display hour prevents double-counting (which could happen with half-hour zones
+     * if two adjacent person-hours map to the same display hour).
+     */
+    function buildAvailability(refTz) {
+        const avail = Array.from({ length: 24 }, () => new Set());
+
+        team.forEach(m => {
+            for (let h = m.workStart; h < m.workEnd; h++) {
+                const displayH = convertHour(h, m.tz, refTz);
+                avail[displayH].add(m.id);
+            }
+        });
+
+        return avail.map(s => [...s]); // convert Sets to arrays
+    }
+
+    // ── RENDER ───────────────────────────────────────────────────
+    function render() {
+        const section = document.getElementById('heatmapSection');
+        if (!team.length) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+
+        const refTz = document.getElementById('refTz').value;
+        lastAvailability = buildAvailability(refTz);
+
+        renderLegend();
+        renderTable(refTz);
+        renderStats();
+        renderBestWindows();
+    }
+
+    // ── LEGEND ───────────────────────────────────────────────────
+    function renderLegend() {
+        document.getElementById('legendRow').innerHTML =
+            team.map(m =>
+                `<div class="legend-item">
+                    <div class="legend-swatch" style="background:${m.color}; opacity:0.6;"></div>
+                    <span>${esc(m.name)}</span>
+                </div>`
+            ).join('') +
+            `<div class="legend-item" style="margin-left:auto;">
+                <div class="legend-swatch" style="background:rgba(255,255,255,0.05);border:1px solid var(--border)"></div>
+                <span>No one</span>
+                <div class="legend-swatch" style="background:rgba(34,197,94,0.7);margin-left:6px;"></div>
+                <span>Full overlap</span>
+            </div>`;
+    }
+
+    // ── HEATMAP TABLE ─────────────────────────────────────────────
+    function renderTable(refTz) {
+        const tbl = document.getElementById('heatmapTable');
+        const refLabel = (TZLIST.find(t => t.tz === refTz)?.label || refTz)
+            .split('—')[1]?.trim().replace('★','').trim() || refTz;
+
+        // colgroup for fixed layout
+        let colHtml = '<colgroup><col class="label-col">';
+        for (let h = 0; h < 24; h++) colHtml += '<col class="hour-col">';
+        colHtml += '</colgroup>';
+
+        // Header
+        let thead = `<thead><tr>
+            <th style="text-align:right;padding-right:8px;font-size:0.6rem;">${esc(refLabel)}</th>`;
+        for (let h = 0; h < 24; h++) {
+            // Show label every 3 hours to reduce clutter
+            thead += `<th title="${fmt12(h)}:00">${h % 3 === 0 ? fmt12(h) : ''}</th>`;
+        }
+        thead += '</tr></thead>';
+
+        // Per-person rows
+        let tbody = '<tbody>';
+        team.forEach(m => {
+            tbody += `<tr>
+                <td class="row-label">
+                    <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${m.color};margin-right:5px;vertical-align:middle;"></span>${esc(m.name)}
+                </td>`;
+            for (let h = 0; h < 24; h++) {
+                const available = lastAvailability[h].includes(m.id);
+                // Person's local time at this display hour
+                const localH = convertHour(h, refTz, m.tz);
+                const status = available ? `Working ✓` : `Off ✗`;
+                const tip = `${esc(m.name)} · ${fmt12(localH)} local · ${status}`;
+                const bg  = available ? m.color : 'transparent';
+                const op  = available ? '0.55' : '0';
+                tbody += `<td><span class="heat-cell" data-tip="${tip}"
+                    style="background:${bg};opacity:${op};"></span></td>`;
+            }
+            tbody += '</tr>';
+        });
+
+        // "All Free" overlap row
+        tbody += `<tr><td class="row-label" style="color:var(--primary);font-weight:800;">All Free</td>`;
+        for (let h = 0; h < 24; h++) {
+            const count = lastAvailability[h].length;
+            const pct   = team.length > 0 ? count / team.length : 0;
+            let bg = 'transparent';
+            if (pct > 0) {
+                const alpha = 0.15 + pct * 0.75;
+                bg = `rgba(34,197,94,${alpha.toFixed(2)})`;
+            }
+            const names = count
+                ? lastAvailability[h].map(id => team.find(m => m.id === id)?.name || '').filter(Boolean).join(', ')
+                : 'No one';
+            const tip = `${fmt12(h)}:00 — ${esc(names)}`;
+            tbody += `<td><span class="heat-cell" data-tip="${tip}"
+                style="background:${bg};opacity:1;"></span></td>`;
+        }
+        tbody += '</tr></tbody>';
+
+        tbl.innerHTML = colHtml + thead + tbody;
+    }
+
+    // ── OVERLAP STATS ────────────────────────────────────────────
+    function renderStats() {
+        const fullTeamHours = lastAvailability.filter(ids => ids.length === team.length && team.length > 0).length;
+        const maxOverlap    = Math.max(...lastAvailability.map(ids => ids.length), 0);
+        const peakH         = lastAvailability.findIndex(ids => ids.length === maxOverlap && maxOverlap > 0);
+
+        document.getElementById('overlapBar').innerHTML = `
+            <div class="overlap-chip">
+                <div class="oc-val">${fullTeamHours}</div>
+                <div class="oc-label">Full-team overlap hrs/day</div>
+            </div>
+            <div class="overlap-chip">
+                <div class="oc-val">${maxOverlap}/${team.length}</div>
+                <div class="oc-label">Max simultaneous people</div>
+            </div>
+            <div class="overlap-chip">
+                <div class="oc-val">${peakH >= 0 ? fmt12(peakH) : '—'}</div>
+                <div class="oc-label">First peak hour</div>
+            </div>
+            <div class="overlap-chip">
+                <div class="oc-val">${team.length}</div>
+                <div class="oc-label">Teammates tracked</div>
+            </div>`;
+    }
+
+    // ── BEST MEETING WINDOWS ─────────────────────────────────────
+    /**
+     * Finds contiguous hour blocks where at least 1 person is available.
+     * For each block, reports the MINIMUM overlap count across all hours
+     * (the "floor" — so the badge truthfully reflects sustained availability,
+     * not a momentary peak within the window).
+     * Sorts by (floor count DESC, duration DESC).
+     */
+    function renderBestWindows() {
+        const windows = [];
+        let blockStart = null;
+        let blockMin   = Infinity;
+
+        for (let h = 0; h <= 24; h++) {
+            const cnt = h < 24 ? lastAvailability[h].length : 0;
+            if (cnt > 0) {
+                if (blockStart === null) { blockStart = h; blockMin = cnt; }
+                else blockMin = Math.min(blockMin, cnt);
+            } else {
+                if (blockStart !== null) {
+                    windows.push({ start: blockStart, end: h, minCount: blockMin });
+                    blockStart = null;
+                    blockMin   = Infinity;
+                }
+            }
+        }
+
+        // Sort: most people sustained first, then longer windows
+        windows.sort((a, b) =>
+            b.minCount - a.minCount ||
+            (b.end - b.start) - (a.end - a.start)
+        );
+
+        const best = windows.slice(0, 4);
+        const btEl = document.getElementById('bestTimes');
+
+        if (!best.length) {
+            btEl.innerHTML = `<div class="best-slot">
+                <span class="slot-time" style="color:#475569;">
+                    No overlapping hours found. Check that work hours don't cross midnight and timezone offsets look correct.
+                </span>
+            </div>`;
+            return;
+        }
+
+        btEl.innerHTML = best.map((w, i) => {
+            const pct    = team.length > 0 ? w.minCount / team.length : 0;
+            const isBest = i === 0 && pct === 1;
+            const cls    = isBest ? 'badge-best' : pct >= 0.5 ? 'badge-good' : 'badge-low';
+            const label  = isBest ? '🏆 Best' : pct >= 0.5 ? '✓ Good' : '~ Partial';
+
+            // Collect everyone available throughout this whole window
+            const everyoneInWindow = new Set(lastAvailability[w.start]);
+            for (let h = w.start + 1; h < w.end; h++) {
+                lastAvailability[h].forEach(id => everyoneInWindow.add(id));
+            }
+            const names = [...everyoneInWindow]
+                .map(id => team.find(m => m.id === id)?.name || '')
+                .filter(Boolean)
+                .join(', ');
+
+            return `<div class="best-slot">
+                <span class="slot-badge ${cls}">${label}</span>
+                <span class="slot-time">${fmt12(w.start)} – ${fmt12(w.end)}</span>
+                <span class="slot-count">${w.minCount}/${team.length} min people · ${esc(names)}</span>
+            </div>`;
+        }).join('');
+    }
+
+    // ── COPY SUMMARY ─────────────────────────────────────────────
+    function copyResult() {
+        const refTz    = document.getElementById('refTz').value;
+        const refLabel = (TZLIST.find(t => t.tz === refTz)?.label || refTz).replace('★','').trim();
+        const lines    = [`Team Availability Summary (display: ${refLabel})\n`];
+
+        team.forEach(m => {
+            const tzLabel = (TZLIST.find(t => t.tz === m.tz)?.label || m.tz).replace('★','').trim();
+            lines.push(`• ${m.name} [${tzLabel}] — works ${fmt12(m.workStart)}:00–${fmt12(m.workEnd)}:00 local`);
+        });
+
+        lines.push('');
+
+        const fullHours = lastAvailability
+            .map((ids, h) => ({ h, count: ids.length }))
+            .filter(x => x.count === team.length && team.length > 0);
+
+        if (fullHours.length) {
+            lines.push(`Full-team overlap hours (${refLabel}):`);
+            lines.push(fullHours.map(x => `${fmt12(x.h)}:00`).join(', '));
+        } else {
+            lines.push('No full-team overlap found.');
+        }
+
+        lines.push('\n— Generated by Rebrixe Team Availability Heatmap');
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            const btn = document.getElementById('btnCopy');
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Summary'; }, 2200);
+        }).catch(() => {
+            alert('Clipboard write failed. Please copy the text manually.');
+        });
+    }
+
+    // ── CLEAR ALL ────────────────────────────────────────────────
+    function clearAll() {
+        if (team.length > 0 && !confirm('Remove all teammates and reset the heatmap?')) return;
+        team          = [];
+        colorIdx      = 0;
+        selectedColor = COLORS[0];
+        lastAvailability = [];
+        document.querySelectorAll('.color-dot').forEach((d, i) => d.classList.toggle('selected', i === 0));
+        renderTeamList();
+        render();
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

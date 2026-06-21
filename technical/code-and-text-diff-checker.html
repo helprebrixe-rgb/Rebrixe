@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Code & Text Diff Checker | Compare Files Instantly | Rebrixe</title>
+    <meta name="description" content="Paste two blocks of code or text and instantly see added, removed, and changed lines highlighted. Client-side diff checker with word-level, line-level, and inline modes. No upload, no server.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #ffffff, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        .mode-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin: 22px 0 28px;
+        }
+        .mode-btn {
+            padding: 9px 22px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .mode-btn.active { background: #34d399; color: #000; }
+
+        .card {
+            background: rgba(15,23,42,0.6);
+            padding: 22px;
+            border-radius: 22px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #34d399;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 7px;
+        }
+
+        .editor-wrap {
+            position: relative;
+        }
+        .editor-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #34d399;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 7px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .editor-label span { color: #475569; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+        textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 12px 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.82rem;
+            box-sizing: border-box;
+            outline: none;
+            resize: vertical;
+            min-height: 220px;
+            line-height: 1.6;
+            tab-size: 2;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { border-color: #34d399; }
+        textarea::placeholder { color: #334155; }
+
+        select {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 8px 12px;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            outline: none;
+            cursor: pointer;
+        }
+        select:focus { border-color: #34d399; }
+
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #34d399; color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-danger { background: rgba(231,76,60,0.12); color: #e74c3c; border: 1px solid rgba(231,76,60,0.2); }
+        .btn:hover { opacity: 0.85; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 18px;
+        }
+        .stat-chip {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot-add { background: #22c55e; }
+        .dot-rem { background: #ef4444; }
+        .dot-chg { background: #f59e0b; }
+        .dot-same { background: #475569; }
+        .stat-num { color: #e2e8f0; }
+        .stat-lbl { color: #475569; }
+
+        /* Diff output */
+        .diff-output {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.65;
+        }
+        .diff-output-inner {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 520px;
+        }
+        .diff-line {
+            display: flex;
+            min-width: max-content;
+            width: 100%;
+        }
+        .diff-line:hover { filter: brightness(1.15); }
+        .diff-gutter {
+            width: 44px;
+            min-width: 44px;
+            text-align: right;
+            padding: 0 10px 0 6px;
+            color: #334155;
+            font-size: 0.72rem;
+            user-select: none;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        .diff-gutter-split {
+            width: 88px;
+            min-width: 88px;
+            display: flex;
+        }
+        .diff-gutter-split span {
+            width: 44px;
+            text-align: right;
+            padding: 0 8px 0 4px;
+            color: #334155;
+            font-size: 0.72rem;
+            user-select: none;
+        }
+        .diff-gutter-split span:first-child { border-right: 1px solid rgba(255,255,255,0.04); }
+        .diff-sign {
+            width: 22px;
+            min-width: 22px;
+            text-align: center;
+            font-weight: 700;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .diff-code {
+            padding: 0 14px 0 6px;
+            white-space: pre;
+            flex: 1;
+        }
+        .diff-line-add    { background: rgba(34,197,94,0.1); }
+        .diff-line-remove { background: rgba(239,68,68,0.1); }
+        .diff-line-change { background: rgba(245,158,11,0.07); }
+        .diff-line-same   { background: transparent; }
+        .diff-line-hunk   { background: rgba(56,189,248,0.06); }
+        .sign-add    { color: #22c55e; }
+        .sign-remove { color: #ef4444; }
+        .sign-change { color: #f59e0b; }
+        .sign-hunk   { color: #38bdf8; }
+
+        /* Inline word highlights */
+        .w-add    { background: rgba(34,197,94,0.35); color: #bbf7d0; border-radius: 2px; }
+        .w-remove { background: rgba(239,68,68,0.35); color: #fecaca; border-radius: 2px; text-decoration: line-through; }
+
+        /* Split view */
+        .split-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        .split-pane {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 520px;
+        }
+        .split-pane:first-child { border-right: 1px solid rgba(255,255,255,0.06); }
+        .split-header {
+            padding: 8px 14px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.02);
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .split-header.left { color: #ef4444; }
+        .split-header.right { color: #22c55e; }
+
+        /* Empty / placeholder */
+        .diff-placeholder {
+            padding: 52px 24px;
+            text-align: center;
+            color: #334155;
+            font-size: 0.85rem;
+        }
+        .diff-placeholder svg { margin-bottom: 14px; opacity: 0.3; }
+
+        /* Hint */
+        .hint {
+            font-size: 0.72rem;
+            color: #475569;
+            line-height: 1.6;
+            padding: 10px 14px;
+            border-left: 3px solid #34d399;
+            background: rgba(255,255,255,0.02);
+            border-radius: 0 8px 8px 0;
+            margin-top: 14px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+        .toolbar-sep {
+            width: 1px;
+            height: 22px;
+            background: var(--border);
+        }
+
+        .options-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox-label input[type=checkbox] { accent-color: #34d399; width: 14px; height: 14px; cursor: pointer; }
+
+        #unified { display: block; }
+        #splitView { display: none; }
+
+        @media (max-width: 700px) {
+            .tool-title { font-size: 2rem; }
+            .split-grid { grid-template-columns: 1fr; }
+            .split-pane:first-child { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="diagnostics-strings.html" class="back-btn">← Back to Dev Tools</a>
+
+    <h1 class="tool-title">Code & Text Diff</h1>
+    <p style="opacity:0.5; font-weight:500; text-align:center; margin-bottom:4px;">Paste two versions · See exactly what changed · Zero server, 100% private</p>
+
+    <div class="mode-toggle">
+        <button class="mode-btn active" id="modeUnified" onclick="setView('unified')">☰ Unified</button>
+        <button class="mode-btn" id="modeSplit" onclick="setView('split')">⬛⬛ Split</button>
+    </div>
+
+    <!-- Input area -->
+    <div class="card" style="margin-bottom:18px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+            <div class="editor-wrap">
+                <div class="editor-label">
+                    Original (A) <span id="lineCountA">0 lines</span>
+                </div>
+                <textarea id="textA" placeholder="Paste original code or text here…" spellcheck="false" oninput="onInput()"></textarea>
+            </div>
+            <div class="editor-wrap">
+                <div class="editor-label">
+                    Modified (B) <span id="lineCountB">0 lines</span>
+                </div>
+                <textarea id="textB" placeholder="Paste modified code or text here…" spellcheck="false" oninput="onInput()"></textarea>
+            </div>
+        </div>
+
+        <div class="options-row" style="margin-top:14px; margin-bottom:0;">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ignoreWhitespace"> Ignore trailing whitespace
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="ignoreCase"> Ignore case
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="wordLevel" checked> Word-level highlights
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="showUnchanged" checked> Show context lines
+            </label>
+            <div class="toolbar-sep"></div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label style="margin:0; color:#475569; font-size:0.72rem; text-transform:none; letter-spacing:0;">Context:</label>
+                <select id="contextLines" onchange="runDiff()">
+                    <option value="2">2 lines</option>
+                    <option value="3" selected>3 lines</option>
+                    <option value="5">5 lines</option>
+                    <option value="99999">All</option>
+                </select>
+            </div>
+            <div class="toolbar-sep"></div>
+            <button class="btn btn-ghost" onclick="loadSample()">Load Sample</button>
+            <button class="btn btn-danger" onclick="clearAll()">Clear</button>
+            <button class="btn btn-ghost" onclick="swapAB()">⇄ Swap A↔B</button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar" style="display:none;">
+        <div class="stat-chip"><div class="dot dot-add"></div><span class="stat-num" id="statAdd">0</span><span class="stat-lbl">added</span></div>
+        <div class="stat-chip"><div class="dot dot-rem"></div><span class="stat-num" id="statRem">0</span><span class="stat-lbl">removed</span></div>
+        <div class="stat-chip"><div class="dot dot-chg"></div><span class="stat-num" id="statChg">0</span><span class="stat-lbl">changed</span></div>
+        <div class="stat-chip"><div class="dot dot-same"></div><span class="stat-num" id="statSame">0</span><span class="stat-lbl">unchanged</span></div>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+            <button class="btn btn-ghost" onclick="copyDiffText()" style="font-size:0.68rem; padding:6px 12px;">COPY DIFF</button>
+            <button class="btn btn-ghost" onclick="exportPatch()" style="font-size:0.68rem; padding:6px 12px;">EXPORT .patch</button>
+        </div>
+    </div>
+
+    <!-- Unified output -->
+    <div id="unified">
+        <div class="diff-output" id="diffOutput">
+            <div class="diff-placeholder">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                <div>Paste two versions above to see the diff</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Split output -->
+    <div id="splitView">
+        <div class="diff-output">
+            <div class="split-grid">
+                <div>
+                    <div class="split-header left">— Original (A)</div>
+                    <div class="split-pane" id="splitLeft"></div>
+                </div>
+                <div>
+                    <div class="split-header right">+ Modified (B)</div>
+                    <div class="split-pane" id="splitRight"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="hint" style="margin-top:16px;">
+        💡 Everything runs in your browser — no text leaves your machine. Safe for credentials, configs, and private code. Supports any plain text: JSON, YAML, env files, SQL, Markdown, logs, and more.
+    </div>
+
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ─────────────────────────────────────────
+   DIFF ENGINE  (Myers diff, line-level)
+───────────────────────────────────────── */
+
+function lcs(a, b) {
+    // standard DP LCS returning edit ops
+    const m = a.length, n = b.length;
+    // For large inputs use patience diff heuristic
+    if (m > 2000 || n > 2000) return myersDiff(a, b);
+    return myersDiff(a, b);
+}
+
+function myersDiff(a, b) {
+    // Returns array of {type:'=','+'|'-', val, aIdx, bIdx}
+    const m = a.length, n = b.length;
+    const maxD = m + n;
+    const v = new Int32Array(2 * maxD + 2);
+    const trace = [];
+    
+    outer: for (let d = 0; d <= maxD; d++) {
+        trace.push(v.slice());
+        for (let k = -d; k <= d; k += 2) {
+            const ki = k + maxD;
+            let x;
+            if (k === -d || (k !== d && v[ki-1] < v[ki+1])) {
+                x = v[ki+1];
+            } else {
+                x = v[ki-1] + 1;
+            }
+            let y = x - k;
+            while (x < m && y < n && a[x] === b[y]) { x++; y++; }
+            v[ki] = x;
+            if (x >= m && y >= n) break outer;
+        }
+    }
+    
+    // Backtrack
+    const ops = [];
+    let x = m, y = n;
+    for (let d = trace.length - 1; d >= 0 && (x > 0 || y > 0); d--) {
+        const vv = trace[d];
+        const k = x - y;
+        const ki = k + maxD;
+        let prevK;
+        if (k === -d || (k !== d && vv[ki-1] < vv[ki+1])) {
+            prevK = k + 1;
+        } else {
+            prevK = k - 1;
+        }
+        const prevX = vv[prevK + maxD];
+        const prevY = prevX - prevK;
+        while (x > prevX + 1 && y > prevY + 1) { x--; y--; ops.unshift({type:'=', aIdx:x-1, bIdx:y-1}); }
+        if (d > 0) {
+            if (x > prevX) { x--; ops.unshift({type:'-', aIdx:x, bIdx:null}); }
+            else { y--; ops.unshift({type:'+', aIdx:null, bIdx:y}); }
+        }
+    }
+    return ops;
+}
+
+function wordDiff(lineA, lineB) {
+    // Tokenise to words+spaces then diff
+    const tokA = tokenize(lineA), tokB = tokenize(lineB);
+    const ops = myersDiff(tokA, tokB);
+    let outA = '', outB = '';
+    for (const op of ops) {
+        if (op.type === '=') {
+            outA += esc(tokA[op.aIdx]);
+            outB += esc(tokB[op.bIdx]);
+        } else if (op.type === '-') {
+            outA += `<span class="w-remove">${esc(tokA[op.aIdx])}</span>`;
+        } else {
+            outB += `<span class="w-add">${esc(tokB[op.bIdx])}</span>`;
+        }
+    }
+    return { a: outA, b: outB };
+}
+
+function tokenize(s) {
+    return s.split(/(\s+|[^a-zA-Z0-9_]+)/).filter(t => t.length > 0);
+}
+
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ─── Main diff runner ─── */
+let currentDiffOps = [];
+let currentA = [], currentB = [];
+let viewMode = 'unified';
+
+function getLines(id) {
+    let v = document.getElementById(id).value;
+    if (document.getElementById('ignoreWhitespace').checked) {
+        v = v.split('\n').map(l => l.trimEnd()).join('\n');
+    }
+    if (document.getElementById('ignoreCase').checked) {
+        v = v.toLowerCase();
+    }
+    return v === '' ? [] : v.split('\n');
+}
+
+function runDiff() {
+    const rawA = document.getElementById('textA').value;
+    const rawB = document.getElementById('textB').value;
+    if (!rawA && !rawB) { resetUI(); return; }
+
+    currentA = getLines('textA');
+    currentB = getLines('textB');
+    currentDiffOps = myersDiff(currentA, currentB);
+
+    const stats = { add:0, rem:0, same:0 };
+    currentDiffOps.forEach(op => {
+        if (op.type==='+') stats.add++;
+        else if (op.type==='-') stats.rem++;
+        else stats.same++;
+    });
+
+    document.getElementById('statAdd').innerText  = stats.add;
+    document.getElementById('statRem').innerText  = stats.rem;
+    document.getElementById('statChg').innerText  = 0; // calculated per hunk below
+    document.getElementById('statSame').innerText = stats.same;
+    document.getElementById('statsBar').style.display = 'flex';
+
+    if (viewMode === 'unified') renderUnified();
+    else renderSplit();
+}
+
+function renderUnified() {
+    const ctx = parseInt(document.getElementById('contextLines').value);
+    const showCtx = document.getElementById('showUnchanged').checked;
+    const wl = document.getElementById('wordLevel').checked;
+
+    // Build change-line index for context collapsing
+    const changed = new Set();
+    currentDiffOps.forEach((op,i) => { if (op.type!=='=') changed.add(i); });
+
+    // Merge adjacent ops into hunks
+    const visible = new Set();
+    if (showCtx) {
+        changed.forEach(i => {
+            for (let j=Math.max(0,i-ctx); j<=Math.min(currentDiffOps.length-1,i+ctx); j++) visible.add(j);
+        });
+    } else {
+        currentDiffOps.forEach((_,i) => visible.add(i));
+    }
+
+    let html = '';
+    let aLine = 1, bLine = 1;
+    let lastVisible = -2;
+
+    // Track pairing for word-diff on changed lines
+    const pairs = buildChangePairs(currentDiffOps);
+
+    currentDiffOps.forEach((op, i) => {
+        if (op.type === '=') { aLine++; bLine++; }
+
+        if (!visible.has(i)) {
+            if (op.type === '=') { /* skip silently */ }
+            return;
+        }
+
+        if (i > lastVisible + 1 && lastVisible >= 0) {
+            html += hunkSeparator();
+        }
+        lastVisible = i;
+
+        if (op.type === '=') {
+            const aL = op.type === '=' ? aLine - 1 : aLine;
+            html += line('same', aLine-1, bLine-1, ' ', esc(currentA[op.aIdx]));
+        } else if (op.type === '-') {
+            const pairB = pairs.get(i); // paired add index
+            let content = esc(currentA[op.aIdx]);
+            if (wl && pairB !== undefined) {
+                const wd = wordDiff(currentA[op.aIdx], currentB[currentDiffOps[pairB].bIdx]);
+                content = wd.a;
+            }
+            html += line('remove', aLine, null, '−', content);
+            aLine++;
+        } else {
+            const pairA = pairs.get(i);
+            let content = esc(currentB[op.bIdx]);
+            if (wl && pairA !== undefined) {
+                const wd = wordDiff(currentA[currentDiffOps[pairA].aIdx], currentB[op.bIdx]);
+                content = wd.b;
+            }
+            html += line('add', null, bLine, '+', content);
+            bLine++;
+        }
+    });
+
+    document.getElementById('diffOutput').innerHTML = html
+        ? `<div class="diff-output-inner">${html}</div>`
+        : `<div class="diff-placeholder" style="color:#22c55e;">✓ Files are identical</div>`;
+}
+
+function buildChangePairs(ops) {
+    // Simple pairing: consecutive removes then adds
+    const pairs = new Map();
+    let removes = [];
+    let i = 0;
+    while (i < ops.length) {
+        if (ops[i].type === '-') {
+            removes.push(i);
+            i++;
+        } else if (ops[i].type === '+' && removes.length > 0) {
+            const rIdx = removes.shift();
+            pairs.set(rIdx, i);   // remove → add
+            pairs.set(i, rIdx);   // add → remove
+            i++;
+        } else {
+            removes = [];
+            i++;
+        }
+    }
+    return pairs;
+}
+
+function line(type, aL, bL, sign, content) {
+    const cls = `diff-line diff-line-${type}`;
+    const signCls = type === 'add' ? 'sign-add' : type === 'remove' ? 'sign-remove' : '';
+    const ga = aL !== null ? aL : '';
+    const gb = bL !== null ? bL : '';
+    return `<div class="${cls}">
+        <div class="diff-gutter-split"><span>${ga}</span><span>${gb}</span></div>
+        <div class="diff-sign ${signCls}">${sign}</div>
+        <div class="diff-code">${content}</div>
+    </div>`;
+}
+
+function hunkSeparator() {
+    return `<div class="diff-line diff-line-hunk">
+        <div class="diff-gutter-split"><span>…</span><span>…</span></div>
+        <div class="diff-sign sign-hunk">@</div>
+        <div class="diff-code" style="color:#38bdf8; font-style:italic;">@@ skipped unchanged lines @@</div>
+    </div>`;
+}
+
+function renderSplit() {
+    const wl = document.getElementById('wordLevel').checked;
+    const pairs = buildChangePairs(currentDiffOps);
+    let leftHtml = '', rightHtml = '';
+    let aLine = 1, bLine = 1;
+
+    currentDiffOps.forEach((op, i) => {
+        if (op.type === '=') {
+            const c = esc(currentA[op.aIdx]);
+            leftHtml  += splitLine('same', aLine, ' ', c);
+            rightHtml += splitLine('same', bLine, ' ', c);
+            aLine++; bLine++;
+        } else if (op.type === '-') {
+            let content = esc(currentA[op.aIdx]);
+            if (wl && pairs.has(i)) {
+                const wd = wordDiff(currentA[op.aIdx], currentB[currentDiffOps[pairs.get(i)].bIdx]);
+                content = wd.a;
+            }
+            leftHtml  += splitLine('remove', aLine, '−', content);
+            rightHtml += splitLine('empty', null, '', '');
+            aLine++;
+        } else {
+            let content = esc(currentB[op.bIdx]);
+            if (wl && pairs.has(i)) {
+                const wd = wordDiff(currentA[currentDiffOps[pairs.get(i)].aIdx], currentB[op.bIdx]);
+                content = wd.b;
+            }
+            leftHtml  += splitLine('empty', null, '', '');
+            rightHtml += splitLine('add', bLine, '+', content);
+            bLine++;
+        }
+    });
+
+    document.getElementById('splitLeft').innerHTML  = leftHtml  || '<div class="diff-placeholder">No changes</div>';
+    document.getElementById('splitRight').innerHTML = rightHtml || '<div class="diff-placeholder">No changes</div>';
+}
+
+function splitLine(type, ln, sign, content) {
+    const cls = type === 'empty' ? 'diff-line' : `diff-line diff-line-${type}`;
+    const signCls = type === 'add' ? 'sign-add' : type === 'remove' ? 'sign-remove' : '';
+    const bg = type === 'empty' ? 'background:rgba(0,0,0,0.3);' : '';
+    return `<div class="${cls}" style="${bg}">
+        <div class="diff-gutter">${ln || ''}</div>
+        <div class="diff-sign ${signCls}">${sign}</div>
+        <div class="diff-code">${content}</div>
+    </div>`;
+}
+
+/* ─── UI helpers ─── */
+let debounceTimer;
+function onInput() {
+    updateLineCounts();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runDiff, 180);
+}
+
+function updateLineCounts() {
+    const a = document.getElementById('textA').value;
+    const b = document.getElementById('textB').value;
+    document.getElementById('lineCountA').innerText = (a ? a.split('\n').length : 0) + ' lines';
+    document.getElementById('lineCountB').innerText = (b ? b.split('\n').length : 0) + ' lines';
+}
+
+function setView(mode) {
+    viewMode = mode;
+    document.getElementById('unified').style.display   = mode === 'unified' ? 'block' : 'none';
+    document.getElementById('splitView').style.display = mode === 'split'   ? 'block' : 'none';
+    document.getElementById('modeUnified').classList.toggle('active', mode==='unified');
+    document.getElementById('modeSplit').classList.toggle('active', mode==='split');
+    runDiff();
+}
+
+function resetUI() {
+    document.getElementById('statsBar').style.display = 'none';
+    document.getElementById('diffOutput').innerHTML = `<div class="diff-placeholder">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+        <div>Paste two versions above to see the diff</div>
+    </div>`;
+    document.getElementById('splitLeft').innerHTML = '';
+    document.getElementById('splitRight').innerHTML = '';
+    updateLineCounts();
+}
+
+function clearAll() {
+    document.getElementById('textA').value = '';
+    document.getElementById('textB').value = '';
+    resetUI();
+}
+
+function swapAB() {
+    const a = document.getElementById('textA').value;
+    const b = document.getElementById('textB').value;
+    document.getElementById('textA').value = b;
+    document.getElementById('textB').value = a;
+    runDiff();
+}
+
+function copyDiffText() {
+    const ops = currentDiffOps;
+    if (!ops.length) return;
+    const lines = ops.map(op => {
+        if (op.type === '=')  return '  ' + currentA[op.aIdx];
+        if (op.type === '-')  return '- ' + currentA[op.aIdx];
+        return '+ ' + currentB[op.bIdx];
+    });
+    navigator.clipboard.writeText(lines.join('\n'));
+    showToast('Diff copied!');
+}
+
+function exportPatch() {
+    const ops = currentDiffOps;
+    if (!ops.length) return;
+    let patch = '--- a/original\n+++ b/modified\n@@ -1 +1 @@\n';
+    ops.forEach(op => {
+        if (op.type === '=')  patch += ' ' + currentA[op.aIdx] + '\n';
+        else if (op.type === '-') patch += '-' + currentA[op.aIdx] + '\n';
+        else patch += '+' + currentB[op.bIdx] + '\n';
+    });
+    const blob = new Blob([patch], {type:'text/plain'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'changes.patch'; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.cssText = 'position:fixed;bottom:28px;right:28px;background:#34d399;color:#000;padding:10px 18px;border-radius:10px;font-size:0.78rem;font-weight:800;z-index:9999;transition:opacity 0.3s;';
+        document.body.appendChild(t);
+    }
+    t.innerText = msg;
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.style.opacity = '0', 2000);
+}
+
+function loadSample() {
+    document.getElementById('textA').value = `function fetchUser(id) {
+  const url = "/api/user/" + id;
+  return fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      console.log("fetched", data);
+      return data;
+    });
+}
+
+const MAX_RETRIES = 3;
+const TIMEOUT = 5000;`;
+
+    document.getElementById('textB').value = `async function fetchUser(id, options = {}) {
+  const url = \`/api/v2/user/\${id}\`;
+  const res = await fetch(url, { signal: options.signal });
+  if (!res.ok) throw new Error(\`HTTP \${res.status}\`);
+  const data = await res.json();
+  return data;
+}
+
+const MAX_RETRIES = 5;
+const TIMEOUT = 8000;
+const CACHE_TTL = 60_000;`;
+
+    runDiff();
+}
+
+/* event listeners for checkboxes */
+['ignoreWhitespace','ignoreCase','wordLevel','showUnchanged'].forEach(id => {
+    document.getElementById(id).addEventListener('change', runDiff);
+});
+
+updateLineCounts();
+</script>
+</body>
+</html>

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Time in Any City | Rebrixe</title>
+    <meta name="description" content="What time is it right now in Tokyo, New York, Dubai, London? Live world clock with timezone comparison and meeting planner.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .tool-wrap { max-width: 900px; margin: 36px auto; }
+
+        /* SEARCH */
+        .search-wrap { position: relative; margin-bottom: 18px; }
+        .search-input {
+            width: 100%; background: rgba(255,255,255,0.04);
+            border: 2px solid var(--border); border-radius: 16px;
+            color: #fff; padding: 16px 20px 16px 48px;
+            font-family: 'Inter'; font-size: 1rem; outline: none;
+            box-sizing: border-box; transition: border-color 0.2s;
+        }
+        .search-input:focus { border-color: var(--primary); }
+        .search-icon {
+            position: absolute; left: 16px; top: 50%;
+            transform: translateY(-50%); font-size: 1.1rem; pointer-events: none;
+        }
+        .search-dropdown {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 14px; max-height: 260px; overflow-y: auto;
+            z-index: 100; display: none;
+        }
+        .search-dropdown.open { display: block; }
+        .sd-item {
+            padding: 11px 18px; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.88rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.15s;
+        }
+        .sd-item:last-child { border-bottom: none; }
+        .sd-item:hover, .sd-item.active { background: rgba(255,255,255,0.07); }
+        .sd-tz { color: #64748b; font-size: 0.75rem; font-family:'Outfit'; font-weight:700; }
+
+        /* QUICK PILLS */
+        .quick-label {
+            font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1.5px; color: #64748b; margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .pill {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: #94a3b8; padding: 7px 14px; border-radius: 999px;
+            font-size: 0.75rem; font-family: 'Outfit'; font-weight: 700;
+            cursor: pointer; transition: 0.2s; white-space: nowrap;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+
+        /* MAP */
+        .map-card {
+            background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: 20px; overflow: hidden; margin-bottom: 18px; position: relative;
+        }
+        #worldMap { width: 100%; height: 220px; display: block; cursor: default; }
+        .map-legend {
+            display: flex; gap: 16px; align-items: center;
+            padding: 10px 16px; border-top: 1px solid var(--border);
+            font-size: 0.72rem; color: #64748b;
+        }
+        .leg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+        /* PINNED CLOCKS */
+        .clocks-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px; margin-bottom: 18px;
+        }
+        .clock-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 18px; padding: 20px 16px 16px; position: relative;
+            transition: border-color 0.2s, transform 0.2s; cursor: pointer;
+        }
+        .clock-card:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .clock-card.home { border-color: var(--primary); }
+        .cc-top {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .cc-city { font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #fff; line-height: 1.2; }
+        .cc-country { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+        .cc-remove {
+            background: none; border: none; color: #334155;
+            cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; transition: color 0.2s;
+        }
+        .cc-remove:hover { color: #ef4444; }
+        .cc-time {
+            font-family: 'Outfit'; font-size: 2rem; font-weight: 900;
+            color: #fff; letter-spacing: -1px; line-height: 1; margin-bottom: 4px;
+        }
+        .cc-date { font-size: 0.72rem; color: #64748b; margin-bottom: 10px; }
+        .cc-bar {
+            height: 3px; border-radius: 99px;
+            background: linear-gradient(90deg, var(--primary), rgba(139,148,152,0.2));
+            margin-bottom: 8px;
+        }
+        .cc-meta { display: flex; justify-content: space-between; align-items: center; }
+        .cc-tz { font-size: 0.68rem; color: #475569; font-family: 'Outfit'; font-weight: 700; }
+        .cc-daynight { font-size: 1.1rem; }
+        .home-badge {
+            font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+            background: rgba(139,148,152,0.15); color: var(--primary);
+            border: 1px solid rgba(139,148,152,0.3); border-radius: 999px; padding: 2px 7px;
+        }
+
+        /* DETAIL CARD */
+        .detail-card {
+            background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: 20px; padding: 24px; margin-bottom: 18px; display: none;
+        }
+        .detail-card.visible { display: block; }
+        .detail-top {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        }
+        .detail-city-name {
+            font-family: 'Outfit'; font-size: 1.8rem; font-weight: 900;
+            letter-spacing: -1px; color: #fff;
+        }
+        .detail-time-big {
+            font-family: 'Outfit'; font-size: clamp(2.5rem,7vw,4rem);
+            font-weight: 900; color: var(--primary); letter-spacing: -3px; line-height: 1;
+        }
+        .detail-date-line { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+        .detail-grid {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+        }
+        .dg-cell {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 12px; padding: 14px 12px; text-align: center;
+        }
+        .dg-num { font-family: 'Outfit'; font-size: 1.3rem; font-weight: 800; color: #fff; }
+        .dg-label { font-size: 0.62rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; font-weight: 600; }
+        .dg-sub { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+
+        /* COMPARE TABLE */
+        .compare-card {
+            background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: 20px; padding: 20px; margin-bottom: 18px;
+        }
+        .compare-title {
+            font-family: 'Outfit'; font-weight: 800; font-size: 0.8rem;
+            text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin-bottom: 14px;
+        }
+        .compare-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.85rem;
+        }
+        .compare-row:last-child { border-bottom: none; }
+        .cr-flag { font-size: 1.2rem; flex-shrink: 0; width: 28px; text-align: center; }
+        .cr-city { flex: 1; color: #e2e8f0; font-weight: 500; }
+        .cr-time { font-family: 'Outfit'; font-weight: 800; color: #fff; font-size: 1rem; min-width: 80px; text-align: right; }
+        .cr-diff { font-size: 0.72rem; color: #64748b; min-width: 70px; text-align: right; }
+        .cr-daynight { font-size: 1rem; margin-left: 6px; }
+        .cr-day { font-size: 0.72rem; color: #475569; min-width: 70px; text-align: right; }
+
+        /* ACTION ROW */
+        .action-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .btn-action {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: #fff; padding: 10px 18px; border-radius: 12px;
+            font-family: 'Outfit'; font-weight: 700; font-size: 0.78rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-1px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+        }
+
+        /* ANALOG CLOCK */
+        .analog-wrap { text-align: center; margin-top: 14px; }
+
+        @media(max-width: 600px) {
+            .detail-grid { grid-template-columns: repeat(2,1fr); }
+            .clocks-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media(max-width: 400px) {
+            .clocks-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:40px;">
+            <h1 style="font-family:'Outfit'; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Current Time in Any City</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Live world clock — compare timezones, track day &amp; night.</p>
+        </header>
+
+        <div class="tool-wrap">
+
+            <!-- SEARCH -->
+            <div class="search-wrap">
+                <span class="search-icon">🔍</span>
+                <input class="search-input" id="citySearch" type="text"
+                    placeholder="Search city… e.g. Tokyo, Dubai, São Paulo"
+                    autocomplete="off"
+                    oninput="onSearch(this.value)"
+                    onkeydown="onSearchKey(event)">
+                <div class="search-dropdown" id="searchDropdown"></div>
+            </div>
+
+            <!-- QUICK PILLS -->
+            <div class="quick-label">Popular Cities</div>
+            <div class="quick-pills" id="quickPills"></div>
+
+            <!-- WORLD MAP -->
+            <div class="map-card">
+                <canvas id="worldMap"></canvas>
+                <div class="map-legend">
+                    <span><span class="leg-dot" style="background:#050b14"></span>Night</span>
+                    <span><span class="leg-dot" style="background:#1a2a4a"></span>Dawn / Dusk</span>
+                    <span><span class="leg-dot" style="background:rgba(255,220,100,0.15); border:1px solid rgba(255,220,100,0.3)"></span>Day</span>
+                    <span style="margin-left:auto; font-size:0.7rem;">📍 Pinned cities</span>
+                </div>
+            </div>
+
+            <!-- PINNED CLOCKS -->
+            <div class="clocks-grid" id="clocksGrid"></div>
+
+            <!-- DETAIL CARD -->
+            <div class="detail-card" id="detailCard">
+                <div class="detail-top">
+                    <div>
+                        <div class="detail-city-name" id="dcName"></div>
+                        <div class="detail-date-line" id="dcDate"></div>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="detail-time-big" id="dcTime"></div>
+                        <div class="analog-wrap">
+                            <canvas id="analogClock" width="90" height="90"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="detail-grid" id="dcGrid"></div>
+                <div class="action-row">
+                    <button class="btn-action primary" id="pinBtn" onclick="pinCurrent()">📌 Pin This City</button>
+                    <button class="btn-action" id="copyBtn" onclick="copyDetailTime()">Copy Time</button>
+                </div>
+            </div>
+
+            <!-- COMPARE TABLE -->
+            <div class="compare-card" id="compareCard">
+                <div class="compare-title">⏱ Live World Clock — All Pinned Cities</div>
+                <div id="compareRows"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer></footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CITY DATABASE  (deduped, verified tz strings)
+═══════════════════════════════════════════════════════ */
+const CITIES = [
+    {name:"New York",       country:"USA",          tz:"America/New_York",                      flag:"🇺🇸", lat:40.71,  lon:-74.01},
+    {name:"Los Angeles",    country:"USA",          tz:"America/Los_Angeles",                   flag:"🇺🇸", lat:34.05,  lon:-118.24},
+    {name:"Chicago",        country:"USA",          tz:"America/Chicago",                       flag:"🇺🇸", lat:41.88,  lon:-87.63},
+    {name:"Houston",        country:"USA",          tz:"America/Chicago",                       flag:"🇺🇸", lat:29.76,  lon:-95.37},
+    {name:"Miami",          country:"USA",          tz:"America/New_York",                      flag:"🇺🇸", lat:25.77,  lon:-80.19},
+    {name:"Denver",         country:"USA",          tz:"America/Denver",                        flag:"🇺🇸", lat:39.74,  lon:-104.98},
+    {name:"Seattle",        country:"USA",          tz:"America/Los_Angeles",                   flag:"🇺🇸", lat:47.61,  lon:-122.33},
+    {name:"Phoenix",        country:"USA",          tz:"America/Phoenix",                       flag:"🇺🇸", lat:33.45,  lon:-112.07},
+    {name:"Anchorage",      country:"USA",          tz:"America/Anchorage",                     flag:"🇺🇸", lat:61.22,  lon:-149.90},
+    {name:"Honolulu",       country:"USA",          tz:"Pacific/Honolulu",                      flag:"🇺🇸", lat:21.31,  lon:-157.86},
+    {name:"London",         country:"UK",           tz:"Europe/London",                         flag:"🇬🇧", lat:51.51,  lon:-0.13},
+    {name:"Edinburgh",      country:"UK",           tz:"Europe/London",                         flag:"🇬🇧", lat:55.95,  lon:-3.19},
+    {name:"Paris",          country:"France",       tz:"Europe/Paris",                          flag:"🇫🇷", lat:48.86,  lon:2.35},
+    {name:"Berlin",         country:"Germany",      tz:"Europe/Berlin",                         flag:"🇩🇪", lat:52.52,  lon:13.40},
+    {name:"Amsterdam",      country:"Netherlands",  tz:"Europe/Amsterdam",                      flag:"🇳🇱", lat:52.37,  lon:4.90},
+    {name:"Madrid",         country:"Spain",        tz:"Europe/Madrid",                         flag:"🇪🇸", lat:40.42,  lon:-3.70},
+    {name:"Barcelona",      country:"Spain",        tz:"Europe/Madrid",                         flag:"🇪🇸", lat:41.39,  lon:2.16},
+    {name:"Rome",           country:"Italy",        tz:"Europe/Rome",                           flag:"🇮🇹", lat:41.90,  lon:12.50},
+    {name:"Moscow",         country:"Russia",       tz:"Europe/Moscow",                         flag:"🇷🇺", lat:55.75,  lon:37.62},
+    {name:"Istanbul",       country:"Turkey",       tz:"Europe/Istanbul",                       flag:"🇹🇷", lat:41.01,  lon:28.95},
+    {name:"Stockholm",      country:"Sweden",       tz:"Europe/Stockholm",                      flag:"🇸🇪", lat:59.33,  lon:18.07},
+    {name:"Zurich",         country:"Switzerland",  tz:"Europe/Zurich",                         flag:"🇨🇭", lat:47.38,  lon:8.54},
+    {name:"Vienna",         country:"Austria",      tz:"Europe/Vienna",                         flag:"🇦🇹", lat:48.21,  lon:16.37},
+    {name:"Warsaw",         country:"Poland",       tz:"Europe/Warsaw",                         flag:"🇵🇱", lat:52.23,  lon:21.01},
+    {name:"Prague",         country:"Czech Republic",tz:"Europe/Prague",                        flag:"🇨🇿", lat:50.08,  lon:14.44},
+    {name:"Budapest",       country:"Hungary",      tz:"Europe/Budapest",                       flag:"🇭🇺", lat:47.50,  lon:19.04},
+    {name:"Bucharest",      country:"Romania",      tz:"Europe/Bucharest",                      flag:"🇷🇴", lat:44.43,  lon:26.10},
+    {name:"Kyiv",           country:"Ukraine",      tz:"Europe/Kyiv",                           flag:"🇺🇦", lat:50.45,  lon:30.52},
+    {name:"Helsinki",       country:"Finland",      tz:"Europe/Helsinki",                       flag:"🇫🇮", lat:60.17,  lon:24.94},
+    {name:"Oslo",           country:"Norway",       tz:"Europe/Oslo",                           flag:"🇳🇴", lat:59.91,  lon:10.75},
+    {name:"Copenhagen",     country:"Denmark",      tz:"Europe/Copenhagen",                     flag:"🇩🇰", lat:55.68,  lon:12.57},
+    {name:"Lisbon",         country:"Portugal",     tz:"Europe/Lisbon",                         flag:"🇵🇹", lat:38.72,  lon:-9.14},
+    {name:"Brussels",       country:"Belgium",      tz:"Europe/Brussels",                       flag:"🇧🇪", lat:50.85,  lon:4.35},
+    {name:"Dublin",         country:"Ireland",      tz:"Europe/Dublin",                         flag:"🇮🇪", lat:53.33,  lon:-6.25},
+    {name:"Athens",         country:"Greece",       tz:"Europe/Athens",                         flag:"🇬🇷", lat:37.98,  lon:23.73},
+    {name:"Dubai",          country:"UAE",          tz:"Asia/Dubai",                            flag:"🇦🇪", lat:25.20,  lon:55.27},
+    {name:"Abu Dhabi",      country:"UAE",          tz:"Asia/Dubai",                            flag:"🇦🇪", lat:24.47,  lon:54.37},
+    {name:"Riyadh",         country:"Saudi Arabia", tz:"Asia/Riyadh",                           flag:"🇸🇦", lat:24.69,  lon:46.72},
+    {name:"Doha",           country:"Qatar",        tz:"Asia/Qatar",                            flag:"🇶🇦", lat:25.29,  lon:51.53},
+    {name:"Kuwait City",    country:"Kuwait",       tz:"Asia/Kuwait",                           flag:"🇰🇼", lat:29.37,  lon:47.98},
+    {name:"Muscat",         country:"Oman",         tz:"Asia/Muscat",                           flag:"🇴🇲", lat:23.61,  lon:58.59},
+    {name:"Baghdad",        country:"Iraq",         tz:"Asia/Baghdad",                          flag:"🇮🇶", lat:33.34,  lon:44.40},
+    {name:"Tehran",         country:"Iran",         tz:"Asia/Tehran",                           flag:"🇮🇷", lat:35.69,  lon:51.39},
+    {name:"Beirut",         country:"Lebanon",      tz:"Asia/Beirut",                           flag:"🇱🇧", lat:33.89,  lon:35.50},
+    {name:"Amman",          country:"Jordan",       tz:"Asia/Amman",                            flag:"🇯🇴", lat:31.96,  lon:35.95},
+    {name:"Tel Aviv",       country:"Israel",       tz:"Asia/Jerusalem",                        flag:"🇮🇱", lat:32.08,  lon:34.78},
+    {name:"Kabul",          country:"Afghanistan",  tz:"Asia/Kabul",                            flag:"🇦🇫", lat:34.53,  lon:69.17},
+    {name:"Karachi",        country:"Pakistan",     tz:"Asia/Karachi",                          flag:"🇵🇰", lat:24.86,  lon:67.01},
+    {name:"Islamabad",      country:"Pakistan",     tz:"Asia/Karachi",                          flag:"🇵🇰", lat:33.72,  lon:73.04},
+    {name:"Lahore",         country:"Pakistan",     tz:"Asia/Karachi",                          flag:"🇵🇰", lat:31.56,  lon:74.34},
+    {name:"Mumbai",         country:"India",        tz:"Asia/Kolkata",                          flag:"🇮🇳", lat:19.08,  lon:72.88},
+    {name:"Delhi",          country:"India",        tz:"Asia/Kolkata",                          flag:"🇮🇳", lat:28.61,  lon:77.21},
+    {name:"Bengaluru",      country:"India",        tz:"Asia/Kolkata",                          flag:"🇮🇳", lat:12.97,  lon:77.59},
+    {name:"Kolkata",        country:"India",        tz:"Asia/Kolkata",                          flag:"🇮🇳", lat:22.57,  lon:88.36},
+    {name:"Kathmandu",      country:"Nepal",        tz:"Asia/Kathmandu",                        flag:"🇳🇵", lat:27.70,  lon:85.32},
+    {name:"Dhaka",          country:"Bangladesh",   tz:"Asia/Dhaka",                            flag:"🇧🇩", lat:23.72,  lon:90.41},
+    {name:"Colombo",        country:"Sri Lanka",    tz:"Asia/Colombo",                          flag:"🇱🇰", lat:6.93,   lon:79.85},
+    {name:"Tashkent",       country:"Uzbekistan",   tz:"Asia/Tashkent",                         flag:"🇺🇿", lat:41.30,  lon:69.25},
+    {name:"Almaty",         country:"Kazakhstan",   tz:"Asia/Almaty",                           flag:"🇰🇿", lat:43.25,  lon:76.95},
+    {name:"Ulaanbaatar",    country:"Mongolia",     tz:"Asia/Ulaanbaatar",                      flag:"🇲🇳", lat:47.89,  lon:106.91},
+    {name:"Bangkok",        country:"Thailand",     tz:"Asia/Bangkok",                          flag:"🇹🇭", lat:13.76,  lon:100.50},
+    {name:"Yangon",         country:"Myanmar",      tz:"Asia/Rangoon",                          flag:"🇲🇲", lat:16.87,  lon:96.19},
+    {name:"Phnom Penh",     country:"Cambodia",     tz:"Asia/Phnom_Penh",                       flag:"🇰🇭", lat:11.56,  lon:104.92},
+    {name:"Ho Chi Minh City",country:"Vietnam",     tz:"Asia/Ho_Chi_Minh",                      flag:"🇻🇳", lat:10.82,  lon:106.63},
+    {name:"Hanoi",          country:"Vietnam",      tz:"Asia/Ho_Chi_Minh",                      flag:"🇻🇳", lat:21.03,  lon:105.85},
+    {name:"Singapore",      country:"Singapore",    tz:"Asia/Singapore",                        flag:"🇸🇬", lat:1.35,   lon:103.82},
+    {name:"Kuala Lumpur",   country:"Malaysia",     tz:"Asia/Kuala_Lumpur",                     flag:"🇲🇾", lat:3.14,   lon:101.69},
+    {name:"Jakarta",        country:"Indonesia",    tz:"Asia/Jakarta",                          flag:"🇮🇩", lat:-6.21,  lon:106.85},
+    {name:"Manila",         country:"Philippines",  tz:"Asia/Manila",                           flag:"🇵🇭", lat:14.60,  lon:120.98},
+    {name:"Hong Kong",      country:"China",        tz:"Asia/Hong_Kong",                        flag:"🇭🇰", lat:22.32,  lon:114.17},
+    {name:"Shanghai",       country:"China",        tz:"Asia/Shanghai",                         flag:"🇨🇳", lat:31.23,  lon:121.47},
+    {name:"Beijing",        country:"China",        tz:"Asia/Shanghai",                         flag:"🇨🇳", lat:39.91,  lon:116.39},
+    {name:"Taipei",         country:"Taiwan",       tz:"Asia/Taipei",                           flag:"🇹🇼", lat:25.04,  lon:121.56},
+    {name:"Seoul",          country:"South Korea",  tz:"Asia/Seoul",                            flag:"🇰🇷", lat:37.57,  lon:126.98},
+    {name:"Tokyo",          country:"Japan",        tz:"Asia/Tokyo",                            flag:"🇯🇵", lat:35.69,  lon:139.69},
+    {name:"Osaka",          country:"Japan",        tz:"Asia/Tokyo",                            flag:"🇯🇵", lat:34.69,  lon:135.50},
+    {name:"Sydney",         country:"Australia",    tz:"Australia/Sydney",                      flag:"🇦🇺", lat:-33.87, lon:151.21},
+    {name:"Melbourne",      country:"Australia",    tz:"Australia/Melbourne",                   flag:"🇦🇺", lat:-37.81, lon:144.96},
+    {name:"Brisbane",       country:"Australia",    tz:"Australia/Brisbane",                    flag:"🇦🇺", lat:-27.47, lon:153.02},
+    {name:"Auckland",       country:"New Zealand",  tz:"Pacific/Auckland",                      flag:"🇳🇿", lat:-36.86, lon:174.77},
+    {name:"Johannesburg",   country:"South Africa", tz:"Africa/Johannesburg",                   flag:"🇿🇦", lat:-26.20, lon:28.04},
+    {name:"Cairo",          country:"Egypt",        tz:"Africa/Cairo",                          flag:"🇪🇬", lat:30.04,  lon:31.24},
+    {name:"Lagos",          country:"Nigeria",      tz:"Africa/Lagos",                          flag:"🇳🇬", lat:6.52,   lon:3.38},
+    {name:"Nairobi",        country:"Kenya",        tz:"Africa/Nairobi",                        flag:"🇰🇪", lat:-1.29,  lon:36.82},
+    {name:"Casablanca",     country:"Morocco",      tz:"Africa/Casablanca",                     flag:"🇲🇦", lat:33.57,  lon:-7.59},
+    {name:"Accra",          country:"Ghana",        tz:"Africa/Accra",                          flag:"🇬🇭", lat:5.55,   lon:-0.20},
+    {name:"Addis Ababa",    country:"Ethiopia",     tz:"Africa/Addis_Ababa",                    flag:"🇪🇹", lat:9.02,   lon:38.75},
+    {name:"Dar es Salaam",  country:"Tanzania",     tz:"Africa/Dar_es_Salaam",                  flag:"🇹🇿", lat:-6.80,  lon:39.27},
+    {name:"Tunis",          country:"Tunisia",      tz:"Africa/Tunis",                          flag:"🇹🇳", lat:36.82,  lon:10.17},
+    {name:"Algiers",        country:"Algeria",      tz:"Africa/Algiers",                        flag:"🇩🇿", lat:36.74,  lon:3.06},
+    {name:"São Paulo",      country:"Brazil",       tz:"America/Sao_Paulo",                     flag:"🇧🇷", lat:-23.55, lon:-46.63},
+    {name:"Buenos Aires",   country:"Argentina",    tz:"America/Argentina/Buenos_Aires",        flag:"🇦🇷", lat:-34.61, lon:-58.38},
+    {name:"Mexico City",    country:"Mexico",       tz:"America/Mexico_City",                   flag:"🇲🇽", lat:19.43,  lon:-99.13},
+    {name:"Guadalajara",    country:"Mexico",       tz:"America/Mexico_City",                   flag:"🇲🇽", lat:20.68,  lon:-103.35},
+    {name:"Bogotá",         country:"Colombia",     tz:"America/Bogota",                        flag:"🇨🇴", lat:4.71,   lon:-74.07},
+    {name:"Lima",           country:"Peru",         tz:"America/Lima",                          flag:"🇵🇪", lat:-12.05, lon:-77.04},
+    {name:"Santiago",       country:"Chile",        tz:"America/Santiago",                      flag:"🇨🇱", lat:-33.46, lon:-70.65},
+    {name:"Caracas",        country:"Venezuela",    tz:"America/Caracas",                       flag:"🇻🇪", lat:10.49,  lon:-66.88},
+    {name:"Havana",         country:"Cuba",         tz:"America/Havana",                        flag:"🇨🇺", lat:23.14,  lon:-82.36},
+    {name:"Toronto",        country:"Canada",       tz:"America/Toronto",                       flag:"🇨🇦", lat:43.65,  lon:-79.38},
+    {name:"Vancouver",      country:"Canada",       tz:"America/Vancouver",                     flag:"🇨🇦", lat:49.25,  lon:-123.12},
+];
+
+/* ═══════════════════════════════════════════════════════
+   TIMEZONE OFFSET — single reliable implementation
+   Uses Intl.DateTimeFormat to get the true UTC offset
+   for any IANA timezone at this exact moment.
+   Returns offset in total minutes (e.g. +330 for IST,
+   +345 for NPT, -300 for EST).
+═══════════════════════════════════════════════════════ */
+function getTzOffsetMinutes(tz) {
+    const now = new Date();
+    // Format the same UTC instant in both UTC and the target tz
+    const fmtOpts = { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+                      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false };
+    const fmtUtc  = { timeZone: 'UTC', year:'numeric', month:'2-digit', day:'2-digit',
+                      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false };
+
+    const parse = (parts) => {
+        // parts from en-US is "MM/DD/YYYY, HH:MM:SS"
+        const [datePart, timePart] = parts.split(', ');
+        const [mo, da, yr] = datePart.split('/').map(Number);
+        const [hr, mi, se] = timePart.split(':').map(Number);
+        return Date.UTC(yr, mo - 1, da, hr === 24 ? 0 : hr, mi, se);
+    };
+
+    const tzMs  = parse(new Intl.DateTimeFormat('en-US', fmtOpts).format(now));
+    const utcMs = parse(new Intl.DateTimeFormat('en-US', fmtUtc).format(now));
+    // difference in minutes
+    return Math.round((tzMs - utcMs) / 60000);
+}
+
+/* Format offset minutes → "UTC+5:30" or "UTC-4" */
+function formatOffset(totalMinutes) {
+    const sign = totalMinutes >= 0 ? '+' : '-';
+    const abs  = Math.abs(totalMinutes);
+    const h    = Math.floor(abs / 60);
+    const m    = abs % 60;
+    return m === 0 ? `UTC${sign}${h}` : `UTC${sign}${h}:${String(m).padStart(2,'0')}`;
+}
+
+/* Format offset difference for detail panel → "+5:30 ahead" */
+function formatDiffLabel(diffMinutes) {
+    if (diffMinutes === 0) return 'Same as you';
+    const sign = diffMinutes > 0 ? '+' : '-';
+    const abs  = Math.abs(diffMinutes);
+    const h    = Math.floor(abs / 60);
+    const m    = abs % 60;
+    const hStr = m === 0 ? `${h}h` : `${h}h ${m}m`;
+    return `${sign}${hStr} ${diffMinutes > 0 ? 'ahead' : 'behind'}`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   GET CURRENT TIME IN A TIMEZONE
+   Uses Intl.DateTimeFormat to extract the exact
+   year/month/day/hour/minute/second in the target zone,
+   then constructs a plain Date for formatting only.
+   This avoids the double-parse ambiguity entirely.
+═══════════════════════════════════════════════════════ */
+function getZonedDate(tz) {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(now);
+
+    const get = type => {
+        const p = parts.find(p => p.type === type);
+        return p ? parseInt(p.value, 10) : 0;
+    };
+
+    const yr = get('year'),  mo = get('month'),  da = get('day');
+    const hr = get('hour'),  mi = get('minute'), se = get('second');
+    // Construct a plain local Date with those values
+    // We only use it for formatting fields — never for arithmetic
+    const d = new Date(yr, mo - 1, da, hr === 24 ? 0 : hr, mi, se);
+    return d;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FORMATTING HELPERS
+═══════════════════════════════════════════════════════ */
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function formatTime(d) {
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function formatDate(d) {
+    return d.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+}
+
+function shortDate(d) {
+    return d.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric'
+    });
+}
+
+function getDayNight(h) {
+    if (h >= 6  && h < 9)  return { icon: '🌅', label: 'Dawn'    };
+    if (h >= 9  && h < 18) return { icon: '☀️', label: 'Day'     };
+    if (h >= 18 && h < 20) return { icon: '🌇', label: 'Dusk'    };
+    if (h >= 20 && h < 22) return { icon: '🌆', label: 'Evening' };
+    return                         { icon: '🌙', label: 'Night'   };
+}
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+const POPULAR = ["New York","London","Tokyo","Dubai","Mumbai","Singapore","Sydney","Paris","Los Angeles","São Paulo"];
+let pinned       = [];
+let homeCity     = null;
+let selectedCity = null;
+let searchResults = [];
+let searchIdx     = -1;
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+function init() {
+    // Detect home city via Intl API — most reliable method
+    const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Exact match first, then prefix match (e.g. "Asia/Calcutta" → "Asia/Kolkata" won't match but exact will)
+    let detected = CITIES.find(c => c.tz === localTz);
+
+    // Fallback: same continent/region prefix
+    if (!detected) {
+        const region = localTz.split('/')[0];
+        detected = CITIES.find(c => c.tz.startsWith(region + '/'));
+    }
+
+    // Final fallback: UTC offset match
+    if (!detected) {
+        const localOffsetMin = getTzOffsetMinutes(localTz);
+        detected = CITIES.find(c => getTzOffsetMinutes(c.tz) === localOffsetMin);
+    }
+
+    if (!detected) detected = CITIES.find(c => c.name === "London"); // absolute last resort
+
+    homeCity = detected;
+
+    // Default pins
+    pinned = [homeCity];
+    ["London","Tokyo","Dubai","New York"]
+        .filter(n => n !== homeCity.name)
+        .forEach(n => {
+            const c = CITIES.find(x => x.name === n);
+            if (c && !pinned.includes(c)) pinned.push(c);
+        });
+
+    // Quick pills
+    document.getElementById('quickPills').innerHTML = POPULAR.map(n => {
+        const c = CITIES.find(x => x.name === n);
+        return c ? `<span class="pill" onclick="selectCity('${n}')">${c.flag} ${n}</span>` : '';
+    }).join('');
+
+    startLoop();
+    drawMap();
+}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN LOOP — ticks every second
+═══════════════════════════════════════════════════════ */
+function startLoop() {
+    function tick() {
+        renderClocks();
+        renderCompare();
+        if (selectedCity) renderDetail(selectedCity);
+        setTimeout(tick, 1000);
+    }
+    tick();
+    setInterval(drawMap, 60000);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RENDER PINNED CLOCKS
+═══════════════════════════════════════════════════════ */
+function renderClocks() {
+    const grid = document.getElementById('clocksGrid');
+    grid.innerHTML = pinned.map((city, i) => {
+        const t      = getZonedDate(city.tz);
+        const dn     = getDayNight(t.getHours());
+        const isHome = city === homeCity;
+        const offset = formatOffset(getTzOffsetMinutes(city.tz));
+
+        return `<div class="clock-card ${isHome ? 'home' : ''}" onclick="selectCity('${city.name}')">
+            <div class="cc-top">
+                <div>
+                    <div class="cc-city">${city.flag} ${city.name}</div>
+                    <div class="cc-country">${city.country}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                    ${isHome ? '<span class="home-badge">Home</span>' : ''}
+                    <button class="cc-remove"
+                        onclick="event.stopPropagation();removePin(${i})"
+                        title="Remove" ${isHome ? 'disabled style="opacity:0.2;cursor:default"' : ''}>✕</button>
+                </div>
+            </div>
+            <div class="cc-time">${formatTime(t)}</div>
+            <div class="cc-date">${shortDate(t)}</div>
+            <div class="cc-bar"></div>
+            <div class="cc-meta">
+                <span class="cc-tz">${offset}</span>
+                <span class="cc-daynight" title="${dn.label}">${dn.icon}</span>
+            </div>
+        </div>`;
+    }).join('') +
+    `<div class="clock-card" style="border-style:dashed;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#334155;min-height:140px;"
+        onclick="document.getElementById('citySearch').focus()">
+        <span style="font-size:1.5rem">+</span>
+        <span style="font-size:0.75rem;font-family:'Outfit';font-weight:700;text-transform:uppercase;letter-spacing:1px">Add City</span>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SELECT CITY → show detail
+═══════════════════════════════════════════════════════ */
+function selectCity(name) {
+    const city = CITIES.find(c => c.name === name);
+    if (!city) return;
+    selectedCity = city;
+    const card = document.getElementById('detailCard');
+    card.classList.add('visible');
+    renderDetail(city);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    drawMap();
+    // Update pin button state
+    updatePinButton();
+}
+
+function updatePinButton() {
+    const btn = document.getElementById('pinBtn');
+    if (!btn || !selectedCity) return;
+    const alreadyPinned = pinned.some(c => c.name === selectedCity.name);
+    btn.textContent  = alreadyPinned ? '✓ Already Pinned' : '📌 Pin This City';
+    btn.disabled     = alreadyPinned;
+    btn.style.opacity = alreadyPinned ? '0.5' : '1';
+}
+
+/* ═══════════════════════════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════════════════════════ */
+function renderDetail(city) {
+    const t          = getZonedDate(city.tz);
+    const dn         = getDayNight(t.getHours());
+    const cityOffset = getTzOffsetMinutes(city.tz);
+    const homeOffset = getTzOffsetMinutes(homeCity.tz);
+    const diffMin    = cityOffset - homeOffset;
+
+    document.getElementById('dcName').textContent = `${city.flag} ${city.name}, ${city.country}`;
+    document.getElementById('dcTime').textContent = formatTime(t);
+    document.getElementById('dcDate').textContent = formatDate(t);
+
+    document.getElementById('dcGrid').innerHTML = `
+        <div class="dg-cell">
+            <div class="dg-num">${dn.icon}</div>
+            <div class="dg-label">Period</div>
+            <div class="dg-sub">${dn.label}</div>
+        </div>
+        <div class="dg-cell">
+            <div class="dg-num" style="font-size:1rem">${formatOffset(cityOffset)}</div>
+            <div class="dg-label">UTC Offset</div>
+            <div class="dg-sub">${city.tz.split('/').pop().replace(/_/g,' ')}</div>
+        </div>
+        <div class="dg-cell">
+            <div class="dg-num" style="font-size:0.95rem">${formatDiffLabel(diffMin)}</div>
+            <div class="dg-label">vs Your Time</div>
+            <div class="dg-sub">${homeCity.name}</div>
+        </div>`;
+
+    drawAnalog(t);
+}
+
+/* ═══════════════════════════════════════════════════════
+   ANALOG CLOCK
+═══════════════════════════════════════════════════════ */
+function drawAnalog(d) {
+    const c = document.getElementById('analogClock');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const R = 38, cx = 45, cy = 45;
+    ctx.clearRect(0, 0, 90, 90);
+
+    // Face
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Hour tick marks
+    for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + (R - 5) * Math.cos(a), cy + (R - 5) * Math.sin(a));
+        ctx.lineTo(cx + (R - 2) * Math.cos(a), cy + (R - 2) * Math.sin(a));
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    const sec = d.getSeconds();
+    const min = d.getMinutes();
+    const hr  = d.getHours() % 12;
+
+    // Angles — smooth-sweep
+    const sA = (sec / 60) * Math.PI * 2 - Math.PI / 2;
+    const mA = ((min + sec / 60) / 60) * Math.PI * 2 - Math.PI / 2;
+    const hA = ((hr  + min / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+
+    // Hour hand
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * 0.5 * Math.cos(hA), cy + R * 0.5 * Math.sin(hA));
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+
+    // Minute hand
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * 0.75 * Math.cos(mA), cy + R * 0.75 * Math.sin(mA));
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Second hand
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * 0.85 * Math.cos(sA), cy + R * 0.85 * Math.sin(sA));
+    ctx.strokeStyle = 'rgba(139,148,152,1)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Centre dot
+    ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'var(--primary, #888)'; ctx.fill();
+}
+
+/* ═══════════════════════════════════════════════════════
+   COMPARE TABLE
+═══════════════════════════════════════════════════════ */
+function renderCompare() {
+    const homeOffset = getTzOffsetMinutes(homeCity.tz);
+
+    const rows = pinned.map(city => {
+        const t          = getZonedDate(city.tz);
+        const dn         = getDayNight(t.getHours());
+        const cityOffset = getTzOffsetMinutes(city.tz);
+        const diffMin    = cityOffset - homeOffset;
+        const diffStr    = diffMin === 0 ? 'You'
+            : formatDiffLabel(diffMin).replace(' ahead','').replace(' behind', diffMin < 0 ? '▾' : '▴');
+
+        return `<div class="compare-row">
+            <span class="cr-flag">${city.flag}</span>
+            <span class="cr-city">${city.name}</span>
+            <span class="cr-day">${shortDate(t)}</span>
+            <span class="cr-daynight">${dn.icon}</span>
+            <span class="cr-time">${formatTime(t)}</span>
+            <span class="cr-diff">${diffStr}</span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('compareRows').innerHTML = rows;
+}
+
+/* ═══════════════════════════════════════════════════════
+   WORLD MAP (Canvas — day/night overlay + city pins)
+═══════════════════════════════════════════════════════ */
+function drawMap() {
+    const canvas = document.getElementById('worldMap');
+    const W = canvas.parentElement.offsetWidth || 860;
+    const H = 220;
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const now  = new Date();
+    const utcH = now.getUTCHours() + now.getUTCMinutes() / 60;
+
+    // Sky background — gradient per longitude
+    for (let x = 0; x < W; x += 2) {
+        const lon    = (x / W) * 360 - 180;
+        const localH = ((utcH + lon / 15) % 24 + 24) % 24;
+        ctx.fillStyle = skyColour(localH);
+        ctx.fillRect(x, 0, 2, H);
+    }
+
+    // Faint grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 0.5;
+    for (let lat = -60; lat <= 60; lat += 30) {
+        const py = latToY(lat, H);
+        ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    }
+    for (let lon = -180; lon <= 180; lon += 30) {
+        const px = lonToX(lon, W);
+        ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    }
+
+    // Equator
+    ctx.beginPath(); ctx.moveTo(0, latToY(0, H)); ctx.lineTo(W, latToY(0, H));
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // UTC label
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillText('UTC ' + now.toUTCString().slice(17, 25), 10, H - 10);
+
+    // City pins
+    const allPins = selectedCity
+        ? [...new Map([...pinned, selectedCity].map(c => [c.name, c])).values()]
+        : pinned;
+
+    allPins.forEach(city => {
+        const px = lonToX(city.lon, W);
+        const py = latToY(city.lat, H);
+        const isSelected = city === selectedCity;
+        const isHome     = city === homeCity;
+        const t          = getZonedDate(city.tz);
+
+        if (isSelected) {
+            ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+
+        ctx.shadowColor = isHome ? '#ff5f5f' : '#fff';
+        ctx.shadowBlur  = 8;
+        ctx.beginPath(); ctx.arc(px, py, isHome || isSelected ? 6 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = isHome ? '#ff5f5f' : isSelected ? '#fff' : 'rgba(255,255,255,0.8)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Label: city + HH:MM only
+        const label = `${city.name} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+        ctx.font = `bold ${isSelected ? 11 : 9}px Outfit, sans-serif`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
+        ctx.strokeText(label, px + 8, py + 4);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, px + 8, py + 4);
+    });
+}
+
+function skyColour(h) {
+    if (h >= 6  && h < 8)  return '#1a2a4a';
+    if (h >= 8  && h < 18) return '#0d2240';
+    if (h >= 18 && h < 20) return '#1a1a3a';
+    return '#050b14';
+}
+
+function lonToX(lon, W) { return Math.round(((lon + 180) / 360) * W); }
+function latToY(lat, H) { return Math.round(((90 - lat) / 170) * H); }
+
+/* ═══════════════════════════════════════════════════════
+   SEARCH
+═══════════════════════════════════════════════════════ */
+function onSearch(val) {
+    const q  = val.trim().toLowerCase();
+    const dd = document.getElementById('searchDropdown');
+    if (!q) { dd.classList.remove('open'); return; }
+
+    searchResults = CITIES.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.country.toLowerCase().includes(q) ||
+        c.tz.toLowerCase().includes(q)
+    ).slice(0, 10);
+
+    if (!searchResults.length) { dd.classList.remove('open'); return; }
+
+    searchIdx  = -1;
+    dd.innerHTML = searchResults.map((c, i) =>
+        `<div class="sd-item" data-i="${i}"
+            onmousedown="pickSearch(${i})"
+            onmouseover="searchIdx=${i};highlightSearch()">
+            <span>${c.flag} ${c.name}, <span style="color:#64748b">${c.country}</span></span>
+            <span class="sd-tz">${formatOffset(getTzOffsetMinutes(c.tz))}</span>
+        </div>`
+    ).join('');
+    dd.classList.add('open');
+}
+
+function onSearchKey(e) {
+    const dd = document.getElementById('searchDropdown');
+    if (e.key === 'ArrowDown')  { searchIdx = Math.min(searchIdx + 1, searchResults.length - 1); highlightSearch(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp')   { searchIdx = Math.max(searchIdx - 1, 0); highlightSearch(); e.preventDefault(); }
+    else if (e.key === 'Enter')     { if (searchIdx >= 0) pickSearch(searchIdx); else if (searchResults[0]) pickSearch(0); }
+    else if (e.key === 'Escape')    { dd.classList.remove('open'); }
+}
+
+function highlightSearch() {
+    document.querySelectorAll('.sd-item').forEach((el, i) =>
+        el.classList.toggle('active', i === searchIdx));
+}
+
+function pickSearch(i) {
+    const city = searchResults[i];
+    document.getElementById('citySearch').value = '';
+    document.getElementById('searchDropdown').classList.remove('open');
+    selectCity(city.name);
+}
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap'))
+        document.getElementById('searchDropdown').classList.remove('open');
+});
+
+/* ═══════════════════════════════════════════════════════
+   PIN / UNPIN
+═══════════════════════════════════════════════════════ */
+function pinCurrent() {
+    if (!selectedCity) return;
+    if (pinned.some(c => c.name === selectedCity.name)) return;
+    pinned.push(selectedCity);
+    updatePinButton();
+    renderCompare();
+    drawMap();
+}
+
+function removePin(i) {
+    if (pinned[i] === homeCity) return;
+    pinned.splice(i, 1);
+    renderCompare();
+    drawMap();
+}
+
+/* ═══════════════════════════════════════════════════════
+   COPY
+═══════════════════════════════════════════════════════ */
+function copyDetailTime() {
+    if (!selectedCity) return;
+    const t      = getZonedDate(selectedCity.tz);
+    const offset = formatOffset(getTzOffsetMinutes(selectedCity.tz));
+    const text   = `Current time in ${selectedCity.name}: ${formatTime(t)} (${offset}) — ${formatDate(t)}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const prev = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = prev; }, 1800);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════
+   START
+═══════════════════════════════════════════════════════ */
+init();
+</script>
+    <script src="../nav.js"></script>
+</body>
+</html>

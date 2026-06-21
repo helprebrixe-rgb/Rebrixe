@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Aspect Ratio Cropper — Crop to Any Ratio Instantly | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Crop any image to a perfect aspect ratio — 16:9, 1:1, 4:5, 9:16 and more. Drag to reposition. Free, browser-only, no upload needed.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Section card */
+        .section-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Ratio presets */
+        .ratio-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .ratio-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; font-family: 'Outfit', sans-serif; min-width: 72px;
+        }
+        .ratio-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .ratio-btn.active { border-color: var(--primary); background: var(--primary-dim); }
+        .ratio-visual { display: flex; align-items: center; justify-content: center; }
+        .ratio-rect { background: rgba(255,214,0,0.18); border: 1.5px solid rgba(255,214,0,0.4); border-radius: 2px; }
+        .ratio-btn.active .ratio-rect { background: rgba(255,214,0,0.32); border-color: var(--primary); }
+        .ratio-label { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); }
+        .ratio-btn.active .ratio-label, .ratio-btn:hover .ratio-label { color: var(--primary); }
+        .ratio-tag { font-size: 0.58rem; color: var(--text-dim); font-weight: 500; }
+
+        /* Custom ratio row */
+        .custom-ratio-row { display: flex; gap: 8px; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+        .px-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .px-input:focus { border-color: var(--primary); }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 70px; max-width: 90px; }
+        .input-label { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.7px; }
+        .x-sep { font-size: 1.2rem; color: var(--text-dim); padding-bottom: 8px; font-weight: 300; }
+        .apply-btn { padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; flex-shrink: 0; }
+        .apply-btn:hover { background: rgba(255,214,0,0.12); border-color: var(--primary); }
+
+        /* CROP EDITOR */
+        .crop-editor { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+        .crop-workspace {
+            position: relative; overflow: hidden; border-radius: var(--radius-md);
+            background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px;
+            border: 1px solid var(--border-mid); cursor: grab; user-select: none; touch-action: none;
+            margin-bottom: 14px;
+        }
+        .crop-workspace:active { cursor: grabbing; }
+        #cropCanvas { display: block; max-width: 100%; }
+
+        /* Overlay guides */
+        .crop-workspace .guides {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        .guides-inner {
+            position: absolute; border: 2px solid rgba(255,214,0,0.8);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.52);
+        }
+        /* Grid lines */
+        .guides-inner::before, .guides-inner::after {
+            content: ''; position: absolute; background: rgba(255,214,0,0.25);
+        }
+        .guides-inner::before { left: 33.33%; top: 0; width: 1px; height: 100%; }
+        .guides-inner::after  { top: 33.33%; left: 0; width: 100%; height: 1px; }
+        /* Second grid line via shadow */
+        .guides-inner .grid2 { position: absolute; left: 66.66%; top: 0; width: 1px; height: 100%; background: rgba(255,214,0,0.25); }
+        .guides-inner .grid3 { position: absolute; top: 66.66%; left: 0; width: 100%; height: 1px; background: rgba(255,214,0,0.25); }
+        /* Corners */
+        .guide-corner { position: absolute; width: 14px; height: 14px; border-color: var(--primary); border-style: solid; }
+        .guide-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
+        .guide-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
+        .guide-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
+        .guide-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
+
+        .drag-hint { font-size: 0.72rem; color: var(--text-dim); text-align: center; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+        /* Output format row */
+        .opts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .opt-group label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); display: block; margin-bottom: 9px; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .quality-slider-wrap { display: flex; align-items: center; gap: 10px; }
+        .quality-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .quality-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .quality-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+
+        /* Action + result */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-dl { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-dl.visible { display: block; }
+        .btn-dl:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.14); }
+
+        /* Result preview */
+        .result-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; display: none; margin-bottom: 18px; }
+        .result-panel.visible { display: block; }
+        .result-inner { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .result-box { flex: 1; min-width: 200px; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 120px; max-height: 280px; border: 1px solid var(--border-mid); }
+        .result-box img { max-width: 100%; max-height: 280px; object-fit: contain; display: block; }
+        .result-stats { min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ps-val.green { color: var(--success); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .opts-row { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .result-inner { flex-direction: column; }
+            .btn-main, .btn-dl { min-width: unset; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Aspect Ratio Cropper</h1>
+                <p class="tool-page-sub">Force any image to a perfect ratio — drag to pick your crop position. No guesswork.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">✂️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <!-- Info bar -->
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Ratio presets -->
+                <div class="section-card">
+                    <div class="section-label">Choose Aspect Ratio</div>
+                    <div class="ratio-grid" id="ratioGrid"></div>
+
+                    <div class="custom-ratio-row">
+                        <div class="input-group">
+                            <label class="input-label" for="custRW">W ratio</label>
+                            <input class="px-input" type="number" id="custRW" placeholder="3" min="1" max="99">
+                        </div>
+                        <span class="x-sep">:</span>
+                        <div class="input-group">
+                            <label class="input-label" for="custRH">H ratio</label>
+                            <input class="px-input" type="number" id="custRH" placeholder="2" min="1" max="99">
+                        </div>
+                        <button class="apply-btn" onclick="applyCustomRatio()">Apply Custom</button>
+                    </div>
+                </div>
+
+                <!-- Crop editor -->
+                <div class="crop-editor" id="cropEditor" style="display:none;">
+                    <div class="section-label">Drag to Reposition Crop</div>
+                    <p class="drag-hint">👆 Drag the image to choose what stays inside the frame</p>
+                    <div class="crop-workspace" id="cropWorkspace">
+                        <canvas id="cropCanvas"></canvas>
+                        <div class="guides" id="guides">
+                            <div class="guides-inner" id="guidesInner">
+                                <div class="grid2"></div>
+                                <div class="grid3"></div>
+                                <span class="guide-corner tl"></span>
+                                <span class="guide-corner tr"></span>
+                                <span class="guide-corner bl"></span>
+                                <span class="guide-corner br"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output options -->
+                <div class="section-card">
+                    <div class="opts-row">
+                        <div class="opt-group">
+                            <label>Output Format</label>
+                            <div class="toggle-row">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                        <div class="opt-group">
+                            <label>Quality — <span id="qualLabel">92%</span></label>
+                            <div class="quality-slider-wrap">
+                                <input type="range" class="quality-slider" id="qualSlider" min="10" max="100" value="92" oninput="setQuality(this.value)">
+                                <span class="quality-val" id="qualVal">92</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnCrop" onclick="doCrop()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">✂️</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Crop Image</span>
+                        </div>
+                    </button>
+                    <button class="btn-dl" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Result -->
+                <div class="result-panel" id="resultPanel">
+                    <div class="section-label" style="margin-bottom:16px;">Cropped Result</div>
+                    <div class="result-inner">
+                        <div class="result-box"><img id="resultImg" src="" alt="Cropped"></div>
+                        <div class="result-stats" id="resultStats"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Drag to pick your crop</h3>
+                        <p>Unlike auto-croppers that guess wrong, you drag the image to decide exactly which part stays. Full control, zero regret.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>All major ratios built-in</h3>
+                        <p>From <code>1:1</code> squares for Instagram, <code>16:9</code> for YouTube thumbnails, to <code>9:16</code> for Reels and Stories — plus any custom ratio you enter.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Portrait won't fit landscape?</h3>
+                        <p>This tool is built exactly for that. Force any portrait shot into <code>16:9</code> or <code>3:2</code> and drag to frame the subject perfectly.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>All cropping happens via the <code>Canvas API</code> inside your browser. Your image never touches any server — works offline too.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── RATIO PRESETS ─────────────────────────────────────────────────────────
+    const RATIOS = [
+        { label:'1:1',   w:1,  h:1,  tag:'Square'     },
+        { label:'16:9',  w:16, h:9,  tag:'Landscape'  },
+        { label:'9:16',  w:9,  h:16, tag:'Portrait'   },
+        { label:'4:5',   w:4,  h:5,  tag:'Instagram'  },
+        { label:'4:3',   w:4,  h:3,  tag:'Classic'    },
+        { label:'3:2',   w:3,  h:2,  tag:'Photo'      },
+        { label:'2:3',   w:2,  h:3,  tag:'Portrait'   },
+        { label:'3:1',   w:3,  h:1,  tag:'Banner'     },
+        { label:'21:9',  w:21, h:9,  tag:'Cinematic'  },
+        { label:'5:4',   w:5,  h:4,  tag:'Print'      },
+    ];
+
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origImg = null, origFile = null;
+    let ratioW = 0, ratioH = 0;
+    let imgOffsetX = 0, imgOffsetY = 0; // offset of image on canvas (drag-able)
+    let canvasW = 0, canvasH = 0;
+    let imgDrawW = 0, imgDrawH = 0;    // size of image drawn on canvas
+    let outputFmt = 'jpeg', quality = 0.92;
+    let resultDataURL = null, resultFilename = '';
+
+    // drag
+    let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartOffX = 0, dragStartOffY = 0;
+
+    // ─── BUILD RATIO GRID ──────────────────────────────────────────────────────
+    const grid = document.getElementById('ratioGrid');
+    RATIOS.forEach(r => {
+        const btn = document.createElement('button');
+        btn.className = 'ratio-btn';
+        btn.dataset.w = r.w; btn.dataset.h = r.h;
+        const BOX = 28;
+        const rw = r.w >= r.h ? BOX : Math.round(BOX * r.w / r.h);
+        const rh = r.h >= r.w ? BOX : Math.round(BOX * r.h / r.w);
+        btn.innerHTML = `
+            <div class="ratio-visual"><div class="ratio-rect" style="width:${rw}px;height:${rh}px;"></div></div>
+            <span class="ratio-label">${r.label}</span>
+            <span class="ratio-tag">${r.tag}</span>`;
+        btn.onclick = () => selectRatio(r.w, r.h, btn);
+        grid.appendChild(btn);
+    });
+
+    function selectRatio(w, h, btn) {
+        ratioW = w; ratioH = h;
+        document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        if (origImg) initCropView();
+    }
+
+    function applyCustomRatio() {
+        const w = parseInt(document.getElementById('custRW').value);
+        const h = parseInt(document.getElementById('custRH').value);
+        if (!w || !h || w < 1 || h < 1) { showToast('Enter valid ratio values', 'error'); return; }
+        document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+        selectRatio(w, h, null);
+        showToast(`Ratio ${w}:${h} set`, 'success');
+    }
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultPanel').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+                if (ratioW && ratioH) initCropView();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origImg = null; origFile = null; resultDataURL = null;
+        document.getElementById('cropEditor').style.display = 'none';
+    }
+
+    // ─── CROP VIEW ─────────────────────────────────────────────────────────────
+    function initCropView() {
+        if (!origImg || !ratioW || !ratioH) return;
+
+        const workspace = document.getElementById('cropWorkspace');
+        const canvas = document.getElementById('cropCanvas');
+        const maxW = workspace.clientWidth || 740;
+
+        // Compute canvas dimensions that fit maxW while honouring ratio
+        const targetRatio = ratioW / ratioH;
+        canvasW = Math.min(maxW, 740);
+        canvasH = Math.round(canvasW / targetRatio);
+        // cap height
+        if (canvasH > 440) { canvasH = 440; canvasW = Math.round(canvasH * targetRatio); }
+
+        canvas.width  = canvasW;
+        canvas.height = canvasH;
+        canvas.style.width  = canvasW + 'px';
+        canvas.style.height = canvasH + 'px';
+
+        // Scale image to cover the canvas
+        const scaleX = canvasW / origImg.naturalWidth;
+        const scaleY = canvasH / origImg.naturalHeight;
+        const scale  = Math.max(scaleX, scaleY);
+        imgDrawW = origImg.naturalWidth  * scale;
+        imgDrawH = origImg.naturalHeight * scale;
+
+        // Center image initially
+        imgOffsetX = (canvasW - imgDrawW) / 2;
+        imgOffsetY = (canvasH - imgDrawH) / 2;
+
+        positionGuides();
+        renderCanvas();
+
+        document.getElementById('cropEditor').style.display = 'block';
+        document.getElementById('cropEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function positionGuides() {
+        const gi = document.getElementById('guidesInner');
+        const ws = document.getElementById('cropWorkspace');
+        const cRect = document.getElementById('cropCanvas').getBoundingClientRect();
+        const wRect = ws.getBoundingClientRect();
+        gi.style.left   = (cRect.left - wRect.left) + 'px';
+        gi.style.top    = (cRect.top  - wRect.top)  + 'px';
+        gi.style.width  = canvasW + 'px';
+        gi.style.height = canvasH + 'px';
+    }
+
+    function renderCanvas() {
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvasW, canvasH);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(origImg, imgOffsetX, imgOffsetY, imgDrawW, imgDrawH);
+    }
+
+    function clampOffset() {
+        // Image must always cover the canvas completely
+        imgOffsetX = Math.min(0, Math.max(canvasW - imgDrawW, imgOffsetX));
+        imgOffsetY = Math.min(0, Math.max(canvasH - imgDrawH, imgOffsetY));
+    }
+
+    // ─── DRAG LOGIC ────────────────────────────────────────────────────────────
+    const ws = document.getElementById('cropWorkspace');
+    ws.addEventListener('mousedown',  startDrag);
+    ws.addEventListener('touchstart', startDrag, { passive: true });
+    window.addEventListener('mousemove',  moveDrag);
+    window.addEventListener('touchmove',  moveDrag, { passive: false });
+    window.addEventListener('mouseup',    endDrag);
+    window.addEventListener('touchend',   endDrag);
+
+    function getXY(e) {
+        if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+    function startDrag(e) {
+        if (!origImg || !ratioW) return;
+        isDragging = true;
+        const p = getXY(e);
+        dragStartX = p.x; dragStartY = p.y;
+        dragStartOffX = imgOffsetX; dragStartOffY = imgOffsetY;
+    }
+    function moveDrag(e) {
+        if (!isDragging) return;
+        if (e.cancelable) e.preventDefault();
+        const p = getXY(e);
+        imgOffsetX = dragStartOffX + (p.x - dragStartX);
+        imgOffsetY = dragStartOffY + (p.y - dragStartY);
+        clampOffset();
+        renderCanvas();
+    }
+    function endDrag() { isDragging = false; }
+
+    // ─── CROP ──────────────────────────────────────────────────────────────────
+    function doCrop() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+        if (!ratioW || !ratioH) { showToast('Select an aspect ratio first', 'error'); return; }
+
+        // Compute the source rect in original image coordinates
+        const scale = Math.max(canvasW / origImg.naturalWidth, canvasH / origImg.naturalHeight);
+        // imgOffsetX/Y are canvas offsets; convert back to source coords
+        const srcX = -imgOffsetX / scale;
+        const srcY = -imgOffsetY / scale;
+        const srcW = canvasW / scale;
+        const srcH = canvasH / scale;
+
+        // Output at native resolution matching ratio
+        const outW = Math.round(srcW);
+        const outH = Math.round(srcH);
+
+        const out = document.createElement('canvas');
+        out.width = outW; out.height = outH;
+        const ctx = out.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(origImg, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
+
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q    = outputFmt === 'png' ? undefined : quality;
+        resultDataURL = out.toDataURL(mime, q);
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_${ratioW}x${ratioH}.${ext}`;
+
+        document.getElementById('resultImg').src = resultDataURL;
+        document.getElementById('resultStats').innerHTML = `
+            <div class="preview-stat"><span class="ps-label">Output Size</span><span class="ps-val green">${outW} × ${outH}</span></div>
+            <div class="preview-stat"><span class="ps-label">Aspect Ratio</span><span class="ps-val">${ratioW}:${ratioH}</span></div>
+            <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(resultBytes)}</span></div>
+            <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">${outputFmt.toUpperCase()}</span></div>
+            <div class="preview-stat"><span class="ps-label">Quality</span><span class="ps-val">${outputFmt === 'png' ? 'Lossless' : Math.round(quality * 100) + '%'}</span></div>
+        `;
+        document.getElementById('resultPanel').classList.add('visible');
+        document.getElementById('btnDownload').classList.add('visible');
+        document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Cropped! ✓', 'success');
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── OPTIONS ───────────────────────────────────────────────────────────────
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+    function setQuality(v) { quality = v / 100; document.getElementById('qualVal').textContent = v; document.getElementById('qualLabel').textContent = v + '%'; }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

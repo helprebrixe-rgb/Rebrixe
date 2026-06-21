@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Add White Background to PNG — Fix Transparent PNG Instantly | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Flatten transparent PNG onto a solid background before converting to JPG. Fix black PNG previews instantly. Free, browser-only — your image never leaves your device.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; background: repeating-conic-gradient(#2a2820 0% 25%, #1a1812 0% 50%) 0 0 / 12px 12px; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; display: block; }
+
+        /* Color picker row */
+        .color-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+        .color-swatch {
+            width: 36px; height: 36px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;
+            transition: transform 0.15s, border-color 0.15s; flex-shrink: 0;
+        }
+        .color-swatch:hover { transform: scale(1.12); }
+        .color-swatch.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,214,0,0.2); }
+        .color-swatch.checker { background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 10px 10px; }
+        .custom-color-wrap { display: flex; align-items: center; gap: 8px; margin-left: 4px; }
+        .custom-color-input { width: 36px; height: 36px; border-radius: 8px; border: 2px solid var(--border); cursor: pointer; padding: 2px; background: var(--surface); }
+        .custom-color-label { font-size: 0.72rem; color: var(--text-dim); font-weight: 700; }
+        .hex-display { font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--primary); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
+
+        /* Output options */
+        .output-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Quality slider */
+        .quality-row { display: flex; align-items: center; gap: 16px; }
+        .quality-row .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); white-space: nowrap; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Processing */
+        .processing { display: none; align-items: center; gap: 10px; padding: 14px 18px; background: var(--primary-dim); border: 1px solid var(--primary-border); border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .processing.visible { display: flex; }
+        .spin { width: 16px; height: 16px; border: 2px solid rgba(255,214,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result / Compare panel */
+        .compare-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .compare-panel.visible { display: block; }
+
+        .slider-compare-wrap { position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); cursor: ew-resize; user-select: none; touch-action: none; background: repeating-conic-gradient(#1f1d14 0% 25%, #141210 0% 50%) 0 0 / 16px 16px; }
+        .slider-compare-wrap canvas { display: block; width: 100%; height: auto; max-height: 380px; object-fit: contain; pointer-events: none; }
+        .compare-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary); transform: translateX(-50%); pointer-events: none; z-index: 3; }
+        .compare-handle { position: absolute; top: 50%; left: 0; transform: translate(-50%, -50%); width: 36px; height: 36px; background: var(--primary); border-radius: 50%; z-index: 4; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #000; font-weight: 900; box-shadow: 0 2px 12px rgba(0,0,0,0.5); pointer-events: none; }
+        .label-before, .label-after { position: absolute; top: 10px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 3px 9px; border-radius: 99px; background: rgba(0,0,0,0.6); z-index: 5; pointer-events: none; }
+        .label-before { left: 10px; color: var(--text-dim); }
+        .label-after { right: 10px; color: var(--primary); }
+
+        /* Stats */
+        .stats-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Transparency warning */
+        .alpha-warn { display: none; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(255,183,0,0.06); border: 1px solid rgba(255,183,0,0.2); border-radius: var(--radius-md); font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-bottom: 16px; }
+        .alpha-warn.visible { display: flex; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .action-row { flex-direction: column; }
+            .stats-row { flex-wrap: wrap; }
+            .color-row { gap: 6px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="background-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Add White Background to PNG</h1>
+                <p class="tool-page-sub">Flatten transparent PNG onto a solid background. Fixes black previews & prepares images for JPG conversion.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/png,image/webp,image/gif">
+                <span class="drop-icon">🖼️</span>
+                <p class="drop-title">Drop a transparent PNG here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> · PNG, WebP, GIF</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Transparency check warning -->
+                <div class="alpha-warn" id="alphaWarn">
+                    ⚠️ This image may not have transparent areas — it will still be flattened onto your chosen background.
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <span class="section-label">Background Color</span>
+                    <div class="color-row" id="colorRow">
+                        <div class="color-swatch active" style="background:#ffffff;" data-color="#ffffff" onclick="selectSwatch(this)" title="White"></div>
+                        <div class="color-swatch" style="background:#000000;" data-color="#000000" onclick="selectSwatch(this)" title="Black"></div>
+                        <div class="color-swatch" style="background:#f5f5f5;" data-color="#f5f5f5" onclick="selectSwatch(this)" title="Light Grey"></div>
+                        <div class="color-swatch" style="background:#1a1a1a;" data-color="#1a1a1a" onclick="selectSwatch(this)" title="Dark"></div>
+                        <div class="color-swatch" style="background:#fffbe6;" data-color="#fffbe6" onclick="selectSwatch(this)" title="Warm White"></div>
+                        <div class="color-swatch" style="background:#e8f4fd;" data-color="#e8f4fd" onclick="selectSwatch(this)" title="Cool White"></div>
+                        <div class="color-swatch" style="background:#fce4ec;" data-color="#fce4ec" onclick="selectSwatch(this)" title="Blush"></div>
+                        <div class="color-swatch" style="background:#e8f5e9;" data-color="#e8f5e9" onclick="selectSwatch(this)" title="Mint"></div>
+                        <div class="custom-color-wrap">
+                            <input type="color" class="custom-color-input" id="customColor" value="#ffffff" oninput="onCustomColor(this)" title="Pick custom color">
+                            <span class="custom-color-label">Custom</span>
+                            <span class="hex-display" id="hexDisplay">#ffffff</span>
+                        </div>
+                    </div>
+
+                    <div class="output-row">
+                        <span class="section-label" style="margin-bottom:0;margin-right:4px;">Output Format</span>
+                        <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                    </div>
+
+                    <div class="quality-row" id="qualityRow">
+                        <span class="slider-label">Quality</span>
+                        <input type="range" class="ctrl-slider" id="sliderQ" min="10" max="100" value="92" oninput="document.getElementById('valQ').textContent=this.value+'%'">
+                        <span class="slider-val" id="valQ">92%</span>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div class="processing" id="processing">
+                    <div class="spin"></div>
+                    <span>Flattening image…</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doFlatten()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">🎨</span>
+                            <span style="font-weight:800;font-size:0.95rem">Add Background</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Compare panel -->
+                <div class="compare-panel" id="comparePanel">
+                    <span class="section-label" style="margin-bottom:12px;">Before / After — drag to compare</span>
+                    <div class="slider-compare-wrap" id="compareWrap">
+                        <canvas id="compareCanvas"></canvas>
+                        <div class="compare-divider" id="dividerLine"></div>
+                        <div class="compare-handle" id="dividerHandle">◀▶</div>
+                        <span class="label-before">Original</span>
+                        <span class="label-after">Flattened</span>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why your PNG looks black — and how this fixes it</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>The "black PNG" problem</h3>
+                        <p>Apps that don't support transparency (WhatsApp previews, JPG converters, some email clients) render transparent areas as black. Adding a white background before saving fixes this permanently.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Preparing PNG for JPG</h3>
+                        <p>JPG format has no alpha channel — it can't store transparency. Converting a PNG directly to JPG without flattening first will always produce black blotches. Always flatten first.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Pick any background color</h3>
+                        <p>Choose white for documents and printing, <code>#000</code> for dark-mode assets, or any custom hex color. Great for matching brand backgrounds before export.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs in your browser using the <code>Canvas API</code>. Your image never touches a server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null, origDataURL = null;
+    let resultDataURL = null, resultFilename = '';
+    let outputFmt = 'jpeg', bgColor = '#ffffff';
+    let dividerPct = 50, isDragging = false;
+    let origCanvas = null, flatCanvas = null;
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+        else showToast('Please drop an image file', 'error');
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('comparePanel').classList.remove('visible');
+                document.getElementById('btnDownload').style.display = 'none';
+                resultDataURL = null;
+                checkAlpha(img);
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function checkAlpha(img) {
+        // Quick scan of a sample to detect real transparency
+        const c = document.createElement('canvas');
+        const sampleW = Math.min(img.naturalWidth, 200);
+        const sampleH = Math.min(img.naturalHeight, 200);
+        c.width = sampleW; c.height = sampleH;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, sampleW, sampleH);
+        const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+        let hasAlpha = false;
+        for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 250) { hasAlpha = true; break; }
+        }
+        document.getElementById('alphaWarn').classList.toggle('visible', !hasAlpha);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        document.getElementById('alphaWarn').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+        origCanvas = null; flatCanvas = null;
+    }
+
+    // ─── COLOR CONTROLS ────────────────────────────────────────────────────────
+    function selectSwatch(el) {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        bgColor = el.dataset.color;
+        document.getElementById('customColor').value = bgColor;
+        document.getElementById('hexDisplay').textContent = bgColor;
+    }
+
+    function onCustomColor(input) {
+        bgColor = input.value;
+        document.getElementById('hexDisplay').textContent = bgColor;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    }
+
+    function setFmt(btn) {
+        document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+        // Hide quality slider for PNG (lossless)
+        document.getElementById('qualityRow').style.opacity = outputFmt === 'png' ? '0.4' : '1';
+    }
+
+    // ─── FLATTEN ───────────────────────────────────────────────────────────────
+    function doFlatten() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+        const quality = parseInt(document.getElementById('sliderQ').value) / 100;
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+
+        document.getElementById('processing').classList.add('visible');
+
+        setTimeout(() => {
+            const w = origImg.naturalWidth, h = origImg.naturalHeight;
+
+            // Original canvas (shows checkerboard via CSS on wrapper, but we paint the raw image)
+            origCanvas = document.createElement('canvas');
+            origCanvas.width = w; origCanvas.height = h;
+            origCanvas.getContext('2d').drawImage(origImg, 0, 0);
+
+            // Flattened canvas
+            flatCanvas = document.createElement('canvas');
+            flatCanvas.width = w; flatCanvas.height = h;
+            const ctx = flatCanvas.getContext('2d');
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(origImg, 0, 0);
+
+            const q = outputFmt === 'png' ? undefined : quality;
+            resultDataURL = flatCanvas.toDataURL(mime, q);
+
+            const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+            const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+            resultFilename = `${base}_bg${ext === 'jpg' ? '' : ''}.${ext}`;
+
+            document.getElementById('processing').classList.remove('visible');
+            document.getElementById('btnDownload').style.display = 'block';
+
+            setupCompare();
+
+            const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+            document.getElementById('statsRow').innerHTML = `
+                <div class="stat-pill"><div class="stat-label">Dimensions</div><div class="stat-val green">${w} × ${h}</div></div>
+                <div class="stat-pill"><div class="stat-label">Output Size</div><div class="stat-val">${fmtBytes(resultBytes)}</div></div>
+                <div class="stat-pill"><div class="stat-label">Format</div><div class="stat-val">${outputFmt.toUpperCase()}</div></div>
+                <div class="stat-pill"><div class="stat-label">Background</div><div class="stat-val" style="color:${bgColor === '#ffffff' || bgColor === '#fffbe6' || bgColor === '#e8f4fd' || bgColor === '#fce4ec' || bgColor === '#e8f5e9' || bgColor === '#f5f5f5' ? '#aaa' : 'var(--primary)'}">${bgColor.toUpperCase()}</div></div>
+            `;
+
+            document.getElementById('comparePanel').classList.add('visible');
+            document.getElementById('comparePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast('Background added! Drag to compare ✓', 'success');
+        }, 30);
+    }
+
+    // ─── COMPARE ───────────────────────────────────────────────────────────────
+    function setupCompare() {
+        dividerPct = 50;
+        renderCompare();
+    }
+
+    function renderCompare() {
+        const wrap = document.getElementById('compareWrap');
+        const canvas = document.getElementById('compareCanvas');
+        const dW = wrap.clientWidth || 760;
+        const aspect = origImg.naturalHeight / origImg.naturalWidth;
+        const dH = Math.min(380, Math.round(dW * aspect));
+
+        canvas.width = dW; canvas.height = dH;
+        const ctx = canvas.getContext('2d');
+        const splitX = Math.round(dW * dividerPct / 100);
+
+        // Left: original (on checkerboard-like dark pattern to show transparency)
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, dW, dH);
+        // draw mini checkerboard for left side only
+        const sqSz = 12;
+        for (let y = 0; y < dH; y += sqSz) {
+            for (let x = 0; x < splitX; x += sqSz) {
+                ctx.fillStyle = ((Math.floor(x/sqSz) + Math.floor(y/sqSz)) % 2 === 0) ? '#2a2820' : '#1a1812';
+                ctx.fillRect(x, y, Math.min(sqSz, splitX - x), sqSz);
+            }
+        }
+        ctx.drawImage(origCanvas, 0, 0, dW, dH);
+
+        // Right: flattened
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(splitX, 0, dW - splitX, dH);
+        ctx.clip();
+        ctx.drawImage(flatCanvas, 0, 0, dW, dH);
+        ctx.restore();
+
+        const line = document.getElementById('dividerLine');
+        const handle = document.getElementById('dividerHandle');
+        line.style.left = splitX + 'px';
+        handle.style.left = splitX + 'px';
+    }
+
+    const wrap = document.getElementById('compareWrap');
+    function getX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+    wrap.addEventListener('mousedown', e => { isDragging = true; e.preventDefault(); });
+    wrap.addEventListener('touchstart', () => { isDragging = true; }, { passive: true });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const rect = wrap.getBoundingClientRect();
+        dividerPct = Math.max(2, Math.min(98, (getX(e) - rect.left) / rect.width * 100));
+        renderCompare();
+    });
+    window.addEventListener('touchmove', e => {
+        if (!isDragging) return;
+        const rect = wrap.getBoundingClientRect();
+        dividerPct = Math.max(2, Math.min(98, (getX(e) - rect.left) / rect.width * 100));
+        renderCompare();
+    }, { passive: true });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('touchend', () => isDragging = false);
+    window.addEventListener('resize', () => { if (flatCanvas) renderCompare(); });
+
+    // ─── DOWNLOAD ──────────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a'); a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

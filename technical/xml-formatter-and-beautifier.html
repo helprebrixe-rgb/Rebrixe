@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XML Formatter & Beautifier | Instant Pretty Print | Rebrixe</title>
+    <meta name="description" content="Format, beautify, minify, validate and analyze XML instantly. Supports syntax highlighting, XPath search, tree view, error detection, and one-click copy. No data sent to servers.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Tool Header ── */
+        .tool-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #16f9f9, #15faf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* ── Mode Toggle ── */
+        .mode-toggle {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 5px;
+            margin: 20px 0 28px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .mode-btn {
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .mode-btn.active { background: var(--primary); color: #000; }
+        .mode-btn:hover:not(.active) { color: #e2e8f0; }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .stat-chip {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 4px 11px;
+            border-radius: 7px;
+            background: rgba(22, 200, 249, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(22, 241, 249, 0.25);
+            letter-spacing: 0.3px;
+        }
+        .stat-chip.ok   { background: rgba(46,204,113,0.1); color: #2ecc71; border-color: rgba(46,204,113,0.25); }
+        .stat-chip.err  { background: rgba(231,76,60,0.1);  color: #e74c3c; border-color: rgba(231,76,60,0.25); }
+        .stat-chip.warn { background: rgba(241,196,15,0.1); color: var(--primary); border-color: rgba(15, 226, 241, 0.3); }
+
+        /* ── Workspace Grid ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 36px;
+        }
+
+        /* ── Panels ── */
+        .panel {
+            background: rgba(15,23,42,0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .panel-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+        }
+
+        /* ── Textareas ── */
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+            resize: vertical;
+            min-height: 340px;
+            outline: none;
+            transition: border-color 0.2s;
+            flex: 1;
+        }
+        textarea:focus { border-color: var(--primary); }
+        textarea::placeholder { color: #334155; }
+
+        /* ── Output Code Block ── */
+        .output-wrap {
+            position: relative;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            min-height: 340px;
+            max-height: 520px;
+            overflow: auto;
+            flex: 1;
+        }
+        .output-wrap pre {
+            margin: 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* ── Syntax Colors ── */
+        .x-tag   { color: #16eaf9; }
+        .x-attr  { color: #15fae7; }
+        .x-val   { color: #2ecc71; }
+        .x-text  { color: #e2e8f0; }
+        .x-cmt   { color: #475569; font-style: italic; }
+        .x-pi    { color: #c084fc; }
+        .x-cdata { color: #67e8f9; }
+        .x-err   { color: #e74c3c; text-decoration: underline wavy #e74c3c; }
+
+        /* ── Action Buttons ── */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .btn-primary { background: var(--primary); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn-danger  { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .btn.success { background: #2ecc71 !important; color: #fff; }
+        .btn:hover   { opacity: 0.82; }
+
+        /* ── Indent Selector ── */
+        .options-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .options-row label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        select, input[type="text"] {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 6px 10px;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            outline: none;
+        }
+        select:focus, input[type="text"]:focus { border-color: #16f5f9; }
+
+        /* ── XPath Search ── */
+        .xpath-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .xpath-bar input {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 9px;
+            background: #000;
+            border: 1px solid var(--border);
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.78rem;
+            outline: none;
+        }
+        .xpath-bar input:focus { border-color: #16f5f9; }
+        #xpathResult {
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.6;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            min-height: 42px;
+            margin-bottom: 12px;
+            font-family: 'Fira Code', monospace;
+            white-space: pre-wrap;
+            max-height: 140px;
+            overflow: auto;
+        }
+
+        /* ── Tree View ── */
+        #treePanel { display: none; }
+        .tree-node {
+            padding-left: 18px;
+            border-left: 1px solid rgba(249,115,22,0.2);
+            margin-left: 6px;
+        }
+        .tree-el {
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.78rem;
+            line-height: 1.9;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tree-el:hover .tree-tag { text-decoration: underline; }
+        .tree-tag  { color: #16f1f9; font-family: 'Fira Code', monospace; }
+        .tree-text { color: #64748b; font-size: 0.7rem; font-style: italic; }
+        .tree-attr-badge {
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 5px;
+            background: rgba(21, 250, 235, 0.1);
+            color: #15fafa;
+            border: 1px solid rgba(21, 250, 250, 0.2);
+        }
+        .tree-toggle { color: #475569; font-size: 0.7rem; min-width: 10px; }
+        .tree-children { display: block; }
+        .tree-children.collapsed { display: none; }
+
+        /* ── Error Panel ── */
+        #errorPanel {
+            display: none;
+            background: rgba(231,76,60,0.07);
+            border: 1px solid rgba(231,76,60,0.25);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            font-size: 0.78rem;
+            color: #e74c3c;
+            font-family: 'Fira Code', monospace;
+            line-height: 1.6;
+        }
+
+        /* ── Diff View ── */
+        #diffPanel { display: none; }
+        .diff-line-add { color: #2ecc71; background: rgba(46,204,113,0.07); display: block; }
+        .diff-line-rem { color: #e74c3c; background: rgba(231,76,60,0.07); display: block; }
+        .diff-line-ctx { color: #475569; display: block; }
+
+        /* ── SEO Section ── */
+        .seo-content { text-align: left; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 7px; font-size: 0.9rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary); background: rgba(249,115,22,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .tool-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+<header class="nav-container"></header>
+
+<main class="container">
+    <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+    <h1 class="tool-title">XML Formatter & Beautifier</h1>
+    <p style="opacity:0.55; font-weight:500; text-align:center; margin-bottom:4px;">Paste ugly, minified XML — get clean, readable, validated output instantly. 100% offline.</p>
+
+    <!-- Mode Toggle -->
+    <div style="text-align:center;">
+        <div class="mode-toggle">
+            <button class="mode-btn active" onclick="switchTab('format')">⚡ Format</button>
+            <button class="mode-btn" onclick="switchTab('tree')">🌲 Tree View</button>
+            <button class="mode-btn" onclick="switchTab('minify')">📦 Minify</button>
+            <button class="mode-btn" onclick="switchTab('xpath')">🔍 XPath</button>
+        </div>
+    </div>
+
+    <!-- ── Format / Highlight ── -->
+    <div id="tab-format">
+        <div class="options-row">
+            <label>Indent</label>
+            <select id="indentType" onchange="runFormat()">
+                <option value="2">2 Spaces</option>
+                <option value="4" selected>4 Spaces</option>
+                <option value="tab">Tab</option>
+            </select>
+            <label style="margin-left:8px;">Sort Attrs</label>
+            <input type="checkbox" id="sortAttrs" onchange="runFormat()" style="accent-color:#f97316; width:auto;">
+            <label style="margin-left:8px;">Strip Comments</label>
+            <input type="checkbox" id="stripComments" onchange="runFormat()" style="accent-color:#f97316; width:auto;">
+        </div>
+
+        <div id="errorPanel"></div>
+
+        <div class="workspace-grid">
+            <div class="panel">
+                <div class="panel-label">Input XML</div>
+                <textarea id="xmlInput" placeholder="Paste your XML here — single line, minified, broken, whatever…&#10;&#10;Example:&#10;&lt;root&gt;&lt;item id=&quot;1&quot;&gt;&lt;name&gt;Apple&lt;/name&gt;&lt;price&gt;1.20&lt;/price&gt;&lt;/item&gt;&lt;/root&gt;" oninput="runFormat()"></textarea>
+                <div class="btn-row">
+                    <button class="btn btn-ghost" onclick="loadSample()">Load Sample</button>
+                    <button class="btn btn-danger" onclick="clearAll()">Clear</button>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-label">Formatted Output</div>
+                <div class="stats-bar" id="statsBar"></div>
+                <div class="output-wrap" id="outputWrap">
+                    <pre id="xmlOutput"><span style="color:#334155;">← Paste XML on the left to begin</span></pre>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" id="copyBtn" onclick="copyOutput()">COPY</button>
+                    <button class="btn btn-ghost" onclick="downloadXML()">DOWNLOAD</button>
+                    <button class="btn btn-ghost" onclick="swapIO()">⇄ SWAP</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Tree View ── -->
+    <div id="tab-tree" style="display:none;">
+        <div class="panel" style="margin-bottom:28px;">
+            <div class="panel-label">XML Tree — click any node to expand / collapse</div>
+            <div id="treeContainer" style="padding:8px 0; min-height:200px; max-height:520px; overflow:auto; font-family:'Fira Code',monospace;">
+                <span style="color:#334155; font-size:0.8rem;">Format some XML first (use the Format tab), then come back here.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Minify ── -->
+    <div id="tab-minify" style="display:none;">
+        <div class="workspace-grid">
+            <div class="panel">
+                <div class="panel-label">Input XML</div>
+                <textarea id="minifyInput" placeholder="Paste formatted XML to minify…" oninput="runMinify()"></textarea>
+                <div class="btn-row">
+                    <button class="btn btn-ghost" onclick="copyFromFormat()">← Pull from Format tab</button>
+                    <button class="btn btn-danger" onclick="document.getElementById('minifyInput').value=''; document.getElementById('minifyOutput').innerText=''; updateMinifyStats();">Clear</button>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-label">Minified Output</div>
+                <div class="stats-bar" id="minifyStats"></div>
+                <div class="output-wrap">
+                    <pre id="minifyOutput" style="color:#f97316; white-space: pre-wrap; word-break:break-all;">← Paste XML to minify</pre>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" id="minCopyBtn" onclick="copyMinify()">COPY</button>
+                    <button class="btn btn-ghost" onclick="downloadMinified()">DOWNLOAD</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── XPath Query ── -->
+    <div id="tab-xpath" style="display:none;">
+        <div class="panel" style="margin-bottom:28px;">
+            <div class="panel-label">XPath Query</div>
+            <p style="font-size:0.75rem; color:#64748b; margin:0 0 12px;">Run XPath expressions against your XML. Works on whatever is in the Format tab.</p>
+            <div class="xpath-bar">
+                <input type="text" id="xpathInput" placeholder="e.g.  //item[@id='1']/name/text()  or  /root/item[price>1]" onkeydown="if(event.key==='Enter')runXPath()">
+                <button class="btn btn-primary" onclick="runXPath()">RUN</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                <button class="btn btn-ghost" style="font-size:0.65rem;" onclick="setXPath('//*')">All elements</button>
+                <button class="btn btn-ghost" style="font-size:0.65rem;" onclick="setXPath('//*[@*]')">Elements with attrs</button>
+                <button class="btn btn-ghost" style="font-size:0.65rem;" onclick="setXPath('count(//*)')">Count nodes</button>
+                <button class="btn btn-ghost" style="font-size:0.65rem;" onclick="setXPath('//*[text()]')">Elements with text</button>
+            </div>
+            <div class="panel-label" style="margin-top:6px;">Result</div>
+            <div id="xpathResult">XPath result appears here…</div>
+        </div>
+    </div>
+
+    <!-- ── SEO Content ── -->
+    <article class="seo-content">
+        <h2>Why Use an XML Formatter?</h2>
+        <p>Raw API responses, RSS feeds, SOAP payloads and config files often arrive as a single unreadable line. Formatting reveals structure instantly, making it easy to debug, edit, and share.</p>
+        <div class="faq-grid">
+            <div class="faq-item">
+                <h3>Real-time Validation</h3>
+                <p>The formatter catches malformed XML — unclosed tags, bad attributes, illegal characters — and highlights exactly where the problem is. No more guessing.</p>
+            </div>
+            <div class="faq-item">
+                <h3>XPath Queries</h3>
+                <p>Jump straight to the data you need. Type <code>//item/price</code> to extract every price node, or <code>count(//*)</code> to count all elements in one shot.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Tree View</h3>
+                <p>Visualise nested hierarchies as a collapsible tree. Spot deep nesting, unexpected children, or attribute counts at a glance — no scrolling walls of text.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Minify for Production</h3>
+                <p>Strip whitespace and comments before committing XML to source or sending over the wire. Reduces payload size and removes accidental debug comments.</p>
+            </div>
+            <div class="faq-item">
+                <h3>100% Private</h3>
+                <p>Everything runs in your browser. Your XML — API keys, internal configs, customer data — never touches any server. Close the tab and it's gone.</p>
+            </div>
+            <div class="faq-item">
+                <h3>One-Click Download</h3>
+                <p>Download the formatted <code>.xml</code> file directly. Useful when the output is large and you need to open it in a dedicated editor or diff tool.</p>
+            </div>
+        </div>
+    </article>
+</main>
+
+<footer></footer>
+<script src="/nav.js"></script>
+
+<script>
+/* ═══════════════════════ CORE XML ENGINE ═══════════════════════ */
+
+let lastParsed = null; // holds DOMDocument when valid
+
+function getIndent() {
+    const v = document.getElementById('indentType').value;
+    return v === 'tab' ? '\t' : ' '.repeat(parseInt(v));
+}
+
+function parseXML(str) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(str, 'application/xml');
+    const err = doc.querySelector('parsererror');
+    return err ? { doc: null, error: err.textContent.trim() } : { doc, error: null };
+}
+
+/* ── Syntax Highlight ── */
+function highlight(xml) {
+    return xml
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        // Restore for processing — we work on escaped string
+        .replace(/&lt;\?([^]*?)\?&gt;/g, '<span class="x-pi">&lt;?$1?&gt;</span>')
+        .replace(/&lt;!--([^]*?)--&gt;/g, '<span class="x-cmt">&lt;!--$1--&gt;</span>')
+        .replace(/&lt;!\[CDATA\[([^]*?)\]\]&gt;/g, '<span class="x-cdata">&lt;![CDATA[$1]]&gt;</span>')
+        .replace(/&lt;\/?([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*\/?&gt;/g, (m, tag, attrs) => {
+            const hattrs = attrs.replace(/([\w:.-]+)\s*=\s*("([^"]*?)"|'([^']*?)')/g,
+                '<span class="x-attr">$1</span>=<span class="x-val">"$3$4"</span>');
+            const slash = m.startsWith('&lt;/') ? '/' : '';
+            const selfClose = m.endsWith('/&gt;') ? '/' : '';
+            return `&lt;${slash}<span class="x-tag">${tag}</span>${hattrs}${selfClose}&gt;`;
+        });
+}
+
+/* ── Beautify ── */
+function beautify(node, indent, level, sortAttrs, stripComments) {
+    const ind = indent.repeat(level);
+    const ind1 = indent.repeat(level + 1);
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        const t = node.textContent.trim();
+        return t ? ind + t + '\n' : '';
+    }
+    if (node.nodeType === Node.COMMENT_NODE) {
+        return stripComments ? '' : `${ind}<!--${node.textContent}-->\n`;
+    }
+    if (node.nodeType === Node.CDATA_SECTION_NODE) {
+        return `${ind}<![CDATA[${node.textContent}]]>\n`;
+    }
+    if (node.nodeType === Node.PROCESSING_INSTRUCTION_NODE) {
+        return `${ind}<?${node.target} ${node.data}?>\n`;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    // Attributes
+    let attrs = Array.from(node.attributes);
+    if (sortAttrs) attrs.sort((a,b) => a.name.localeCompare(b.name));
+    const attrStr = attrs.length ? ' ' + attrs.map(a => `${a.name}="${a.value}"`).join(' ') : '';
+
+    const children = Array.from(node.childNodes);
+    const hasElement = children.some(c => c.nodeType === Node.ELEMENT_NODE);
+    const textOnly = children.length === 1 && children[0].nodeType === Node.TEXT_NODE;
+
+    if (!children.length) return `${ind}<${node.nodeName}${attrStr}/>\n`;
+    if (textOnly) {
+        const t = children[0].textContent;
+        return `${ind}<${node.nodeName}${attrStr}>${t}</${node.nodeName}>\n`;
+    }
+
+    let out = `${ind}<${node.nodeName}${attrStr}>\n`;
+    for (const child of children) {
+        out += beautify(child, indent, level + 1, sortAttrs, stripComments);
+    }
+    out += `${ind}</${node.nodeName}>\n`;
+    return out;
+}
+
+function buildBeautified(doc, indent, sortAttrs, stripComments) {
+    let out = '';
+    for (const child of Array.from(doc.childNodes)) {
+        if (child.nodeType === Node.PROCESSING_INSTRUCTION_NODE) {
+            out += `<?${child.target} ${child.data}?>\n`;
+        } else {
+            out += beautify(child, indent, 0, sortAttrs, stripComments);
+        }
+    }
+    return out.trimEnd();
+}
+
+/* ── Stats ── */
+function buildStats(raw, formatted, doc) {
+    const elements = doc ? doc.querySelectorAll('*').length : 0;
+    const attrs    = doc ? Array.from(doc.querySelectorAll('*')).reduce((n,el) => n + el.attributes.length, 0) : 0;
+    const kb       = (new TextEncoder().encode(raw).length / 1024).toFixed(1);
+    return [
+        { cls:'ok',  txt: `✓ Valid XML` },
+        { cls:'',    txt: `${elements} elements` },
+        { cls:'',    txt: `${attrs} attributes` },
+        { cls:'',    txt: `${kb} KB input` },
+    ];
+}
+
+/* ══════════════════════ FORMAT TAB ══════════════════════ */
+function runFormat() {
+    const raw = document.getElementById('xmlInput').value.trim();
+    const out  = document.getElementById('xmlOutput');
+    const errP = document.getElementById('errorPanel');
+    const stat = document.getElementById('statsBar');
+
+    if (!raw) {
+        out.innerHTML = '<span style="color:#334155;">← Paste XML on the left to begin</span>';
+        stat.innerHTML = '';
+        errP.style.display = 'none';
+        lastParsed = null;
+        return;
+    }
+
+    const { doc, error } = parseXML(raw);
+
+    if (error) {
+        lastParsed = null;
+        errP.style.display = 'block';
+        // Clean up parser error message
+        const msg = error.replace(/Below is a rendering[^]*/,'').trim().split('\n')[0];
+        errP.innerHTML = `⚠ Parse Error — ${msg}`;
+        stat.innerHTML = `<span class="stat-chip err">✗ Invalid XML</span>`;
+        // Still show raw with basic highlight attempt
+        out.innerHTML = highlight(raw);
+        refreshTree();
+        return;
+    }
+
+    errP.style.display = 'none';
+    lastParsed = doc;
+
+    const indent      = getIndent();
+    const sortAttrs   = document.getElementById('sortAttrs').checked;
+    const stripCmts   = document.getElementById('stripComments').checked;
+    const formatted   = buildBeautified(doc, indent, sortAttrs, stripCmts);
+
+    out.innerHTML = highlight(formatted);
+
+    // Store plain for copy/download
+    out.dataset.plain = formatted;
+
+    const chips = buildStats(raw, formatted, doc);
+    stat.innerHTML = chips.map(c => `<span class="stat-chip ${c.cls}">${c.txt}</span>`).join('');
+
+    refreshTree();
+}
+
+function copyOutput() {
+    const btn = document.getElementById('copyBtn');
+    const plain = document.getElementById('xmlOutput').dataset.plain || document.getElementById('xmlOutput').innerText;
+    navigator.clipboard.writeText(plain);
+    btn.innerText = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.innerText = 'COPY'; btn.classList.remove('success'); }, 1600);
+}
+
+function downloadXML() {
+    const plain = document.getElementById('xmlOutput').dataset.plain || document.getElementById('xmlOutput').innerText;
+    if (!plain || plain.includes('← Paste')) return;
+    const blob = new Blob([plain], { type: 'application/xml' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'formatted.xml'; a.click();
+}
+
+function swapIO() {
+    const input = document.getElementById('xmlInput');
+    const plain = document.getElementById('xmlOutput').dataset.plain;
+    if (plain && !plain.includes('←')) { input.value = plain; runFormat(); }
+}
+
+function clearAll() {
+    document.getElementById('xmlInput').value = '';
+    runFormat();
+}
+
+/* ══════════════════════ TREE VIEW ══════════════════════ */
+function refreshTree() {
+    if (document.getElementById('tab-tree').style.display === 'none') return;
+    buildTree();
+}
+
+function buildTree() {
+    const container = document.getElementById('treeContainer');
+    if (!lastParsed) {
+        container.innerHTML = '<span style="color:#334155;font-size:0.8rem;">No valid XML loaded. Go to the Format tab and paste valid XML first.</span>';
+        return;
+    }
+    container.innerHTML = '';
+    for (const child of Array.from(lastParsed.childNodes)) {
+        if (child.nodeType === Node.ELEMENT_NODE) container.appendChild(renderTreeNode(child));
+    }
+}
+
+function renderTreeNode(node) {
+    const wrap = document.createElement('div');
+    if (node.nodeType !== Node.ELEMENT_NODE) return wrap;
+
+    const children = Array.from(node.childNodes).filter(c => c.nodeType === Node.ELEMENT_NODE);
+    const hasKids  = children.length > 0;
+    const textVal  = Array.from(node.childNodes).filter(c => c.nodeType === Node.TEXT_NODE).map(c=>c.textContent.trim()).join('').substring(0,40);
+    const attrCount = node.attributes.length;
+
+    const row = document.createElement('div');
+    row.className = 'tree-el';
+    row.innerHTML = `
+        <span class="tree-toggle">${hasKids ? '▾' : '·'}</span>
+        <span class="tree-tag">&lt;${node.nodeName}&gt;</span>
+        ${attrCount ? `<span class="tree-attr-badge">${attrCount} attr${attrCount>1?'s':''}</span>` : ''}
+        ${textVal && !hasKids ? `<span class="tree-text">${textVal}</span>` : ''}
+    `;
+
+    const childWrap = document.createElement('div');
+    childWrap.className = 'tree-node tree-children';
+
+    if (hasKids) {
+        for (const child of children) childWrap.appendChild(renderTreeNode(child));
+        row.onclick = (e) => {
+            e.stopPropagation();
+            const collapsed = childWrap.classList.toggle('collapsed');
+            row.querySelector('.tree-toggle').textContent = collapsed ? '▸' : '▾';
+        };
+    }
+
+    wrap.appendChild(row);
+    if (hasKids) wrap.appendChild(childWrap);
+    return wrap;
+}
+
+/* ══════════════════════ MINIFY TAB ══════════════════════ */
+function runMinify() {
+    const raw = document.getElementById('minifyInput').value.trim();
+    const out  = document.getElementById('minifyOutput');
+    if (!raw) { out.innerText = '← Paste XML to minify'; updateMinifyStats('',''); return; }
+
+    const { doc, error } = parseXML(raw);
+    if (error) { out.innerText = '✗ Invalid XML — fix errors in the Format tab first.'; return; }
+
+    // Serialize minimally
+    const ser = new XMLSerializer().serializeToString(doc);
+    // Remove redundant xmlns on root added by serializer
+    const minified = ser.replace(/\s+/g, ' ')
+        .replace(/> </g,'><')
+        .replace(/ \/>/g,'/>')
+        .trim();
+    out.innerText = minified;
+    updateMinifyStats(raw, minified);
+}
+
+function updateMinifyStats(raw, min) {
+    const s = document.getElementById('minifyStats');
+    if (!raw) { s.innerHTML = ''; return; }
+    const before = new TextEncoder().encode(raw).length;
+    const after  = new TextEncoder().encode(min).length;
+    const saved  = (((before-after)/before)*100).toFixed(1);
+    s.innerHTML = `<span class="stat-chip">${(before/1024).toFixed(1)} KB → ${(after/1024).toFixed(1)} KB</span><span class="stat-chip ok">−${saved}% saved</span>`;
+}
+
+function copyFromFormat() {
+    const plain = document.getElementById('xmlOutput').dataset.plain;
+    if (plain && !plain.includes('←')) {
+        document.getElementById('minifyInput').value = plain;
+        runMinify();
+    }
+}
+
+function copyMinify() {
+    const btn = document.getElementById('minCopyBtn');
+    navigator.clipboard.writeText(document.getElementById('minifyOutput').innerText);
+    btn.innerText = '✓ COPIED'; btn.classList.add('success');
+    setTimeout(() => { btn.innerText = 'COPY'; btn.classList.remove('success'); }, 1600);
+}
+
+function downloadMinified() {
+    const t = document.getElementById('minifyOutput').innerText;
+    if (!t || t.startsWith('←') || t.startsWith('✗')) return;
+    const blob = new Blob([t], { type: 'application/xml' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'minified.xml'; a.click();
+}
+
+/* ══════════════════════ XPATH TAB ══════════════════════ */
+function setXPath(expr) { document.getElementById('xpathInput').value = expr; runXPath(); }
+
+function runXPath() {
+    const expr = document.getElementById('xpathInput').value.trim();
+    const res  = document.getElementById('xpathResult');
+    if (!lastParsed) { res.textContent = 'Load valid XML in the Format tab first.'; return; }
+    if (!expr)       { res.textContent = 'Enter an XPath expression above.'; return; }
+
+    try {
+        const result = lastParsed.evaluate(expr, lastParsed, null, XPathResult.ANY_TYPE, null);
+        let output = '';
+        switch (result.resultType) {
+            case XPathResult.STRING_TYPE:  output = result.stringValue; break;
+            case XPathResult.NUMBER_TYPE:  output = String(result.numberValue); break;
+            case XPathResult.BOOLEAN_TYPE: output = String(result.booleanValue); break;
+            default: {
+                const nodes = [];
+                let n;
+                while ((n = result.iterateNext())) {
+                    if (n.nodeType === Node.TEXT_NODE) nodes.push(n.textContent.trim());
+                    else if (n.nodeType === Node.ATTRIBUTE_NODE) nodes.push(`@${n.name}="${n.value}"`);
+                    else nodes.push(new XMLSerializer().serializeToString(n));
+                }
+                output = nodes.length ? nodes.join('\n\n') : '(no matches)';
+            }
+        }
+        res.textContent = output;
+    } catch(e) {
+        res.textContent = `✗ XPath Error: ${e.message}`;
+    }
+}
+
+/* ══════════════════════ SAMPLE XML ══════════════════════ */
+function loadSample() {
+    document.getElementById('xmlInput').value = `<?xml version="1.0" encoding="UTF-8"?><catalog><book id="bk101" lang="en"><author>Gambardella, Matthew</author><title>XML Developer's Guide</title><genre>Computer</genre><price currency="USD">44.95</price><publish_date>2000-10-01</publish_date><description>An in-depth look at creating applications with XML.</description></book><book id="bk102" lang="en"><author>Ralls, Kim</author><title>Midnight Rain</title><genre>Fantasy</genre><price currency="USD">5.95</price><publish_date>2000-12-16</publish_date><description>A former architect battles corporate zombies.</description></book><!-- More books can be added here --><book id="bk103" lang="fr"><author>Corets, Eva</author><title>Maeve Ascendant</title><genre>Fantasy</genre><price currency="EUR">5.95</price><publish_date>2000-11-17</publish_date><description><![CDATA[After the collapse of a nanotechnology society in England, the young survivors lay the foundation for a new society.]]></description></book></catalog>`;
+    runFormat();
+}
+
+/* ══════════════════════ TAB SWITCH ══════════════════════ */
+const tabs = ['format','tree','minify','xpath'];
+function switchTab(id) {
+    tabs.forEach(t => {
+        document.getElementById('tab-'+t).style.display = t === id ? 'block' : 'none';
+    });
+    document.querySelectorAll('.mode-btn').forEach((b,i) => {
+        b.classList.toggle('active', tabs[i] === id);
+    });
+    if (id === 'tree') buildTree();
+}
+
+/* init */
+runFormat();
+</script>
+</body>
+</html>

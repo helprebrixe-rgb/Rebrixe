@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Runtime Calculator | Rebrixe</title>
+    <meta name="description" content="Add up video clip durations instantly. Get total runtime in HH:MM:SS. Built for editors, podcasters, and content creators.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ─────────────────────────────────────────
+           TOOL LAYOUT
+        ───────────────────────────────────────── */
+        .tool-wrap { max-width: 780px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ─── Clips list ─── */
+        .clips-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .clip-row {
+            display: grid;
+            grid-template-columns: 1fr 2fr auto auto;
+            gap: 10px;
+            align-items: center;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px;
+            transition: border-color .2s;
+        }
+        .clip-row:focus-within { border-color: var(--primary); }
+
+        .clip-name-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            width: 100%;
+            min-width: 0;
+        }
+        .clip-name-input::placeholder { color: #334155; }
+
+        /* ─── Time fields ─── */
+        .time-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .time-field-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+        .time-field-label {
+            font-size: 0.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #334155;
+        }
+        .time-input {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #fff;
+            text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            width: 100%;
+            padding: 7px 4px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            /* hide spinner arrows — we validate manually */
+            -moz-appearance: textfield;
+        }
+        .time-input::-webkit-outer-spin-button,
+        .time-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .time-input:focus { border-color: var(--primary); }
+        .time-input.invalid { border-color: #ef4444; background: rgba(239,68,68,0.06); }
+
+        /* ─── Per-clip duration badge ─── */
+        .clip-duration-display {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #475569;
+            white-space: nowrap;
+            min-width: 64px;
+            text-align: right;
+        }
+        .clip-duration-display.has-value { color: var(--primary); }
+
+        /* ─── Remove button ─── */
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #334155;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 8px;
+            transition: .15s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .remove-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+
+        /* ─── Add row ─── */
+        .add-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .btn-add {
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            border: 1px dashed var(--border);
+            color: #475569;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-add:hover { border-color: var(--primary); color: #fff; background: rgba(255,255,255,0.06); }
+
+        /* ─── Bulk paste ─── */
+        .paste-toggle {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            transition: color .2s;
+            user-select: none;
+        }
+        .paste-toggle:hover { color: var(--primary); }
+        .paste-toggle .arrow { transition: transform .2s; display: inline-block; }
+        .paste-toggle.open .arrow { transform: rotate(90deg); }
+
+        .paste-area-wrap { display: none; margin-bottom: 20px; }
+        .paste-area-wrap.open { display: block; }
+
+        .paste-hint {
+            font-size: 0.72rem;
+            color: #334155;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        .paste-hint code {
+            background: rgba(255,255,255,0.05);
+            padding: 1px 5px;
+            border-radius: 4px;
+            color: #94a3b8;
+        }
+
+        .paste-textarea {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            padding: 12px 14px;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 90px;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .paste-textarea:focus { border-color: var(--primary); }
+        .paste-textarea::placeholder { color: #1e293b; }
+
+        .paste-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+        .btn-parse {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-parse:hover { border-color: var(--primary); color: #fff; }
+
+        /* Paste feedback */
+        .paste-feedback {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0;
+            min-height: 0;
+            transition: color .2s;
+        }
+        .paste-feedback.ok   { color: #4ade80; }
+        .paste-feedback.warn { color: #f59e0b; }
+        .paste-feedback.err  { color: #f87171; }
+
+        /* ─── Total panel ─── */
+        .total-panel {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .total-panel.visible { display: block; }
+
+        .total-main {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        .total-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+        }
+        .total-time {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 8vw, 3.2rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .total-secs {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        /* ─── Stats row ─── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .stat-cell {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 10px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.55rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #334155;
+            margin-top: 5px;
+        }
+
+        /* ─── Platform fit ─── */
+        .platform-section { margin-top: 16px; }
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .platform-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.02);
+        }
+        .platform-pill .picon { font-size: 1rem; flex-shrink: 0; }
+        .platform-pill .pname { color: #64748b; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+        .platform-pill .plimit { font-family: 'Outfit', sans-serif; font-size: 0.72rem; color: #334155; }
+        .platform-pill.fits { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.04); }
+        .platform-pill.fits .plimit { color: #4ade80; }
+        .platform-pill.over  { border-color: rgba(239,68,68,0.25); background: rgba(239,68,68,0.04); }
+        .platform-pill.over  .plimit { color: #f87171; }
+
+        /* ─── Limitations box ─── */
+        .limitations-box {
+            margin-top: 20px;
+            border: 1px solid rgba(245,158,11,0.2);
+            border-radius: 14px;
+            padding: 16px 18px;
+            background: rgba(245,158,11,0.04);
+        }
+        .limitations-box summary {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #f59e0b;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .limitations-box summary::before { content: '⚠'; font-size: 0.8rem; }
+        .limitations-box summary::-webkit-details-marker { display: none; }
+        .limitations-box[open] summary::after { content: ' — click to collapse'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #78716c; font-size: 0.6rem; }
+        .limitations-body {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .lim-item {
+            display: flex;
+            gap: 8px;
+            font-size: 0.72rem;
+            color: #78716c;
+            line-height: 1.5;
+        }
+        .lim-bullet {
+            color: #f59e0b;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ─── Action buttons ─── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); }
+        .btn-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .empty-hint {
+            text-align: center;
+            padding: 20px 0 8px;
+            color: #334155;
+            font-size: 0.85rem;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .tool-card { padding: 20px 16px; }
+            .clip-row { grid-template-columns: 1fr auto auto; grid-template-rows: auto auto; }
+            .clip-row .clip-name-input { grid-column: 1 / 2; }
+            .clip-row .remove-btn { grid-column: 3; grid-row: 1; }
+            .clip-row .time-fields { grid-column: 1 / 3; }
+            .clip-row .clip-duration-display { grid-column: 3; grid-row: 2; text-align: center; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .platform-grid { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-format-conversion.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                Video Runtime Calculator
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem;">
+                Add clips, get total runtime. Instant HH:MM:SS breakdown — for editors, podcasters &amp; creators.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- CLIPS LIST -->
+                <div id="clipsList" class="clips-list"></div>
+
+                <!-- ADD BUTTONS -->
+                <div class="add-row">
+                    <button class="btn-add" onclick="addClip(1)">＋ Add Clip</button>
+                    <button class="btn-add" onclick="addClip(5)">＋ Add 5 Clips</button>
+                </div>
+
+                <!-- BULK PASTE -->
+                <div class="paste-toggle" id="pasteToggle" onclick="togglePaste()" role="button" aria-expanded="false">
+                    <span class="arrow">▶</span> Bulk paste timestamps
+                </div>
+                <div class="paste-area-wrap" id="pasteWrap">
+                    <p class="paste-hint">
+                        Paste one duration per line. Accepted formats:
+                        <code>HH:MM:SS</code> &nbsp;
+                        <code>MM:SS</code> &nbsp;
+                        <code>1h23m45s</code> &nbsp;
+                        <code>83m20s</code> &nbsp;
+                        <code>5045</code> (raw seconds, max 359999)
+                    </p>
+                    <textarea
+                        class="paste-textarea"
+                        id="pasteInput"
+                        placeholder="2:34&#10;1:05:22&#10;47:08&#10;1h20m00s"
+                        aria-label="Paste timestamps here"
+                    ></textarea>
+                    <div class="paste-actions">
+                        <button class="btn-parse" onclick="parsePaste()">Import Clips →</button>
+                        <span class="paste-feedback" id="pasteFeedback" aria-live="polite"></span>
+                    </div>
+                </div>
+
+                <!-- TOTAL PANEL -->
+                <div id="totalPanel" class="total-panel" aria-live="polite">
+                    <div class="total-main">
+                        <div>
+                            <div class="total-label">Total Runtime</div>
+                            <div class="total-time" id="totalTime">00:00:00</div>
+                        </div>
+                        <div class="total-secs" id="totalSecsDisplay"></div>
+                    </div>
+
+                    <div class="stats-row">
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statClips">0</div>
+                            <div class="stat-lbl">Clips with time</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statAvg">—</div>
+                            <div class="stat-lbl">Avg clip</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statLongest">—</div>
+                            <div class="stat-lbl">Longest</div>
+                        </div>
+                        <div class="stat-cell">
+                            <div class="stat-num" id="statShortest">—</div>
+                            <div class="stat-lbl">Shortest</div>
+                        </div>
+                    </div>
+
+                    <div class="platform-section">
+                        <div class="section-label">Platform Fit</div>
+                        <div class="platform-grid" id="platformGrid"></div>
+                    </div>
+                </div>
+
+                <div id="emptyHint" class="empty-hint">Add clips above to calculate total runtime ↑</div>
+
+                <!-- KNOWN LIMITATIONS -->
+                <details class="limitations-box">
+                    <summary>Tool Limitations &amp; Fixed Assumptions</summary>
+                    <div class="limitations-body">
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">Platform limits are hardcoded</strong> — YouTube Shorts (60s), Instagram (90s), TikTok (10m), X/Twitter (2m20s), LinkedIn (10m). These are approximate, platform-enforced maximums as of mid-2024 and may change without notice. Always verify with the platform before publishing.</span>
+                        </div>
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">Maximum single session total: 99 hours, 59 minutes, 59 seconds.</strong> Values beyond this will display but are not designed for edge cases beyond that.</span>
+                        </div>
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">No data is saved between sessions.</strong> Refreshing the page clears all clips. There is no export, save, or sync feature.</span>
+                        </div>
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">MM and SS fields only accept 0–59.</strong> Values outside this range are rejected in place. If you need to enter e.g. 90 seconds, use 1 minute 30 seconds instead.</span>
+                        </div>
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">Bulk paste accepts whole seconds only.</strong> Sub-second precision (e.g. 1:23.456) is not supported — fractional values are ignored.</span>
+                        </div>
+                        <div class="lim-item">
+                            <span class="lim-bullet">›</span>
+                            <span><strong style="color:#e2e8f0;">"Copy Runtime" requires browser clipboard permission.</strong> If your browser blocks clipboard access, the button shows a fallback message so you can copy manually.</span>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- ACTIONS -->
+                <div class="action-row">
+                    <button class="btn-action primary" id="copyBtn" onclick="copyResult()" disabled>Copy Runtime</button>
+                    <button class="btn-action" onclick="clearAll()">✕ Clear All</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    'use strict';
+
+    /* ════════════════════════════════════════════
+       CONSTANTS
+    ════════════════════════════════════════════ */
+
+    // Platform limits (seconds). Hardcoded — see "Tool Limitations" above.
+    const PLATFORMS = Object.freeze([
+        { name: 'YT Short',    icon: '📱', limitSecs: 60,    label: '60s' },
+        { name: 'Instagram',   icon: '📸', limitSecs: 90,    label: '90s' },
+        { name: 'TikTok',      icon: '🎵', limitSecs: 600,   label: '10m' },
+        { name: 'X / Twitter', icon: '🐦', limitSecs: 140,   label: '2m20s' },
+        { name: 'LinkedIn',    icon: '💼', limitSecs: 600,   label: '10m' },
+        { name: 'YouTube',     icon: '▶️',  limitSecs: null,  label: 'Unlimited' },
+    ]);
+
+    const MAX_SECS  = 359999; // 99:59:59
+    const MAX_CLIPS = 100;    // sanity cap
+
+    /* ════════════════════════════════════════════
+       STATE  —  single source of truth
+    ════════════════════════════════════════════ */
+
+    /**
+     * @type {Array<{id:number, name:string, h:number, m:number, s:number}>}
+     * h/m/s are always validated integers (never NaN, never negative, m/s always 0-59).
+     */
+    let clips = [];
+    let nextId = 1;
+
+    /* ════════════════════════════════════════════
+       VALIDATION HELPERS
+    ════════════════════════════════════════════ */
+
+    /** Clamp & floor an integer within [min, max]. Returns null if input is not a usable integer. */
+    function sanitiseField(raw, min, max) {
+        if (raw === '' || raw === null || raw === undefined) return 0;
+        const n = Math.floor(Number(raw));
+        if (!Number.isFinite(n)) return null;   // NaN, Infinity
+        if (n < min || n > max) return null;    // out of range
+        return n;
+    }
+
+    /** Returns total seconds for a clip (validated). */
+    function clipSecs(clip) {
+        return clip.h * 3600 + clip.m * 60 + clip.s;
+    }
+
+    /* ════════════════════════════════════════════
+       DOM HELPERS
+    ════════════════════════════════════════════ */
+
+    function $(id) { return document.getElementById(id); }
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    /** Format any seconds count as HH:MM:SS (capped at MAX_SECS for display). */
+    function secsToHMS(totalSecs) {
+        const s = Math.min(Math.max(0, Math.floor(totalSecs)), MAX_SECS);
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+    }
+
+    /** Format as M:SS for values < 1h, or HH:MM:SS for ≥ 1h. Used in stats. */
+    function secsToShort(totalSecs) {
+        if (totalSecs < 0) return '0:00';
+        const s = Math.floor(totalSecs);
+        if (s >= 3600) return secsToHMS(s);
+        const m = Math.floor(s / 60);
+        return `${m}:${pad2(s % 60)}`;
+    }
+
+    /* ════════════════════════════════════════════
+       CLIP MANAGEMENT
+    ════════════════════════════════════════════ */
+
+    function addClip(n = 1) {
+        const remaining = MAX_CLIPS - clips.length;
+        const toAdd = Math.min(n, remaining);
+        if (toAdd <= 0) {
+            showToast(`Max ${MAX_CLIPS} clips allowed.`);
+            return;
+        }
+        for (let i = 0; i < toAdd; i++) {
+            const id = nextId++;
+            clips.push({ id, name: '', h: 0, m: 0, s: 0 });
+            mountClipRow(id);
+        }
+        recalc();
+    }
+
+    function mountClipRow(id) {
+        const list = $('clipsList');
+        const div = document.createElement('div');
+        div.className = 'clip-row';
+        div.id = `clip-${id}`;
+        div.innerHTML = `
+            <input
+                class="clip-name-input"
+                type="text"
+                placeholder="Clip name (optional)"
+                maxlength="60"
+                aria-label="Clip name"
+                oninput="updateName(${id}, this.value)"
+            >
+            <div class="time-fields">
+                <div class="time-field-wrap">
+                    <span class="time-field-label">HH</span>
+                    <input class="time-input" type="number" inputmode="numeric"
+                        placeholder="0" min="0" max="99"
+                        id="h-${id}"
+                        oninput="handleTimeInput(event, ${id}, 'h')"
+                        onkeydown="handleTimeKey(event, ${id}, 'h')"
+                        aria-label="Hours">
+                </div>
+                <div class="time-field-wrap">
+                    <span class="time-field-label">MM</span>
+                    <input class="time-input" type="number" inputmode="numeric"
+                        placeholder="0" min="0" max="59"
+                        id="m-${id}"
+                        oninput="handleTimeInput(event, ${id}, 'm')"
+                        onkeydown="handleTimeKey(event, ${id}, 'm')"
+                        aria-label="Minutes">
+                </div>
+                <div class="time-field-wrap">
+                    <span class="time-field-label">SS</span>
+                    <input class="time-input" type="number" inputmode="numeric"
+                        placeholder="0" min="0" max="59"
+                        id="s-${id}"
+                        oninput="handleTimeInput(event, ${id}, 's')"
+                        onkeydown="handleTimeKey(event, ${id}, 's')"
+                        aria-label="Seconds">
+                </div>
+            </div>
+            <div class="clip-duration-display" id="dur-${id}">—</div>
+            <button class="remove-btn" onclick="removeClip(${id})" title="Remove clip" aria-label="Remove clip">✕</button>
+        `;
+        list.appendChild(div);
+    }
+
+    function updateName(id, val) {
+        const clip = clips.find(c => c.id === id);
+        if (clip) clip.name = val.trim();
+    }
+
+    /**
+     * Validate and commit a time field change.
+     * MM/SS are clamped to 0-59. HH is clamped to 0-99.
+     * Out-of-range inputs get the field flagged red and the value is NOT committed.
+     */
+    function handleTimeInput(event, id, field) {
+        const input = event.target;
+        const clip = clips.find(c => c.id === id);
+        if (!clip) return;
+
+        const maxVal = (field === 'h') ? 99 : 59;
+        const validated = sanitiseField(input.value, 0, maxVal);
+
+        if (validated === null) {
+            // Invalid: highlight field, keep last good value
+            input.classList.add('invalid');
+            return;
+        }
+
+        input.classList.remove('invalid');
+        clip[field] = validated;
+
+        // Update per-row duration badge
+        const secs = clipSecs(clip);
+        const durEl = $(`dur-${id}`);
+        if (secs > 0) {
+            durEl.textContent = secsToHMS(secs);
+            durEl.className = 'clip-duration-display has-value';
+        } else {
+            durEl.textContent = '—';
+            durEl.className = 'clip-duration-display';
+        }
+
+        recalc();
+    }
+
+    /** Arrow keys move between HH/MM/SS fields within the same row. */
+    function handleTimeKey(event, id, field) {
+        if (event.key === 'ArrowRight' || event.key === 'Enter') {
+            const next = { h: 'm', m: 's', s: null }[field];
+            if (next) { event.preventDefault(); $(`${next}-${id}`)?.focus(); }
+        }
+        if (event.key === 'ArrowLeft') {
+            const prev = { h: null, m: 'h', s: 'm' }[field];
+            if (prev) { event.preventDefault(); $(`${prev}-${id}`)?.focus(); }
+        }
+    }
+
+    function removeClip(id) {
+        clips = clips.filter(c => c.id !== id);
+        $(`clip-${id}`)?.remove();
+        recalc();
+    }
+
+    /* ════════════════════════════════════════════
+       RECALC — runs every time state changes
+    ════════════════════════════════════════════ */
+
+    function recalc() {
+        const filledClips = clips.filter(c => clipSecs(c) > 0);
+        const totalSecs = filledClips.reduce((sum, c) => sum + clipSecs(c), 0);
+
+        const panel   = $('totalPanel');
+        const hint    = $('emptyHint');
+        const copyBtn = $('copyBtn');
+
+        if (filledClips.length === 0) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            copyBtn.disabled = true;
+            return;
+        }
+
+        panel.classList.add('visible');
+        hint.style.display = 'none';
+        copyBtn.disabled = false;
+
+        // Total time
+        $('totalTime').textContent = secsToHMS(totalSecs);
+        $('totalSecsDisplay').textContent = `${totalSecs.toLocaleString()} seconds`;
+
+        // Stats
+        $('statClips').textContent = filledClips.length;
+
+        const durations = filledClips.map(c => clipSecs(c));
+        const avg       = Math.round(totalSecs / filledClips.length);
+        const longest   = Math.max(...durations);
+        const shortest  = Math.min(...durations);
+
+        $('statAvg').textContent      = secsToShort(avg);
+        $('statLongest').textContent  = secsToShort(longest);
+        $('statShortest').textContent = secsToShort(shortest);
+
+        // Platform fit
+        $('platformGrid').innerHTML = PLATFORMS.map(p => {
+            if (p.limitSecs === null) {
+                return `<div class="platform-pill fits">
+                    <span class="picon">${p.icon}</span>
+                    <div>
+                        <div class="pname">${p.name}</div>
+                        <div class="plimit">✓ unlimited</div>
+                    </div>
+                </div>`;
+            }
+            const fits = totalSecs <= p.limitSecs;
+            const note = fits
+                ? `✓ fits`
+                : `+${secsToShort(totalSecs - p.limitSecs)} over`;
+            return `<div class="platform-pill ${fits ? 'fits' : 'over'}">
+                <span class="picon">${p.icon}</span>
+                <div>
+                    <div class="pname">${p.name}</div>
+                    <div class="plimit">${note} (limit: ${p.label})</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    /* ════════════════════════════════════════════
+       BULK PASTE
+    ════════════════════════════════════════════ */
+
+    function togglePaste() {
+        const wrap = $('pasteWrap');
+        const tog  = $('pasteToggle');
+        const isOpen = wrap.classList.toggle('open');
+        tog.classList.toggle('open', isOpen);
+        tog.setAttribute('aria-expanded', isOpen);
+        if (!isOpen) clearPasteFeedback();
+    }
+
+    /**
+     * Parse a duration string → total seconds, or null if unrecognised.
+     *
+     * Accepted:
+     *   HH:MM:SS   e.g.  1:23:45   or  01:23:45
+     *   MM:SS      e.g.  23:45     (two colon-parts → first is minutes)
+     *   xh ym zs  e.g.  1h23m45s  / 23m45s / 45s / 1h / 83m
+     *   raw int    e.g.  5045      (treated as total seconds, capped at MAX_SECS)
+     */
+    function parseDuration(raw) {
+        const str = raw.trim();
+        if (!str) return null;
+
+        // ── HH:MM:SS or MM:SS ──
+        const colonMatch = str.match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+        if (colonMatch) {
+            const a = parseInt(colonMatch[1], 10);
+            const b = parseInt(colonMatch[2], 10);
+            const c = colonMatch[3] !== undefined ? parseInt(colonMatch[3], 10) : null;
+
+            if (c !== null) {
+                // HH:MM:SS — validate M and S
+                if (b > 59 || c > 59) return null;
+                return a * 3600 + b * 60 + c;
+            } else {
+                // MM:SS — validate S
+                if (b > 59) return null;
+                return a * 60 + b;
+            }
+        }
+
+        // ── h/m/s notation ──
+        // Must have at least one unit; units must appear in h → m → s order
+        const hmsMatch = str.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+        if (hmsMatch && (hmsMatch[1] || hmsMatch[2] || hmsMatch[3])) {
+            const h = hmsMatch[1] ? parseInt(hmsMatch[1], 10) : 0;
+            const m = hmsMatch[2] ? parseInt(hmsMatch[2], 10) : 0;
+            const s = hmsMatch[3] ? parseInt(hmsMatch[3], 10) : 0;
+            // No range validation on h/m/s here — caller normalises
+            return h * 3600 + m * 60 + s;
+        }
+
+        // ── raw integer seconds ──
+        if (/^\d+$/.test(str)) {
+            const n = parseInt(str, 10);
+            if (n > MAX_SECS) return null;  // reject obviously wrong values
+            return n;
+        }
+
+        return null;
+    }
+
+    function parsePaste() {
+        const raw = $('pasteInput').value;
+        if (!raw.trim()) {
+            setPasteFeedback('Nothing to import.', 'warn');
+            return;
+        }
+
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        let imported = 0;
+        let skipped  = 0;
+
+        const remaining = MAX_CLIPS - clips.length;
+
+        for (const line of lines) {
+            if (imported >= remaining) { skipped += (lines.length - imported - skipped); break; }
+            const secs = parseDuration(line);
+            if (secs === null || secs <= 0) {
+                skipped++;
+                continue;
+            }
+
+            // Normalise into h/m/s (so each field is always valid)
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+
+            const id = nextId++;
+            clips.push({ id, name: line, h, m, s });
+            mountClipRow(id);
+
+            // Populate DOM fields immediately (no setTimeout hack)
+            const hEl = $(`h-${id}`);
+            const mEl = $(`m-${id}`);
+            const sEl = $(`s-${id}`);
+            if (hEl) { hEl.value = h || ''; hEl.classList.remove('invalid'); }
+            if (mEl) { mEl.value = m || ''; mEl.classList.remove('invalid'); }
+            if (sEl) { sEl.value = s || ''; sEl.classList.remove('invalid'); }
+
+            // Update per-row badge
+            const durEl = $(`dur-${id}`);
+            if (durEl) {
+                durEl.textContent = secsToHMS(secs);
+                durEl.className = 'clip-duration-display has-value';
+            }
+
+            imported++;
+        }
+
+        recalc();
+        $('pasteInput').value = '';
+
+        if (imported > 0 && skipped === 0) {
+            setPasteFeedback(`✓ Imported ${imported} clip${imported !== 1 ? 's' : ''}.`, 'ok');
+            closePastePanel();
+        } else if (imported > 0 && skipped > 0) {
+            setPasteFeedback(`✓ Imported ${imported}, skipped ${skipped} unrecognised line${skipped !== 1 ? 's' : ''}.`, 'warn');
+            closePastePanel();
+        } else {
+            setPasteFeedback(`✗ No valid timestamps found. Check the accepted formats above.`, 'err');
+        }
+    }
+
+    function closePastePanel() {
+        $('pasteWrap').classList.remove('open');
+        $('pasteToggle').classList.remove('open');
+        $('pasteToggle').setAttribute('aria-expanded', 'false');
+    }
+
+    function setPasteFeedback(msg, type) {
+        const el = $('pasteFeedback');
+        el.textContent = msg;
+        el.className = `paste-feedback ${type}`;
+    }
+
+    function clearPasteFeedback() {
+        const el = $('pasteFeedback');
+        el.textContent = '';
+        el.className = 'paste-feedback';
+    }
+
+    /* ════════════════════════════════════════════
+       COPY RESULT
+    ════════════════════════════════════════════ */
+
+    async function copyResult() {
+        const filledClips = clips.filter(c => clipSecs(c) > 0);
+        if (filledClips.length === 0) return;
+
+        const totalSecs = filledClips.reduce((sum, c) => sum + clipSecs(c), 0);
+        const totalHMS  = secsToHMS(totalSecs);
+
+        const lines = filledClips.map((c, i) => {
+            const name = c.name || `Clip ${i + 1}`;
+            return `  ${name}: ${secsToHMS(clipSecs(c))}`;
+        });
+
+        const text = [
+            `Total Runtime: ${totalHMS} (${totalSecs.toLocaleString()} seconds)`,
+            '',
+            'Breakdown:',
+            ...lines
+        ].join('\n');
+
+        const btn = $('copyBtn');
+
+        try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Runtime'; }, 2000);
+        } catch {
+            // Clipboard API blocked — show the text in a selectable way
+            btn.textContent = 'Copy Runtime';
+            showFallbackCopy(text);
+        }
+    }
+
+    function showFallbackCopy(text) {
+        // Build an in-page selectable textarea overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position:fixed; inset:0; background:rgba(0,0,0,0.7);
+            display:flex; align-items:center; justify-content:center;
+            z-index:9999; padding:20px; box-sizing:border-box;
+        `;
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background:#1e293b; border:1px solid #334155; border-radius:16px;
+            padding:24px; width:100%; max-width:480px;
+        `;
+        box.innerHTML = `
+            <p style="color:#94a3b8; font-size:0.8rem; margin:0 0 12px; font-family:Inter,sans-serif;">
+                Clipboard blocked by your browser. Select all and copy manually:
+            </p>
+            <textarea readonly style="
+                width:100%; height:160px; background:rgba(0,0,0,0.4);
+                border:1px solid #334155; border-radius:8px;
+                color:#fff; font-family:monospace; font-size:0.78rem;
+                padding:10px; box-sizing:border-box; resize:none; outline:none;
+            ">${text}</textarea>
+            <button onclick="this.closest('div[style]').remove()" style="
+                margin-top:12px; width:100%; padding:10px;
+                background:rgba(255,255,255,0.05); border:1px solid #334155;
+                border-radius:8px; color:#94a3b8; cursor:pointer;
+                font-family:Outfit,sans-serif; font-weight:700; font-size:0.8rem;
+                text-transform:uppercase; letter-spacing:1px;
+            ">Close</button>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        // Select all text immediately
+        const ta = box.querySelector('textarea');
+        ta.focus();
+        ta.select();
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    /* ════════════════════════════════════════════
+       CLEAR ALL
+    ════════════════════════════════════════════ */
+
+    function clearAll() {
+        clips = [];
+        // nextId intentionally NOT reset — avoids any stale DOM id collisions
+        $('clipsList').innerHTML = '';
+        $('totalPanel').classList.remove('visible');
+        $('emptyHint').style.display = 'block';
+        $('copyBtn').disabled = true;
+        addClip(3);
+    }
+
+    /* ════════════════════════════════════════════
+       TOAST (lightweight, no library)
+    ════════════════════════════════════════════ */
+
+    function showToast(msg, durationMs = 3000) {
+        const t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = `
+            position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+            background:#1e293b; border:1px solid #334155; color:#94a3b8;
+            font-family:Inter,sans-serif; font-size:0.8rem; font-weight:600;
+            padding:10px 20px; border-radius:12px; z-index:9998;
+            box-shadow:0 4px 20px rgba(0,0,0,0.4);
+            animation: fadeInUp .2s ease;
+        `;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), durationMs);
+    }
+
+    /* ════════════════════════════════════════════
+       INIT
+    ════════════════════════════════════════════ */
+
+    addClip(3);
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

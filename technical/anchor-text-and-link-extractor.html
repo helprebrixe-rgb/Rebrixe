@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anchor Text & Link Extractor | Extract All Links from HTML | Rebrixe</title>
+    <meta name="description" content="Paste any raw HTML and instantly extract every link with its anchor text, rel attribute, type (dofollow/nofollow/UGC/sponsored), and full URL. Export to CSV. Free, instant, no upload needed.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .config-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            min-height: 180px;
+            resize: vertical;
+            line-height: 1.6;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        textarea:focus { border-color: var(--primary); }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 18px 0 0;
+        }
+        .stat-chip {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 8px;
+            letter-spacing: 0.4px;
+        }
+        .chip-total   { background: rgba(0,242,255,0.1);   color: #00f2ff;  border: 1px solid rgba(0,242,255,0.25); }
+        .chip-do      { background: rgba(46,204,113,0.12); color: #2ecc71;  border: 1px solid rgba(46,204,113,0.3); }
+        .chip-no      { background: rgba(231,76,60,0.12);  color: #e74c3c;  border: 1px solid rgba(231,76,60,0.3); }
+        .chip-ext     { background: rgba(155,89,182,0.12); color: #a855f7;  border: 1px solid rgba(155,89,182,0.3); }
+        .chip-int     { background: rgba(241,196,15,0.12); color: #f1c40f;  border: 1px solid rgba(241,196,15,0.3); }
+        .chip-img     { background: rgba(52,152,219,0.12); color: #3b82f6;  border: 1px solid rgba(52,152,219,0.3); }
+
+        /* Filter row */
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 20px 0 14px;
+            align-items: center;
+        }
+        .filter-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--primary, #00f2ff);
+            color: #000;
+            border-color: transparent;
+        }
+        .search-input {
+            margin-left: auto;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 6px 12px;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            outline: none;
+            width: 200px;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus { border-color: var(--primary); }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: #000;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        thead th {
+            padding: 11px 14px;
+            text-align: left;
+            font-size: 0.63rem;
+            font-weight: 800;
+            color: var(--primary, #00f2ff);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,242,255,0.04);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        thead th:hover { background: rgba(0,242,255,0.08); }
+        thead th .sort-icon { opacity: 0.4; font-size: 0.6rem; margin-left: 4px; }
+        thead th.sorted .sort-icon { opacity: 1; }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        tbody tr:last-child { border-bottom: none; }
+
+        td {
+            padding: 10px 14px;
+            vertical-align: middle;
+            color: #cbd5e1;
+            max-width: 260px;
+        }
+        td.url-cell {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.72rem;
+            color: #64748b;
+            word-break: break-all;
+            max-width: 220px;
+        }
+        td.url-cell a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        td.url-cell a:hover { text-decoration: underline; }
+        td.anchor-cell {
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+        .anchor-empty { color: #475569; font-style: italic; font-size: 0.7rem; }
+
+        /* Type badge */
+        .type-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .badge-dofollow   { background: rgba(46,204,113,0.15);  color: #2ecc71; }
+        .badge-nofollow   { background: rgba(231,76,60,0.15);   color: #e74c3c; }
+        .badge-ugc        { background: rgba(52,152,219,0.15);  color: #3b82f6; }
+        .badge-sponsored  { background: rgba(241,196,15,0.15);  color: #f1c40f; }
+
+        .scope-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+        }
+        .scope-ext { background: rgba(155,89,182,0.15); color: #a855f7; }
+        .scope-int { background: rgba(241,196,15,0.1);  color: #f1c40f; }
+        .scope-img { background: rgba(52,152,219,0.12); color: #3b82f6; }
+
+        /* Action row */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost   { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover   { opacity: 0.85; }
+
+        /* Empty / placeholder */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: #475569;
+        }
+        .empty-state .icon { font-size: 2.4rem; margin-bottom: 10px; }
+        .empty-state p { font-size: 0.85rem; margin: 0; }
+
+        /* Result count */
+        .result-meta {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-left: auto;
+        }
+
+        /* SEO */
+        .seo-content { text-align: left; margin-top: 40px; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 8px; font-size: 0.95rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .brand-title { font-size: 2.2rem; }
+            .faq-grid { grid-template-columns: 1fr; }
+            .search-input { width: 100%; margin-left: 0; }
+            .filter-row { gap: 6px; }
+            td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="seo-validation.html" class="back-btn">← Back to Tools</a>
+        <h1 class="brand-title" style="text-align:center;">Anchor Text & Link Extractor</h1>
+        <p style="opacity:0.6; font-weight:500; margin-bottom:28px;">Paste any HTML — get every link, anchor text, rel type, and internal/external scope in one table.</p>
+
+        <!-- Input -->
+        <div class="config-card" style="margin-bottom:22px;">
+            <label>Paste Raw HTML</label>
+            <textarea id="htmlInput" placeholder="Paste any HTML here — a full page, a blog post body, a widget, whatever you have. All &lt;a&gt; tags will be extracted instantly."></textarea>
+
+            <div class="stats-bar" id="statsBar" style="display:none;">
+                <span class="stat-chip chip-total" id="statTotal"></span>
+                <span class="stat-chip chip-do"    id="statDo"></span>
+                <span class="stat-chip chip-no"    id="statNo"></span>
+                <span class="stat-chip chip-ext"   id="statExt"></span>
+                <span class="stat-chip chip-int"   id="statInt"></span>
+                <span class="stat-chip chip-img"   id="statImg"></span>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsSection" style="display:none;">
+            <div class="config-card">
+                <div class="filter-row" id="filterRow">
+                    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+                    <button class="filter-btn" onclick="setFilter('dofollow',this)">Dofollow</button>
+                    <button class="filter-btn" onclick="setFilter('nofollow',this)">Nofollow</button>
+                    <button class="filter-btn" onclick="setFilter('external',this)">External</button>
+                    <button class="filter-btn" onclick="setFilter('internal',this)">Internal</button>
+                    <button class="filter-btn" onclick="setFilter('image',this)">Image Links</button>
+                    <button class="filter-btn" onclick="setFilter('empty',this)">Empty Anchor</button>
+                    <input class="search-input" type="text" id="searchInput" placeholder="🔍 Search URL or anchor..." oninput="renderTable()">
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th onclick="sortBy('anchor')">#  Anchor Text <span class="sort-icon">↕</span></th>
+                                <th onclick="sortBy('href')">URL <span class="sort-icon">↕</span></th>
+                                <th onclick="sortBy('type')">Rel Type <span class="sort-icon">↕</span></th>
+                                <th onclick="sortBy('scope')">Scope <span class="sort-icon">↕</span></th>
+                                <th onclick="sortBy('title')">Title Attr <span class="sort-icon">↕</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" onclick="exportCSV()">EXPORT CSV</button>
+                    <button class="btn btn-ghost" onclick="copyTable()">COPY AS TSV</button>
+                    <button class="btn btn-ghost" onclick="clearAll()">CLEAR</button>
+                    <span class="result-meta" id="resultMeta"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display:none;">
+            <div class="icon">🔗</div>
+            <p>No <code>&lt;a&gt;</code> tags found in that HTML. Double-check your paste.</p>
+        </div>
+
+        <!-- SEO -->
+        <article class="seo-content">
+            <h2>Why Link Auditing Matters</h2>
+            <p>Every link on your page is a signal — to users and to search engines. Messy anchor text, accidental nofollows, or broken internal linking can quietly tank your SEO. This tool makes auditing fast.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>What is Anchor Text?</h3>
+                    <p>The visible, clickable text of a hyperlink. Google uses it as a strong ranking signal — it tells crawlers what the linked page is about. Keyword-rich, descriptive anchors outperform generic <code>click here</code> links every time.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Dofollow vs Nofollow</h3>
+                    <p><strong>Dofollow</strong> links pass PageRank (link equity) to the destination. <strong>Nofollow</strong> (<code>rel="nofollow"</code>) tells Google not to follow or credit the link. Use nofollow for paid links, UGC, and untrusted sources.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>UGC & Sponsored Tags</h3>
+                    <p><code>rel="ugc"</code> marks user-generated content (comments, forums). <code>rel="sponsored"</code> marks paid/affiliate links. Google introduced these in 2019 as hints — they help you stay compliant with link scheme policies.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Internal vs External Links</h3>
+                    <p>Internal links distribute PageRank across your site and help crawlers discover pages. External links build trust but leak equity. This tool auto-detects scope so you can audit the ratio instantly without reading every URL.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Image Links with No Anchor</h3>
+                    <p>An <code>&lt;img&gt;</code> inside an <code>&lt;a&gt;</code> tag with no text produces an empty anchor. Google uses the image <code>alt</code> attribute as a fallback anchor. Flag these and add descriptive alt text to preserve SEO value.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>When to Use This Tool</h3>
+                    <p>Before publishing any page, during a site audit, when checking a competitor's HTML source, or after a CMS migration. Paste your page source (<code>Ctrl+U</code> in browser) and scan in seconds — no upload, no login.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    let allLinks = [];
+    let activeFilter = 'all';
+    let sortCol = null;
+    let sortDir = 1;
+
+    /* ── Parse ── */
+    function parseHTML(raw) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(raw, 'text/html');
+        const anchors = doc.querySelectorAll('a');
+        const results = [];
+
+        anchors.forEach((a, i) => {
+            const href   = (a.getAttribute('href') || '').trim();
+            const rel    = (a.getAttribute('rel') || '').toLowerCase().trim();
+            const title  = (a.getAttribute('title') || '').trim();
+
+            // Anchor text: strip inner HTML, get text, check for image
+            const innerText = a.innerText ? a.innerText.trim() : a.textContent.trim();
+            const hasImg    = a.querySelector('img') !== null;
+            const imgAlt    = hasImg ? (a.querySelector('img').getAttribute('alt') || '').trim() : '';
+            const anchor    = innerText || (hasImg ? (imgAlt ? `[img: ${imgAlt}]` : '[image link]') : '');
+
+            // Rel type
+            let type = 'dofollow';
+            if (rel.includes('sponsored')) type = 'sponsored';
+            else if (rel.includes('ugc'))  type = 'ugc';
+            else if (rel.includes('nofollow')) type = 'nofollow';
+
+            // Scope
+            let scope = 'internal';
+            if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+                scope = 'external';
+            } else if (href.startsWith('mailto:') || href.startsWith('tel:')) {
+                scope = 'internal';
+            }
+
+            results.push({ id: i+1, anchor, href, type, scope, title, hasImg, rel });
+        });
+
+        return results;
+    }
+
+    /* ── Stats ── */
+    function updateStats(links) {
+        const total = links.length;
+        const dofc  = links.filter(l => l.type === 'dofollow').length;
+        const nofc  = links.filter(l => l.type !== 'dofollow').length;
+        const ext   = links.filter(l => l.scope === 'external').length;
+        const int   = links.filter(l => l.scope === 'internal').length;
+        const img   = links.filter(l => l.hasImg).length;
+
+        document.getElementById('statTotal').innerText = `${total} total links`;
+        document.getElementById('statDo').innerText    = `${dofc} dofollow`;
+        document.getElementById('statNo').innerText    = `${nofc} nofollow/ugc/sponsored`;
+        document.getElementById('statExt').innerText   = `${ext} external`;
+        document.getElementById('statInt').innerText   = `${int} internal`;
+        document.getElementById('statImg').innerText   = `${img} image links`;
+
+        document.getElementById('statsBar').style.display = total > 0 ? 'flex' : 'none';
+    }
+
+    /* ── Filter & Render ── */
+    function setFilter(f, btn) {
+        activeFilter = f;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderTable();
+    }
+
+    function getFiltered() {
+        const q = (document.getElementById('searchInput').value || '').toLowerCase();
+        let list = allLinks;
+
+        if (activeFilter === 'dofollow')  list = list.filter(l => l.type === 'dofollow');
+        if (activeFilter === 'nofollow')  list = list.filter(l => l.type !== 'dofollow');
+        if (activeFilter === 'external')  list = list.filter(l => l.scope === 'external');
+        if (activeFilter === 'internal')  list = list.filter(l => l.scope === 'internal');
+        if (activeFilter === 'image')     list = list.filter(l => l.hasImg);
+        if (activeFilter === 'empty')     list = list.filter(l => !l.anchor);
+
+        if (q) list = list.filter(l => l.href.toLowerCase().includes(q) || l.anchor.toLowerCase().includes(q) || l.title.toLowerCase().includes(q));
+
+        if (sortCol) {
+            list = [...list].sort((a, b) => {
+                const av = (a[sortCol] || '').toString().toLowerCase();
+                const bv = (b[sortCol] || '').toString().toLowerCase();
+                return av < bv ? -sortDir : av > bv ? sortDir : 0;
+            });
+        }
+
+        return list;
+    }
+
+    function renderTable() {
+        const list = getFiltered();
+        const tbody = document.getElementById('tableBody');
+
+        if (!list.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:#475569;">No links match this filter.</td></tr>`;
+            document.getElementById('resultMeta').innerText = '0 results';
+            return;
+        }
+
+        document.getElementById('resultMeta').innerText = `${list.length} of ${allLinks.length} links`;
+
+        const typeBadge = t => {
+            const map = {
+                dofollow:  ['badge-dofollow',  'DOFOLLOW'],
+                nofollow:  ['badge-nofollow',  'NOFOLLOW'],
+                ugc:       ['badge-ugc',       'UGC'],
+                sponsored: ['badge-sponsored', 'SPONSORED'],
+            };
+            const [cls, lbl] = map[t] || ['badge-dofollow','DOFOLLOW'];
+            return `<span class="type-badge ${cls}">${lbl}</span>`;
+        };
+
+        const scopeBadge = (s, hasImg) => {
+            if (hasImg) return `<span class="scope-badge scope-img">IMAGE</span>`;
+            if (s === 'external') return `<span class="scope-badge scope-ext">EXTERNAL</span>`;
+            return `<span class="scope-badge scope-int">INTERNAL</span>`;
+        };
+
+        tbody.innerHTML = list.map((l, i) => `
+            <tr>
+                <td class="anchor-cell">${l.anchor ? escHtml(l.anchor) : '<span class="anchor-empty">— no anchor text —</span>'}</td>
+                <td class="url-cell">${l.href ? `<a href="${escHtml(l.href)}" target="_blank" rel="noopener">${escHtml(truncate(l.href, 55))}</a>` : '<span class="anchor-empty">—</span>'}</td>
+                <td>${typeBadge(l.type)}</td>
+                <td>${scopeBadge(l.scope, l.hasImg)}</td>
+                <td style="color:#64748b; font-size:0.72rem;">${l.title ? escHtml(truncate(l.title,40)) : '<span class="anchor-empty">—</span>'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function sortBy(col) {
+        if (sortCol === col) sortDir *= -1;
+        else { sortCol = col; sortDir = 1; }
+        document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+        event.currentTarget.classList.add('sorted');
+        renderTable();
+    }
+
+    /* ── Export ── */
+    function exportCSV() {
+        const list = getFiltered();
+        const rows = [['Anchor Text','URL','Rel Type','Scope','Title Attr']];
+        list.forEach(l => rows.push([
+            `"${(l.anchor||'').replace(/"/g,'""')}"`,
+            `"${(l.href||'').replace(/"/g,'""')}"`,
+            l.type, l.scope,
+            `"${(l.title||'').replace(/"/g,'""')}"`
+        ]));
+        const csv  = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = 'links-export.csv';
+        a.click();
+    }
+
+    function copyTable() {
+        const list = getFiltered();
+        const tsv  = list.map(l => [l.anchor, l.href, l.type, l.scope, l.title].join('\t')).join('\n');
+        navigator.clipboard.writeText(tsv).then(() => {
+            const btn = event.currentTarget;
+            btn.innerText = '✓ COPIED';
+            btn.classList.add('success');
+            setTimeout(() => { btn.innerText = 'COPY AS TSV'; btn.classList.remove('success'); }, 1600);
+        });
+    }
+
+    function clearAll() {
+        document.getElementById('htmlInput').value = '';
+        allLinks = [];
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('statsBar').style.display = 'none';
+    }
+
+    /* ── Helpers ── */
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+
+    /* ── Main input listener ── */
+    document.getElementById('htmlInput').addEventListener('input', function() {
+        const raw = this.value.trim();
+        if (!raw) {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('statsBar').style.display = 'none';
+            return;
+        }
+
+        allLinks = parseHTML(raw);
+        updateStats(allLinks);
+
+        if (allLinks.length === 0) {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        } else {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            activeFilter = 'all';
+            document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+            sortCol = null; sortDir = 1;
+            renderTable();
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Code Converter | HEX, RGB, HSL | Rebrixe</title>
+    <meta name="description" content="Convert color codes between HEX, RGB, and HSL formats instantly with our Color Code Converter. Perfect for designers and developers looking to quickly translate colors for web and graphic design projects. Free & instant.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+</head>
+<body data-theme="technical">
+
+    <nav class="nav-container"></nav>
+
+    <main class="container">
+        <a href="frontend-math.html" class="back-btn">← Back to Tools</a>
+        <section class="tool-card">
+            <h1>Color <span style="color:var(--primary)">Studio</span></h1>
+            <p>Convert and pick colors across all modern web formats with real-time CSS generation.</p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-top: 30px;">
+
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div id="colorPreview" style="height: 200px; border-radius: 20px; border: 1px solid var(--border); background: #00f2ff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: 'Outfit'; transition: background 0.2s;">
+                        <span id="contrastText" style="font-size:0.85rem; letter-spacing:2px; opacity:0.7;">SAMPLE</span>
+                    </div>
+                    <input type="color" id="mainPicker" value="#00f2ff" oninput="updateFromHex(this.value, 'picker')" style="width: 100%; height: 50px; cursor: pointer; border: none; background: transparent;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
+
+                    <!-- HEX -->
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:700; color:var(--primary); text-transform:uppercase; display:flex; justify-content:space-between;">
+                            HEX Code
+                            <span id="hex-hint" style="color:#ff4444; font-weight:600; font-size:0.7rem;"></span>
+                        </label>
+                        <input type="text" id="hexInput" class="output-box"
+                               value="#00F2FF"
+                               oninput="updateFromHex(this.value, 'hex')"
+                               style="width:100%; font-family:'Fira Code',monospace;"
+                               placeholder="#000000"
+                               maxlength="7">
+                    </div>
+
+                    <!-- RGB — FIX 5: now editable -->
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:700; color:var(--primary); text-transform:uppercase; display:flex; justify-content:space-between;">
+                            RGB Format
+                            <span id="rgb-hint" style="color:#ff4444; font-weight:600; font-size:0.7rem;"></span>
+                        </label>
+                        <input type="text" id="rgbInput" class="output-box"
+                               oninput="updateFromRGB(this.value)"
+                               style="width:100%;"
+                               placeholder="rgb(0, 242, 255)">
+                    </div>
+
+                    <!-- HSL — FIX 5: now editable -->
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:700; color:var(--primary); text-transform:uppercase; display:flex; justify-content:space-between;">
+                            HSL Format
+                            <span id="hsl-hint" style="color:#ff4444; font-weight:600; font-size:0.7rem;"></span>
+                        </label>
+                        <input type="text" id="hslInput" class="output-box"
+                               oninput="updateFromHSL(this.value)"
+                               style="width:100%;"
+                               placeholder="hsl(185, 100%, 50%)">
+                    </div>
+
+                    <!-- FIX 2: explicit btn param -->
+                    <button class="gen-btn" onclick="copyCSS(this)">Copy All as CSS</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="seo-content">
+            <h2>Understanding Web Color Spaces</h2>
+            <p>Web design relies on different mathematical models to represent color. While <strong>HEX</strong> is the industry standard for simplicity, formats like <strong>HSL</strong> and <strong>RGB</strong> offer more flexibility for animations, transparency, and design systems.</p>
+
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <strong>HEX (Hexadecimal)</strong>
+                    A six-digit combination of numbers and letters representing Red, Green, and Blue. Best for static CSS.
+                </div>
+                <div class="tip-card">
+                    <strong>RGB (Red, Green, Blue)</strong>
+                    Defines intensity on a scale of 0-255. Use <code>rgba()</code> to add an alpha channel for transparency.
+                </div>
+                <div class="tip-card">
+                    <strong>HSL (Hue, Saturation, Lightness)</strong>
+                    The most human-readable format. Easy to create "dark mode" variants by simply adjusting the Lightness %.
+                </div>
+            </div>
+
+            <h3>Color FAQ</h3>
+            <div class="faq-item">
+                <strong>Why does my color look different on mobile?</strong>
+                Most mobile screens use different color gamuts (like P3). Standard HEX/RGB is limited to the sRGB space, which is why some "neon" colors look duller on older monitors.
+            </div>
+            <div class="faq-item">
+                <strong>What is Accessibility Contrast?</strong>
+                For text to be readable, it needs a specific contrast ratio against its background. Our "Studio" automatically checks if white or black text works better on your chosen color.
+            </div>
+        </section>
+    </main>
+
+    <footer></footer>
+
+    <script src="/nav.js"></script>
+    <script>
+
+        // ── SHARED: apply a validated r,g,b triple to all outputs ──
+        // source = which input triggered the update (skip re-setting it to avoid cursor jump)
+        function applyColor(r, g, b, source) {
+            clearHints();
+
+            // Preview + contrast
+            const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+            document.getElementById('colorPreview').style.backgroundColor = hex;
+            const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+            document.getElementById('contrastText').style.color = yiq >= 128 ? '#000' : '#fff';
+
+            // HEX
+            if (source !== 'hex' && source !== 'picker') {
+                document.getElementById('hexInput').value = hex;
+            } else {
+                document.getElementById('hexInput').value = hex;
+            }
+
+            // Picker sync
+            document.getElementById('mainPicker').value = hex;
+
+            // RGB
+            if (source !== 'rgb') {
+                document.getElementById('rgbInput').value = `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // HSL
+            if (source !== 'hsl') {
+                let rn = r / 255, gn = g / 255, bn = b / 255;
+                const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+                let h = 0, s = 0, l = (max + min) / 2;
+                if (max !== min) {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    switch (max) {
+                        case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+                        case gn: h = (bn - rn) / d + 2; break;
+                        case bn: h = (rn - gn) / d + 4; break;
+                    }
+                    h /= 6;
+                }
+                document.getElementById('hslInput').value =
+                    `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+            }
+        }
+
+        function clearHints() {
+            ['hex-hint','rgb-hint','hsl-hint'].forEach(id => {
+                document.getElementById(id).innerText = '';
+            });
+            ['hexInput','rgbInput','hslInput'].forEach(id => {
+                document.getElementById(id).style.borderColor = 'var(--border)';
+            });
+        }
+
+        function showError(hintId, inputId, msg) {
+            document.getElementById(hintId).innerText = msg;
+            document.getElementById(inputId).style.borderColor = '#ff4444';
+        }
+
+        // ── FIX 1: HEX parser handles both 3-digit and 6-digit, with BUG 4 feedback ──
+        function updateFromHex(hex, source) {
+            hex = hex.trim();
+
+            // Expand 3-digit shorthand: #ABC → #AABBCC
+            if (/^#([0-9A-F]{3})$/i.test(hex)) {
+                hex = '#' + hex[1]+hex[1] + hex[2]+hex[2] + hex[3]+hex[3];
+            }
+
+            // FIX 4: Show inline error while mid-edit instead of silently ignoring
+            if (!/^#([0-9A-F]{6})$/i.test(hex)) {
+                if (hex.length > 1) showError('hex-hint', 'hexInput', 'Invalid HEX');
+                return;
+            }
+
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            applyColor(r, g, b, source);
+        }
+
+        // ── FIX 5: Parse rgb(r, g, b) or plain "r, g, b" input ──
+        function updateFromRGB(val) {
+            val = val.trim();
+            // Accept: rgb(0, 242, 255) or 0, 242, 255 or 0 242 255
+            const match = val.match(/^(?:rgb\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*\)?$/i);
+            if (!match) {
+                if (val.length > 3) showError('rgb-hint', 'rgbInput', 'Use: rgb(0, 0, 0)');
+                return;
+            }
+            const [r, g, b] = [+match[1], +match[2], +match[3]];
+            if (r > 255 || g > 255 || b > 255) {
+                showError('rgb-hint', 'rgbInput', 'Values must be 0–255');
+                return;
+            }
+            applyColor(r, g, b, 'rgb');
+        }
+
+        // ── FIX 5: Parse hsl(h, s%, l%) input ──
+        function updateFromHSL(val) {
+            val = val.trim();
+            // Accept: hsl(185, 100%, 50%) or 185, 100%, 50% or 185 100 50
+            const match = val.match(/^(?:hsl\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})%?\s*[,\s]\s*(\d{1,3})%?\s*\)?$/i);
+            if (!match) {
+                if (val.length > 3) showError('hsl-hint', 'hslInput', 'Use: hsl(0, 100%, 50%)');
+                return;
+            }
+            let [h, s, l] = [+match[1], +match[2], +match[3]];
+            if (h > 360 || s > 100 || l > 100) {
+                showError('hsl-hint', 'hslInput', 'H:0-360, S/L:0-100');
+                return;
+            }
+            // HSL → RGB conversion
+            s /= 100; l /= 100;
+            const k = n => (n + h / 30) % 12;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => Math.round((l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))) * 255);
+            applyColor(f(0), f(8), f(4), 'hsl');
+        }
+
+        // ── FIX 2, 3, 6: explicit btn param, getElementById, empty guard ──
+        function copyCSS(btn) {
+            const hex = document.getElementById('hexInput').value;
+            const rgb = document.getElementById('rgbInput').value;
+            const hsl = document.getElementById('hslInput').value;
+
+            // FIX 6: don't copy if no valid color has been set yet
+            if (!hex || !rgb || !hsl) {
+                btn.innerText = 'Nothing to copy';
+                setTimeout(() => btn.innerText = 'Copy All as CSS', 2000);
+                return;
+            }
+
+            const css = `/* Rebrixe Color Export */\n--color-hex: ${hex};\n--color-rgb: ${rgb};\n--color-hsl: ${hsl};`;
+            navigator.clipboard.writeText(css).then(() => {
+                btn.innerText = '✓ CSS COPIED';
+                setTimeout(() => btn.innerText = 'Copy All as CSS', 2000);
+            });
+        }
+
+        // Initialize
+        updateFromHex('#00f2ff', 'picker');
+    </script>
+</body>
+</html>

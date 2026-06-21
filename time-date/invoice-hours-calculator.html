@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Hours Calculator | Rebrixe</title>
+    <meta name="description" content="Add multiple time entries with different rates, get your total invoice amount instantly. Export a clean invoice summary as text or copy to clipboard.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ── */
+        .tool-wrap { max-width: 900px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        /* ── Config bar ── */
+        .config-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .config-field { display: flex; flex-direction: column; gap: 6px; }
+        .field-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+        }
+        .config-bar input,
+        .config-bar select {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #fff;
+            padding: 12px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color .2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .config-bar input:focus,
+        .config-bar select:focus { border-color: var(--primary); }
+        .config-bar select option { background: #111; }
+
+        /* ── Entries header ── */
+        .entries-header {
+            display: grid;
+            grid-template-columns: 2fr 80px 80px 110px 36px;
+            gap: 8px;
+            padding: 0 4px 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+        .entries-header span {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+        }
+        .entries-header .col-amount { text-align: right; padding-right: 2px; }
+
+        /* ── Entry rows ── */
+        .entry-row {
+            display: grid;
+            grid-template-columns: 2fr 80px 80px 110px 36px;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .entry-row input,
+        .entry-row select {
+            background: rgba(255,255,255,0.03);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 11px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color .2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .entry-row input:focus { border-color: var(--primary); }
+        .entry-row input::placeholder { color: #334155; }
+        /* Rate column: stacked input + amount */
+        .rate-amount-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .rate-amount-col input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .row-amount {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 0.78rem;
+            color: #475569;
+            text-align: right;
+            padding-right: 2px;
+            min-height: 14px;
+            transition: color .2s;
+        }
+        .row-amount.active { color: #94a3b8; }
+        /* Custom rate highlight */
+        .rate-custom { border-color: rgba(130,100,255,0.4) !important; }
+
+        /* Delete button */
+        .del-btn {
+            background: none;
+            border: 1.5px solid var(--border);
+            color: #475569;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color .15s, color .15s, background .15s;
+            flex-shrink: 0;
+            padding: 0;
+            line-height: 1;
+        }
+        .del-btn:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 32px 0;
+            color: #334155;
+            font-size: 0.85rem;
+            font-style: italic;
+            border: 1.5px dashed var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        /* Add row button */
+        .add-row-btn {
+            width: 100%;
+            background: rgba(255,255,255,0.02);
+            border: 1.5px dashed var(--border);
+            color: #475569;
+            padding: 12px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s;
+            margin: 4px 0 24px;
+        }
+        .add-row-btn:hover { border-color: var(--primary); color: var(--primary); background: rgba(255,255,255,0.04); }
+
+        /* ── Adjustments ── */
+        .adj-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .adj-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .adj-item label { font-size: 0.75rem; color: #64748b; white-space: nowrap; flex: 1; }
+        .adj-item input {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid var(--border);
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            width: 60px;
+            outline: none;
+            text-align: right;
+            padding: 2px 4px;
+            transition: border-color .2s;
+        }
+        .adj-item input:focus { border-color: var(--primary); }
+        .adj-sym { color: #475569; font-size: 0.9rem; }
+
+        /* ── Summary strip ── */
+        .summary-strip {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        .sum-label { font-size: 0.8rem; color: #64748b; }
+        .sum-val { font-family: 'Outfit', sans-serif; font-weight: 800; color: #94a3b8; font-size: 0.9rem; }
+        .sum-val.bright { color: #fff; }
+        .sum-val.discount { color: #f87171; }
+        .sum-val.tax { color: #86efac; }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-top: 12px;
+        }
+        .total-label {
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+        }
+        .total-amount {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -1px;
+        }
+
+        /* ── Action buttons ── */
+        .action-row { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 13px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .15s, letter-spacing .15s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-1px); }
+        .btn-action:active { transform: translateY(0); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.4px; }
+        .btn-action.danger { border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .btn-action.danger:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+
+        /* ── Export modal ── */
+        .export-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(6px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .export-overlay.open { display: flex; }
+        .export-box {
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            max-width: 580px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .export-box h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin: 0 0 16px;
+            color: #fff;
+        }
+        .export-text {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+        .export-actions { display: flex; gap: 10px; }
+
+        /* ── Confirm overlay ── */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .confirm-overlay.open { display: flex; }
+        .confirm-box {
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            max-width: 360px;
+            width: 100%;
+            text-align: center;
+        }
+        .confirm-box p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin: 0 0 20px;
+            line-height: 1.5;
+        }
+        .confirm-box h4 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 8px;
+        }
+        .confirm-actions { display: flex; gap: 10px; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(30,30,30,0.97);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.82rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .25s, transform .25s;
+            z-index: 2000;
+            white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 20px 16px; }
+            .config-bar { grid-template-columns: 1fr 1fr; }
+            .config-bar .config-field:first-child { grid-column: 1 / -1; }
+            .entries-header { display: none; }
+            .entry-row {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto auto;
+                gap: 6px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--border);
+                margin-bottom: 12px;
+            }
+            .entry-row .desc-col { grid-column: 1 / -1; }
+            .entry-row .del-btn { grid-row: 1; grid-column: 2; justify-self: end; }
+            .rate-amount-col { flex-direction: row; align-items: center; }
+            .row-amount { text-align: left; }
+            .adj-row { grid-template-columns: 1fr; }
+            .action-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-billing-work-hours.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Invoice Hours Calculator</h1>
+            <p style="color:#64748b; font-size:0.95rem;">Add time entries with individual rates — get your total, apply tax &amp; discount, export a clean invoice summary.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- Project Settings -->
+                <div class="section-label">Project Settings</div>
+                <div class="config-bar">
+                    <div class="config-field">
+                        <span class="field-label">Client / Project Name</span>
+                        <input type="text" id="clientName" placeholder="e.g. Acme Corp — Website Redesign">
+                    </div>
+                    <div class="config-field">
+                        <span class="field-label">Default Hourly Rate</span>
+                        <input type="number" id="defaultRate" value="50" min="0" max="99999" step="0.01">
+                    </div>
+                    <div class="config-field">
+                        <span class="field-label">Currency</span>
+                        <select id="currency">
+                            <option value="$">$ USD</option>
+                            <option value="€">€ EUR</option>
+                            <option value="£">£ GBP</option>
+                            <option value="₹">₹ INR</option>
+                            <option value="¥">¥ JPY</option>
+                            <option value="A$">A$ AUD</option>
+                            <option value="C$">C$ CAD</option>
+                            <option value="CHF ">CHF</option>
+                            <option value="AED ">AED</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Time Entries -->
+                <div class="section-label">Time Entries</div>
+                <div class="entries-header">
+                    <span>Description</span>
+                    <span>Hours</span>
+                    <span>Mins</span>
+                    <span class="col-amount">Rate / Amount</span>
+                    <span></span>
+                </div>
+
+                <div id="entriesContainer"></div>
+
+                <button class="add-row-btn" id="addRowBtn">+ Add Entry</button>
+
+                <!-- Adjustments -->
+                <div class="section-label">Adjustments</div>
+                <div class="adj-row">
+                    <div class="adj-item">
+                        <label for="discountVal">Discount</label>
+                        <input type="number" id="discountVal" value="0" min="0" max="100" step="0.1">
+                        <span class="adj-sym">%</span>
+                    </div>
+                    <div class="adj-item">
+                        <label for="taxVal">Tax / GST</label>
+                        <input type="number" id="taxVal" value="0" min="0" max="100" step="0.1">
+                        <span class="adj-sym">%</span>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="summary-strip">
+                    <div class="summary-row">
+                        <span class="sum-label">Total Hours Logged</span>
+                        <span class="sum-val bright" id="sumHours">0h 0m</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="sum-label">Subtotal</span>
+                        <span class="sum-val bright" id="sumSubtotal">—</span>
+                    </div>
+                    <div class="summary-row" id="discountRow" style="display:none">
+                        <span class="sum-label" id="discountLabel">Discount (0%)</span>
+                        <span class="sum-val discount" id="sumDiscount">—</span>
+                    </div>
+                    <div class="summary-row" id="taxRow" style="display:none">
+                        <span class="sum-label" id="taxLabel">Tax (0%)</span>
+                        <span class="sum-val tax" id="sumTax">—</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">Invoice Total</span>
+                        <span class="total-amount" id="grandTotal">—</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-action primary" id="exportBtn">Export Invoice</button>
+                    <button class="btn-action" id="copyTotalBtn">Copy Total</button>
+                    <button class="btn-action danger" id="clearAllBtn">✕ Clear All</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Export modal -->
+    <div class="export-overlay" id="exportOverlay">
+        <div class="export-box">
+            <h3>📄 Invoice Summary</h3>
+            <pre class="export-text" id="exportText"></pre>
+            <div class="export-actions">
+                <button class="btn-action primary" id="copyExportBtn" style="flex:2">Copy to Clipboard</button>
+                <button class="btn-action" id="closeExportBtn" style="flex:1">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm clear modal -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <h4>Clear all entries?</h4>
+            <p>This will remove all time entries and reset adjustments. This cannot be undone.</p>
+            <div class="confirm-actions">
+                <button class="btn-action danger" id="confirmYesBtn" style="flex:1">Yes, Clear</button>
+                <button class="btn-action" id="confirmNoBtn" style="flex:1">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        // ── State ──────────────────────────────────────────────────
+        // Use a Map to preserve insertion order reliably across all browsers
+        const rowMap = new Map();
+        let nextId = 0;
+
+        // ── DOM refs ──────────────────────────────────────────────
+        const $ = id => document.getElementById(id);
+        const container   = $('entriesContainer');
+        const defaultRate = $('defaultRate');
+        const currency    = $('currency');
+        const discountVal = $('discountVal');
+        const taxVal      = $('taxVal');
+
+        // ── Helpers ────────────────────────────────────────────────
+        function clamp(val, min, max) {
+            return Math.max(min, Math.min(max, val));
+        }
+
+        // Safe float parse: returns 0 if NaN/empty
+        function sf(val) {
+            const n = parseFloat(val);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // Format currency — trims trailing space from option values like "CHF "
+        function fmt(amount) {
+            const sym = currency.value;
+            return sym.trimEnd() + amount.toFixed(2);
+        }
+
+        function showToast(msg) {
+            const t = $('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        async function copyText(text, successMsg) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for HTTP or restricted contexts
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                showToast(successMsg || '✓ Copied!');
+            } catch (err) {
+                showToast('Could not copy — please copy manually.');
+            }
+        }
+
+        // ── Row creation ───────────────────────────────────────────
+        function addRow(desc, hrs, mins, rate) {
+            const id = nextId++;
+            const descVal = (desc != null) ? String(desc) : '';
+            const hrsVal  = (hrs  != null) ? String(Math.max(0, Math.floor(Number(hrs)  || 0)) ) : '';
+            const minsVal = (mins != null) ? String(clamp(Math.floor(Number(mins) || 0), 0, 59)) : '';
+            const rateVal = (rate != null && rate !== '') ? String(Math.max(0, Number(rate) || 0)) : '';
+
+            const row = document.createElement('div');
+            row.className = 'entry-row';
+            row.dataset.id = id;
+
+            row.innerHTML = `
+                <div class="desc-col">
+                    <input
+                        type="text"
+                        class="desc-input"
+                        placeholder="What did you work on?"
+                        value="${escHtml(descVal)}"
+                        maxlength="120"
+                        data-field="desc"
+                    >
+                </div>
+                <input
+                    type="number"
+                    min="0"
+                    max="9999"
+                    step="1"
+                    placeholder="0"
+                    value="${hrsVal}"
+                    data-field="hours"
+                >
+                <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    step="1"
+                    placeholder="0"
+                    value="${minsVal}"
+                    data-field="mins"
+                >
+                <div class="rate-amount-col">
+                    <input
+                        type="number"
+                        min="0"
+                        max="99999"
+                        step="0.01"
+                        placeholder="Default"
+                        value="${rateVal}"
+                        data-field="rate"
+                        title="Leave blank to use default rate"
+                    >
+                    <div class="row-amount" data-amount></div>
+                </div>
+                <button class="del-btn" data-del="${id}" title="Remove entry" aria-label="Remove entry">×</button>
+            `;
+
+            container.appendChild(row);
+
+            // Store state
+            rowMap.set(id, {
+                desc:  descVal,
+                hours: hrsVal,
+                mins:  minsVal,
+                rate:  rateVal,
+            });
+
+            updateEmptyState();
+            recalc();
+        }
+
+        function escHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function delRow(id) {
+            const el = container.querySelector(`[data-id="${id}"]`);
+            if (el) el.remove();
+            rowMap.delete(id);
+            updateEmptyState();
+            recalc();
+        }
+
+        function updateEmptyState() {
+            let empty = container.querySelector('.empty-state');
+            if (rowMap.size === 0) {
+                if (!empty) {
+                    empty = document.createElement('div');
+                    empty.className = 'empty-state';
+                    empty.textContent = 'No entries yet — add one below.';
+                    container.appendChild(empty);
+                }
+            } else {
+                if (empty) empty.remove();
+            }
+        }
+
+        // ── Input delegation ───────────────────────────────────────
+        container.addEventListener('input', function (e) {
+            const input = e.target;
+            const row   = input.closest('.entry-row');
+            if (!row) return;
+            const id    = parseInt(row.dataset.id, 10);
+            const field = input.dataset.field;
+            if (!field || !rowMap.has(id)) return;
+
+            let val = input.value;
+
+            // Sanitise numeric fields
+            if (field === 'hours') {
+                const n = Math.max(0, Math.floor(sf(val)));
+                rowMap.get(id).hours = n > 0 ? String(n) : '';
+            } else if (field === 'mins') {
+                const n = clamp(Math.floor(sf(val)), 0, 59);
+                // Don't force-correct while typing; just store raw and clamp on recalc
+                rowMap.get(id).mins = val;
+            } else if (field === 'rate') {
+                rowMap.get(id).rate = val;
+            } else if (field === 'desc') {
+                rowMap.get(id).desc = val;
+            }
+
+            recalc();
+        });
+
+        // Clamp mins on blur
+        container.addEventListener('blur', function (e) {
+            const input = e.target;
+            if (input.dataset.field !== 'mins') return;
+            const row = input.closest('.entry-row');
+            if (!row) return;
+            const id = parseInt(row.dataset.id, 10);
+            if (!rowMap.has(id)) return;
+            const clamped = clamp(Math.floor(sf(input.value)), 0, 59);
+            input.value = clamped || '';
+            rowMap.get(id).mins = input.value;
+            recalc();
+        }, true);
+
+        // Delete button delegation
+        container.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-del]');
+            if (!btn) return;
+            delRow(parseInt(btn.dataset.del, 10));
+        });
+
+        // ── Core calculation ───────────────────────────────────────
+        function recalc() {
+            const defRate = Math.max(0, sf(defaultRate.value));
+            const discPct = clamp(sf(discountVal.value), 0, 100);
+            const taxPct  = clamp(sf(taxVal.value), 0, 100);
+
+            let totalMins = 0;
+            let subtotal  = 0;
+
+            rowMap.forEach(function (r, id) {
+                const h    = Math.max(0, Math.floor(sf(r.hours)));
+                const m    = clamp(Math.floor(sf(r.mins)), 0, 59);
+                const rate = (r.rate !== '') ? Math.max(0, sf(r.rate)) : defRate;
+                const decHrs = h + m / 60;
+                const rowAmt = decHrs * rate;
+
+                totalMins += h * 60 + m;
+                subtotal  += rowAmt;
+
+                // Update per-row amount display
+                const rowEl   = container.querySelector(`[data-id="${id}"]`);
+                if (!rowEl) return;
+                const amtEl   = rowEl.querySelector('[data-amount]');
+                const rateEl  = rowEl.querySelector('[data-field="rate"]');
+
+                if (amtEl) {
+                    if (rowAmt > 0) {
+                        amtEl.textContent = fmt(rowAmt);
+                        amtEl.classList.add('active');
+                    } else {
+                        amtEl.textContent = '';
+                        amtEl.classList.remove('active');
+                    }
+                }
+                // Highlight custom rate input
+                if (rateEl) {
+                    rateEl.classList.toggle('rate-custom', r.rate !== '');
+                }
+            });
+
+            // Adjustments
+            const discAmt   = subtotal * discPct / 100;
+            const afterDisc = subtotal - discAmt;
+            const taxAmt    = afterDisc * taxPct / 100;
+            const grand     = afterDisc + taxAmt;
+
+            // Time display
+            const th = Math.floor(totalMins / 60);
+            const tm = totalMins % 60;
+            $('sumHours').textContent = `${th}h ${tm}m`;
+
+            // Subtotal
+            $('sumSubtotal').textContent = subtotal > 0 ? fmt(subtotal) : '—';
+
+            // Discount row
+            const discRow = $('discountRow');
+            if (discPct > 0 && subtotal > 0) {
+                discRow.style.display = 'flex';
+                $('discountLabel').textContent = `Discount (${discPct}%)`;
+                $('sumDiscount').textContent = `−${fmt(discAmt)}`;
+            } else {
+                discRow.style.display = 'none';
+            }
+
+            // Tax row
+            const taxRow = $('taxRow');
+            if (taxPct > 0 && subtotal > 0) {
+                taxRow.style.display = 'flex';
+                $('taxLabel').textContent = `Tax / GST (${taxPct}%)`;
+                $('sumTax').textContent = `+${fmt(taxAmt)}`;
+            } else {
+                taxRow.style.display = 'none';
+            }
+
+            // Grand total
+            $('grandTotal').textContent = grand > 0 ? fmt(grand) : '—';
+        }
+
+        // ── Export ─────────────────────────────────────────────────
+        function buildExportText() {
+            const client  = $('clientName').value.trim() || 'Unnamed Project';
+            const sym     = currency.value.trim();
+            const defRate = Math.max(0, sf(defaultRate.value));
+            const discPct = clamp(sf(discountVal.value), 0, 100);
+            const taxPct  = clamp(sf(taxVal.value), 0, 100);
+            const dateStr = new Date().toLocaleDateString('en-GB', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
+
+            const D = 48;
+            const div = '─'.repeat(D);
+            const lines = [];
+
+            const rpad = (s, n) => String(s).padEnd(n);
+            const lpad = (s, n) => String(s).padStart(n);
+
+            lines.push('INVOICE SUMMARY');
+            lines.push(div);
+            lines.push(`Project : ${client}`);
+            lines.push(`Date    : ${dateStr}`);
+            lines.push(div);
+            lines.push(`${rpad('DESCRIPTION', 22)} ${lpad('TIME', 7)}  ${lpad('RATE', 10)}  ${lpad('AMOUNT', 10)}`);
+            lines.push(div);
+
+            let subtotal  = 0;
+            let totalMins = 0;
+
+            rowMap.forEach(function (r) {
+                const h    = Math.max(0, Math.floor(sf(r.hours)));
+                const m    = clamp(Math.floor(sf(r.mins)), 0, 59);
+                const rate = (r.rate !== '') ? Math.max(0, sf(r.rate)) : defRate;
+                const decHrs = h + m / 60;
+                const amt  = decHrs * rate;
+
+                subtotal  += amt;
+                totalMins += h * 60 + m;
+
+                const descStr = (r.desc || 'Untitled task').substring(0, 22);
+                const timeStr = `${h}h ${m}m`;
+                const rateStr = `${sym}${rate.toFixed(2)}/hr`;
+                const amtStr  = `${sym}${amt.toFixed(2)}`;
+
+                lines.push(`${rpad(descStr, 22)} ${lpad(timeStr, 7)}  ${lpad(rateStr, 10)}  ${lpad(amtStr, 10)}`);
+            });
+
+            const th = Math.floor(totalMins / 60);
+            const tm = totalMins % 60;
+            const discAmt   = subtotal * discPct / 100;
+            const afterDisc = subtotal - discAmt;
+            const taxAmt    = afterDisc * taxPct / 100;
+            const grand     = afterDisc + taxAmt;
+
+            lines.push(div);
+            lines.push(`${rpad('Total Time', 32)} ${lpad(`${th}h ${tm}m`, D - 33)}`);
+            lines.push(`${rpad('Subtotal', 32)} ${lpad(`${sym}${subtotal.toFixed(2)}`, D - 33)}`);
+            if (discPct > 0) {
+                lines.push(`${rpad(`Discount (${discPct}%)`, 32)} ${lpad(`-${sym}${discAmt.toFixed(2)}`, D - 33)}`);
+            }
+            if (taxPct > 0) {
+                lines.push(`${rpad(`Tax / GST (${taxPct}%)`, 32)} ${lpad(`+${sym}${taxAmt.toFixed(2)}`, D - 33)}`);
+            }
+            lines.push(div);
+            lines.push(`${rpad('INVOICE TOTAL', 32)} ${lpad(`${sym}${grand.toFixed(2)}`, D - 33)}`);
+            lines.push(div);
+            lines.push('Generated by Rebrixe Invoice Hours Calculator');
+
+            return lines.join('\n');
+        }
+
+        // ── Modal helpers ──────────────────────────────────────────
+        function openModal(id) { $(id).classList.add('open'); }
+        function closeModal(id) { $(id).classList.remove('open'); }
+
+        // Close export overlay on backdrop click
+        $('exportOverlay').addEventListener('click', function (e) {
+            if (e.target === this) closeModal('exportOverlay');
+        });
+
+        $('closeExportBtn').addEventListener('click', function () {
+            closeModal('exportOverlay');
+        });
+
+        $('exportBtn').addEventListener('click', function () {
+            if (rowMap.size === 0) { showToast('Add at least one entry first.'); return; }
+            $('exportText').textContent = buildExportText();
+            openModal('exportOverlay');
+        });
+
+        $('copyExportBtn').addEventListener('click', function () {
+            copyText(buildExportText(), '✓ Invoice copied!');
+        });
+
+        $('copyTotalBtn').addEventListener('click', function () {
+            const val = $('grandTotal').textContent;
+            if (val === '—') { showToast('Nothing to copy yet.'); return; }
+            copyText(val, '✓ Total copied!');
+        });
+
+        // Clear all — uses custom confirm modal (no browser confirm())
+        $('clearAllBtn').addEventListener('click', function () {
+            if (rowMap.size === 0) { showToast('Nothing to clear.'); return; }
+            openModal('confirmOverlay');
+        });
+        $('confirmNoBtn').addEventListener('click', function () {
+            closeModal('confirmOverlay');
+        });
+        $('confirmYesBtn').addEventListener('click', function () {
+            closeModal('confirmOverlay');
+            container.innerHTML = '';
+            rowMap.clear();
+            nextId = 0;
+            $('clientName').value    = '';
+            defaultRate.value        = '50';
+            discountVal.value        = '0';
+            taxVal.value             = '0';
+            updateEmptyState();
+            recalc();
+            showToast('All entries cleared.');
+        });
+
+        // Recalc on config changes
+        ['input', 'change'].forEach(ev => {
+            defaultRate.addEventListener(ev, recalc);
+            currency.addEventListener(ev, recalc);
+            discountVal.addEventListener(ev, recalc);
+            taxVal.addEventListener(ev, recalc);
+        });
+
+        $('addRowBtn').addEventListener('click', function () { addRow(); });
+
+        // ── Keyboard: Escape closes modals ─────────────────────────
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeModal('exportOverlay');
+                closeModal('confirmOverlay');
+            }
+        });
+
+        // ── Init: seed sample rows ─────────────────────────────────
+        addRow('UX Design — Homepage wireframes', 3, 30, '');
+        addRow('Frontend development', 5, 0, '');
+        addRow('Client revision call', 1, 0, 80);
+
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

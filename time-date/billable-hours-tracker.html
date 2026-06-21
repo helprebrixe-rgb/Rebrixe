@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billable Hours Tracker</title>
+    <meta name="description" content="Track your billable hours, manage projects, and calculate earnings with this simple time tracker. Start/stop timers, add notes, and export your data. Free and no sign-up required.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="/main-style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #07090d;
+  --surface: #0e1117;
+  --surface2: #141820;
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text: #f1f5f9;
+  --text-muted: #64748b;
+  --text-dim: #334155;
+  --primary: #ff007f;
+  --primary-dim: rgba(255,0,127,0.12);
+  --primary-border: rgba(255,0,127,0.28);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.08);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.08);
+  --amber: #f59e0b;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  padding: 0 16px 60px;
+}
+
+/* ── Storage warning banner ── */
+#storage-warning {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #7c2d12;
+  border-bottom: 1px solid #9a3412;
+  color: #fed7aa;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+#storage-warning.visible { display: block; }
+
+/* ── Layout ── */
+.wrap { max-width: 860px; margin: 0 auto; padding-top: 40px; }
+
+header { text-align: center; margin-bottom: 36px; }
+header h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+header p { color: var(--text-muted); font-size: 0.9rem; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  margin-bottom: 14px;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+}
+
+/* ── Add project bar ── */
+.add-bar {
+  display: grid;
+  grid-template-columns: 1fr 110px auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding-left: 2px; }
+
+input[type="text"],
+input[type="number"] {
+  background: #000;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 11px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+input:focus { border-color: var(--primary); }
+input::placeholder { color: var(--text-dim); }
+
+.color-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; padding-top: 4px; }
+.c-dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.c-dot:hover { transform: scale(1.15); }
+.c-dot.selected { border-color: #fff; transform: scale(1.2); }
+
+.btn-primary {
+  background: linear-gradient(135deg, #616768, #c0cbcc);
+  border: none;
+  color: #fff;
+  padding: 11px 22px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(145,152,155,0.25); }
+.btn-primary:active { transform: translateY(0); }
+
+/* ── Active timer bar ── */
+.timer-bar {
+  display: none;
+  background: var(--primary-dim);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-bottom: 14px;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.timer-bar.running { display: flex; }
+
+.pulse-dot {
+  width: 9px; height: 9px;
+  background: var(--primary);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+.timer-project {
+  flex: 1;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text);
+  min-width: 120px;
+}
+.timer-project small {
+  display: block;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.timer-clock {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 900;
+  color: var(--primary);
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  /* Prevents layout shift when digits change */
+  min-width: 9ch;
+  text-align: right;
+}
+
+/* Stale-clock warning */
+.timer-stale-note {
+  display: none;
+  font-size: 11px;
+  color: var(--amber);
+  font-weight: 600;
+}
+.timer-stale-note.visible { display: block; }
+
+.btn-note {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.btn-note:hover { border-color: var(--text); color: var(--text); }
+
+.btn-stop {
+  background: var(--primary-dim);
+  border: 1px solid var(--primary-border);
+  color: var(--primary);
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.btn-stop:hover { background: rgba(255,0,127,0.22); }
+
+/* ── Stats grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.stat-cell {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+}
+.stat-num {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  color: var(--text);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.stat-num.green { color: var(--green); }
+.stat-lbl {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+.live-note {
+  font-size: 10px;
+  color: var(--primary);
+  font-weight: 700;
+  margin-top: 3px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+select {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  padding: 7px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+select:focus { border-color: var(--primary); }
+
+.spacer { flex: 1; }
+
+.btn-sm {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--text); color: var(--text); }
+.btn-sm.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+/* ── Sessions log ── */
+.date-group { margin-bottom: 10px; }
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.session-row {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: 0.15s;
+}
+.session-row:hover { background: var(--surface2); border-color: var(--border); }
+.sess-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sess-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.sess-info strong { color: #94a3b8; font-weight: 600; }
+.sess-note { font-size: 11px; color: var(--text-dim); font-style: italic; margin-top: 1px; }
+.sess-dur { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: #cbd5e1; white-space: nowrap; }
+.btn-del {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: 0.15s;
+}
+.btn-del:hover { color: var(--red); background: var(--red-dim); }
+
+/* ── Projects list ── */
+.project-list { display: flex; flex-direction: column; gap: 8px; }
+.proj-row {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto auto;
+  align-items: center;
+  gap: 14px;
+  transition: border-color 0.2s;
+}
+.proj-row:hover { border-color: var(--border-hover); }
+.proj-row.active { border-color: var(--primary-border); background: rgba(255,0,127,0.03); }
+.proj-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.proj-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text);
+}
+.proj-name small {
+  display: block;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.proj-hours { text-align: right; }
+.ph-time { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 16px; color: var(--text); }
+.ph-earn { font-size: 11px; color: var(--green); font-weight: 700; margin-top: 1px; }
+.proj-sessions { font-size: 11px; color: var(--text-dim); text-align: right; white-space: nowrap; }
+.proj-actions { display: flex; gap: 6px; align-items: center; }
+
+.btn-start {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.btn-start:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+.btn-start.running { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 7px;
+  line-height: 1;
+  transition: 0.15s;
+}
+.btn-icon:hover { color: var(--text-muted); background: rgba(255,255,255,0.05); }
+
+/* ── Empty state ── */
+.empty { text-align: center; padding: 36px 20px; color: var(--text-dim); }
+.empty svg { margin-bottom: 10px; opacity: 0.4; }
+.empty p { font-size: 13px; margin-top: 4px; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1e293b;
+  border: 1px solid var(--border-hover);
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 300;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Modal ── */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal-box {
+  background: #0d1117;
+  border: 1px solid var(--border-hover);
+  border-radius: 20px;
+  padding: 26px;
+  width: 100%;
+  max-width: 400px;
+}
+.modal-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+textarea {
+  width: 100%;
+  background: #000;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 13px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 0.2s;
+}
+textarea:focus { border-color: var(--primary); }
+.modal-actions { display: flex; gap: 10px; margin-top: 12px; }
+.btn-modal-ok {
+  flex: 1;
+  background: linear-gradient(135deg, #616768, #c0cbcc);
+  border: none;
+  color: #fff;
+  padding: 11px;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.btn-modal-ok:hover { transform: translateY(-1px); }
+.btn-modal-cancel {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 11px;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.btn-modal-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .add-bar { grid-template-columns: 1fr 1fr; }
+  .btn-primary { grid-column: 1 / -1; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .proj-row { grid-template-columns: 10px 1fr auto; }
+  .proj-sessions { display: none; }
+}
+</style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+<div id="storage-warning">
+  ⚠ Storage unavailable in this browser — data will NOT be saved after you close this tab. Try a non-private window.
+</div>
+
+<div class="wrap">
+
+  <header>
+    <h1>Billable Hours Tracker</h1>
+    <p>Add projects, start/stop timer, track earnings. Everything saved locally — no account needed.</p>
+  </header>
+
+  <!-- Add project -->
+  <div class="card">
+    <div class="section-label">New Project</div>
+    <div class="add-bar">
+      <div class="field">
+        <input type="text" id="projName" placeholder="Project or client name…" maxlength="48">
+        <span class="field-label">Name</span>
+      </div>
+      <div class="field">
+        <input type="number" id="projRate" placeholder="0.00" min="0" step="0.01">
+        <span class="field-label">$/hr (optional)</span>
+      </div>
+      <div class="field">
+        <div class="color-row" id="colorPicker"></div>
+        <span class="field-label">Color</span>
+      </div>
+      <button class="btn-primary" id="btnAdd">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Active timer -->
+  <div class="timer-bar" id="timerBar">
+    <div class="pulse-dot"></div>
+    <div class="timer-project" id="timerProject">
+      –<small id="timerNote"></small>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+      <div class="timer-clock" id="timerClock">00:00:00</div>
+      <div class="timer-stale-note" id="staleNote">⚠ Tab was hidden — clock resumed</div>
+    </div>
+    <button class="btn-note" id="btnAddNote">+ Note</button>
+    <button class="btn-stop" id="btnStop">■ Stop</button>
+  </div>
+
+  <!-- Summary + sessions -->
+  <div class="card" id="summaryCard" style="display:none;">
+    <div class="section-label">Overview</div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="filter-bar">
+      <select id="filterProject"><option value="">All projects</option></select>
+      <select id="filterPeriod">
+        <option value="">All time</option>
+        <option value="today">Today</option>
+        <option value="week">This week</option>
+        <option value="month">This month</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn-sm" id="btnCSV">↓ Export CSV</button>
+      <button class="btn-sm danger" id="btnClear">✕ Clear all</button>
+    </div>
+    <div id="sessionsWrap"></div>
+  </div>
+
+  <!-- Projects -->
+  <div class="card">
+    <div class="section-label">Projects</div>
+    <div class="project-list" id="projectList"></div>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- Note modal -->
+<div class="modal-backdrop" id="noteModal">
+  <div class="modal-box">
+    <div class="modal-title">Note for this session</div>
+    <textarea id="noteText" placeholder="What are you working on? (optional)"></textarea>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="btnModalCancel">Cancel</button>
+      <button class="btn-modal-ok" id="btnModalSave">Save</button>
+    </div>
+  </div>
+</div>
+<footer></footer>
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────
+const LS_KEY = 'bht_v2';
+const COLORS = [
+  '#f87171','#fb923c','#fbbf24','#4ade80',
+  '#34d399','#38bdf8','#818cf8','#e879f9',
+  '#f472b6','#94a3b8'
+];
+
+// ─────────────────────────────────────────────────────────────
+// STORAGE — with full error handling
+// ─────────────────────────────────────────────────────────────
+let storageAvailable = true;
+
+(function checkStorage() {
+  try {
+    localStorage.setItem('__bht_test__', '1');
+    localStorage.removeItem('__bht_test__');
+  } catch(e) {
+    storageAvailable = false;
+    document.getElementById('storage-warning').classList.add('visible');
+  }
+})();
+
+function loadState() {
+  if (!storageAvailable) return freshState();
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return freshState();
+    const parsed = JSON.parse(raw);
+    // Validate structure
+    if (!Array.isArray(parsed.projects)) parsed.projects = [];
+    if (!Array.isArray(parsed.sessions)) parsed.sessions = [];
+    if (typeof parsed.running !== 'object') parsed.running = null;
+    return parsed;
+  } catch(e) {
+    showToast('Failed to load saved data — starting fresh.');
+    return freshState();
+  }
+}
+
+function saveState() {
+  if (!storageAvailable) return;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch(e) {
+    // Storage just became unavailable (e.g. quota exceeded)
+    storageAvailable = false;
+    document.getElementById('storage-warning').classList.add('visible');
+    showToast('⚠ Could not save — storage is full or unavailable.');
+  }
+}
+
+function freshState() {
+  return { projects: [], sessions: [], running: null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+let state = loadState();
+let selectedColor = COLORS[0];
+
+// ─────────────────────────────────────────────────────────────
+// TIMER — reliable implementation
+//
+// The LIVE CLOCK display uses requestAnimationFrame so it stays
+// accurate even when setInterval is throttled in background tabs.
+//
+// The SAVED DURATION always uses Date.now() arithmetic on the
+// stored startMs, so the actual recorded time is always correct
+// regardless of what the display showed.
+//
+// Page Visibility API is used to detect when the tab returns
+// from background and show a one-time "clock resumed" note so
+// the user is never confused by a frozen display.
+// ─────────────────────────────────────────────────────────────
+let rafId = null;
+let wasHidden = false;
+
+function startTimerLoop() {
+  if (rafId) cancelAnimationFrame(rafId);
+
+  function tick() {
+    if (!state.running) return;
+    const elapsed = Date.now() - state.running.startMs;
+    document.getElementById('timerClock').textContent = formatDuration(elapsed);
+    // Also keep stats live
+    updateLiveStats();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  rafId = requestAnimationFrame(tick);
+}
+
+function stopTimerLoop() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+}
+
+// Page visibility — detect background/foreground transitions
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    wasHidden = true;
+    stopTimerLoop(); // rAF pauses automatically, but stop explicitly
+  } else {
+    if (state.running) {
+      startTimerLoop();
+      if (wasHidden) {
+        // Show "clock resumed" note briefly
+        const note = document.getElementById('staleNote');
+        note.classList.add('visible');
+        setTimeout(() => note.classList.remove('visible'), 4000);
+      }
+    }
+    wasHidden = false;
+  }
+});
+
+function startTimer(projId) {
+  if (state.running) commitSession(); // stop current without UI fuss
+  state.running = { projId, startMs: Date.now(), note: '' };
+  saveState();
+  renderTimerBar();
+  startTimerLoop();
+  renderProjects();
+  updateLiveStats();
+}
+
+function stopTimer() {
+  if (!state.running) return;
+  stopTimerLoop();
+  commitSession();
+  state.running = null;
+  saveState();
+  document.getElementById('timerBar').classList.remove('running');
+  document.getElementById('timerClock').textContent = '00:00:00';
+  document.getElementById('staleNote').classList.remove('visible');
+  render();
+}
+
+function commitSession() {
+  // Always use Date.now() for end — accurate regardless of display drift
+  const endMs = Date.now();
+  const durationMs = endMs - state.running.startMs;
+
+  if (durationMs < 5000) {
+    // Too short — tell the user instead of silently discarding
+    showToast('Session was under 5 seconds — not recorded.');
+    return;
+  }
+
+  state.sessions.push({
+    id: Date.now().toString() + Math.random().toString(36).slice(2),
+    projId: state.running.projId,
+    startMs: state.running.startMs,
+    endMs,
+    durationMs,
+    note: state.running.note || ''
+  });
+}
+
+function renderTimerBar() {
+  if (!state.running) return;
+  const proj = state.projects.find(p => p.id === state.running.projId);
+  if (!proj) return;
+
+  document.getElementById('timerProject').childNodes[0].textContent = proj.name;
+  document.getElementById('timerNote').textContent =
+    state.running.note ? '  ·  ' + state.running.note : '';
+  document.getElementById('timerBar').classList.add('running');
+}
+
+// ─────────────────────────────────────────────────────────────
+// COLOR PICKER
+// ─────────────────────────────────────────────────────────────
+function buildColorPicker() {
+  document.getElementById('colorPicker').innerHTML = COLORS.map(c =>
+    `<div class="c-dot${c === selectedColor ? ' selected' : ''}"
+          style="background:${c}"
+          data-color="${c}"
+          title="${c}"></div>`
+  ).join('');
+}
+
+document.getElementById('colorPicker').addEventListener('click', function(e) {
+  const dot = e.target.closest('.c-dot');
+  if (!dot) return;
+  selectedColor = dot.dataset.color;
+  buildColorPicker();
+});
+
+// ─────────────────────────────────────────────────────────────
+// ADD PROJECT
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btnAdd').addEventListener('click', addProject);
+document.getElementById('projName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addProject();
+});
+
+function addProject() {
+  const name = document.getElementById('projName').value.trim();
+  if (!name) { document.getElementById('projName').focus(); return; }
+
+  const rateRaw = parseFloat(document.getElementById('projRate').value);
+  const rate = isNaN(rateRaw) || rateRaw < 0 ? 0 : rateRaw;
+
+  state.projects.push({
+    id: Date.now().toString() + Math.random().toString(36).slice(2),
+    name,
+    rate,
+    color: selectedColor,
+    created: Date.now()
+  });
+
+  saveState();
+  document.getElementById('projName').value = '';
+  document.getElementById('projRate').value = '';
+  selectedColor = COLORS[state.projects.length % COLORS.length];
+  buildColorPicker();
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTE MODAL
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btnAddNote').addEventListener('click', openNoteModal);
+document.getElementById('btnModalCancel').addEventListener('click', closeNoteModal);
+document.getElementById('btnModalSave').addEventListener('click', saveNote);
+
+// Close modal on backdrop click
+document.getElementById('noteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeNoteModal();
+});
+
+function openNoteModal() {
+  document.getElementById('noteText').value = state.running?.note || '';
+  document.getElementById('noteModal').classList.add('open');
+  setTimeout(() => document.getElementById('noteText').focus(), 80);
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.remove('open');
+}
+
+function saveNote() {
+  if (state.running) {
+    state.running.note = document.getElementById('noteText').value.trim();
+    saveState();
+    document.getElementById('timerNote').textContent =
+      state.running.note ? '  ·  ' + state.running.note : '';
+  }
+  closeNoteModal();
+}
+
+// ─────────────────────────────────────────────────────────────
+// STOP BUTTON
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btnStop').addEventListener('click', stopTimer);
+
+// ─────────────────────────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────────────────────────
+function deleteProject(projId) {
+  if (!confirm('Delete this project and all its sessions? This cannot be undone.')) return;
+  if (state.running?.projId === projId) {
+    stopTimerLoop();
+    state.running = null;
+    document.getElementById('timerBar').classList.remove('running');
+    document.getElementById('timerClock').textContent = '00:00:00';
+  }
+  state.projects = state.projects.filter(p => p.id !== projId);
+  state.sessions = state.sessions.filter(s => s.projId !== projId);
+  saveState();
+  render();
+}
+
+function deleteSession(sessId) {
+  state.sessions = state.sessions.filter(s => s.id !== sessId);
+  saveState();
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────
+// FILTERS
+// ─────────────────────────────────────────────────────────────
+document.getElementById('filterProject').addEventListener('change', renderSessions);
+document.getElementById('filterPeriod').addEventListener('change', renderSessions);
+
+function getFilteredSessions() {
+  const projFilter = document.getElementById('filterProject').value;
+  const period     = document.getElementById('filterPeriod').value;
+  const now = new Date();
+
+  return state.sessions.filter(s => {
+    if (projFilter && s.projId !== projFilter) return false;
+    if (period === 'today') {
+      return new Date(s.startMs).toDateString() === now.toDateString();
+    }
+    if (period === 'week') {
+      // Monday-based week
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return s.startMs >= d.getTime();
+    }
+    if (period === 'month') {
+      const d = new Date(s.startMs);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// STATS — includes live running session in totals
+// ─────────────────────────────────────────────────────────────
+function getLiveExtra() {
+  if (!state.running) return { ms: 0, projId: null };
+  return { ms: Date.now() - state.running.startMs, projId: state.running.projId };
+}
+
+function projectTotalMs(projId) {
+  const base = state.sessions
+    .filter(s => s.projId === projId)
+    .reduce((a, s) => a + s.durationMs, 0);
+  const live = getLiveExtra();
+  return base + (live.projId === projId ? live.ms : 0);
+}
+
+function projectEarnings(proj) {
+  if (!proj.rate) return null;
+  return (projectTotalMs(proj.id) / 3600000) * proj.rate;
+}
+
+function updateLiveStats() {
+  // Called every rAF tick — only updates the numbers, not the whole DOM
+  const statsGrid = document.getElementById('statsGrid');
+  if (!statsGrid || !statsGrid.parentElement || statsGrid.parentElement.style.display === 'none') return;
+
+  const live = getLiveExtra();
+  const totalMs = state.sessions.reduce((a, s) => a + s.durationMs, 0) + live.ms;
+  const totalEarn = state.projects.reduce((a, proj) => {
+    const e = projectEarnings(proj);
+    return a + (e || 0);
+  }, 0);
+
+  const hoursEl = document.getElementById('live-hours');
+  const earnEl  = document.getElementById('live-earn');
+  if (hoursEl) hoursEl.textContent = formatHours(totalMs);
+  if (earnEl)  earnEl.textContent  = '$' + totalEarn.toFixed(2);
+}
+
+function renderStats() {
+  const card = document.getElementById('summaryCard');
+  if (!state.sessions.length && !state.running) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+
+  const live = getLiveExtra();
+  const totalMs = state.sessions.reduce((a, s) => a + s.durationMs, 0) + live.ms;
+  const totalEarn = state.projects.reduce((a, proj) => {
+    const e = projectEarnings(proj);
+    return a + (e || 0);
+  }, 0);
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-cell">
+      <div class="stat-num">${state.projects.length}</div>
+      <div class="stat-lbl">Projects</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">${state.sessions.length}</div>
+      <div class="stat-lbl">Sessions</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num" id="live-hours">${formatHours(totalMs)}</div>
+      <div class="stat-lbl">Total Hours</div>
+      ${state.running ? '<div class="live-note">● LIVE</div>' : ''}
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num green" id="live-earn">$${totalEarn.toFixed(2)}</div>
+      <div class="stat-lbl">Total Earned</div>
+      ${state.running ? '<div class="live-note">● LIVE</div>' : ''}
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// SESSIONS LOG
+// ─────────────────────────────────────────────────────────────
+function renderSessions() {
+  const wrap = document.getElementById('sessionsWrap');
+  if (!wrap) return;
+  const filtered = getFilteredSessions();
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty"><p>No sessions match this filter.</p></div>';
+    return;
+  }
+
+  // Group by calendar day, newest first
+  const byDate = {};
+  [...filtered].sort((a, b) => b.startMs - a.startMs).forEach(s => {
+    const key = new Date(s.startMs).toDateString();
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(s);
+  });
+
+  wrap.innerHTML = Object.entries(byDate).map(([dateStr, sessions]) => {
+    const dayMs = sessions.reduce((a, s) => a + s.durationMs, 0);
+    const rows = sessions.map(s => {
+      const proj = state.projects.find(p => p.id === s.projId);
+      const color = proj?.color || '#475569';
+      const name = proj?.name || 'Deleted project';
+      const earn = proj?.rate
+        ? ` · $${(s.durationMs / 3600000 * proj.rate).toFixed(2)}`
+        : '';
+      return `<div class="session-row">
+        <div class="sess-dot" style="background:${color}"></div>
+        <div class="sess-info">
+          <strong>${esc(name)}</strong> &mdash; ${fmtTime(s.startMs)} &rarr; ${fmtTime(s.endMs)}${esc(earn)}
+          ${s.note ? `<div class="sess-note">💬 ${esc(s.note)}</div>` : ''}
+        </div>
+        <div class="sess-dur">${formatHours(s.durationMs)}</div>
+        <button class="btn-del" data-sess="${s.id}" title="Delete session">✕</button>
+      </div>`;
+    }).join('');
+
+    return `<div class="date-group">
+      <div class="date-header"><span>${dateStr}</span><span>${formatHours(dayMs)}</span></div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  // Delegate session deletion
+  wrap.querySelectorAll('[data-sess]').forEach(btn => {
+    btn.addEventListener('click', () => deleteSession(btn.dataset.sess));
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROJECTS LIST
+// ─────────────────────────────────────────────────────────────
+function renderProjects() {
+  const list = document.getElementById('projectList');
+
+  if (!state.projects.length) {
+    list.innerHTML = `<div class="empty">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+      </svg>
+      <p>No projects yet — add one above.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = state.projects.map(proj => {
+    const totalMs = projectTotalMs(proj.id);
+    const earn = projectEarnings(proj);
+    const sessCount = state.sessions.filter(s => s.projId === proj.id).length;
+    const isActive = state.running?.projId === proj.id;
+
+    return `<div class="proj-row${isActive ? ' active' : ''}">
+      <div class="proj-color" style="background:${proj.color}"></div>
+      <div class="proj-name">${esc(proj.name)}
+        <small>${proj.rate ? '$' + proj.rate.toFixed(2) + '/hr' : 'No rate set'}</small>
+      </div>
+      <div class="proj-hours">
+        <div class="ph-time">${formatHours(totalMs)}</div>
+        ${earn !== null ? `<div class="ph-earn">$${earn.toFixed(2)}</div>` : ''}
+      </div>
+      <div class="proj-sessions">${sessCount} session${sessCount !== 1 ? 's' : ''}</div>
+      <div class="proj-actions">
+        ${isActive
+          ? `<button class="btn-start running" data-stop="1">■ Stop</button>`
+          : `<button class="btn-start" data-start="${proj.id}">▶ Start</button>`
+        }
+        <button class="btn-icon" data-del="${proj.id}" title="Delete project">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Delegate events
+  list.querySelectorAll('[data-start]').forEach(btn => {
+    btn.addEventListener('click', () => startTimer(btn.dataset.start));
+  });
+  list.querySelectorAll('[data-stop]').forEach(btn => {
+    btn.addEventListener('click', () => stopTimer());
+  });
+  list.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => deleteProject(btn.dataset.del));
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// FILTER DROPDOWN SYNC
+// ─────────────────────────────────────────────────────────────
+function syncFilterDropdown() {
+  const sel = document.getElementById('filterProject');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All projects</option>' +
+    state.projects.map(p =>
+      `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${esc(p.name)}</option>`
+    ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// CSV EXPORT — verified correct
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btnCSV').addEventListener('click', exportCSV);
+
+function exportCSV() {
+  const filtered = getFilteredSessions();
+  if (!filtered.length) { showToast('No sessions to export.'); return; }
+
+  const rows = [
+    ['Project', 'Date', 'Start', 'End', 'Duration (hrs)', 'Rate ($/hr)', 'Earned ($)', 'Note']
+  ];
+
+  filtered.forEach(s => {
+    const proj = state.projects.find(p => p.id === s.projId);
+    const hrs = (s.durationMs / 3600000).toFixed(4);
+    const earn = (proj?.rate)
+      ? (parseFloat(hrs) * proj.rate).toFixed(2)
+      : '';
+    rows.push([
+      proj?.name || 'Unknown',
+      fmtDate(s.startMs),
+      fmtTime(s.startMs),
+      fmtTime(s.endMs),
+      hrs,
+      proj?.rate || '',
+      earn,
+      s.note || ''
+    ]);
+  });
+
+  const csv = rows
+    .map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+    .join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'billable-hours-' + new Date().toISOString().split('T')[0] + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Revoke after a tick to allow the download to start
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('CSV downloaded.');
+}
+
+// ─────────────────────────────────────────────────────────────
+// CLEAR ALL
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btnClear').addEventListener('click', function() {
+  if (!confirm('Delete ALL projects and sessions? This cannot be undone.')) return;
+  stopTimerLoop();
+  state = freshState();
+  saveState();
+  document.getElementById('timerBar').classList.remove('running');
+  document.getElementById('timerClock').textContent = '00:00:00';
+  render();
+});
+
+// ─────────────────────────────────────────────────────────────
+// FORMAT HELPERS
+// ─────────────────────────────────────────────────────────────
+function formatDuration(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+
+function formatHours(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h > 0) return h + 'h ' + m + 'm';
+  return m + 'm';
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function fmtDate(ms) {
+  return new Date(ms).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+}
+
+function fmtTime(ms) {
+  return new Date(ms).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────
+// TOAST — single source, no side effects
+// ─────────────────────────────────────────────────────────────
+let toastTimer = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — full redraw (called after mutations, not on every tick)
+// ─────────────────────────────────────────────────────────────
+function render() {
+  renderProjects();
+  renderStats();
+  renderSessions();
+  syncFilterDropdown();
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+buildColorPicker();
+render();
+
+// Resume timer if tab was closed mid-session
+if (state.running) {
+  const proj = state.projects.find(p => p.id === state.running.projId);
+  if (proj) {
+    renderTimerBar();
+    startTimerLoop();
+  } else {
+    // Project was deleted while session was running — clean up
+    state.running = null;
+    saveState();
+  }
+}
+</script>
+<script src="../nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Dimension Checker — Width, Height, Aspect Ratio, DPI | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Drop any image to instantly see its width, height, aspect ratio, file size, DPI, and color mode. Free, private, browser-only. No upload needed.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 44px; }
+        .tool-page-title {
+            font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 56px 30px 52px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); border: 1.5px solid transparent;
+            transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after {
+            content: ''; position: absolute; inset: 8px; border-radius: 14px;
+            border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s;
+        }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.12), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.3); }
+        .drop-zone.drag-over { transform: scale(1.015) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.22), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 3rem; margin-bottom: 16px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.3)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-6px) scale(1.08); }
+        .drop-title { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+        .format-tags { display: flex; gap: 7px; justify-content: center; margin-top: 20px; flex-wrap: wrap; position: relative; }
+        .format-tag { font-size: 0.64rem; font-weight: 700; padding: 4px 12px; border-radius: 99px; border: 1px solid rgba(255,214,0,0.18); color: rgba(255,214,0,0.55); font-family: 'Fira Code', monospace; text-transform: uppercase; background: rgba(255,214,0,0.04); letter-spacing: 0.6px; }
+
+        /* Result panel */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+
+        /* Top bar */
+        .img-top-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 10px 10px; }
+        .img-meta { flex: 1; min-width: 120px; }
+        .img-filename { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+        .img-type-badge { display: inline-block; margin-top: 4px; font-size: 0.62rem; font-weight: 700; font-family: 'Fira Code', monospace; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: var(--primary-dim); border: 1px solid var(--primary-border); color: var(--primary); }
+        .change-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; white-space: nowrap; }
+        .change-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Stats grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .stat-card:hover { border-color: var(--primary-border); transform: translateY(-2px); }
+        .stat-card.highlight { border-color: var(--primary-border); background: var(--primary-dim); }
+        .stat-icon { font-size: 1rem; margin-bottom: 2px; }
+        .stat-val { font-size: 1.15rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; line-height: 1.2; }
+        .stat-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-sub { font-size: 0.68rem; color: var(--text-dim); margin-top: 1px; font-family: 'Fira Code', monospace; }
+
+        /* Aspect ratio visual */
+        .aspect-visual-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px 22px; margin-bottom: 16px; }
+        .aspect-visual-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .aspect-visual-inner { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+        .aspect-box-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .aspect-box {
+            background: linear-gradient(135deg, rgba(255,214,0,0.15), rgba(255,183,0,0.05));
+            border: 1.5px solid var(--primary-border); border-radius: 6px;
+            transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .aspect-box-dims { font-size: 0.65rem; font-family: 'Fira Code', monospace; color: var(--text-dim); }
+        .aspect-info { flex: 1; min-width: 160px; }
+        .aspect-ratio-big { font-size: 1.6rem; font-weight: 800; color: var(--primary); font-family: 'Fira Code', monospace; letter-spacing: -1px; line-height: 1; }
+        .aspect-ratio-name { font-size: 0.78rem; color: var(--text-sec); font-weight: 600; margin-top: 6px; }
+        .aspect-ratio-close { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+
+        /* Print size */
+        .print-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 22px; margin-bottom: 16px; }
+        .print-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+        .print-card-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); }
+        .dpi-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .dpi-btn { padding: 6px 14px; border: none; background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .dpi-btn.active { background: var(--primary-dim); color: var(--primary); }
+        .print-sizes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .print-size-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+        .print-size-name { font-size: 0.68rem; font-weight: 700; color: var(--text-sec); }
+        .print-size-val { font-size: 0.75rem; font-family: 'Fira Code', monospace; color: var(--primary); margin-top: 2px; }
+        .print-size-quality { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+        .print-size-item.good .print-size-quality { color: var(--success); }
+        .print-size-item.ok .print-size-quality { color: var(--accent); }
+        .print-size-item.bad .print-size-quality { color: var(--error); }
+
+        /* Copy row */
+        .copy-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+        .copy-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s;
+        }
+        .copy-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .copy-btn.copied { border-color: rgba(170,255,0,0.3); color: var(--success); background: rgba(170,255,0,0.05); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .aspect-visual-inner { flex-direction: column; align-items: flex-start; }
+            .print-card-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Dimension Checker</h1>
+                <p class="tool-page-sub">Drop any image — instantly see width, height, aspect ratio, file size, DPI &amp; print sizes.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">📐</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+                <div class="format-tags">
+                    <span class="format-tag">JPG</span>
+                    <span class="format-tag">PNG</span>
+                    <span class="format-tag">WebP</span>
+                    <span class="format-tag">GIF</span>
+                    <span class="format-tag">SVG</span>
+                    <span class="format-tag">BMP</span>
+                    <span class="format-tag">AVIF</span>
+                </div>
+            </div>
+
+            <!-- RESULTS -->
+            <div class="result-panel" id="resultPanel">
+
+                <!-- Top bar -->
+                <div class="img-top-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-filename" id="imgFilename">—</div>
+                        <span class="img-type-badge" id="imgTypeBadge">—</span>
+                    </div>
+                    <button class="change-btn" onclick="resetTool()">↩ Check another</button>
+                </div>
+
+                <!-- Core stats -->
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card highlight">
+                        <span class="stat-icon">↔️</span>
+                        <div class="stat-val" id="statW">—</div>
+                        <div class="stat-label">Width</div>
+                        <div class="stat-sub">pixels</div>
+                    </div>
+                    <div class="stat-card highlight">
+                        <span class="stat-icon">↕️</span>
+                        <div class="stat-val" id="statH">—</div>
+                        <div class="stat-label">Height</div>
+                        <div class="stat-sub">pixels</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">📦</span>
+                        <div class="stat-val" id="statSize">—</div>
+                        <div class="stat-label">File Size</div>
+                        <div class="stat-sub" id="statSizeRaw">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">🎨</span>
+                        <div class="stat-val" id="statMpx">—</div>
+                        <div class="stat-label">Megapixels</div>
+                        <div class="stat-sub" id="statTotalPx">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">⚖️</span>
+                        <div class="stat-val" id="statBitsPerPx">—</div>
+                        <div class="stat-label">Bits / Pixel</div>
+                        <div class="stat-sub" id="statBppNote">compression ratio</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">🔲</span>
+                        <div class="stat-val" id="statOrientation">—</div>
+                        <div class="stat-label">Orientation</div>
+                        <div class="stat-sub" id="statOrientSub">—</div>
+                    </div>
+                </div>
+
+                <!-- Aspect ratio visual -->
+                <div class="aspect-visual-wrap">
+                    <div class="aspect-visual-label">Aspect Ratio</div>
+                    <div class="aspect-visual-inner">
+                        <div class="aspect-box-wrap">
+                            <div class="aspect-box" id="aspectBox" style="width:80px;height:80px;"></div>
+                            <div class="aspect-box-dims" id="aspectBoxDims">—</div>
+                        </div>
+                        <div class="aspect-info">
+                            <div class="aspect-ratio-big" id="aspectRatioBig">—</div>
+                            <div class="aspect-ratio-name" id="aspectRatioName">—</div>
+                            <div class="aspect-ratio-close" id="aspectRatioClose"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print size calculator -->
+                <div class="print-card">
+                    <div class="print-card-header">
+                        <div class="print-card-label">📏 Print Size Calculator</div>
+                        <div class="dpi-toggle">
+                            <button class="dpi-btn active" onclick="setDPI(72, this)">72 DPI <span style="font-size:0.6rem;opacity:0.6">screen</span></button>
+                            <button class="dpi-btn" onclick="setDPI(150, this)">150 DPI</button>
+                            <button class="dpi-btn" onclick="setDPI(300, this)">300 DPI <span style="font-size:0.6rem;opacity:0.6">print</span></button>
+                        </div>
+                    </div>
+                    <div class="print-sizes" id="printSizes"></div>
+                </div>
+
+                <!-- Copy shortcuts -->
+                <div class="copy-row" id="copyRow">
+                    <button class="copy-btn" onclick="copyVal('wh')">📋 Copy W×H</button>
+                    <button class="copy-btn" onclick="copyVal('css')">📋 Copy as CSS</button>
+                    <button class="copy-btn" onclick="copyVal('json')">📋 Copy as JSON</button>
+                    <button class="copy-btn" onclick="copyVal('all')">📋 Copy Full Report</button>
+                </div>
+
+            </div>
+
+            <article class="faq-section">
+                <h2 class="faq-heading">About this tool</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What is DPI and why does it matter?</h3>
+                        <p>DPI (dots per inch) determines print quality. <code>72 DPI</code> is screen-only. <code>150 DPI</code> is decent for large posters. <code>300 DPI</code> is professional print quality. A 1200×1200 image at 300 DPI prints at 4×4 inches — crisp and sharp.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What does Bits/Pixel tell me?</h3>
+                        <p>It shows compression efficiency. A <code>raw PNG</code> at 24bpp is uncompressed. A typical <code>JPG</code> falls between 1–4 bpp. Lower = more compressed. Very low values (under 0.5) may mean visible quality loss.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>How is Aspect Ratio calculated?</h3>
+                        <p>By finding the <code>GCD</code> of width and height and simplifying. For example, 1920×1080 → GCD is 120 → ratio is <code>16:9</code>. We also match it to common known ratios like <code>4:3</code>, <code>1:1</code>, <code>2.39:1</code> (cinema), etc.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Is my image uploaded anywhere?</h3>
+                        <p>Never. Everything runs inside your browser tab using the <code>Canvas API</code> and <code>FileReader</code>. No server, no upload, no storage. Close the tab and the image is gone.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    let imgData = {};
+    let currentDPI = 72;
+
+    const PRINT_FORMATS = [
+        { name: 'Instagram', w: 1, h: 1, label: '1:1' },
+        { name: 'A4', inW: 8.27, inH: 11.69 },
+        { name: 'A5', inW: 5.83, inH: 8.27 },
+        { name: 'Letter', inW: 8.5, inH: 11 },
+        { name: '4×6"', inW: 4, inH: 6 },
+        { name: '5×7"', inW: 5, inH: 7 },
+        { name: '8×10"', inW: 8, inH: 10 },
+        { name: 'Wallet', inW: 2.5, inH: 3.5 },
+    ];
+
+    const KNOWN_RATIOS = [
+        { r: [1,1], name: 'Square', note: 'Instagram, profile photos' },
+        { r: [4,3], name: '4:3 Standard', note: 'Classic TV, older cameras' },
+        { r: [3,2], name: '3:2 DSLR', note: 'Most DSLR cameras, 35mm film' },
+        { r: [16,9], name: '16:9 Widescreen', note: 'HD video, YouTube, monitors' },
+        { r: [16,10], name: '16:10', note: 'Common laptop/monitor ratio' },
+        { r: [21,9], name: '21:9 Ultrawide', note: 'Ultrawide monitors, cinema' },
+        { r: [2,3], name: '2:3 Portrait', note: 'Portrait DSLR, 4×6 print' },
+        { r: [3,4], name: '3:4 Portrait', note: 'Classic portrait orientation' },
+        { r: [9,16], name: '9:16 Vertical', note: 'Reels, Stories, TikTok' },
+        { r: [5,4], name: '5:4', note: '8×10 prints' },
+        { r: [7,5], name: '7:5', note: '5×7 prints' },
+    ];
+
+    // Drop zone setup
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Drop an image file', ''); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const src = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                imgData = { file, src, w: img.naturalWidth, h: img.naturalHeight };
+                renderResults();
+            };
+            img.src = src;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderResults() {
+        const { file, src, w, h } = imgData;
+
+        document.getElementById('imgThumb').src = src;
+        document.getElementById('imgFilename').textContent = file.name;
+        document.getElementById('imgTypeBadge').textContent = (file.type || 'image/unknown').replace('image/', '').toUpperCase();
+
+        // Core stats
+        document.getElementById('statW').textContent = w.toLocaleString();
+        document.getElementById('statH').textContent = h.toLocaleString();
+        document.getElementById('statSize').textContent = fmtBytes(file.size);
+        document.getElementById('statSizeRaw').textContent = file.size.toLocaleString() + ' bytes';
+
+        const mpx = (w * h / 1000000).toFixed(2);
+        document.getElementById('statMpx').textContent = mpx + ' MP';
+        document.getElementById('statTotalPx').textContent = (w * h).toLocaleString() + ' px';
+
+        const bpp = (file.size * 8 / (w * h)).toFixed(2);
+        document.getElementById('statBitsPerPx').textContent = bpp;
+        document.getElementById('statBppNote').textContent = bpp > 16 ? 'uncompressed / raw' : bpp > 4 ? 'low compression' : bpp > 1 ? 'typical' : 'highly compressed';
+
+        const orientation = w === h ? 'Square' : w > h ? 'Landscape' : 'Portrait';
+        document.getElementById('statOrientation').textContent = orientation;
+        document.getElementById('statOrientSub').textContent = `${w}×${h}`;
+
+        // Aspect ratio
+        renderAspectRatio(w, h);
+
+        // Print sizes
+        renderPrintSizes(w, h, currentDPI);
+
+        // Show panel
+        dz.style.display = 'none';
+        document.getElementById('resultPanel').classList.add('visible');
+    }
+
+    function renderAspectRatio(w, h) {
+        const g = gcd(w, h);
+        const rx = w / g, ry = h / g;
+        document.getElementById('aspectRatioBig').textContent = `${rx}:${ry}`;
+
+        // Animated visual box
+        const maxBox = 110;
+        let bw, bh;
+        if (w >= h) { bw = maxBox; bh = Math.round(maxBox * h / w); }
+        else { bh = maxBox; bw = Math.round(maxBox * w / h); }
+        const box = document.getElementById('aspectBox');
+        box.style.width = bw + 'px';
+        box.style.height = bh + 'px';
+        document.getElementById('aspectBoxDims').textContent = `${bw}×${bh} preview`;
+
+        // Match known ratio
+        const decimalRatio = w / h;
+        let bestMatch = null, bestDiff = Infinity;
+        KNOWN_RATIOS.forEach(kr => {
+            const kr_dec = kr.r[0] / kr.r[1];
+            const diff = Math.abs(decimalRatio - kr_dec);
+            if (diff < bestDiff) { bestDiff = diff; bestMatch = kr; }
+        });
+
+        if (bestDiff < 0.05 && bestMatch) {
+            document.getElementById('aspectRatioName').textContent = '≈ ' + bestMatch.name;
+            document.getElementById('aspectRatioClose').textContent = bestMatch.note;
+        } else {
+            document.getElementById('aspectRatioName').textContent = 'Custom ratio';
+            document.getElementById('aspectRatioClose').textContent = `Decimal: ${decimalRatio.toFixed(3)}:1`;
+        }
+    }
+
+    function renderPrintSizes(w, h, dpi) {
+        const container = document.getElementById('printSizes');
+        container.innerHTML = '';
+        PRINT_FORMATS.forEach(fmt => {
+            let fmtW, fmtH, label;
+            if (fmt.inW) {
+                fmtW = fmt.inW; fmtH = fmt.inH;
+                label = `${fmt.inW}" × ${fmt.inH}"`;
+            } else {
+                // For aspect-based: show what print size at DPI
+                const printW = (w / dpi).toFixed(2);
+                const printH = (h / dpi).toFixed(2);
+                fmtW = parseFloat(printW); fmtH = parseFloat(printH);
+                label = `${printW}" × ${printH}"`;
+            }
+            // Quality for paper formats
+            let quality = '', cls = '';
+            if (fmt.inW) {
+                const neededW = Math.round(fmt.inW * dpi);
+                const neededH = Math.round(fmt.inH * dpi);
+                const ratio = Math.min(w / neededW, h / neededH);
+                if (ratio >= 1) { quality = '✓ Good quality'; cls = 'good'; }
+                else if (ratio >= 0.6) { quality = '~ Acceptable'; cls = 'ok'; }
+                else { quality = '✗ Too small'; cls = 'bad'; }
+            }
+            const el = document.createElement('div');
+            el.className = `print-size-item ${cls}`;
+            el.innerHTML = `<div class="print-size-name">${fmt.name}</div><div class="print-size-val">${label}</div>${quality ? `<div class="print-size-quality">${quality}</div>` : ''}`;
+            container.appendChild(el);
+        });
+        // Also show actual print size of this image at current DPI
+        const pw = (imgData.w / dpi).toFixed(2), ph = (imgData.h / dpi).toFixed(2);
+        const own = document.createElement('div');
+        own.className = 'print-size-item good';
+        own.innerHTML = `<div class="print-size-name">This image</div><div class="print-size-val">${pw}" × ${ph}"</div><div class="print-size-quality">at ${dpi} DPI</div>`;
+        container.prepend(own);
+    }
+
+    function setDPI(dpi, btn) {
+        currentDPI = dpi;
+        document.querySelectorAll('.dpi-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (imgData.w) renderPrintSizes(imgData.w, imgData.h, dpi);
+    }
+
+    function copyVal(type) {
+        const { w, h, file } = imgData;
+        if (!w) return;
+        let text = '';
+        if (type === 'wh') text = `${w} × ${h}`;
+        else if (type === 'css') text = `width: ${w}px;\nheight: ${h}px;`;
+        else if (type === 'json') text = JSON.stringify({ width: w, height: h, aspectRatio: `${w/gcd(w,h)}:${h/gcd(w,h)}`, fileSize: file.size, fileSizeFormatted: fmtBytes(file.size), megapixels: parseFloat((w*h/1e6).toFixed(2)) }, null, 2);
+        else {
+            const g = gcd(w, h);
+            text = [
+                `File: ${file.name}`,
+                `Dimensions: ${w} × ${h} px`,
+                `Aspect Ratio: ${w/g}:${h/g}`,
+                `File Size: ${fmtBytes(file.size)} (${file.size} bytes)`,
+                `Megapixels: ${(w*h/1e6).toFixed(2)} MP`,
+                `Orientation: ${w > h ? 'Landscape' : w < h ? 'Portrait' : 'Square'}`,
+                `Bits/Pixel: ${(file.size*8/(w*h)).toFixed(2)}`,
+            ].join('\n');
+        }
+        navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success'));
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('resultPanel').classList.remove('visible');
+        fi.value = '';
+        imgData = {};
+    }
+
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

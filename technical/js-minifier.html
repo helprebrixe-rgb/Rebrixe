@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Minifier | Compress & Optimize Code | Rebrixe</title>
+    <meta name="description" content="Strip bloat from your JavaScript files with our JS Minifier. Reduce file size by removing whitespace, comments, and redundant syntax for faster load times. Free & instant.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -3px;
+            background: linear-gradient(90deg, var(--primary), #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;              /* FIX 6: unprefixed for Firefox */
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 20px;
+        }
+
+        .stat-card { text-align: center; }
+        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: #94a3b8; font-weight: 800; letter-spacing: 1px; }
+        .stat-value { display: block; font-size: 1.2rem; font-family: 'Fira Code'; color: #fff; margin-top: 5px; }
+        .stat-value.highlight { color: var(--primary); font-weight: 800; }
+        .stat-value.saving-good { color: #00ff66; }
+        .stat-value.saving-ok   { color: #ffaa00; }
+        .stat-value.saving-low  { color: #94a3b8; }
+
+        /* FIX 2: Two-pane layout */
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        @media (max-width: 800px) {
+            .editor-grid { grid-template-columns: 1fr; }
+            .stats-container { grid-template-columns: 1fr; gap: 12px; }
+            .btn-panel { flex-wrap: wrap; }
+        }
+
+        .pane { display: flex; flex-direction: column; gap: 8px; }
+        .pane-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .char-count { font-size: 0.67rem; color: #475569; font-weight: 400; }
+
+        textarea {
+            width: 100%;
+            height: 320px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            color: var(--primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        textarea:focus { border-color: var(--primary); box-shadow: 0 0 20px rgba(0,242,255,0.05); }
+        textarea[readonly] {
+            background: rgba(0,0,0,0.6);
+            color: #4ade80;
+            cursor: default;
+        }
+
+        .btn-panel { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-panel .gen-btn { flex: 1; min-width: 120px; }
+
+        /* Warning banner for minifier limitations */
+        .minifier-notice {
+            font-size: 0.72rem;
+            color: #64748b;
+            background: rgba(255,170,0,0.04);
+            border: 1px solid rgba(255,170,0,0.1);
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .minifier-notice strong { color: #ffaa00; }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <nav class="nav-container"></nav>
+
+    <main class="container">
+        <a href="formatters-encoders.html" class="back-btn">← Back to Tools</a>
+        <section class="tool-card" style="text-align: center;">
+            <h1 class="brand-title">JS Optimizer</h1>
+            <p style="opacity:0.6; margin-bottom:24px; font-weight:500;">Reduce payload size and improve execution speed.</p>
+
+            <!-- FIX 2: Two separate panes -->
+            <div class="editor-grid">
+                <div class="pane">
+                    <div class="pane-label">
+                        Source Code
+                        <span class="char-count" id="inputCount">0 B</span>
+                    </div>
+                    <textarea id="jsInput"
+                        placeholder="// Paste your JavaScript here..."
+                        oninput="onInputChange()"></textarea>
+                </div>
+                <div class="pane">
+                    <div class="pane-label">
+                        Minified Output
+                        <span class="char-count" id="outputCount">0 B</span>
+                    </div>
+                    <textarea id="jsOutput" readonly
+                        placeholder="// Minified result will appear here..."></textarea>
+                </div>
+            </div>
+
+            <!-- FIX 4: Stats measured correctly against locked original -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">Original Size</span>
+                    <span id="origSize" class="stat-value">—</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Minified Size</span>
+                    <span id="minSize" class="stat-value">—</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Savings</span>
+                    <span id="savings" class="stat-value highlight">—</span>
+                </div>
+            </div>
+
+            <div class="minifier-notice">
+                <strong>Note:</strong> This is a client-side regex minifier. It safely handles comments, whitespace, and operators without corrupting string literals or template literals. For production builds, pair with a full AST minifier like Terser.
+            </div>
+
+            <div class="btn-panel">
+                <button class="gen-btn" onclick="minifyJS()">▶ Compress</button>
+                <button class="gen-btn" onclick="copyOutput(this)">Copy Minified</button>
+                <button class="gen-btn" onclick="downloadOutput()">↓ Download .js</button>
+                <button class="gen-btn" style="background:rgba(255,0,0,0.05); color:#ff4d4d; border-color:rgba(255,0,0,0.1);" onclick="clearAll()">Clear</button>
+            </div>
+        </section>
+
+        <article class="seo-content">
+            <h2>The Science of Minification</h2>
+            <p>JavaScript minification isn't just about making code "ugly" — it's about making it efficient for machines. By removing non-functional data, you reduce the time it takes for a mobile browser to download and parse your script.</p>
+
+            <div class="faq-grid" style="margin-top:40px;">
+                <div class="faq-item">
+                    <h3>Impact on SEO</h3>
+                    <p>Page speed is a primary ranking factor for Google. Minifying your JS assets contributes directly to a better Core Web Vitals score.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is it Reversible?</h3>
+                    <p>Minification is a one-way street. Always keep your "pretty" source code for development and use this tool for your production builds.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Privacy First</h3>
+                    <p>Rebrixe processes your code strictly in your browser's RAM. Your scripts never touch a cloud database or external API.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+
+    <script src="/nav.js"></script>
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function onInputChange() {
+            const bytes = new Blob([document.getElementById('jsInput').value]).size;
+            document.getElementById('inputCount').textContent = formatBytes(bytes);
+        }
+
+        // ── FIX 1 + 3: Safe minifier engine that respects string literals ──
+        function safeMinify(code) {
+            const STRING_PLACEHOLDER = '\x00STR\x00';
+            const REGEX_PLACEHOLDER  = '\x00REX\x00';
+            const stored = [];
+
+            // STEP 1: Extract and protect all string literals and template literals
+            // so whitespace and comments inside them are never touched
+            code = code.replace(
+                /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g,
+                (match) => {
+                    stored.push({ type: 'string', val: match });
+                    return STRING_PLACEHOLDER + (stored.length - 1) + '\x00';
+                }
+            );
+
+            // STEP 2: Extract and protect regex literals (heuristic: after = ( , ! & | return)
+            code = code.replace(
+                /(?<=[=(,!&|:?\[{;])\s*(\/(?:[^/\\\n]|\\.)+\/[gimsuy]*)/g,
+                (match, rx) => {
+                    stored.push({ type: 'regex', val: rx });
+                    return ' ' + REGEX_PLACEHOLDER + (stored.length - 1) + '\x00';
+                }
+            );
+
+            // STEP 3: Remove block comments /* ... */
+            code = code.replace(/\/\*[\s\S]*?\*\//g, '');
+
+            // STEP 4: Remove single-line comments // ...
+            // Safe now because strings are replaced with placeholders
+            code = code.replace(/\/\/[^\n]*/g, '');
+
+            // STEP 5: Collapse all whitespace sequences to single space
+            code = code.replace(/\s+/g, ' ');
+
+            // STEP 6: Remove spaces around operators and punctuation
+            code = code
+                .replace(/ ?([{}()[\];,+\-*/%=<>!&|^~?:]) ?/g, '$1')
+                // Restore space after keywords that need it (return, typeof, instanceof, etc.)
+                .replace(/(return|typeof|instanceof|void|delete|throw|new|in|of)\x00?(?=[a-zA-Z$_(["'`])/g, '$1 ')
+                .trim();
+
+            // STEP 7: Restore protected strings and regexes
+            code = code.replace(
+                new RegExp('(?:' + STRING_PLACEHOLDER.replace(/\x00/g, '\\x00') + '|' + REGEX_PLACEHOLDER.replace(/\x00/g, '\\x00') + ')(\\d+)\\x00', 'g'),
+                (match, idx) => stored[+idx].val
+            );
+
+            return code;
+        }
+
+        function minifyJS() {
+            const raw = document.getElementById('jsInput').value;
+            if (!raw.trim()) return;
+
+            let minified;
+            try {
+                minified = safeMinify(raw);
+            } catch(e) {
+                // FIX 1: If engine errors, show message instead of corrupting output
+                document.getElementById('jsOutput').value = '// Minification error: ' + e.message;
+                return;
+            }
+
+            // FIX 2: Write to OUTPUT only — input is never touched
+            document.getElementById('jsOutput').value = minified;
+
+            // FIX 4: Measure original size from the UNTOUCHED input, locked at call time
+            const origBytes = new Blob([raw]).size;
+            const miniBytes = new Blob([minified]).size;
+            const savingsPct = origBytes > 0 ? Math.round(((origBytes - miniBytes) / origBytes) * 100) : 0;
+
+            document.getElementById('origSize').textContent = formatBytes(origBytes);
+            document.getElementById('minSize').textContent  = formatBytes(miniBytes);
+            document.getElementById('outputCount').textContent = formatBytes(miniBytes);
+
+            const savingsEl = document.getElementById('savings');
+            savingsEl.textContent = savingsPct + '%';
+            savingsEl.className = 'stat-value highlight ' +
+                (savingsPct >= 30 ? 'saving-good' : savingsPct >= 10 ? 'saving-ok' : 'saving-low');
+        }
+
+        // FIX 3: Copy from output field, with guard and error feedback
+        function copyOutput(btn) {
+            const out = document.getElementById('jsOutput').value;
+            if (!out || out.startsWith('// Minification error')) {
+                btn.innerText = 'Nothing to copy';
+                setTimeout(() => btn.innerText = 'Copy Minified', 1500);
+                return;
+            }
+            navigator.clipboard.writeText(out).then(() => {
+                btn.innerText = '✓ COPIED!';
+                setTimeout(() => btn.innerText = 'Copy Minified', 1500);
+            }).catch(() => {
+                btn.innerText = 'Copy failed';
+                setTimeout(() => btn.innerText = 'Copy Minified', 1500);
+            });
+        }
+
+        // FIX 5: Download as .js file
+        function downloadOutput() {
+            const out = document.getElementById('jsOutput').value;
+            if (!out || out.startsWith('// Minification error')) return;
+            const blob = new Blob([out], { type: 'text/javascript' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'minified.js';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function clearAll() {
+            document.getElementById('jsInput').value  = '';
+            document.getElementById('jsOutput').value = '';
+            document.getElementById('origSize').textContent  = '—';
+            document.getElementById('minSize').textContent   = '—';
+            document.getElementById('savings').textContent   = '—';
+            document.getElementById('savings').className = 'stat-value highlight';
+            document.getElementById('inputCount').textContent  = '0 B';
+            document.getElementById('outputCount').textContent = '0 B';
+        }
+    </script>
+</body>
+</html>

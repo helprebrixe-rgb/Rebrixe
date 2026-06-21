@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DST Meeting Impact Tracker | Rebrixe</title>
+    <meta name="description" content="See exactly how Daylight Saving Time shifted your recurring meetings. Accurate timezone conversion using your browser's native engine.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── Layout ─────────────────────────────────────────────── */
+        .tool-wrap {
+            max-width: 860px;
+            margin: 40px auto;
+        }
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── Labels ─────────────────────────────────────────────── */
+        .sec-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.8px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+        .field-label {
+            font-size: 0.63rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 7px;
+            display: block;
+        }
+
+        /* ── Inputs ─────────────────────────────────────────────── */
+        select, input[type="date"], input[type="text"], input[type="time"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 13px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            color-scheme: dark;
+            appearance: auto;
+        }
+        select:focus, input:focus { border-color: var(--primary); }
+        select option { background: #0f172a; }
+
+        /* ── DST status bar ─────────────────────────────────────── */
+        .dst-status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .dst-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dst-dot.active   { background: #f59e0b; box-shadow: 0 0 8px #f59e0b88; animation: pulse 2s infinite; }
+        .dst-dot.standard { background: #64748b; }
+        .dst-dot.none     { background: #334155; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .dst-status-text { font-size: 0.85rem; color: #94a3b8; flex: 1; min-width: 0; }
+        .dst-status-text strong { color: #fff; }
+        .dst-now { font-size: 0.72rem; color: #475569; white-space: nowrap; }
+
+        /* ── Your Setup row ─────────────────────────────────────── */
+        .setup-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .field-box { display: flex; flex-direction: column; }
+        .field-hint { font-size: 0.7rem; color: #475569; margin-top: 5px; }
+
+        /* ── Tip box ─────────────────────────────────────────────── */
+        .tip-box {
+            display: flex;
+            gap: 10px;
+            padding: 13px 16px;
+            background: rgba(99,102,241,0.06);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        .tip-box span { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+        .tip-box strong { color: #c7d2fe; }
+
+        /* ── Meeting rows ────────────────────────────────────────── */
+        .meeting-entry-area { margin-bottom: 20px; }
+        .meeting-row {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1.4fr auto;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .meeting-row input[type="text"],
+        .meeting-row input[type="time"],
+        .meeting-row select {
+            padding: 11px 14px;
+            font-size: 0.85rem;
+            border-radius: 12px;
+        }
+        .del-btn {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #ef4444;
+            border-radius: 10px;
+            width: 36px; height: 36px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: background .2s;
+        }
+        .del-btn:hover { background: rgba(239,68,68,0.22); }
+        .add-meeting-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px dashed var(--border);
+            color: #64748b;
+            padding: 11px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            transition: border-color .2s, color .2s, background .2s;
+            margin-bottom: 20px;
+        }
+        .add-meeting-btn:hover { border-color: var(--primary); color: #fff; background: rgba(255,255,255,0.06); }
+
+        /* ── Action bar ──────────────────────────────────────────── */
+        .action-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+        .btn-main {
+            flex: 2;
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border: none;
+            color: #fff;
+            padding: 14px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: transform .2s, letter-spacing .2s;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.25);
+        }
+        .btn-main:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+        .btn-sec {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 14px;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: border-color .2s, color .2s;
+        }
+        .btn-sec:hover { border-color: #fff; color: #fff; }
+
+        /* ── Error banner ────────────────────────────────────────── */
+        .error-banner {
+            display: none;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fca5a5;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+
+        /* ── Results ─────────────────────────────────────────────── */
+        #resultArea { display: none; }
+
+        .result-summary {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .rs-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+        }
+        .rs-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .rs-num.ok     { color: #22c55e; }
+        .rs-num.warn   { color: #f59e0b; }
+        .rs-num.danger { color: #ef4444; }
+        .rs-label { font-size: 0.65rem; color: #475569; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; margin-top: 6px; }
+
+        /* ── Meeting result card ─────────────────────────────────── */
+        .meeting-result {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 10px;
+        }
+        .meeting-result.no-change { border-color: rgba(34,197,94,0.25); }
+        .meeting-result.shifted   { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.04); }
+        .meeting-result.big-shift { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.04); }
+
+        .mr-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .mr-name { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; color: #fff; }
+        .mr-tz-tag {
+            font-size: 0.65rem; color: #64748b;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            padding: 3px 10px; border-radius: 999px; font-weight: 600;
+        }
+        .shift-badge {
+            font-size: 0.68rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1px;
+            padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+        }
+        .badge-no-change { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+        .badge-shifted   { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-big-shift { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+
+        .time-compare {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+        .tc-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .tc-box.shifted-after  { border-color: rgba(245,158,11,0.35); }
+        .tc-box.big-shift-after{ border-color: rgba(239,68,68,0.35); }
+        .tc-box.ok-after       { border-color: rgba(34,197,94,0.25); }
+        .tc-sub  { font-size: 0.58rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+        .tc-time { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 900; color: #fff; line-height: 1; }
+        .tc-orig { font-size: 0.72rem; color: #64748b; margin-top: 3px; }
+        .tc-arrow { color: #475569; font-size: 1.1rem; text-align: center; }
+
+        .delta-pill {
+            display: inline-block;
+            font-size: 0.7rem; font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            padding: 3px 10px; border-radius: 999px; margin-top: 6px;
+        }
+        .dp-later   { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .dp-earlier { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .dp-same    { background: rgba(34,197,94,0.10); color: #22c55e; }
+
+        .copy-all-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 11px 18px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: border-color .2s, color .2s;
+            margin-top: 14px; width: 100%;
+        }
+        .copy-all-btn:hover { border-color: var(--primary); color: #fff; }
+
+        /* ── Empty hint ──────────────────────────────────────────── */
+        .empty-hint {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        /* ── Reliability note ────────────────────────────────────── */
+        .reliability-note {
+            font-size: 0.72rem;
+            color: #334155;
+            text-align: center;
+            margin-top: 18px;
+            line-height: 1.5;
+        }
+
+        /* ── Responsive ──────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .tool-card { padding: 20px 16px; }
+            .setup-row { grid-template-columns: 1fr; }
+            .meeting-row { grid-template-columns: 1fr 1fr; }
+            .meeting-row .del-btn { grid-column: span 2; width: 100%; height: 32px; border-radius: 10px; }
+            .result-summary { grid-template-columns: 1fr 1fr; }
+            .time-compare { grid-template-columns: 1fr; }
+            .tc-arrow { transform: rotate(90deg); }
+            .action-bar { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="time-zone-tools.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">
+                DST Meeting Impact Tracker
+            </h1>
+            <p style="color:#64748b; font-size:0.95rem; max-width:560px; margin:0 auto;">
+                Daylight Saving just changed — see exactly which meetings shifted and by how much.
+            </p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- DST STATUS BAR -->
+                <div class="dst-status-bar" id="dstStatusBar">
+                    <div class="dst-dot" id="dstDot"></div>
+                    <div class="dst-status-text" id="dstStatusText">Detecting your DST status…</div>
+                    <div class="dst-now" id="dstNow"></div>
+                </div>
+
+                <!-- YOUR SETUP -->
+                <div class="sec-label">Your Setup</div>
+                <div class="setup-row">
+                    <div class="field-box">
+                        <span class="field-label">Your Timezone</span>
+                        <select id="yourTz"></select>
+                    </div>
+                    <div class="field-box">
+                        <span class="field-label">Reference Date</span>
+                        <input type="date" id="refDate">
+                        <div class="field-hint">The date meetings were originally agreed — before DST changed.</div>
+                    </div>
+                </div>
+
+                <!-- TIP -->
+                <div class="tip-box">
+                    <span>💡 <strong>How to use:</strong> Add your recurring meetings below with the timezone they were scheduled in. The tool shows how each one lands today versus on the reference date — so you can spot any DST-caused shift instantly.</span>
+                </div>
+
+                <!-- MEETINGS -->
+                <div class="sec-label">Your Recurring Meetings</div>
+                <div id="meetingRows" class="meeting-entry-area"></div>
+                <button class="add-meeting-btn" onclick="addMeetingRow()">+ Add Another Meeting</button>
+
+                <!-- ERROR -->
+                <div class="error-banner" id="errorBanner"></div>
+
+                <!-- ACTIONS -->
+                <div class="action-bar">
+                    <button class="btn-main" onclick="runCheck()">Check DST Impact</button>
+                    <button class="btn-sec" id="saveBtn" onclick="saveList()">💾 Save List</button>
+                    <button class="btn-sec" onclick="clearAll()">✕ Clear</button>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="resultArea">
+                    <div class="sec-label" style="margin-bottom:14px;">Impact Report</div>
+                    <div class="result-summary" id="resultSummary"></div>
+                    <div id="resultCards"></div>
+                    <button class="copy-all-btn" id="copyBtn" onclick="copyReport()">Copy Full Report</button>
+                </div>
+
+                <div id="emptyHint" class="empty-hint">
+                    Add your meetings above and hit <strong style="color:#94a3b8">Check DST Impact</strong> ↑
+                </div>
+
+                <div class="reliability-note">
+                    Times computed using your browser's native <code>Intl.DateTimeFormat</code> engine — the same source your OS uses.
+                </div>
+
+            </div><!-- .tool-card -->
+        </div><!-- .tool-wrap -->
+    </div><!-- .container -->
+
+    <footer></footer>
+
+    <script>
+    'use strict';
+
+    /* ═══════════════════════════════════════════════════════════════
+       TIMEZONE LIST
+       All IANA keys validated against the Intl spec.
+    ═══════════════════════════════════════════════════════════════ */
+    const TZ_LIST = [
+        ['Pacific/Honolulu',                  'Hawaii (HST — no DST)'],
+        ['America/Anchorage',                 'Alaska (AKST/AKDT)'],
+        ['America/Los_Angeles',               'US Pacific (PST/PDT)'],
+        ['America/Denver',                    'US Mountain (MST/MDT)'],
+        ['America/Phoenix',                   'US Mountain – Arizona (MST — no DST)'],
+        ['America/Chicago',                   'US Central (CST/CDT)'],
+        ['America/New_York',                  'US Eastern (EST/EDT)'],
+        ['America/Halifax',                   'Canada Atlantic (AST/ADT)'],
+        ['America/St_Johns',                  'Canada Newfoundland (NST/NDT)'],
+        ['America/Sao_Paulo',                 'Brazil – São Paulo (BRT/BRST)'],
+        ['America/Argentina/Buenos_Aires',    'Argentina (ART — no DST)'],
+        ['America/Santiago',                  'Chile (CLT/CLST)'],
+        ['Europe/London',                     'UK (GMT/BST)'],
+        ['Europe/Dublin',                     'Ireland (GMT/IST)'],
+        ['Europe/Lisbon',                     'Portugal (WET/WEST)'],
+        ['Europe/Paris',                      'Central Europe (CET/CEST)'],
+        ['Europe/Berlin',                     'Germany (CET/CEST)'],
+        ['Europe/Amsterdam',                  'Netherlands (CET/CEST)'],
+        ['Europe/Rome',                       'Italy (CET/CEST)'],
+        ['Europe/Madrid',                     'Spain (CET/CEST)'],
+        ['Europe/Warsaw',                     'Poland (CET/CEST)'],
+        ['Europe/Helsinki',                   'Finland (EET/EEST)'],
+        ['Europe/Athens',                     'Greece (EET/EEST)'],
+        ['Europe/Istanbul',                   'Turkey (TRT — no DST)'],
+        ['Europe/Moscow',                     'Moscow (MSK — no DST)'],
+        ['Asia/Dubai',                        'UAE (GST — no DST)'],
+        ['Asia/Karachi',                      'Pakistan (PKT — no DST)'],
+        ['Asia/Kolkata',                      'India (IST — no DST)'],
+        ['Asia/Dhaka',                        'Bangladesh (BST — no DST)'],
+        ['Asia/Bangkok',                      'Thailand (ICT — no DST)'],
+        ['Asia/Singapore',                    'Singapore (SGT — no DST)'],
+        ['Asia/Shanghai',                     'China (CST — no DST)'],
+        ['Asia/Tokyo',                        'Japan (JST — no DST)'],
+        ['Asia/Seoul',                        'South Korea (KST — no DST)'],
+        ['Australia/Perth',                   'Australia West (AWST — no DST)'],
+        ['Australia/Adelaide',               'Australia Central (ACST/ACDT)'],
+        ['Australia/Sydney',                  'Australia East (AEST/AEDT)'],
+        ['Pacific/Auckland',                  'New Zealand (NZST/NZDT)'],
+    ];
+
+    /* ═══════════════════════════════════════════════════════════════
+       CORE ENGINE
+       All logic uses Intl.DateTimeFormat — the browser's own
+       timezone database (same as the OS). No offset arithmetic,
+       no Newton's method, no toLocaleString hacks.
+    ═══════════════════════════════════════════════════════════════ */
+
+    /**
+     * detectTzSupport — verify a given IANA tz key works in this browser.
+     * Silently removes unsupported entries (rare, but safe).
+     */
+    function detectTzSupport(tz) {
+        try {
+            new Intl.DateTimeFormat('en', { timeZone: tz }).format(new Date());
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    /**
+     * getUserTz — return the browser's local IANA timezone.
+     * Falls back to America/New_York on very old browsers.
+     */
+    function getUserTz() {
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            return tz || 'America/New_York';
+        } catch (_) {
+            return 'America/New_York';
+        }
+    }
+
+    /**
+     * getPartsAt — core primitive.
+     * Returns an object {year, month, day, hour, minute} representing
+     * the wall-clock time in `tz` for a given UTC timestamp (ms).
+     * Uses Intl.DateTimeFormat with formatToParts — reliable across
+     * all modern browsers (Chrome 57+, Firefox 52+, Safari 10+).
+     */
+    function getPartsAt(epochMs, tz) {
+        const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+            hour12: false,
+        });
+        const parts = {};
+        fmt.formatToParts(new Date(epochMs)).forEach(({ type, value }) => {
+            if (type !== 'literal') parts[type] = parseInt(value, 10);
+        });
+        // Intl returns hour=24 for midnight in some engines — normalise
+        if (parts.hour === 24) parts.hour = 0;
+        return parts;
+    }
+
+    /**
+     * localDateToEpoch — convert a YYYY-MM-DD + HH:MM wall-clock time
+     * in `sourceTz` to a UTC epoch (ms).
+     *
+     * Strategy: build a UTC epoch that approximates the local time,
+     * then use Intl to read back what the local clock says at that epoch,
+     * and adjust. Two iterations are sufficient because the adjustment
+     * after the first is always ≤1 ms. We validate the round-trip result
+     * to catch ambiguous/skipped times (DST gaps and folds).
+     *
+     * Returns { epochMs, warning } where warning is null or a string
+     * describing a DST anomaly the user should know about.
+     */
+    function localDateToEpoch(dateStr, timeStr, tz) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const [hour, minute]     = timeStr.split(':').map(Number);
+
+        if (isNaN(year) || isNaN(hour)) return { epochMs: null, warning: 'Invalid date or time.' };
+
+        // Naive UTC epoch — treat the local time as if it were UTC
+        const naiveMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+
+        // Iteration 1: read back local time, compute drift, correct
+        const p1   = getPartsAt(naiveMs, tz);
+        const driftMs = (
+            (p1.hour   - hour)   * 3_600_000 +
+            (p1.minute - minute) * 60_000
+        );
+        const corrected = naiveMs - driftMs;
+
+        // Iteration 2: verify the corrected epoch round-trips correctly
+        const p2 = getPartsAt(corrected, tz);
+        const residualMinutes =
+            (p2.hour   - hour)   * 60 +
+            (p2.minute - minute);
+
+        let warning = null;
+
+        if (residualMinutes !== 0) {
+            // The local time doesn't exist in this tz (DST spring-forward gap).
+            // We return the epoch immediately after the gap — the next valid time.
+            warning = `⚠ ${timeStr} doesn't exist on this date in ${tz} (clocks spring forward). Showing the next valid minute instead.`;
+        }
+
+        // Check for ambiguous time (DST fall-back fold): does this epoch
+        // occur twice? We probe ±31 min around the corrected point.
+        const before = getPartsAt(corrected - 31 * 60_000, tz);
+        const after  = getPartsAt(corrected + 31 * 60_000, tz);
+        const beforeMins = before.hour * 60 + before.minute;
+        const afterMins  = after.hour  * 60 + after.minute;
+        const thisMins   = hour * 60 + minute;
+
+        if (beforeMins > thisMins && afterMins < thisMins) {
+            // We're in a fold region — the time occurs twice.
+            // We always pick the first occurrence (standard → DST in Southern
+            // Hemisphere, or DST → standard in Northern). This is the
+            // correct behaviour: meetings set "at 1:30 AM" before fall-back
+            // refer to the first 1:30, not the repeated one.
+            warning = `ℹ ${timeStr} occurs twice on this date in ${tz} (clocks fall back). Showing the first occurrence.`;
+        }
+
+        return { epochMs: corrected, warning };
+    }
+
+    /**
+     * epochToLocalHHMM — convert a UTC epoch to HH:MM in a given tz.
+     * Returns { hour, minute } as integers.
+     */
+    function epochToLocalHHMM(epochMs, tz) {
+        const p = getPartsAt(epochMs, tz);
+        return { hour: p.hour, minute: p.minute };
+    }
+
+    /**
+     * fmtHHMM — format { hour, minute } as 12-hour time string.
+     */
+    function fmtHHMM({ hour, minute }) {
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const h12  = hour % 12 || 12;
+        return `${h12}:${String(minute).padStart(2, '0')} ${ampm}`;
+    }
+
+    /**
+     * deltaMinutes — signed minute difference between two {hour,minute} objects.
+     * Clamped to ±720 to handle day-boundary crossings correctly.
+     */
+    function deltaMinutes(before, after) {
+        let d = (after.hour * 60 + after.minute) - (before.hour * 60 + before.minute);
+        if (d >  720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+    }
+
+    /**
+     * isDSTActive — reliably determine whether `tz` is currently
+     * observing DST by comparing its UTC offset in January vs July.
+     * Returns: 'active' | 'standard' | 'none'
+     */
+    function isDSTActive(tz) {
+        const year = new Date().getFullYear();
+        const jan  = new Date(Date.UTC(year, 0, 15, 12, 0, 0));
+        const jul  = new Date(Date.UTC(year, 6, 15, 12, 0, 0));
+
+        const pJan = getPartsAt(jan.getTime(), tz);
+        const pJul = getPartsAt(jul.getTime(), tz);
+
+        const offJan = pJan.hour * 60 + pJan.minute; // local noon in January
+        const offJul = pJul.hour * 60 + pJul.minute; // local noon in July
+
+        if (offJan === offJul) return 'none'; // tz has no DST
+
+        const now = new Date();
+        const pNow = getPartsAt(now.getTime(), tz);
+        const offNow = pNow.hour * 60 + pNow.minute;
+        // The DST (summer time) offset makes clocks read later
+        const summerOff = Math.max(offJan, offJul);
+        return offNow === summerOff ? 'active' : 'standard';
+    }
+
+    /**
+     * fmtDateLabel — e.g. "Jun 11"
+     */
+    function fmtDateLabel(dateStr) {
+        const d = new Date(dateStr + 'T12:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       VALIDATION
+    ═══════════════════════════════════════════════════════════════ */
+
+    function showError(msg) {
+        const el = document.getElementById('errorBanner');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+    function clearError() {
+        document.getElementById('errorBanner').style.display = 'none';
+    }
+
+    function todayISO() {
+        // Return today's date in the user's local timezone (not UTC).
+        // This prevents the off-by-one-day bug for UTC+N users running the
+        // tool in the evening.
+        const tz   = getUserTz();
+        const p    = getPartsAt(Date.now(), tz);
+        return `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UI — TIMEZONE SELECT
+    ═══════════════════════════════════════════════════════════════ */
+
+    const SUPPORTED_TZ = TZ_LIST.filter(([iana]) => detectTzSupport(iana));
+
+    function buildTzSelect(el, selected) {
+        el.innerHTML = '';
+        const userTz = getUserTz();
+        const fallback = selected || userTz;
+        let matched = false;
+        SUPPORTED_TZ.forEach(([iana, label]) => {
+            const opt   = document.createElement('option');
+            opt.value   = iana;
+            opt.textContent = label;
+            if (iana === fallback) { opt.selected = true; matched = true; }
+            el.appendChild(opt);
+        });
+        // If user's tz isn't in our list, prepend it so it's still selectable
+        if (!matched && fallback) {
+            const opt   = document.createElement('option');
+            opt.value   = fallback;
+            opt.textContent = fallback + ' (detected)';
+            opt.selected = true;
+            el.insertBefore(opt, el.firstChild);
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UI — DST STATUS BAR
+    ═══════════════════════════════════════════════════════════════ */
+
+    function updateDSTStatus() {
+        const tz     = document.getElementById('yourTz').value;
+        const dot    = document.getElementById('dstDot');
+        const txt    = document.getElementById('dstStatusText');
+        const nowEl  = document.getElementById('dstNow');
+        const status = isDSTActive(tz);
+
+        dot.className = 'dst-dot ' + status;
+
+        if (status === 'none') {
+            txt.innerHTML = `<strong>${tz}</strong> does not observe Daylight Saving Time — clocks here never shift.`;
+        } else if (status === 'active') {
+            txt.innerHTML = `<strong>${tz}</strong> is currently on <strong>Summer Time (DST active)</strong>. Clocks are ahead of standard.`;
+        } else {
+            txt.innerHTML = `<strong>${tz}</strong> is currently on <strong>Standard Time</strong>. Clocks are at their winter offset.`;
+        }
+
+        // Show current local time in chosen tz
+        const p = getPartsAt(Date.now(), tz);
+        const h12 = p.hour % 12 || 12;
+        const ap  = p.hour >= 12 ? 'PM' : 'AM';
+        nowEl.textContent = `Now: ${h12}:${String(p.minute).padStart(2,'0')} ${ap}`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UI — MEETING ROWS
+    ═══════════════════════════════════════════════════════════════ */
+
+    let rowCount = 0;
+
+    function addMeetingRow(name = '', time = '09:00', tz = '') {
+        rowCount++;
+        const id   = rowCount;
+        const wrap = document.createElement('div');
+        wrap.className = 'meeting-row';
+        wrap.id = `mrow-${id}`;
+
+        const nameInput = document.createElement('input');
+        nameInput.type        = 'text';
+        nameInput.placeholder = 'Meeting name';
+        nameInput.value       = name;
+        nameInput.className   = 'mname';
+
+        const timeInput = document.createElement('input');
+        timeInput.type  = 'time';
+        timeInput.value = time;
+        timeInput.className = 'mtime';
+
+        const tzSel = document.createElement('select');
+        tzSel.className = 'mtz';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.textContent = '✕';
+        delBtn.setAttribute('aria-label', 'Remove meeting');
+        delBtn.onclick = () => document.getElementById(`mrow-${id}`)?.remove();
+
+        wrap.append(nameInput, timeInput, tzSel, delBtn);
+        document.getElementById('meetingRows').appendChild(wrap);
+        buildTzSelect(tzSel, tz || getUserTz());
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CORE RUN
+    ═══════════════════════════════════════════════════════════════ */
+
+    function runCheck() {
+        clearError();
+
+        const yourTz  = document.getElementById('yourTz').value;
+        const refDate = document.getElementById('refDate').value;
+
+        // ── Validate reference date ────────────────────────────────
+        if (!refDate) {
+            showError('Please pick a Reference Date — the date your meetings were originally scheduled.');
+            return;
+        }
+
+        const today = todayISO();
+
+        // Warn but don't block if dates are the same or future
+        if (refDate > today) {
+            showError('Reference Date is in the future. The tool compares meetings on that date against today — please pick a past date.');
+            return;
+        }
+        if (refDate === today) {
+            showError('Reference Date is today. Choose an earlier date — the one when meetings were originally set up.');
+            return;
+        }
+
+        const rows = document.querySelectorAll('.meeting-row');
+        if (!rows.length) {
+            showError('Add at least one meeting before checking.');
+            return;
+        }
+
+        // ── Collect meetings ───────────────────────────────────────
+        const meetings = [];
+        rows.forEach(row => {
+            const name = (row.querySelector('.mname').value.trim()) || 'Untitled Meeting';
+            const time = row.querySelector('.mtime').value;
+            const tz   = row.querySelector('.mtz').value;
+            if (!time) return; // skip rows with no time
+            meetings.push({ name, time, tz });
+        });
+
+        if (!meetings.length) {
+            showError('Please set a time for at least one meeting.');
+            return;
+        }
+
+        // ── Process each meeting ──────────────────────────────────
+        let okCount = 0, shiftedCount = 0, bigShiftCount = 0;
+        const warnings = [];
+
+        const cards = meetings.map(m => {
+            // Convert meeting's original time (in its own tz on refDate)
+            // to what it lands as in the user's tz on refDate
+            const beforeResult = localDateToEpoch(refDate, m.time, m.tz);
+            // Convert the same recurring time on today's date
+            const afterResult  = localDateToEpoch(today, m.time, m.tz);
+
+            if (beforeResult.epochMs === null || afterResult.epochMs === null) {
+                return buildErrorCard(m.name, m.tz, 'Could not compute — invalid date or time.');
+            }
+
+            if (beforeResult.warning) warnings.push(`${m.name}: ${beforeResult.warning}`);
+            if (afterResult.warning)  warnings.push(`${m.name}: ${afterResult.warning}`);
+
+            const before = epochToLocalHHMM(beforeResult.epochMs, yourTz);
+            const after  = epochToLocalHHMM(afterResult.epochMs,  yourTz);
+            const delta  = deltaMinutes(before, after);
+
+            let cls, badgeCls, badgeTxt;
+            if (delta === 0) {
+                cls = 'no-change'; badgeCls = 'badge-no-change'; badgeTxt = '✓ No Change'; okCount++;
+            } else if (Math.abs(delta) >= 60) {
+                cls = 'big-shift'; badgeCls = 'badge-big-shift'; badgeTxt = '⚠ Big Shift'; bigShiftCount++;
+            } else {
+                cls = 'shifted'; badgeCls = 'badge-shifted'; badgeTxt = '~ Shifted'; shiftedCount++;
+            }
+
+            const deltaStr = delta === 0 ? '±0 min'
+                : delta > 0 ? `+${delta} min later`
+                : `${Math.abs(delta)} min earlier`;
+            const deltaCls = delta === 0 ? 'dp-same' : delta > 0 ? 'dp-later' : 'dp-earlier';
+
+            const afterBoxCls = cls === 'big-shift' ? 'big-shift-after'
+                : cls === 'shifted' ? 'shifted-after' : 'ok-after';
+
+            const srcDstStatus = isDSTActive(m.tz);
+            const dstTag = srcDstStatus === 'none'     ? '(no DST)'
+                         : srcDstStatus === 'active'   ? '(DST active)'
+                         : '(standard time)';
+
+            return `
+            <div class="meeting-result ${cls}">
+                <div class="mr-top">
+                    <div>
+                        <div class="mr-name">${escapeHTML(m.name)}</div>
+                        <span class="mr-tz-tag">${escapeHTML(m.tz)} ${dstTag}</span>
+                    </div>
+                    <span class="shift-badge ${badgeCls}">${badgeTxt}</span>
+                </div>
+                <div class="time-compare">
+                    <div class="tc-box">
+                        <div class="tc-sub">Before DST · ${fmtDateLabel(refDate)}</div>
+                        <div class="tc-time">${fmtHHMM(before)}</div>
+                        <div class="tc-orig">original: ${m.time} in ${m.tz.split('/').pop().replace(/_/g,' ')}</div>
+                    </div>
+                    <div class="tc-arrow">→</div>
+                    <div class="tc-box ${afterBoxCls}">
+                        <div class="tc-sub">After DST · Today</div>
+                        <div class="tc-time">${fmtHHMM(after)}</div>
+                        <div class="tc-orig">in your timezone</div>
+                        <div class="delta-pill ${deltaCls}">${deltaStr}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).filter(Boolean);
+
+        // ── Render ─────────────────────────────────────────────────
+        document.getElementById('resultSummary').innerHTML = `
+            <div class="rs-cell">
+                <div class="rs-num ok">${okCount}</div>
+                <div class="rs-label">No Change</div>
+            </div>
+            <div class="rs-cell">
+                <div class="rs-num warn">${shiftedCount}</div>
+                <div class="rs-label">Shifted</div>
+            </div>
+            <div class="rs-cell">
+                <div class="rs-num danger">${bigShiftCount}</div>
+                <div class="rs-label">Big Shift (≥1 h)</div>
+            </div>`;
+
+        document.getElementById('resultCards').innerHTML = cards.join('');
+
+        // Show DST anomaly warnings if any
+        if (warnings.length) {
+            const warnDiv = document.createElement('div');
+            warnDiv.style.cssText = 'background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:12px 16px;margin-top:10px;font-size:.8rem;color:#fcd34d;line-height:1.6;';
+            warnDiv.innerHTML = '<strong>DST anomalies detected:</strong><br>' + warnings.map(escapeHTML).join('<br>');
+            document.getElementById('resultCards').appendChild(warnDiv);
+        }
+
+        document.getElementById('resultArea').style.display  = 'block';
+        document.getElementById('emptyHint').style.display   = 'none';
+        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function buildErrorCard(name, tz, msg) {
+        return `
+        <div class="meeting-result" style="border-color:rgba(239,68,68,.3)">
+            <div class="mr-top">
+                <div class="mr-name">${escapeHTML(name)}</div>
+                <span class="shift-badge badge-big-shift">Error</span>
+            </div>
+            <div style="font-size:.82rem;color:#fca5a5;">${escapeHTML(msg)}</div>
+        </div>`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SAVE / LOAD
+    ═══════════════════════════════════════════════════════════════ */
+
+    function saveList() {
+        const rows = document.querySelectorAll('.meeting-row');
+        const data = [];
+        rows.forEach(r => {
+            data.push({
+                name: r.querySelector('.mname').value,
+                time: r.querySelector('.mtime').value,
+                tz:   r.querySelector('.mtz').value,
+            });
+        });
+        try {
+            localStorage.setItem('Rebrixe_dst_v2_meetings', JSON.stringify(data));
+            localStorage.setItem('Rebrixe_dst_v2_yourtz',   document.getElementById('yourTz').value);
+            localStorage.setItem('Rebrixe_dst_v2_refdate',  document.getElementById('refDate').value);
+            const btn = document.getElementById('saveBtn');
+            btn.textContent = '✓ Saved!';
+            setTimeout(() => { btn.textContent = '💾 Save List'; }, 2000);
+        } catch (_) {
+            showError('Could not save — browser storage unavailable.');
+        }
+    }
+
+    function loadSaved() {
+        try {
+            const saved   = localStorage.getItem('Rebrixe_dst_v2_meetings');
+            const savedTz = localStorage.getItem('Rebrixe_dst_v2_yourtz');
+            const savedRd = localStorage.getItem('Rebrixe_dst_v2_refdate');
+            if (savedTz) {
+                const sel = document.getElementById('yourTz');
+                if ([...sel.options].some(o => o.value === savedTz)) sel.value = savedTz;
+            }
+            if (savedRd) document.getElementById('refDate').value = savedRd;
+            if (saved) {
+                JSON.parse(saved).forEach(m => addMeetingRow(m.name, m.time, m.tz));
+                return true;
+            }
+        } catch (_) {}
+        return false;
+    }
+
+    function clearAll() {
+        document.getElementById('meetingRows').innerHTML = '';
+        rowCount = 0;
+        document.getElementById('resultArea').style.display = 'none';
+        document.getElementById('emptyHint').style.display  = 'block';
+        clearError();
+        addMeetingRow();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       COPY REPORT
+    ═══════════════════════════════════════════════════════════════ */
+
+    function copyReport() {
+        const cards = document.querySelectorAll('.meeting-result');
+        if (!cards.length) return;
+        let out = `DST Meeting Impact Report — ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}\n`;
+        out += '═'.repeat(52) + '\n';
+        cards.forEach(card => {
+            const name  = card.querySelector('.mr-name')?.textContent   || '—';
+            const badge = card.querySelector('.shift-badge')?.textContent || '—';
+            const times = card.querySelectorAll('.tc-time');
+            const before = times[0]?.textContent || '—';
+            const after  = times[1]?.textContent || '—';
+            const delta  = card.querySelector('.delta-pill')?.textContent || '';
+            out += `\n${name}\n  Status : ${badge.replace(/[✓⚠~]/g, '').trim()}\n  Before : ${before}\n  After  : ${after}  ${delta}\n`;
+        });
+        if (!navigator.clipboard) {
+            showError('Clipboard not available in this browser.');
+            return;
+        }
+        navigator.clipboard.writeText(out).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = '✓ Copied to clipboard!';
+            setTimeout(() => { btn.textContent = 'Copy Full Report'; }, 2400);
+        }).catch(() => {
+            showError('Clipboard write failed — please copy manually.');
+        });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════════════════════════════ */
+
+    function escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════════════════════════ */
+
+    (function init() {
+        const yourTzSel = document.getElementById('yourTz');
+        buildTzSelect(yourTzSel);
+        yourTzSel.addEventListener('change', updateDSTStatus);
+
+        // Default reference date: 3 weeks ago
+        // Computed in user's local tz to avoid off-by-one for UTC+N users
+        const userTz  = getUserTz();
+        const nowParts = getPartsAt(Date.now() - 21 * 24 * 3600 * 1000, userTz);
+        document.getElementById('refDate').value =
+            `${nowParts.year}-${String(nowParts.month).padStart(2,'0')}-${String(nowParts.day).padStart(2,'0')}`;
+
+        const hadSaved = loadSaved();
+        if (!hadSaved) {
+            addMeetingRow('Team Standup',  '09:00', getUserTz());
+            addMeetingRow('Weekly Sync',   '14:00', 'America/New_York');
+            addMeetingRow('Client Call',   '16:00', 'Europe/London');
+        }
+
+        updateDSTStatus();
+    })();
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

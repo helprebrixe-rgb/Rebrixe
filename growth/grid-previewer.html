@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="growth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Previewer | Rebrixe</title>
+    <meta name="description" content="Preview your Instagram or social media grid designs with customizable grid overlays. Upload images, reorder by drag & drop, and export your grid layout. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── TOOL CARD OVERRIDE ── */
+        .tool-card {
+            max-width: 980px !important;
+            width: 95% !important;
+            padding: 40px 28px 48px !important;
+            margin: 0 auto 80px !important;
+        }
+
+        /* ── TOP CONTROLS ── */
+        .grid-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .grid-size-tabs {
+            display: flex;
+            gap: 6px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 4px;
+        }
+
+        .grid-size-tab {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 7px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+
+        .grid-size-tab.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .grid-size-tab:hover:not(.active) {
+            color: var(--primary);
+            background: rgba(255,255,255,0.04);
+        }
+
+        .control-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #64748b;
+            padding: 9px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.82rem;
+            font-family: inherit;
+            transition: 0.25s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ctrl-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .ctrl-btn.primary-btn {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #000;
+        }
+
+        .ctrl-btn.primary-btn:hover {
+            opacity: 0.88;
+            color: #000;
+        }
+
+        /* ── GRID WRAPPER ── */
+        .grid-wrapper {
+            position: relative;
+            margin: 0 auto 28px;  
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* ── GRID ITSELF ── */
+        .grid-preview-area {
+            width: 100%; 
+            max-width: 800px; 
+            margin: 0 auto;
+            display: grid;
+            gap: 6px;
+            background: #000;
+            padding: 6px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+            transition: grid-template-columns 0.3s ease;
+        }
+
+        .grid-preview-area.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-preview-area.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-preview-area.cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+        /* ── GRID ITEM ── */
+        .grid-item {
+            aspect-ratio: 1 / 1;
+            background: #111;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: filter 0.2s;
+            user-select: none;
+        }
+
+        .grid-item:hover { filter: brightness(1.15); }
+
+        .grid-item.drag-over::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px solid var(--primary);
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .grid-item.dragging { opacity: 0.35; }
+
+        .grid-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+            animation: scaleIn 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(1.08); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+        }
+
+        /* Empty slot indicator */
+        .slot-plus {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            pointer-events: none;
+        }
+
+        .slot-plus .plus-icon {
+            font-size: 1.6rem;
+            color: var(--primary);
+            opacity: 0.25;
+            transition: opacity 0.2s, transform 0.2s;
+            line-height: 1;
+        }
+
+        .grid-item:hover .plus-icon { opacity: 0.9; transform: scale(1.2); }
+
+        .slot-number {
+            font-size: 0.6rem;
+            color: #475569;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        /* ── HOVER OVERLAY ON FILLED SLOTS ── */
+        .slot-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 3;
+        }
+
+        .grid-item:hover .slot-overlay { opacity: 1; }
+
+        .slot-action {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+            pointer-events: all;
+        }
+
+        .slot-action:hover { background: rgba(255,255,255,0.25); transform: scale(1.1); }
+        .slot-action.danger:hover { background: rgba(239,68,68,0.35); }
+
+        /* ── DRAG HANDLE ── */
+        .drag-handle {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 20px;
+            height: 20px;
+            cursor: grab;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.7rem;
+        }
+
+        .grid-item:hover .drag-handle { opacity: 1; }
+        .grid-item:has(img) .drag-handle { display: flex; }
+        .grid-item:not(:has(img)) .drag-handle { display: none; }
+
+        /* ── SLOT INDEX BADGE ── */
+        .slot-badge {
+            position: absolute;
+            bottom: 5px;
+            right: 6px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.35);
+            z-index: 2;
+            pointer-events: none;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── STATS BAR ── */
+        .grid-stats {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 14px 0 0;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border);
+        }
+
+        /* ── INSTRUCTION BAR ── */
+        .instruction-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+        }
+
+        .instruction-pill {
+            font-size: 0.75rem;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 50px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* ── LIGHTBOX ── */
+        .lightbox-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+            backdrop-filter: blur(6px);
+        }
+
+        .lightbox-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .lightbox-img {
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+            object-fit: contain;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .lightbox-close:hover { background: rgba(255,255,255,0.22); }
+
+        /* ── DROP ZONE (bulk) ── */
+        .bulk-drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            padding: 28px 20px;
+            text-align: center;
+            color: #475569;
+            font-size: 0.85rem;
+            margin-top: 22px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            font-weight: 500;
+        }
+
+        .bulk-drop-zone:hover,
+        .bulk-drop-zone.dragging-over {
+            border-color: var(--primary);
+            background: rgba(var(--primary-rgb, 255,255,255), 0.03);
+            color: var(--primary);
+        }
+
+        .bulk-drop-zone span { display: block; font-size: 1.5rem; margin-bottom: 6px; }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            border: 1px solid var(--border);
+            color: #e2e8f0;
+            padding: 11px 22px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 520px) {
+            .grid-controls { flex-direction: column; align-items: stretch; }
+            .grid-size-tabs { justify-content: center; }
+            .control-right { justify-content: center; }
+            .grid-preview-area { border-radius: 10px; }
+            .grid-preview-area { border-radius: 10px; gap: 4px; padding: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="visual-layout.html" class="back-btn">back to tools</a>
+
+        <section class="tool-card">
+            <h1>Grid Previewer</h1>
+            <p class="subtitle" style="opacity:0.6; margin-bottom:32px;">Architect your aesthetic before you publish.</p>
+
+            <!-- CONTROLS TOP -->
+            <div class="grid-controls">
+                <div class="grid-size-tabs" id="sizeTabs">
+                    <button class="grid-size-tab" data-cols="2" onclick="setGridSize(2, this)">2×2</button>
+                    <button class="grid-size-tab active" data-cols="3" onclick="setGridSize(3, this)">3×3</button>
+                    <button class="grid-size-tab" data-cols="4" onclick="setGridSize(4, this)">4×4</button>
+                </div>
+
+                <div class="control-right">
+                    <button class="ctrl-btn" onclick="triggerBulkUpload()" title="Upload multiple images at once">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Bulk Upload
+                    </button>
+                    <button class="ctrl-btn primary-btn" onclick="exportGrid()" id="exportBtn" title="Export grid as image">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export
+                    </button>
+                    <button class="ctrl-btn" onclick="resetGrid()" title="Clear all images">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.39"/></svg>
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- INSTRUCTION PILLS -->
+            <div class="instruction-bar">
+                <div class="instruction-pill">🖼 Click slot to upload</div>
+                <div class="instruction-pill">✦ Drag to reorder</div>
+                <div class="instruction-pill">🔍 Hover to preview / delete</div>
+            </div>
+
+            <!-- GRID -->
+            <div class="grid-wrapper">
+                <div class="grid-preview-area cols-3" id="instaGrid"></div>
+            </div>
+
+            <!-- STATS -->
+            <div class="grid-stats" id="gridStats">
+                <div class="stat-item">
+                    <div class="stat-value" id="statFilled">0</div>
+                    <div class="stat-label">Filled</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statEmpty">9</div>
+                    <div class="stat-label">Empty</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statTotal">9</div>
+                    <div class="stat-label">Total Slots</div>
+                </div>
+            </div>
+
+            <!-- BULK DROP ZONE -->
+            <div class="bulk-drop-zone" id="bulkDropZone" onclick="triggerBulkUpload()">
+                <span>📂</span>
+                Drop multiple images here or click to bulk upload — fills empty slots in order
+            </div>
+        </section>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox(event)">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img class="lightbox-img" id="lightboxImg" src="" alt="Preview">
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- HIDDEN FILE INPUTS -->
+    <input type="file" id="fileInput"      hidden accept="image/*">
+    <input type="file" id="bulkFileInput"  hidden accept="image/*" multiple>
+
+    <footer></footer>
+
+    <script>
+    /* ─── STATE ─── */
+    const grid        = document.getElementById('instaGrid');
+    const fileInput   = document.getElementById('fileInput');
+    const bulkInput   = document.getElementById('bulkFileInput');
+    const lightbox    = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const bulkDrop    = document.getElementById('bulkDropZone');
+
+    let currentCols   = 3;
+    let currentSlot   = null;
+    let dragSrcItem   = null;
+    let images        = [];   // parallel array: index → dataURL or null
+
+    /* ─── INIT ─── */
+    function initGrid(cols) {
+        cols = cols || currentCols;
+        currentCols = cols;
+        const total = cols * cols;
+
+        // Preserve existing images
+        images = images.slice(0, total);
+        while (images.length < total) images.push(null);
+
+        grid.innerHTML = '';
+        grid.className = `grid-preview-area cols-${cols}`;
+
+        for (let i = 0; i < total; i++) {
+            grid.appendChild(makeSlot(i));
+        }
+        updateStats();
+    }
+
+    function makeSlot(i) {
+        const item = document.createElement('div');
+        item.className = 'grid-item';
+        item.dataset.index = i;
+        renderSlot(item, i);
+        attachSlotEvents(item, i);
+        return item;
+    }
+
+    function renderSlot(item, i) {
+        if (images[i]) {
+            item.innerHTML = `
+                <img src="${images[i]}" alt="Post ${i + 1}" draggable="false">
+                <div class="drag-handle" title="Drag to reorder">⠿</div>
+                <div class="slot-overlay">
+                    <div class="slot-action" title="Preview" onclick="openLightbox(event, ${i})">🔍</div>
+                    <div class="slot-action" title="Replace" onclick="replaceSlot(event, ${i})">↺</div>
+                    <div class="slot-action danger" title="Remove" onclick="removeSlot(event, ${i})">✕</div>
+                </div>
+                <div class="slot-badge">${i + 1}</div>
+            `;
+        } else {
+            item.innerHTML = `
+                <div class="slot-plus">
+                    <span class="plus-icon">+</span>
+                    <span class="slot-number">${i + 1}</span>
+                </div>
+                <div class="slot-badge">${i + 1}</div>
+            `;
+        }
+    }
+
+    function attachSlotEvents(item, i) {
+        // Click empty slot → upload
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('slot-action')) return;
+            if (!images[i]) {
+                currentSlot = i;
+                fileInput.value = '';          // reset so same file retriggers
+                fileInput.click();
+            }
+        });
+
+        // Drag-and-drop reorder
+        item.setAttribute('draggable', 'true');
+
+        item.addEventListener('dragstart', (e) => {
+            if (!images[i]) { e.preventDefault(); return; }
+            dragSrcItem = i;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('drag-over'));
+        });
+
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('drag-over'));
+            item.classList.add('drag-over');
+        });
+
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            if (dragSrcItem === null || dragSrcItem === i) return;
+            swapSlots(dragSrcItem, i);
+            dragSrcItem = null;
+        });
+    }
+
+    /* ─── SLOT ACTIONS ─── */
+    function swapSlots(a, b) {
+        [images[a], images[b]] = [images[b], images[a]];
+        const slots = grid.querySelectorAll('.grid-item');
+        renderSlot(slots[a], a);
+        renderSlot(slots[b], b);
+        updateStats();
+        showToast('Posts reordered ✓');
+    }
+
+    window.removeSlot = function(e, i) {
+        e.stopPropagation();
+        images[i] = null;
+        const slot = grid.querySelectorAll('.grid-item')[i];
+        renderSlot(slot, i);
+        updateStats();
+    };
+
+    window.replaceSlot = function(e, i) {
+        e.stopPropagation();
+        currentSlot = i;
+        fileInput.value = '';
+        fileInput.click();
+    };
+
+    window.openLightbox = function(e, i) {
+        e.stopPropagation();
+        if (!images[i]) return;
+        lightboxImg.src = images[i];
+        lightbox.classList.add('open');
+    };
+
+    window.closeLightbox = function(e) {
+        if (e && e.target !== lightbox && e.target !== document.querySelector('.lightbox-close')) return;
+        lightbox.classList.remove('open');
+        lightboxImg.src = '';
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') lightbox.classList.remove('open');
+    });
+
+    /* ─── FILE INPUT ─── */
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file || currentSlot === null) return;
+        readFile(file, (url) => {
+            images[currentSlot] = url;
+            const slot = grid.querySelectorAll('.grid-item')[currentSlot];
+            renderSlot(slot, currentSlot);
+            // re-attach events (renderSlot replaces innerHTML)
+            attachSlotEvents(slot, currentSlot);
+            updateStats();
+            // Advance to next empty slot automatically
+            const next = images.findIndex((img, idx) => idx > currentSlot && !img);
+            if (next !== -1) currentSlot = next;
+        });
+    });
+
+    /* ─── BULK UPLOAD ─── */
+    window.triggerBulkUpload = function() {
+        bulkInput.value = '';
+        bulkInput.click();
+    };
+
+    bulkInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        let targetIndex = 0;
+        let loaded = 0;
+
+        files.forEach((file) => {
+            // Find next empty slot
+            while (targetIndex < images.length && images[targetIndex]) targetIndex++;
+            if (targetIndex >= images.length) return;
+
+            const slotIndex = targetIndex;
+            targetIndex++;
+
+            readFile(file, (url) => {
+                images[slotIndex] = url;
+                const slot = grid.querySelectorAll('.grid-item')[slotIndex];
+                if (slot) {
+                    renderSlot(slot, slotIndex);
+                    attachSlotEvents(slot, slotIndex);
+                }
+                loaded++;
+                if (loaded === Math.min(files.length, images.filter(x => !x).length + loaded)) {
+                    updateStats();
+                    showToast(`${loaded} image${loaded > 1 ? 's' : ''} uploaded ✓`);
+                }
+            });
+        });
+    });
+
+    /* ─── BULK DRAG-DROP ZONE ─── */
+    bulkDrop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        bulkDrop.classList.add('dragging-over');
+    });
+
+    bulkDrop.addEventListener('dragleave', () => bulkDrop.classList.remove('dragging-over'));
+
+    bulkDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        bulkDrop.classList.remove('dragging-over');
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (!files.length) return;
+
+        let targetIndex = 0;
+        let loaded = 0;
+
+        files.forEach((file) => {
+            while (targetIndex < images.length && images[targetIndex]) targetIndex++;
+            if (targetIndex >= images.length) return;
+
+            const slotIndex = targetIndex;
+            targetIndex++;
+
+            readFile(file, (url) => {
+                images[slotIndex] = url;
+                const slot = grid.querySelectorAll('.grid-item')[slotIndex];
+                if (slot) {
+                    renderSlot(slot, slotIndex);
+                    attachSlotEvents(slot, slotIndex);
+                }
+                loaded++;
+                updateStats();
+                if (loaded === files.length) showToast(`${loaded} image${loaded > 1 ? 's' : ''} dropped ✓`);
+            });
+        });
+    });
+
+    /* ─── GRID SIZE ─── */
+    window.setGridSize = function(cols, btn) {
+        document.querySelectorAll('.grid-size-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        initGrid(cols);
+    };
+
+    /* ─── EXPORT ─── */
+    window.exportGrid = function() {
+        const filled = images.filter(Boolean).length;
+        if (filled === 0) { showToast('Add at least one image first'); return; }
+
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.textContent = 'Exporting…';
+
+        const cols   = currentCols;
+        const total  = cols * cols;
+        const size   = 400;   // px per cell
+        const gap    = 3;
+        const pad    = 3;
+        const canvasSize = size * cols + gap * (cols - 1) + pad * 2;
+
+        const canvas  = document.createElement('canvas');
+        canvas.width  = canvasSize;
+        canvas.height = canvasSize;
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+        let loadedCount = 0;
+        const total_filled = images.slice(0, total).filter(Boolean).length;
+
+        if (total_filled === 0) {
+            exportBtn.textContent = 'Export';
+            showToast('No images to export');
+            return;
+        }
+
+        images.slice(0, total).forEach((src, i) => {
+            if (!src) { checkDone(); return; }
+            const img = new Image();
+            img.onload = () => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = pad + col * (size + gap);
+                const y = pad + row * (size + gap);
+
+                // Draw cropped square
+                const s = Math.min(img.width, img.height);
+                const sx = (img.width  - s) / 2;
+                const sy = (img.height - s) / 2;
+                ctx.drawImage(img, sx, sy, s, s, x, y, size, size);
+                checkDone();
+            };
+            img.onerror = checkDone;
+            img.src = src;
+        });
+
+        function checkDone() {
+            loadedCount++;
+            if (loadedCount < total) return;
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `grid-preview-${cols}x${cols}.png`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+                exportBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export`;
+                showToast('Grid exported ✓');
+            }, 'image/png');
+        }
+    };
+
+    /* ─── RESET ─── */
+    window.resetGrid = function() {
+        if (!images.some(Boolean)) return;
+        if (confirm('Clear all images from the grid?')) {
+            images = new Array(currentCols * currentCols).fill(null);
+            initGrid(currentCols);
+            showToast('Grid cleared');
+        }
+    };
+
+    /* ─── HELPERS ─── */
+    function readFile(file, cb) {
+        const reader = new FileReader();
+        reader.onload = (e) => cb(e.target.result);
+        reader.readAsDataURL(file);
+    }
+
+    function updateStats() {
+        const total  = currentCols * currentCols;
+        const filled = images.slice(0, total).filter(Boolean).length;
+        document.getElementById('statFilled').textContent = filled;
+        document.getElementById('statEmpty').textContent  = total - filled;
+        document.getElementById('statTotal').textContent  = total;
+    }
+
+    let toastTimer;
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+    }
+
+    /* ─── BOOT ─── */
+    initGrid(3);
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

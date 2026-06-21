@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Background Pattern Adder — Add Dots, Grid, Lines & Noise to Transparent Images | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add dots, grid, lines, diagonal, or noise patterns behind transparent PNG logos and images. Customize color, size, opacity. Download instantly. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style> 
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 40px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        .drop-hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 10px; }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 0 0 / 12px 12px; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls card */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; display: block; }
+
+        /* Pattern picker */
+        .pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+        .pattern-card { position: relative; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; overflow: hidden; transition: all 0.18s; padding-bottom: 72px; }
+        .pattern-card:hover { border-color: var(--border-mid); transform: translateY(-2px); }
+        .pattern-card.active { border-color: var(--primary); background: var(--primary-dim); }
+        .pattern-card canvas { position: absolute; inset: 0; width: 100%; height: 72px; display: block; }
+        .pattern-card-label { position: absolute; bottom: 0; left: 0; right: 0; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; text-align: center; padding: 5px 4px; color: var(--text-dim); background: var(--card); }
+        .pattern-card.active .pattern-card-label { color: var(--primary); }
+
+        /* Color pickers row */
+        .color-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .color-group label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); display: block; margin-bottom: 8px; }
+        .color-input-wrap { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
+        .color-input-wrap input[type=color] { width: 28px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 6px; padding: 0; flex-shrink: 0; }
+        .color-hex { font-size: 0.8rem; font-family: 'Fira Code', monospace; color: var(--text); background: none; border: none; outline: none; width: 80px; color: var(--text-sec); }
+
+        /* Sliders */
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .slider-group { display: flex; flex-direction: column; gap: 8px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .slider-hint { font-size: 0.62rem; color: var(--text-dim); }
+        .slider-val { font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ctrl-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+
+        /* Canvas padding & fit toggle */
+        .options-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); align-items: flex-end; }
+        .options-row .slider-group { flex: 1; min-width: 140px; }
+        .tog-group { display: flex; flex-direction: column; gap: 8px; }
+        .tog-group label { font-size: 0.72rem; font-weight: 700; color: var(--text-sec); }
+        .tog-row { display: flex; gap: 6px; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Output format row */
+        .output-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+        .output-row .section-label { margin-bottom: 0; margin-right: 4px; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { to { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-secondary { padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); transform: translateY(-2px); }
+
+        /* Preview panel */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; display: none; }
+        .preview-panel.visible { display: block; }
+        .preview-wrap { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; max-height: 400px; background: repeating-conic-gradient(#222 0% 25%, #1a1a1a 0% 50%) 0 0 / 16px 16px; }
+        .preview-wrap canvas { max-width: 100%; max-height: 400px; object-fit: contain; display: block; border-radius: var(--radius-md); }
+
+        /* Stats */
+        .stats-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .stat-pill { flex: 1; min-width: 100px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .stat-val { font-size: 0.88rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-val.green { color: var(--success); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .sliders-grid { grid-template-columns: 1fr; }
+            .color-row { grid-template-columns: 1fr; }
+            .pattern-grid { grid-template-columns: repeat(3, 1fr); }
+            .action-row { flex-direction: column; }
+            .options-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="background-tools.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Background Pattern Adder</h1>
+                <p class="tool-page-sub">Replace transparent PNG backgrounds with dots, grid, lines, diagonal, crosshatch, or noise patterns — perfect for logo mockups and presentations.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🎨</span>
+                <p class="drop-title">Drop a PNG or image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+                <p class="drop-hint">Works best with transparent PNGs (logos, icons, illustrations)</p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <span class="section-label">Choose Pattern</span>
+                    <div class="pattern-grid" id="patternGrid">
+                        <!-- Pattern cards injected by JS -->
+                    </div>
+
+                    <!-- Colors -->
+                    <div class="color-row">
+                        <div class="color-group">
+                            <label>Background Color</label>
+                            <div class="color-input-wrap">
+                                <input type="color" id="bgColor" value="#1a1a2e">
+                                <input type="text" class="color-hex" id="bgHex" value="#1a1a2e" maxlength="7">
+                            </div>
+                        </div>
+                        <div class="color-group">
+                            <label>Pattern Color</label>
+                            <div class="color-input-wrap">
+                                <input type="color" id="ptColor" value="#ffffff">
+                                <input type="text" class="color-hex" id="ptHex" value="#ffffff" maxlength="7">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sliders -->
+                    <div class="sliders-grid">
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Pattern Size</div>
+                                    <div class="slider-hint">Spacing between elements</div>
+                                </div>
+                                <span class="slider-val" id="valSize">20</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderSize" min="6" max="80" value="20" oninput="onCtrl()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Pattern Opacity</div>
+                                    <div class="slider-hint">How visible the pattern is</div>
+                                </div>
+                                <span class="slider-val" id="valOpacity">60%</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderOpacity" min="5" max="100" value="60" oninput="onCtrl()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Line / Dot Weight</div>
+                                    <div class="slider-hint">Thickness of pattern lines</div>
+                                </div>
+                                <span class="slider-val" id="valWeight">1.5</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderWeight" min="5" max="30" value="15" oninput="onCtrl()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <div>
+                                    <div class="slider-label">Canvas Padding</div>
+                                    <div class="slider-hint">Space around the image (px)</div>
+                                </div>
+                                <span class="slider-val" id="valPad">40</span>
+                            </div>
+                            <input type="range" class="ctrl-slider" id="sliderPad" min="0" max="200" value="40" oninput="onCtrl()">
+                        </div>
+                    </div>
+
+                    <!-- Extra options -->
+                    <div class="options-row">
+                        <div class="tog-group">
+                            <label>Canvas Shape</label>
+                            <div class="tog-row">
+                                <button class="tog-btn active" data-shape="fit" onclick="setShape(this)">Fit Image</button>
+                                <button class="tog-btn" data-shape="square" onclick="setShape(this)">Square</button>
+                                <button class="tog-btn" data-shape="wide" onclick="setShape(this)">16:9</button>
+                                <button class="tog-btn" data-shape="tall" onclick="setShape(this)">9:16</button>
+                            </div>
+                        </div>
+                        <div class="tog-group">
+                            <label>Corner Radius</label>
+                            <div class="tog-row">
+                                <button class="tog-btn active" data-corner="0" onclick="setCorner(this)">None</button>
+                                <button class="tog-btn" data-corner="16" onclick="setCorner(this)">Soft</button>
+                                <button class="tog-btn" data-corner="32" onclick="setCorner(this)">Rounded</button>
+                                <button class="tog-btn" data-corner="9999" onclick="setCorner(this)">Circle</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="output-row">
+                        <span class="section-label">Format</span>
+                        <button class="tog-btn active" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        <button class="tog-btn" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                        <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnApply" onclick="doApply()">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem">✦</span>
+                            <span style="font-weight:800;font-size:0.95rem">Apply Pattern</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Preview panel -->
+                <div class="preview-panel" id="previewPanel">
+                    <span class="section-label" style="margin-bottom:12px;">Preview</span>
+                    <div class="preview-wrap" id="previewWrap">
+                        <canvas id="previewCanvas"></canvas>
+                    </div>
+                    <div class="stats-row" id="statsRow"></div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Great for logos & mockups</h3>
+                        <p>Transparent PNGs look invisible on white slides. Add a textured pattern background so your logo pops in presentations, pitch decks, and social posts.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>6 pattern types</h3>
+                        <p>Dots, grid, horizontal lines, diagonal lines, crosshatch, and noise — each rendered procedurally in the browser. No external assets needed.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Canvas padding adds breathing room</h3>
+                        <p>Increase the <code>Padding</code> slider to give your logo space on the canvas — useful when the original PNG has very tight crop.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private, zero upload</h3>
+                        <p>Everything runs via the <code>Canvas API</code>. Your image never touches a server. Works offline once the page loads.</p>
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ─── STATE ──────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let resultDataURL = null, resultFilename = '';
+    let outputFmt = 'png';
+    let currentPattern = 'dots';
+    let canvasShape = 'fit';
+    let cornerRadius = 0;
+
+    // ─── PATTERNS DEFINITION ────────────────────────────────────────────────────
+    const PATTERNS = [
+        { id: 'dots',       label: 'Dots' },
+        { id: 'grid',       label: 'Grid' },
+        { id: 'lines',      label: 'H-Lines' },
+        { id: 'diagonal',   label: 'Diagonal' },
+        { id: 'crosshatch', label: 'Crosshatch' },
+        { id: 'noise',      label: 'Noise' },
+    ];
+
+    // ─── BUILD PATTERN PICKER ───────────────────────────────────────────────────
+    function buildPatternPicker() {
+        const grid = document.getElementById('patternGrid');
+        PATTERNS.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'pattern-card' + (p.id === 'dots' ? ' active' : '');
+            card.dataset.id = p.id;
+            card.onclick = () => selectPattern(p.id);
+            const canvas = document.createElement('canvas');
+            canvas.width = 120; canvas.height = 72;
+            card.appendChild(canvas);
+            const lbl = document.createElement('div');
+            lbl.className = 'pattern-card-label';
+            lbl.textContent = p.label;
+            card.appendChild(lbl);
+            grid.appendChild(card);
+            drawPatternThumb(canvas, p.id);
+        });
+    }
+
+    function drawPatternThumb(canvas, patternId) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1;
+        drawPattern(ctx, patternId, w, h, 14, 1, 0.6);
+    }
+
+    function selectPattern(id) {
+        currentPattern = id;
+        document.querySelectorAll('.pattern-card').forEach(c => c.classList.toggle('active', c.dataset.id === id));
+        autoPreview();
+    }
+
+    // ─── CORE PATTERN RENDERER ──────────────────────────────────────────────────
+    function drawPattern(ctx, type, w, h, size, weight, opacity) {
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        if (type === 'dots') {
+            const r = Math.max(0.5, weight * 0.4);
+            for (let x = size / 2; x < w; x += size) {
+                for (let y = size / 2; y < h; y += size) {
+                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        } else if (type === 'grid') {
+            ctx.lineWidth = weight;
+            for (let x = 0; x <= w; x += size) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+            for (let y = 0; y <= h; y += size) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        } else if (type === 'lines') {
+            ctx.lineWidth = weight;
+            for (let y = 0; y <= h; y += size) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        } else if (type === 'diagonal') {
+            ctx.lineWidth = weight;
+            const step = size;
+            for (let i = -(h); i < w + h; i += step) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.stroke(); }
+        } else if (type === 'crosshatch') {
+            ctx.lineWidth = weight;
+            for (let i = -(h); i < w + h; i += size) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i + h, 0); ctx.lineTo(i, h); ctx.stroke();
+            }
+        } else if (type === 'noise') {
+            // Lightweight noise via pseudo-random per cell
+            const cellSize = Math.max(2, Math.round(size / 4));
+            for (let x = 0; x < w; x += cellSize) {
+                for (let y = 0; y < h; y += cellSize) {
+                    // LCG hash for deterministic noise
+                    const hash = ((x * 1664525 + y * 1013904223) >>> 0) / 4294967296;
+                    if (hash > 0.5) {
+                        ctx.globalAlpha = opacity * (0.2 + hash * 0.8);
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    // ─── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                resultDataURL = null;
+                document.getElementById('btnDownload').style.display = 'none';
+                document.getElementById('previewPanel').classList.remove('visible');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+    }
+
+    // ─── CONTROL EVENTS ─────────────────────────────────────────────────────────
+    function onCtrl() {
+        document.getElementById('valSize').textContent = document.getElementById('sliderSize').value;
+        const w = (parseInt(document.getElementById('sliderWeight').value) / 10).toFixed(1);
+        document.getElementById('valWeight').textContent = w;
+        document.getElementById('valOpacity').textContent = document.getElementById('sliderOpacity').value + '%';
+        document.getElementById('valPad').textContent = document.getElementById('sliderPad').value;
+        autoPreview();
+    }
+
+    // Color sync
+    document.getElementById('bgColor').addEventListener('input', function() {
+        document.getElementById('bgHex').value = this.value; autoPreview();
+    });
+    document.getElementById('ptColor').addEventListener('input', function() {
+        document.getElementById('ptHex').value = this.value; autoPreview();
+    });
+    document.getElementById('bgHex').addEventListener('input', function() {
+        if (/^#[0-9a-fA-F]{6}$/.test(this.value)) { document.getElementById('bgColor').value = this.value; autoPreview(); }
+    });
+    document.getElementById('ptHex').addEventListener('input', function() {
+        if (/^#[0-9a-fA-F]{6}$/.test(this.value)) { document.getElementById('ptColor').value = this.value; autoPreview(); }
+    });
+
+    function setShape(btn) { document.querySelectorAll('[data-shape]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); canvasShape = btn.dataset.shape; autoPreview(); }
+    function setCorner(btn) { document.querySelectorAll('[data-corner]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); cornerRadius = parseInt(btn.dataset.corner); autoPreview(); }
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+
+    // ─── LIVE PREVIEW (debounced) ────────────────────────────────────────────────
+    let previewTimer = null;
+    function autoPreview() {
+        if (!origImg) return;
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => renderToCanvas(true), 60);
+    }
+
+    // ─── RENDER ENGINE ───────────────────────────────────────────────────────────
+    function getCanvasDims(imgW, imgH, pad) {
+        const base = { w: imgW + pad * 2, h: imgH + pad * 2 };
+        if (canvasShape === 'fit') return base;
+        const side = Math.max(base.w, base.h);
+        if (canvasShape === 'square') return { w: side, h: side };
+        if (canvasShape === 'wide') { const h16 = Math.round(side / 16 * 9); return { w: side, h: h16 }; }
+        if (canvasShape === 'tall') { const w9 = Math.round(side / 9 * 16); return { w: Math.round(w9 * 9 / 16), h: w9 }; }
+        return base;
+    }
+
+    function renderToCanvas(isPreview) {
+        if (!origImg) return null;
+
+        const size = parseInt(document.getElementById('sliderSize').value);
+        const weight = parseInt(document.getElementById('sliderWeight').value) / 10;
+        const opacity = parseInt(document.getElementById('sliderOpacity').value) / 100;
+        const pad = parseInt(document.getElementById('sliderPad').value);
+        const bgColor = document.getElementById('bgColor').value;
+        const ptColor = document.getElementById('ptColor').value;
+        const imgW = origImg.naturalWidth, imgH = origImg.naturalHeight;
+        const dims = getCanvasDims(imgW, imgH, pad);
+
+        const canvas = document.getElementById('previewCanvas');
+
+        // For preview, scale down to fit display
+        let renderW = dims.w, renderH = dims.h;
+        if (isPreview) {
+            const maxW = document.getElementById('previewWrap').clientWidth || 760;
+            const scale = Math.min(1, maxW / renderW);
+            renderW = Math.round(renderW * scale);
+            renderH = Math.round(renderH * scale);
+            const scaledSize = Math.max(4, Math.round(size * scale));
+            const scaledPad = Math.round(pad * scale);
+            const scaledWeight = Math.max(0.5, weight * scale);
+            _render(canvas, origImg, renderW, renderH, scaledPad, bgColor, ptColor, currentPattern, scaledSize, scaledWeight, opacity, cornerRadius);
+        } else {
+            canvas.width = dims.w; canvas.height = dims.h;
+            _render(canvas, origImg, dims.w, dims.h, pad, bgColor, ptColor, currentPattern, size, weight, opacity, cornerRadius);
+        }
+
+        return canvas;
+    }
+
+    function _render(canvas, img, cw, ch, pad, bgColor, ptColor, pattern, size, weight, opacity, corner) {
+        canvas.width = cw; canvas.height = ch;
+        const ctx = canvas.getContext('2d');
+
+        // Clip to rounded rect if needed
+        if (corner > 0) {
+            const r = Math.min(corner, cw / 2, ch / 2);
+            ctx.beginPath();
+            ctx.moveTo(r, 0); ctx.lineTo(cw - r, 0); ctx.quadraticCurveTo(cw, 0, cw, r);
+            ctx.lineTo(cw, ch - r); ctx.quadraticCurveTo(cw, ch, cw - r, ch);
+            ctx.lineTo(r, ch); ctx.quadraticCurveTo(0, ch, 0, ch - r);
+            ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+            ctx.closePath(); ctx.clip();
+        }
+
+        // Background fill
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Pattern overlay
+        ctx.fillStyle = ptColor;
+        ctx.strokeStyle = ptColor;
+        drawPattern(ctx, pattern, cw, ch, size, weight, opacity);
+
+        // Draw image centered
+        const imgW = img.naturalWidth, imgH = img.naturalHeight;
+        const scale = Math.min((cw - pad * 2) / imgW, (ch - pad * 2) / imgH, 1);
+        // For preview canvas we just scale proportionally
+        const drawW = Math.round(imgW * scale * (cw / (imgW + pad * 2)));
+        const drawH = Math.round(imgH * scale * (ch / (imgH + pad * 2)));
+        const dx = Math.round((cw - drawW) / 2);
+        const dy = Math.round((ch - drawH) / 2);
+
+        // Simpler: just scale to fit with padding
+        const availW = cw - pad * 2, availH = ch - pad * 2;
+        const s = Math.min(availW / imgW, availH / imgH);
+        const dw = Math.round(imgW * s), dh = Math.round(imgH * s);
+        const ox = Math.round((cw - dw) / 2), oy = Math.round((ch - dh) / 2);
+        ctx.drawImage(img, ox, oy, dw, dh);
+    }
+
+    // ─── APPLY ───────────────────────────────────────────────────────────────────
+    function doApply() {
+        if (!origImg) { showToast('Upload an image first', 'error'); return; }
+
+        const size = parseInt(document.getElementById('sliderSize').value);
+        const weight = parseInt(document.getElementById('sliderWeight').value) / 10;
+        const opacity = parseInt(document.getElementById('sliderOpacity').value) / 100;
+        const pad = parseInt(document.getElementById('sliderPad').value);
+        const bgColor = document.getElementById('bgColor').value;
+        const ptColor = document.getElementById('ptColor').value;
+        const imgW = origImg.naturalWidth, imgH = origImg.naturalHeight;
+        const dims = getCanvasDims(imgW, imgH, pad);
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+
+        const offscreen = document.createElement('canvas');
+        _render(offscreen, origImg, dims.w, dims.h, pad, bgColor, ptColor, currentPattern, size, weight, opacity, cornerRadius);
+        resultDataURL = offscreen.toDataURL(mime, outputFmt === 'png' ? undefined : 0.92);
+
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_pattern.${ext}`;
+
+        // Update preview panel
+        renderToCanvas(true);
+        document.getElementById('previewPanel').classList.add('visible');
+        document.getElementById('btnDownload').style.display = 'block';
+
+        const bytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-pill"><div class="stat-label">Canvas Size</div><div class="stat-val green">${dims.w} × ${dims.h}</div></div>
+            <div class="stat-pill"><div class="stat-label">File Size</div><div class="stat-val">${fmtBytes(bytes)}</div></div>
+            <div class="stat-pill"><div class="stat-label">Pattern</div><div class="stat-val">${currentPattern.toUpperCase()}</div></div>
+            <div class="stat-pill"><div class="stat-label">Format</div><div class="stat-val">${outputFmt.toUpperCase()}</div></div>
+        `;
+
+        document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Pattern applied! ✓', 'success');
+    }
+
+    // ─── DOWNLOAD ────────────────────────────────────────────────────────────────
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a'); a.href = resultDataURL; a.download = resultFilename; a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ─── UTILS ───────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(2)+' MB'; }
+    function showToast(msg, type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+
+    // ─── INIT ────────────────────────────────────────────────────────────────────
+    buildPatternPicker();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

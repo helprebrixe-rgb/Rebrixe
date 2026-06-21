@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PWA Manifest Builder | manifest.json Generator | Rebrixe</title>
+    <meta name="description" content="Generate a production-ready manifest.json for your Progressive Web App. Configure icons, theme colors, display modes, shortcuts, screenshots, and more — instantly.">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(90deg, #00f2ff, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        /* ── Tabs ── */
+        .tab-strip {
+            display: inline-flex;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            gap: 4px;
+            margin: 24px 0 32px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
+        }
+        .tab-btn.active { background: var(--primary, #00f2ff); color: #000; }
+
+        /* ── Cards ── */
+        .config-card {
+            background: rgba(15,23,42,0.6);
+            padding: 26px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        .section-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin: 0 0 6px;
+            display: block;
+        }
+
+        input[type="text"], input[type="url"], input[type="color"], select, textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px 13px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+
+        input[type="color"] {
+            padding: 4px 6px;
+            height: 42px;
+            cursor: pointer;
+        }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+        .color-row { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: end; }
+
+        /* ── Workspace grid ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin: 0 0 40px;
+        }
+
+        /* ── Output ── */
+        .output-container {
+            position: relative;
+            background: #000;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            min-height: 200px;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+        #jsonOutput {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #00f2ff;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.75;
+            margin: 0;
+        }
+
+        /* ── Score bar ── */
+        .score-wrap {
+            margin-bottom: 18px;
+        }
+        .score-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .score-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; }
+        .score-val { font-size: 0.8rem; font-weight: 800; }
+        .score-bar-bg {
+            height: 6px;
+            background: rgba(1, 39, 144, 0.141);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* ── Checklist ── */
+        .checklist { margin: 14px 0 0; }
+        .check-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 7px;
+            line-height: 1.5;
+        }
+        .check-item .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        .dot-ok  { background: #2ecc71; }
+        .dot-warn{ background: #0f71f1; }
+        .dot-off { background: #334155; }
+
+        /* ── Action row ── */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 9px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary { background: var(--primary, #00f2ff); color: #000; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: #fff; border: 1px solid var(--border); }
+        .btn.success { background: #2ecc71; color: #fff; }
+        .btn:hover { opacity: 0.85; }
+
+        /* ── Format hint ── */
+        .format-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-top: 14px;
+            padding: 11px 13px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border-left: 3px solid var(--primary, #00f2ff);
+        }
+        .format-hint strong { color: #94a3b8; }
+        .format-hint code { color: var(--primary,#00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        /* ── Icon table ── */
+        .icon-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 100px 32px;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 8px;
+        }
+        .icon-row input { margin-bottom: 0; }
+        .del-btn {
+            width: 32px; height: 40px;
+            background: rgba(231,76,60,0.15);
+            border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 8px;
+            color: #e74c3c;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Shortcut rows ── */
+        .shortcut-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 28px;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 8px;
+        }
+        .shortcut-row input { margin-bottom: 0; }
+
+        /* ── Add btn ── */
+        .add-btn {
+            background: rgba(0,242,255,0.08);
+            border: 1px dashed rgba(0,242,255,0.3);
+            border-radius: 9px;
+            color: var(--primary, #00f2ff);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 8px 14px;
+            cursor: pointer;
+            margin-top: 4px;
+            margin-bottom: 14px;
+            transition: 0.2s;
+        }
+        .add-btn:hover { background: rgba(0,242,255,0.14); }
+
+        /* ── Tab panels ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── SEO / FAQ ── */
+        .seo-content { text-align: left; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .faq-item {
+            background: rgba(15,23,42,0.5);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .faq-item h3 { margin: 0 0 8px; font-size: 0.95rem; color: #e2e8f0; }
+        .faq-item p  { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+        .faq-item code { color: var(--primary, #00f2ff); background: rgba(0,242,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+        @media (max-width: 800px) {
+            .workspace-grid, .faq-grid { grid-template-columns: 1fr; }
+            .two-col, .three-col { grid-template-columns: 1fr; }
+            .brand-title { font-size: 2.2rem; }
+            .icon-row { grid-template-columns: 70px 1fr 80px 32px; }
+            .shortcut-row { grid-template-columns: 1fr 1fr 28px; }
+        }
+    </style>
+</head>
+<body data-theme="technical">
+
+    <header class="nav-container"></header>
+
+    <main class="container">
+        <a href="server-wizards.html" class="back-btn">← Back to Tools</a>
+        <h1 class="brand-title" style="text-align:center;">PWA Manifest Builder</h1>
+        <p style="opacity:0.6; font-weight:500;">Generate a production-ready <code style="color:var(--primary,#00f2ff); background:rgba(0,242,255,0.08); padding:2px 7px; border-radius:5px; font-size:0.9em;">manifest.json</code> for any Progressive Web App — icons, shortcuts, display, screenshots &amp; more.</p>
+
+        <!-- Tab navigation -->
+        <div class="tab-strip">
+            <button class="tab-btn active" onclick="switchTab('basic')">🏠 Basic Info</button>
+            <button class="tab-btn" onclick="switchTab('display')">🖥 Display</button>
+            <button class="tab-btn" onclick="switchTab('icons')">🖼 Icons</button>
+            <button class="tab-btn" onclick="switchTab('shortcuts')">⚡ Shortcuts</button>
+            <button class="tab-btn" onclick="switchTab('advanced')">⚙️ Advanced</button>
+        </div>
+
+        <div class="workspace-grid">
+
+            <!-- LEFT: Input panels -->
+            <div class="config-card">
+
+                <!-- ── BASIC ── -->
+                <div class="tab-panel active" id="tab-basic">
+                    <label class="section-label">App Name (full)</label>
+                    <input type="text" id="appName" placeholder="My Awesome App" oninput="build()">
+
+                    <label class="section-label">Short Name (home screen label, ≤12 chars)</label>
+                    <input type="text" id="shortName" placeholder="AwesomeApp" maxlength="12" oninput="build()">
+
+                    <label class="section-label">Description</label>
+                    <textarea id="description" placeholder="A short description of what your app does." oninput="build()" style="min-height:72px;"></textarea>
+
+                    <label class="section-label">Start URL</label>
+                    <input type="text" id="startUrl" placeholder="/" oninput="build()">
+
+                    <label class="section-label">Scope (limit navigation, e.g. /app/)</label>
+                    <input type="text" id="scope" placeholder="/" oninput="build()">
+
+                    <label class="section-label">Language</label>
+                    <select id="lang" onchange="build()">
+                        <option value="en">English (en)</option>
+                        <option value="en-US">English US (en-US)</option>
+                        <option value="en-GB">English GB (en-GB)</option>
+                        <option value="fr">French (fr)</option>
+                        <option value="de">German (de)</option>
+                        <option value="es">Spanish (es)</option>
+                        <option value="pt">Portuguese (pt)</option>
+                        <option value="ar">Arabic (ar)</option>
+                        <option value="zh">Chinese (zh)</option>
+                        <option value="ja">Japanese (ja)</option>
+                        <option value="hi">Hindi (hi)</option>
+                    </select>
+                </div>
+
+                <!-- ── DISPLAY ── -->
+                <div class="tab-panel" id="tab-display">
+                    <label class="section-label">Display Mode</label>
+                    <select id="display" onchange="build()">
+                        <option value="standalone">standalone — No browser UI (most app-like)</option>
+                        <option value="fullscreen">fullscreen — Full screen, no OS chrome</option>
+                        <option value="minimal-ui">minimal-ui — Minimal browser navigation</option>
+                        <option value="browser">browser — Normal browser tab</option>
+                    </select>
+
+                    <label class="section-label">Orientation</label>
+                    <select id="orientation" onchange="build()">
+                        <option value="any">any (default)</option>
+                        <option value="portrait">portrait</option>
+                        <option value="portrait-primary">portrait-primary</option>
+                        <option value="landscape">landscape</option>
+                        <option value="landscape-primary">landscape-primary</option>
+                        <option value="natural">natural</option>
+                    </select>
+
+                    <div class="two-col">
+                        <div>
+                            <label class="section-label">Theme Color</label>
+                            <div class="color-row">
+                                <input type="color" id="themeColorPicker" value="#00f2ff" oninput="syncColor('themeColor','themeColorPicker')" style="margin-bottom:14px;">
+                                <input type="text" id="themeColor" value="#00f2ff" placeholder="#000000" oninput="syncColorFromText('themeColor','themeColorPicker')">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="section-label">Background Color</label>
+                            <div class="color-row">
+                                <input type="color" id="bgColorPicker" value="#0f172a" oninput="syncColor('bgColor','bgColorPicker')" style="margin-bottom:14px;">
+                                <input type="text" id="bgColor" value="#0f172a" placeholder="#ffffff" oninput="syncColorFromText('bgColor','bgColorPicker')">
+                            </div>
+                        </div>
+                    </div>
+
+                    <label class="section-label">Category</label>
+                    <select id="category" onchange="build()">
+                        <option value="">— None —</option>
+                        <option value="books">books</option>
+                        <option value="business">business</option>
+                        <option value="education">education</option>
+                        <option value="entertainment">entertainment</option>
+                        <option value="finance">finance</option>
+                        <option value="fitness">fitness</option>
+                        <option value="food">food</option>
+                        <option value="games">games</option>
+                        <option value="government">government</option>
+                        <option value="health">health</option>
+                        <option value="kids">kids</option>
+                        <option value="lifestyle">lifestyle</option>
+                        <option value="magazines">magazines</option>
+                        <option value="medical">medical</option>
+                        <option value="music">music</option>
+                        <option value="navigation">navigation</option>
+                        <option value="news">news</option>
+                        <option value="personalization">personalization</option>
+                        <option value="photo">photo</option>
+                        <option value="politics">politics</option>
+                        <option value="productivity">productivity</option>
+                        <option value="security">security</option>
+                        <option value="shopping">shopping</option>
+                        <option value="social">social</option>
+                        <option value="sports">sports</option>
+                        <option value="travel">travel</option>
+                        <option value="utilities">utilities</option>
+                        <option value="weather">weather</option>
+                    </select>
+
+                    <label class="section-label">Display Override (ordered fallback)</label>
+                    <div id="displayOverrideList">
+                        <label style="display:flex;align-items:center;gap:8px;text-transform:none;color:#94a3b8;font-size:0.75rem;margin-bottom:6px;letter-spacing:0;">
+                            <input type="checkbox" id="do_window-controls-overlay" onchange="build()" style="width:auto;margin:0;accent-color:var(--primary);">window-controls-overlay (desktop PWA title bar)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;text-transform:none;color:#94a3b8;font-size:0.75rem;margin-bottom:6px;letter-spacing:0;">
+                            <input type="checkbox" id="do_tabbed" onchange="build()" style="width:auto;margin:0;accent-color:var(--primary);">tabbed (multi-tab PWA, Chrome 114+)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;text-transform:none;color:#94a3b8;font-size:0.75rem;letter-spacing:0;">
+                            <input type="checkbox" id="do_standalone" onchange="build()" style="width:auto;margin:0;accent-color:var(--primary);">standalone (fallback)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ── ICONS ── -->
+                <div class="tab-panel" id="tab-icons">
+                    <p style="font-size:0.75rem;color:#64748b;margin:0 0 14px;line-height:1.6;">Add your icon sizes. Minimum: 192×192 and 512×512 for installability. Use PNG or WebP. <strong style="color:#94a3b8;">maskable</strong> icons fill the full shape on Android.</p>
+                    <div id="iconList"></div>
+                    <button class="add-btn" onclick="addIcon()">+ Add Icon Size</button>
+
+                    <label class="section-label" style="margin-top:4px;">Apple Touch Icon (iOS — separate &lt;link&gt; tag)</label>
+                    <input type="text" id="appleTouchIcon" placeholder="/icons/apple-touch-icon.png" oninput="build()">
+                    <div class="format-hint" style="margin-top:0;">The <code>&lt;link rel="apple-touch-icon"&gt;</code> tag goes in your HTML <code>&lt;head&gt;</code>, not in manifest.json — we'll include it in the install snippet.</div>
+                </div>
+
+                <!-- ── SHORTCUTS ── -->
+                <div class="tab-panel" id="tab-shortcuts">
+                    <p style="font-size:0.75rem;color:#64748b;margin:0 0 14px;line-height:1.6;">Shortcuts appear when users long-press your app icon on Android. Max 4 recommended.</p>
+                    <div id="shortcutList"></div>
+                    <button class="add-btn" onclick="addShortcut()">+ Add Shortcut</button>
+                </div>
+
+                <!-- ── ADVANCED ── -->
+                <div class="tab-panel" id="tab-advanced">
+                    <label class="section-label">ID (canonical identity URL — recommended)</label>
+                    <input type="text" id="appId" placeholder="https://yourapp.com/app" oninput="build()">
+
+                    <label class="section-label">Protocol Handlers (e.g. mailto, web+custom)</label>
+                    <textarea id="protocols" placeholder='web+myapp, /handle?uri=%s&#10;(one per line: protocol, url)' oninput="build()" style="min-height:72px;"></textarea>
+
+                    <label class="section-label">Related Applications (app store links)</label>
+                    <textarea id="relatedApps" placeholder='play, https://play.google.com/store/apps/details?id=com.example&#10;(one per line: platform, url)' oninput="build()" style="min-height:72px;"></textarea>
+
+                    <label style="display:flex;align-items:center;gap:10px;text-transform:none;color:#94a3b8;font-size:0.78rem;margin-bottom:14px;letter-spacing:0;cursor:pointer;">
+                        <input type="checkbox" id="preferRelated" onchange="build()" style="width:auto;margin:0;accent-color:var(--primary);">
+                        Prefer related applications over PWA install
+                    </label>
+
+                    <label class="section-label">Screenshots (for app stores / rich install)</label>
+                    <textarea id="screenshots" placeholder='/screenshots/home.png, 1280, 720, wide&#10;/screenshots/mobile.png, 390, 844, narrow&#10;(path, width, height, form_factor)' oninput="build()" style="min-height:90px;"></textarea>
+                </div>
+            </div>
+
+            <!-- RIGHT: Output + score -->
+            <div style="display:flex; flex-direction:column; gap:20px;">
+
+                <!-- Score card -->
+                <div class="config-card">
+                    <label class="section-label">PWA Install Readiness Score</label>
+                    <div class="score-wrap">
+                        <div class="score-row">
+                            <span class="score-label">SCORE</span>
+                            <span class="score-val" id="scoreVal" style="color:#2ecc71;">0 / 100</span>
+                        </div>
+                        <div class="score-bar-bg"><div class="score-bar-fill" id="scoreBar" style="width:0%;background:#2ecc71;"></div></div>
+                    </div>
+                    <div class="checklist" id="checklist"></div>
+                </div>
+
+                <!-- JSON output -->
+                <div class="config-card">
+                    <label class="section-label">manifest.json</label>
+                    <div class="output-container">
+                        <code id="jsonOutput">{}</code>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn btn-primary" id="copyBtn" onclick="copyJSON()">COPY JSON</button>
+                        <button class="btn btn-ghost" onclick="downloadJSON()">DOWNLOAD FILE</button>
+                        <button class="btn btn-ghost" onclick="copyHTMLSnippet()">COPY HTML SNIPPET</button>
+                    </div>
+                    <div class="format-hint" id="installHint">
+                        <strong>Install in HTML:</strong> Add <code>&lt;link rel="manifest" href="/manifest.json"&gt;</code> inside your <code>&lt;head&gt;</code> tag. Also add <code>&lt;meta name="theme-color" content="#..."&gt;</code> for browser chrome color.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SEO Content ── -->
+        <article class="seo-content">
+            <h2>What Goes in a PWA Manifest?</h2>
+            <p>The <code>manifest.json</code> file tells browsers how to install and display your web app. Without it, users can't add your app to their home screen and Chrome won't trigger the install prompt.</p>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Minimum for Install Prompt</h3>
+                    <p>Chrome requires: <code>name</code>, <code>icons</code> with a 192px AND 512px PNG, <code>start_url</code>, and <code>display</code> set to <code>standalone</code>, <code>fullscreen</code>, or <code>minimal-ui</code>. A service worker is also required but lives outside the manifest.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Maskable vs Any Icons</h3>
+                    <p><code>purpose: "maskable"</code> icons are designed to fill the entire shape on Android adaptive icon circles or squircles. Always include both <code>any</code> and <code>maskable</code> versions of your 192px icon.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>theme_color vs background_color</h3>
+                    <p><code>theme_color</code> colors the browser address bar and system UI. <code>background_color</code> is the splash screen color shown while the app loads — set it to match your app's initial background to avoid a flash of color.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Shortcuts (App Shortcuts)</h3>
+                    <p>Long-press the app icon on Android to see shortcuts — like deep links to key features. Add up to 4, each with a name and URL. Shortcuts massively improve re-engagement for tools with multiple flows.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>id Field (Chrome 96+)</h3>
+                    <p>The <code>id</code> field is the canonical identity of your PWA. If you change <code>start_url</code> later, setting <code>id</code> prevents browsers from treating it as a new app. Always set it to your start URL at minimum.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>display_override</h3>
+                    <p>Allows browsers to try display modes in order. Use <code>window-controls-overlay</code> first for desktop apps with a custom title bar, falling back to <code>standalone</code> on unsupported browsers.</p>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer></footer>
+    <script src="/nav.js"></script>
+
+    <script>
+    /* ── State ── */
+    let icons = [];
+    let shortcuts = [];
+
+    /* ── Tab switch ── */
+    function switchTab(name) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.toLowerCase().includes(name.slice(0,4)))?.classList.add('active');
+        // Fix: map tab names to buttons
+        const tabMap = { basic:0, display:1, icons:2, shortcuts:3, advanced:4 };
+        document.querySelectorAll('.tab-btn')[tabMap[name]]?.classList.add('active');
+    }
+
+    /* ── Color sync ── */
+    function syncColor(textId, pickerId) {
+        document.getElementById(textId).value = document.getElementById(pickerId).value;
+        build();
+    }
+    function syncColorFromText(textId, pickerId) {
+        const val = document.getElementById(textId).value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) document.getElementById(pickerId).value = val;
+        build();
+    }
+
+    /* ── Icon rows ── */
+    function addIcon(size='', src='', purpose='any') {
+        const id = Date.now();
+        icons.push({ id });
+        const list = document.getElementById('iconList');
+        const row = document.createElement('div');
+        row.className = 'icon-row';
+        row.id = 'icon-' + id;
+        row.innerHTML = `
+            <div><label class="section-label">Size</label><input type="text" value="${size}" placeholder="512x512" oninput="updateIcon(${id},'size',this.value)" style="margin-bottom:0;"></div>
+            <div><label class="section-label">Path</label><input type="text" value="${src}" placeholder="/icons/icon-512.png" oninput="updateIcon(${id},'src',this.value)" style="margin-bottom:0;"></div>
+            <div><label class="section-label">Purpose</label>
+            <select onchange="updateIcon(${id},'purpose',this.value)" style="margin-bottom:0;">
+                <option value="any" ${purpose==='any'?'selected':''}>any</option>
+                <option value="maskable" ${purpose==='maskable'?'selected':''}>maskable</option>
+                <option value="any maskable" ${purpose==='any maskable'?'selected':''}>any maskable</option>
+                <option value="monochrome" ${purpose==='monochrome'?'selected':''}>monochrome</option>
+            </select></div>
+            <button class="del-btn" onclick="removeIcon(${id})">×</button>
+        `;
+        list.appendChild(row);
+        const obj = icons.find(i => i.id === id);
+        obj.size = size; obj.src = src; obj.purpose = purpose;
+        build();
+    }
+
+    function updateIcon(id, field, val) {
+        const obj = icons.find(i => i.id === id);
+        if (obj) { obj[field] = val; build(); }
+    }
+    function removeIcon(id) {
+        icons = icons.filter(i => i.id !== id);
+        document.getElementById('icon-' + id)?.remove();
+        build();
+    }
+
+    /* ── Shortcut rows ── */
+    function addShortcut(name='', url='') {
+        const id = Date.now();
+        shortcuts.push({ id, name, url });
+        const list = document.getElementById('shortcutList');
+        const row = document.createElement('div');
+        row.className = 'shortcut-row';
+        row.id = 'sc-' + id;
+        row.innerHTML = `
+            <div><label class="section-label">Name</label><input type="text" value="${name}" placeholder="Open Dashboard" oninput="updateShortcut(${id},'name',this.value)" style="margin-bottom:0;"></div>
+            <div><label class="section-label">URL</label><input type="text" value="${url}" placeholder="/dashboard" oninput="updateShortcut(${id},'url',this.value)" style="margin-bottom:0;"></div>
+            <button class="del-btn" onclick="removeShortcut(${id})" style="margin-top:18px;">×</button>
+        `;
+        list.appendChild(row);
+        build();
+    }
+    function updateShortcut(id, field, val) {
+        const obj = shortcuts.find(s => s.id === id);
+        if (obj) { obj[field] = val; build(); }
+    }
+    function removeShortcut(id) {
+        shortcuts = shortcuts.filter(s => s.id !== id);
+        document.getElementById('sc-' + id)?.remove();
+        build();
+    }
+
+    /* ── Build manifest ── */
+    function build() {
+        const name       = v('appName') || 'My App';
+        const shortName  = v('shortName') || name;
+        const desc       = v('description');
+        const startUrl   = v('startUrl') || '/';
+        const scope      = v('scope') || '/';
+        const lang       = v('lang');
+        const display    = v('display');
+        const orient     = v('orientation');
+        const theme      = v('themeColor') || '#000000';
+        const bg         = v('bgColor') || '#ffffff';
+        const cat        = v('category');
+        const appId      = v('appId');
+        const preferRel  = document.getElementById('preferRelated').checked;
+
+        const manifest = {};
+
+        if (appId) manifest.id = appId;
+        manifest.name = name;
+        manifest.short_name = shortName;
+        if (desc) manifest.description = desc;
+        manifest.start_url = startUrl;
+        manifest.scope = scope;
+        manifest.lang = lang;
+        manifest.display = display;
+        if (orient !== 'any') manifest.orientation = orient;
+        manifest.theme_color = theme;
+        manifest.background_color = bg;
+        if (cat) manifest.categories = [cat];
+
+        // display_override
+        const doVals = ['window-controls-overlay','tabbed','standalone']
+            .filter(k => document.getElementById('do_'+k)?.checked);
+        if (doVals.length) manifest.display_override = doVals;
+
+        // icons
+        const iconArr = icons
+            .filter(i => i.size && i.src)
+            .map(i => {
+                const obj = { src: i.src, sizes: i.size };
+                if (!i.size.includes('x') && !i.size.includes('X')) obj.sizes = i.size + 'x' + i.size;
+                obj.type = i.src.endsWith('.webp') ? 'image/webp' : 'image/png';
+                if (i.purpose !== 'any') obj.purpose = i.purpose;
+                return obj;
+            });
+        if (iconArr.length) manifest.icons = iconArr;
+
+        // shortcuts
+        const scArr = shortcuts
+            .filter(s => s.name && s.url)
+            .map(s => ({ name: s.name, url: s.url }));
+        if (scArr.length) manifest.shortcuts = scArr;
+
+        // protocol handlers
+        const protoRaw = v('protocols');
+        if (protoRaw) {
+            const handlers = protoRaw.split('\n').map(l => {
+                const parts = l.split(',').map(s => s.trim());
+                if (parts.length >= 2) return { protocol: parts[0], url: parts[1] };
+                return null;
+            }).filter(Boolean);
+            if (handlers.length) manifest.protocol_handlers = handlers;
+        }
+
+        // related apps
+        const relRaw = v('relatedApps');
+        if (relRaw) {
+            const apps = relRaw.split('\n').map(l => {
+                const parts = l.split(',').map(s => s.trim());
+                if (parts.length >= 2) return { platform: parts[0], url: parts[1] };
+                return null;
+            }).filter(Boolean);
+            if (apps.length) {
+                manifest.related_applications = apps;
+                if (preferRel) manifest.prefer_related_applications = true;
+            }
+        }
+
+        // screenshots
+        const ssRaw = v('screenshots');
+        if (ssRaw) {
+            const shots = ssRaw.split('\n').map(l => {
+                const parts = l.split(',').map(s => s.trim());
+                if (parts.length < 3) return null;
+                const obj = { src: parts[0], sizes: `${parts[1]}x${parts[2]}` };
+                if (parts[3]) obj.form_factor = parts[3];
+                obj.type = parts[0].endsWith('.webp') ? 'image/webp' : 'image/png';
+                return obj;
+            }).filter(Boolean);
+            if (shots.length) manifest.screenshots = shots;
+        }
+
+        document.getElementById('jsonOutput').innerText = JSON.stringify(manifest, null, 2);
+        scoreManifest(manifest);
+    }
+
+    /* ── Score ── */
+    function scoreManifest(m) {
+        const checks = [
+            { key: 'name',            label: 'App name set',              val: !!m.name && m.name !== 'My App',  pts: 10 },
+            { key: 'short_name',      label: 'Short name (≤12 chars)',     val: !!m.short_name && m.short_name.length <= 12, pts: 8 },
+            { key: 'start_url',       label: 'Start URL defined',          val: !!m.start_url, pts: 10 },
+            { key: 'display',         label: 'Display mode is standalone+', val: ['standalone','fullscreen','minimal-ui'].includes(m.display), pts: 12 },
+            { key: 'icons192',        label: '192×192 icon included',       val: !!(m.icons||[]).find(i => i.sizes?.includes('192')), pts: 12 },
+            { key: 'icons512',        label: '512×512 icon included',       val: !!(m.icons||[]).find(i => i.sizes?.includes('512')), pts: 12 },
+            { key: 'theme_color',     label: 'Theme color set',             val: !!m.theme_color, pts: 6 },
+            { key: 'background_color',label: 'Background color set',        val: !!m.background_color, pts: 6 },
+            { key: 'description',     label: 'Description provided',        val: !!m.description, pts: 5 },
+            { key: 'id',              label: 'App ID set (canonical)',       val: !!m.id, pts: 5 },
+            { key: 'maskable',        label: 'Maskable icon included',      val: !!(m.icons||[]).find(i => i.purpose?.includes('maskable')), pts: 7 },
+            { key: 'shortcuts',       label: 'App shortcuts defined',       val: !!(m.shortcuts||[]).length, pts: 4 },
+            { key: 'screenshots',     label: 'Screenshots added',           val: !!(m.screenshots||[]).length, pts: 3 },
+        ];
+
+        const total = checks.reduce((a,c) => a + c.pts, 0);
+        const earned = checks.filter(c => c.val).reduce((a,c) => a + c.pts, 0);
+        const pct = Math.round((earned / total) * 100);
+
+        const color = pct >= 80 ? '#2ecc71' : pct >= 50 ? '#f1c40f' : '#e74c3c';
+        document.getElementById('scoreVal').innerText = pct + ' / 100';
+        document.getElementById('scoreVal').style.color = color;
+        document.getElementById('scoreBar').style.width = pct + '%';
+        document.getElementById('scoreBar').style.background = color;
+
+        const cl = document.getElementById('checklist');
+        cl.innerHTML = checks.map(c => `
+            <div class="check-item">
+                <span class="dot ${c.val ? 'dot-ok' : 'dot-off'}"></span>
+                <span style="color:${c.val?'#94a3b8':'#475569'}">${c.label} <span style="opacity:0.5;font-size:0.68rem;">(+${c.pts})</span></span>
+            </div>
+        `).join('');
+    }
+
+    /* ── Copy / Download ── */
+    async function copyJSON() {
+        await navigator.clipboard.writeText(document.getElementById('jsonOutput').innerText);
+        const btn = document.getElementById('copyBtn');
+        btn.innerText = '✓ COPIED'; btn.classList.add('success');
+        setTimeout(() => { btn.innerText = 'COPY JSON'; btn.classList.remove('success'); }, 1600);
+    }
+
+    function downloadJSON() {
+        const code = document.getElementById('jsonOutput').innerText;
+        const blob = new Blob([code], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'manifest.json';
+        a.click();
+    }
+
+    async function copyHTMLSnippet() {
+        const theme = document.getElementById('themeColor').value || '#000000';
+        const apple = document.getElementById('appleTouchIcon').value.trim();
+        let snippet = `<!-- PWA Manifest -->\n<link rel="manifest" href="/manifest.json">\n<meta name="theme-color" content="${theme}">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`;
+        if (apple) snippet += `\n<link rel="apple-touch-icon" href="${apple}">`;
+        await navigator.clipboard.writeText(snippet);
+        const btns = document.querySelectorAll('.btn-ghost');
+        const last = btns[btns.length - 1];
+        last.innerText = '✓ COPIED'; last.classList.add('success');
+        setTimeout(() => { last.innerText = 'COPY HTML SNIPPET'; last.classList.remove('success'); }, 1600);
+    }
+
+    /* ── Helpers ── */
+    function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+
+    /* ── Init defaults ── */
+    addIcon('192x192', '/icons/icon-192.png', 'any');
+    addIcon('192x192', '/icons/icon-192-maskable.png', 'maskable');
+    addIcon('512x512', '/icons/icon-512.png', 'any');
+    addShortcut();
+    build();
+    </script>
+</body>
+</html>

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Art Vault | Rebrixe</title>
+    <meta name="description" content="Browse and create ASCII art with our ASCII Art Vault. Perfect for developers, designers, and anyone looking to add a touch of retro flair to their projects. Free & instant.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+
+        /* ── HEADER ── */
+        .page-header { text-align: center; margin-bottom: 40px; margin-top: 20px; }
+        .page-header h1 { font-family: 'Outfit'; font-size: 2.8rem; letter-spacing: -2px; }
+        .page-header p  { color: #64748b; margin-top: 6px; }
+
+        /* ── MAIN CARD ── */
+        .vault-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 30px; margin-bottom: 30px;
+        }
+
+        /* ── CATEGORY TABS ── */
+        .cat-tabs {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 18px;
+        }
+        .cat-tab {
+            padding: 6px 16px; border-radius: 20px; font-size: 0.72rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+            border: 1px solid var(--border); background: transparent;
+            color: #64748b; cursor: pointer; transition: 0.2s; font-family: 'Outfit';
+        }
+        .cat-tab:hover { border-color: var(--accent); color: white; }
+        .cat-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+        /* ── LIBRARY GRID ── */
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 22px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .library-grid::-webkit-scrollbar { width: 4px; }
+        .library-grid::-webkit-scrollbar-track { background: transparent; }
+        .library-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .art-option {
+            background: #000; border: 1px solid var(--border);
+            padding: 12px 10px; border-radius: 12px;
+            font-family: 'JetBrains Mono'; font-size: 0.55rem;
+            color: #64748b; cursor: pointer;
+            text-align: center; white-space: pre; overflow: hidden;
+            transition: 0.2s; min-height: 70px; display: flex;
+            align-items: center; justify-content: center; line-height: 1.4;
+            position: relative;
+        }
+        .art-option:hover { border-color: var(--accent); color: white; }
+        .art-option.selected { border-color: var(--accent); background: #1a0514; color: var(--accent); }
+        .art-option .label {
+            position: absolute; bottom: 5px; right: 7px;
+            font-size: 0.45rem; color: #334155; text-transform: uppercase;
+            letter-spacing: 0.5px; font-family: 'Inter';
+        }
+
+        /* ── TEXT INPUT ── */
+        .input-row {
+            display: flex; gap: 10px; margin-bottom: 16px; align-items: center;
+        }
+        input[type="text"] {
+            flex: 1; background: #000; border: 2px solid var(--border);
+            border-radius: 12px; color: #fff; padding: 16px 18px;
+            font-family: 'Inter'; font-size: 1.05rem; outline: none;
+            transition: 0.3s;
+        }
+        input[type="text"]:focus { border-color: var(--accent); }
+
+        .btn-random {
+            background: #0f172a; border: 1px solid var(--border); color: #94a3b8;
+            padding: 16px 18px; border-radius: 12px; font-size: 1.1rem;
+            cursor: pointer; transition: 0.2s; white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn-random:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── PREVIEW STAGE ── */
+        .preview-wrap { position: relative; margin-bottom: 16px; }
+
+        .preview-stage {
+            width: 100%; background: #000; border: 2px solid var(--border);
+            border-radius: 16px; min-height: 200px; display: flex;
+            align-items: center; justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: pre; padding: 30px; color: var(--accent);
+            cursor: pointer; transition: border-color 0.3s, background 0.3s;
+            overflow-x: auto; text-align: center; line-height: 1.5;
+        }
+        .preview-stage:hover { border-color: var(--accent); background: #0a0508; }
+        .preview-stage.copied { border-color: #22c55e !important; }
+        .preview-stage.placeholder-state { color: #334155; font-size: 0.85rem; letter-spacing: 2px; }
+
+        /* Floating copy hint */
+        .copy-hint {
+            position: absolute; top: 12px; right: 14px;
+            font-size: 0.65rem; color: #334155; font-family: 'JetBrains Mono';
+            pointer-events: none; transition: 0.3s;
+        }
+        .preview-wrap:hover .copy-hint { color: #64748b; }
+
+        /* Size control */
+        .stage-controls {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+        }
+        .stage-meta { font-size: 0.7rem; color: #334155; font-family: 'JetBrains Mono'; }
+        .size-btns { display: flex; gap: 6px; }
+        .size-btn {
+            background: #0f172a; border: 1px solid var(--border); color: #64748b;
+            padding: 4px 10px; border-radius: 6px; font-size: 0.7rem;
+            cursor: pointer; transition: 0.2s; font-family: 'JetBrains Mono';
+        }
+        .size-btn:hover, .size-btn.active { border-color: var(--accent); color: white; }
+
+        /* ── ACTION BUTTONS ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-main {
+            background: var(--accent); color: white; border: none;
+            padding: 16px 30px; border-radius: 12px; font-weight: 800;
+            cursor: pointer; font-family: 'Outfit'; text-transform: uppercase;
+            letter-spacing: 1px; transition: 0.3s; flex: 1;
+        }
+        .btn-main:hover { transform: translateY(-2px); filter: brightness(1.2); box-shadow: 0 10px 20px rgba(255,0,127,0.2); }
+        .btn-secondary {
+            background: #0f172a; border: 1px solid var(--border); color: #94a3b8;
+            padding: 16px 20px; border-radius: 12px; font-weight: 700;
+            cursor: pointer; font-family: 'Outfit'; text-transform: uppercase;
+            letter-spacing: 1px; transition: 0.2s; white-space: nowrap;
+        }
+        .btn-secondary:hover { border-color: var(--accent); color: white; }
+
+        /* ── DIVIDER ── */
+        .divider {
+            border: none; border-top: 1px solid var(--border);
+            margin: 28px 0;
+        }
+
+        /* ── CUSTOM VAULT ── */
+        .vault-section-title {
+            font-size: 0.7rem; color: #64748b; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 12px; font-family: 'Inter';
+        }
+        .secondary-input {
+            width: 100%; background: transparent; border: 1px solid var(--border);
+            border-radius: 10px; color: #94a3b8; padding: 14px; font-size: 0.8rem;
+            font-family: 'JetBrains Mono'; outline: none; resize: vertical;
+            transition: border-color 0.2s;
+        }
+        .secondary-input:focus { border-color: var(--accent); }
+        .vault-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-ghost {
+            background: none; border: 1px solid var(--border); color: #94a3b8;
+            padding: 9px 16px; border-radius: 8px; font-size: 0.72rem;
+            cursor: pointer; transition: 0.2s; font-family: 'Inter'; font-weight: 600;
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: white; }
+
+        /* Custom saved items */
+        .custom-saved {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
+        }
+        .custom-tag {
+            display: flex; align-items: center; gap: 6px;
+            background: #0f172a; border: 1px solid var(--border);
+            border-radius: 8px; padding: 6px 10px; font-size: 0.7rem;
+            color: #94a3b8; cursor: pointer; transition: 0.2s;
+        }
+        .custom-tag:hover { border-color: var(--accent); }
+        .custom-tag span.del {
+            color: #ef4444; font-size: 0.8rem; line-height: 1;
+            font-weight: 700;
+        }
+        .custom-tag span.del:hover { color: white; }
+
+        /* ── AI GENERATE PANEL ── */
+        .ai-panel {
+            background: linear-gradient(135deg, #0d0010, #0a0518);
+            border: 1px solid #2d1040;
+            border-radius: 16px; padding: 22px;
+            margin-bottom: 0;
+        }
+        .ai-panel-title {
+            font-family: 'Outfit'; font-size: 0.85rem; color: var(--accent);
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .ai-panel-title::before {
+            content: '◈';
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        .ai-suggestions {
+            display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .ai-suggestion {
+            padding: 7px 14px; border-radius: 20px;
+            border: 1px solid #2d1040; background: transparent;
+            color: #94a3b8; font-size: 0.72rem; cursor: pointer;
+            transition: 0.2s; font-family: 'JetBrains Mono';
+        }
+        .ai-suggestion:hover { border-color: var(--accent); color: white; background: #1a0514; }
+        .ai-suggestion.loading { opacity: 0.4; pointer-events: none; }
+
+        /* ── NOTIFICATION TOAST ── */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #0f172a; border: 1px solid var(--accent);
+            color: white; padding: 12px 24px; border-radius: 12px;
+            font-size: 0.8rem; font-family: 'JetBrains Mono';
+            opacity: 0; transition: all 0.35s; z-index: 9999;
+            pointer-events: none; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ── SEO ── */
+        .seo-section { border-top: 1px solid var(--border); padding-top: 40px; margin-top: 20px; }
+        .seo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 20px; }
+        .seo-box h4 { font-family: 'Outfit'; color: var(--accent); margin-bottom: 10px; text-transform: uppercase; font-size: 0.75rem; }
+        .seo-box p  { font-size: 0.8rem; color: #94a3b8; line-height: 1.7; }
+
+        @media (max-width: 640px) {
+            .seo-grid { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .input-row { flex-direction: column; }
+            .btn-random { width: 100%; }
+        }
+    </style>
+</head>
+<body data-theme="growth">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="text-formatting.html" class="back-btn">← Back to tools</a>
+
+        <header class="page-header">
+            <h1>Text Art <span style="color: var(--accent);">Vault</span></h1>
+            <p>Premium Text Assets for Social Authority.</p>
+        </header>
+
+        <section class="vault-card">
+
+            <!-- CATEGORY TABS -->
+            <div class="cat-tabs" id="catTabs"></div>
+
+            <!-- LIBRARY GRID -->
+            <div class="library-grid" id="libraryItems"></div>
+
+            <!-- TEXT INPUT ROW -->
+            <div class="input-row">
+                <input type="text" id="textInput" placeholder="Type your text here..." oninput="updateArt()">
+                <button class="btn-random" onclick="pickRandom()" title="Random template">🎲 Random</button>
+            </div>
+
+            <!-- STAGE CONTROLS -->
+            <div class="stage-controls">
+                <span class="stage-meta" id="stageMeta">— chars</span>
+                <div class="size-btns">
+                    <button class="size-btn active" data-size="0.8" onclick="setSize(this)">XS</button>
+                    <button class="size-btn" data-size="1.0" onclick="setSize(this)">S</button>
+                    <button class="size-btn" data-size="1.25" onclick="setSize(this)">M</button>
+                    <button class="size-btn" data-size="1.5" onclick="setSize(this)">L</button>
+                    <button class="size-btn" data-size="1.8" onclick="setSize(this)">XL</button>
+                </div>
+            </div>
+
+            <!-- PREVIEW STAGE -->
+            <div class="preview-wrap">
+                <div class="preview-stage placeholder-state" id="artOutput" onclick="copyArt()">
+                    SELECT A TEMPLATE
+                </div>
+                <span class="copy-hint">click to copy</span>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="action-row">
+                <button class="btn-main" onclick="copyArt()" id="copyBtn">Copy to Clipboard</button>
+                <button class="btn-secondary" onclick="downloadArt()" title="Download as .txt">↓ .TXT</button>
+            </div>
+
+            <hr class="divider">
+
+            <!-- AI SUGGESTION PANEL -->
+            <div class="ai-panel">
+                <div class="ai-panel-title">AI Style Suggestions</div>
+                <div class="ai-suggestions" id="aiSuggestions">
+                    <span class="ai-suggestion" onclick="aiPick('announcement')">📢 Announcement</span>
+                    <span class="ai-suggestion" onclick="aiPick('cta')">🔥 Call-to-Action</span>
+                    <span class="ai-suggestion" onclick="aiPick('progress')">⚡ Progress</span>
+                    <span class="ai-suggestion" onclick="aiPick('minimal')">◼ Minimal</span>
+                    <span class="ai-suggestion" onclick="aiPick('wave')">🌊 Wave</span>
+                    <span class="ai-suggestion" onclick="aiPick('diamond')">💎 Diamond</span>
+                    <span class="ai-suggestion" onclick="aiPick('retro')">👾 Retro</span>
+                    <span class="ai-suggestion" onclick="aiPick('bold')">⚡ Bold</span>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <!-- CUSTOM VAULT -->
+            <p class="vault-section-title">Custom Vault Storage</p>
+            <textarea id="customInput" class="secondary-input" rows="3" placeholder="Paste your own ASCII art here. Use [TEXT] as the dynamic text placeholder.&#10;&#10;Example:  ★━━━━ [TEXT] ━━━━★"></textarea>
+            <div class="vault-actions">
+                <button class="btn-ghost" onclick="addToVault()">＋ Save to Vault</button>
+                <button class="btn-ghost" onclick="clearCustomVault()" style="color:#ef4444; border-color:#1e293b;">✕ Clear Custom Vault</button>
+            </div>
+            <div class="custom-saved" id="customSaved"></div>
+        </section>
+
+        <!-- SEO SECTION -->
+        <section class="seo-section">
+            <h2 style="font-family: 'Outfit'; margin-bottom: 20px;">Mastering Digital Identity with Text Art</h2>
+            <div class="seo-grid">
+                <div class="seo-box">
+                    <h4>Stop the Scroll</h4>
+                    <p>In a feed saturated with images, reels, and carousels, raw ASCII text art does something no graphic can — it triggers a deep pattern-interrupt. The human brain is wired to parse faces, symbols, and unexpected visual structures even inside a plain-text environment. When someone is scanning their X (Twitter) timeline or skimming a LinkedIn comment thread and they hit a perfectly framed ASCII box, it creates a micro-pause. That pause is attention, and attention is the only currency that matters online. Rebrixe Text Vault gives you a library of tested, curated text art frames designed to maximize that pause. Use them around your most important insights, launch announcements, or key call-to-action lines. Creators who leverage ASCII frames in their posts consistently report higher engagement and reply rates than plain-text posts — because the art signals craft and intentionality, which builds authority.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Visual Organization in Text</h4>
+                    <p>Formatting is the silent salesman of your written content. When your audience encounters a wall of text, their eye has no anchor — they bounce. ASCII art solves this elegantly without requiring images or design software. A well-placed frame, separator, or border inside a LinkedIn newsletter or a cold email transforms perceived density into structured, scannable communication. It creates visual "weights" on the page that guide the reader's attention from headline to body to CTA — exactly like a designer would arrange a landing page, but entirely inside plain text. The Rebrixe Vault templates are built with this principle in mind: each template is tested at different character widths and font sizes to maintain alignment and impact across all major platforms, including Discord, Slack, Twitter, Telegram, and email clients. Use text art not just for decoration, but as a structural layout tool for your entire communication strategy.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Local-First, Zero Maintenance</h4>
+                    <p>Rebrixe Vault is engineered for longevity and privacy. Your custom templates are saved directly in your browser's local storage — no account creation, no server uploads, no third-party dependency, no subscription. This means your carefully crafted text art assets are always available offline, load instantly, and are never at risk from database outages or service shutdowns. The tool is deliberately "set and forget" infrastructure: bookmark it once and access your entire vault of personal templates anytime, from any device using the same browser profile. This local-first architecture is the right choice for power users who have iterated dozens of signature formats for their personal brand. Your assets belong to you, live with you, and require zero maintenance. For teams, we recommend each member build their own vault locally, keeping brand templates consistent through a shared paste-in process during onboarding.</p>
+                </div>
+                <div class="seo-box">
+                    <h4>Pro Aesthetic, Instant Credibility</h4>
+                    <p>There is a clear visual language that separates high-authority digital creators from the crowd, and ASCII text art — when done right — is a surprisingly powerful part of that language. Our templates are curated to hit a clean, editorial aesthetic that resonates with the Gen-Z and Millennial professional audience: structured but not corporate, expressive but not chaotic. Unlike the cluttered ASCII art of the 90s internet, the Rebrixe Vault collection uses modern Unicode block characters, geometric symbols, and minimal frame elements that render crisply on every modern screen and font. The result is text that doesn't just convey information — it conveys confidence. When you consistently use a signature text frame in your posts, replies, and newsletters, it becomes a recognizable brand element. Readers start to associate the format with you before they even read the words inside it. That is the compounding power of deliberate aesthetic consistency.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer style="margin-top: 80px; padding: 60px 20px; background: #05070a; border-top: 1px solid #1e293b; text-align: center; color: #64748b;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h3 style="color: white; font-family: 'Outfit';">Rebrixe Engine</h3>
+            <p style="font-size: 0.8rem;">Text Architecture Suite v1.4</p>
+            <div style="height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 20px 0;"></div>
+            <p style="font-size: 0.7rem;">© 2026. Built for high-speed growth.</p>
+        </div>
+    </footer>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ═══════════════════════════════════════════
+    //  TEMPLATE LIBRARY
+    // ═══════════════════════════════════════════
+    const LIBRARY = {
+        "Frames": [
+            { name: "Box",       art: `╔════════════════╗\n║   [TEXT]   ║\n╚════════════════╝` },
+            { name: "Double",    art: `╔══[ [TEXT] ]══╗` },
+            { name: "Rounded",   art: `╭─────────────────╮\n│    [TEXT]    │\n╰─────────────────╯` },
+            { name: "Hash",      art: `#####################\n#  [TEXT]  #\n#####################` },
+            { name: "Stars",     art: `★━━━━━━━━━━━━━━━★\n  [TEXT]\n★━━━━━━━━━━━━━━━★` },
+            { name: "Bracket",   art: `╠═[ [TEXT] ]═╣` },
+            { name: "Slim",      art: `┌──────────────┐\n│  [TEXT]  │\n└──────────────┘` },
+            { name: "Dotted",    art: `·····················\n·  [TEXT]  ·\n·····················` },
+        ],
+        "Arrows": [
+            { name: "Right",     art: `▶▶▶ [TEXT]` },
+            { name: "Both",      art: `◀━━ [TEXT] ━━▶` },
+            { name: "Chevron",   art: `>>> [TEXT] <<<` },
+            { name: "Arrow Up",  art: `    ▲\n[TEXT]\n    ▼` },
+            { name: "Broadcast", art: `📡 [TEXT] ━━━━━━▶` },
+            { name: "Thread",    art: `↳ [TEXT]` },
+        ],
+        "Fill": [
+            { name: "Gradient",  art: `░░▒▒▓▓█ [TEXT] █▓▓▒▒░░` },
+            { name: "Block",     art: `█████ [TEXT] █████` },
+            { name: "Wave",      art: `▂▃▄▅▆▇█ [TEXT] █▇▆▅▄▃▂` },
+            { name: "Half",      art: `▄▄▄▄▄▄▄▄▄▄\n[TEXT]\n▀▀▀▀▀▀▀▀▀▀` },
+            { name: "Checker",   art: `▓░▓░▓░ [TEXT] ░▓░▓░▓` },
+        ],
+        "Minimal": [
+            { name: "Em Dash",   art: `——— [TEXT] ———` },
+            { name: "Bullet",    art: `• [TEXT]` },
+            { name: "Pipe",      art: `| [TEXT]` },
+            { name: "Arrow Rd",  art: `→ [TEXT]` },
+            { name: "Dot Sep",   art: `· · · [TEXT] · · ·` },
+            { name: "Underline", art: `[TEXT]\n${'─'.repeat(20)}` },
+            { name: "Quote",     art: `❝ [TEXT] ❞` },
+            { name: "Diamond Sep",art:`◆ [TEXT] ◆` },
+        ],
+        "Social": [
+            { name: "Announce",  art: `📢 ━━━━━━━━━━━━━━━\n   [TEXT]\n━━━━━━━━━━━━━━━━━` },
+            { name: "Hot Take",  art: `🔥 [TEXT] 🔥` },
+            { name: "Thread Hd", art: `THREAD 🧵\n━━━━━━━━━━━━━\n[TEXT]` },
+            { name: "Breaking",  art: `⚡ BREAKING ⚡\n──────────────\n[TEXT]` },
+            { name: "Pin",       art: `📌 [TEXT]` },
+            { name: "Crown",     art: `👑 [TEXT] 👑` },
+        ],
+        "Loading": [
+            { name: "Progress",  art: `[ LOADING ]\n████████░░ 80%\n[TEXT]` },
+            { name: "Done",      art: `[✓] [TEXT]` },
+            { name: "Bar Full",  art: `[██████████] [TEXT]` },
+            { name: "Spinner",   art: `⣾ [TEXT]` },
+            { name: "Status",    art: `◉ LIVE  ·  [TEXT]` },
+        ],
+        "Retro": [
+            { name: "ASCII Face",art: `(づ｡◕‿‿◕｡)づ\n[TEXT]` },
+            { name: "Kawaii",    art: `(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ [TEXT]` },
+            { name: "80s Neon",  art: `*** [TEXT] ***\n~~~~~~~~~~~~~~~~~~` },
+            { name: "Terminal",  art: `root@Rebrixe:~$ [TEXT]` },
+            { name: "Glitch",    art: `▀▄▀▄ [TEXT] ▄▀▄▀` },
+            { name: "Skull",     art: `☠ [TEXT] ☠` },
+        ],
+    };
+
+    // AI style-to-template map
+    const AI_MAP = {
+        announcement: { cat: "Social",   idx: 0 },
+        cta:          { cat: "Arrows",   idx: 4 },
+        progress:     { cat: "Loading",  idx: 0 },
+        minimal:      { cat: "Minimal",  idx: 0 },
+        wave:         { cat: "Fill",     idx: 2 },
+        diamond:      { cat: "Minimal",  idx: 7 },
+        retro:        { cat: "Retro",    idx: 4 },
+        bold:         { cat: "Fill",     idx: 1 },
+    };
+
+    // ═══════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════
+    let selectedArt  = LIBRARY["Frames"][0].art;
+    let activeCategory = "Frames";
+    let fontSize = 0.8;
+
+    // ═══════════════════════════════════════════
+    //  RENDER CATEGORY TABS
+    // ═══════════════════════════════════════════
+    function renderTabs() {
+        const el = document.getElementById('catTabs');
+        el.innerHTML = '';
+        Object.keys(LIBRARY).forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'cat-tab' + (cat === activeCategory ? ' active' : '');
+            btn.textContent = cat;
+            btn.onclick = () => { activeCategory = cat; renderTabs(); renderLibrary(); };
+            el.appendChild(btn);
+        });
+    }
+
+    // ═══════════════════════════════════════════
+    //  RENDER LIBRARY GRID
+    // ═══════════════════════════════════════════
+    function renderLibrary() {
+        const container = document.getElementById('libraryItems');
+        container.innerHTML = '';
+
+        const items = LIBRARY[activeCategory] || [];
+        const customVault = getCustomVault();
+
+        // If on a hypothetical "My Vault" we'd show custom items; for now show category items + pinned custom
+        const allItems = [...items];
+
+        allItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'art-option' + (item.art === selectedArt ? ' selected' : '');
+            div.innerText = item.art.replace('[TEXT]', item.name || 'TEXT');
+            div.title = item.name;
+            const lbl = document.createElement('span');
+            lbl.className = 'label';
+            lbl.textContent = item.name;
+            div.appendChild(lbl);
+            div.onclick = () => {
+                selectedArt = item.art;
+                renderLibrary();
+                updateArt();
+            };
+            container.appendChild(div);
+        });
+
+        renderCustomSaved();
+    }
+
+    // ═══════════════════════════════════════════
+    //  UPDATE PREVIEW
+    // ═══════════════════════════════════════════
+    function updateArt() {
+        const val = document.getElementById('textInput').value.trim() || 'Rebrixe';
+        const output = selectedArt.replace(/\[TEXT\]/g, val);
+        const stage = document.getElementById('artOutput');
+        stage.classList.remove('placeholder-state');
+        stage.innerText = output;
+        stage.style.fontSize = fontSize + 'rem';
+
+        // Meta
+        const chars = output.replace(/\n/g, '').length;
+        const lines = output.split('\n').length;
+        document.getElementById('stageMeta').textContent = `${chars} chars  ·  ${lines} line${lines !== 1 ? 's' : ''}`;
+    }
+
+    // ═══════════════════════════════════════════
+    //  COPY
+    // ═══════════════════════════════════════════
+    function copyArt() {
+        const stage = document.getElementById('artOutput');
+        const text = stage.innerText;
+        if (stage.classList.contains('placeholder-state')) return;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyBtn');
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            stage.classList.add('copied');
+            showToast('✓ Copied to clipboard!');
+            setTimeout(() => {
+                btn.textContent = orig;
+                stage.classList.remove('copied');
+            }, 1600);
+        }).catch(() => {
+            // Fallback for older browsers
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('✓ Copied!');
+        });
+    }
+
+    // ═══════════════════════════════════════════
+    //  DOWNLOAD .TXT
+    // ═══════════════════════════════════════════
+    function downloadArt() {
+        const stage = document.getElementById('artOutput');
+        if (stage.classList.contains('placeholder-state')) { showToast('Select a template first'); return; }
+        const text = stage.innerText;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Rebrixe-art.txt';
+        a.click(); URL.revokeObjectURL(url);
+        showToast('↓ Downloaded!');
+    }
+
+    // ═══════════════════════════════════════════
+    //  RANDOM PICK
+    // ═══════════════════════════════════════════
+    function pickRandom() {
+        const cats = Object.keys(LIBRARY);
+        const randCat = cats[Math.floor(Math.random() * cats.length)];
+        const items = LIBRARY[randCat];
+        const item = items[Math.floor(Math.random() * items.length)];
+        activeCategory = randCat;
+        selectedArt = item.art;
+        renderTabs();
+        renderLibrary();
+        updateArt();
+        showToast(`🎲 Picked: ${item.name} (${randCat})`);
+    }
+
+    // ═══════════════════════════════════════════
+    //  FONT SIZE
+    // ═══════════════════════════════════════════
+    function setSize(btn) {
+        document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        fontSize = parseFloat(btn.dataset.size);
+        const stage = document.getElementById('artOutput');
+        stage.style.fontSize = fontSize + 'rem';
+    }
+
+    // ═══════════════════════════════════════════
+    //  AI SUGGESTIONS (simulated)
+    // ═══════════════════════════════════════════
+    function aiPick(style) {
+        const suggestions = document.querySelectorAll('.ai-suggestion');
+        suggestions.forEach(s => s.classList.add('loading'));
+
+        setTimeout(() => {
+            suggestions.forEach(s => s.classList.remove('loading'));
+            const map = AI_MAP[style];
+            if (!map) return;
+            activeCategory = map.cat;
+            selectedArt = LIBRARY[map.cat][map.idx].art;
+            renderTabs();
+            renderLibrary();
+            updateArt();
+            showToast(`◈ AI picked: ${LIBRARY[map.cat][map.idx].name}`);
+        }, 480);
+    }
+
+    // ═══════════════════════════════════════════
+    //  CUSTOM VAULT
+    // ═══════════════════════════════════════════
+    function getCustomVault() {
+        return JSON.parse(localStorage.getItem('Rebrixe_vault') || '[]');
+    }
+
+    function addToVault() {
+        const val = document.getElementById('customInput').value.trim();
+        if (!val) { showToast('Paste some art first'); return; }
+        let vault = getCustomVault();
+        if (vault.find(v => v.art === val)) { showToast('Already saved!'); return; }
+        vault.push({ art: val, name: 'Custom ' + (vault.length + 1) });
+        localStorage.setItem('Rebrixe_vault', JSON.stringify(vault));
+        document.getElementById('customInput').value = '';
+        renderCustomSaved();
+        showToast('✓ Saved to vault!');
+    }
+
+    function deleteFromVault(idx) {
+        let vault = getCustomVault();
+        vault.splice(idx, 1);
+        localStorage.setItem('Rebrixe_vault', JSON.stringify(vault));
+        renderCustomSaved();
+        showToast('Removed from vault');
+    }
+
+    function clearCustomVault() {
+        if (!confirm('Clear all custom vault items?')) return;
+        localStorage.removeItem('Rebrixe_vault');
+        renderCustomSaved();
+        showToast('Vault cleared');
+    }
+
+    function renderCustomSaved() {
+        const vault = getCustomVault();
+        const el = document.getElementById('customSaved');
+        el.innerHTML = '';
+        vault.forEach((item, i) => {
+            const tag = document.createElement('div');
+            tag.className = 'custom-tag';
+            tag.innerHTML = `<span onclick="useCustom(${i})">${item.name}</span><span class="del" onclick="deleteFromVault(${i})" title="Remove">✕</span>`;
+            el.appendChild(tag);
+        });
+    }
+
+    function useCustom(idx) {
+        const vault = getCustomVault();
+        if (!vault[idx]) return;
+        selectedArt = vault[idx].art;
+        renderLibrary();
+        updateArt();
+    }
+
+    // ═══════════════════════════════════════════
+    //  TOAST
+    // ═══════════════════════════════════════════
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ═══════════════════════════════════════════
+    //  KEYBOARD SHORTCUT: Ctrl/Cmd+C
+    // ═══════════════════════════════════════════
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            copyArt();
+        }
+    });
+
+    // ═══════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════
+    renderTabs();
+    renderLibrary();
+    updateArt();
+    </script>
+
+    <script src="../nav.js"></script>
+</body>
+</html>

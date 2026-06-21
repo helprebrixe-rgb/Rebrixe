@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quarter Dates Calculator | Rebrixe</title>
+    <meta name="description" content="Find what quarter any date falls in, get first and last days of any quarter, switch between calendar and fiscal year. Free quarter calculator.">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        /* ── LAYOUT ── */
+        .tool-wrap { max-width: 860px; margin: 40px auto; }
+
+        .tool-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 36px;
+        }
+
+        /* ── MODE TABS ── */
+        .mode-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 28px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px;
+        }
+        .mode-tab {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 11px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .mode-tab.active {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid var(--border);
+        }
+
+        /* ── FISCAL ROW ── */
+        .fiscal-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .fiscal-label { font-size: 0.85rem; color: #94a3b8; flex: 1; }
+        .fiscal-label strong { color: #fff; }
+
+        .fiscal-month-select {
+            background: #000;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            display: none;
+            appearance: none;
+        }
+        .fiscal-month-select.visible { display: block; }
+
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #1e293b; border-radius: 999px;
+            cursor: pointer; transition: 0.3s;
+            border: 1px solid var(--border);
+        }
+        .slider:before {
+            content: ''; position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #64748b; border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
+        .switch input:checked + .slider:before { transform: translateX(20px); background: var(--primary); }
+
+        /* ── SECTION PANELS ── */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ── DATE INPUT ── */
+        .input-label {
+            font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--primary); margin-bottom: 8px;
+        }
+        input[type="date"] {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 16px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+            margin-bottom: 20px;
+        }
+        input[type="date"]:focus { border-color: var(--primary); }
+
+        /* ── QUICK PRESETS ── */
+        .quick-label {
+            font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: #64748b; margin-bottom: 10px;
+        }
+        .quick-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .pill {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .pill:hover { border-color: var(--primary); color: #fff; background: rgba(139,148,152,0.08); }
+
+        /* ── QUARTER PICKER ── */
+        .picker-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .picker-box { display: flex; flex-direction: column; gap: 8px; }
+        select {
+            background: #000;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: #fff;
+            padding: 14px 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+        }
+        select:focus { border-color: var(--primary); }
+
+        /* ── RESULT PANEL ── */
+        .result-panel { display: none; margin-top: 8px; }
+        .result-panel.visible { display: block; }
+
+        /* ── HERO BADGE ── */
+        .q-hero {
+            text-align: center;
+            padding: 28px 20px 20px;
+            background: linear-gradient(135deg, rgba(120,129,132,0.08) 0%, rgba(0,0,0,0) 60%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            margin-bottom: 16px;
+        }
+        .q-badge {
+            display: inline-block;
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.5rem, 7vw, 4.5rem);
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .q-year {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .q-label-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .q-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 5px 12px;
+            border-radius: 999px;
+        }
+        .q-tag.cal     { background: rgba(100,116,139,0.15); color: #94a3b8; border: 1px solid #334155; }
+        .q-tag.fiscal  { background: rgba(143,162,165,0.12); color: var(--primary); border: 1px solid rgba(139,158,168,0.3); }
+        .q-tag.current { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+
+        /* ── DATE CARDS ── */
+        .dates-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .date-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 16px;
+            text-align: center;
+        }
+        .dc-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        .dc-date {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+        .dc-dow { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+
+        /* ── STATS GRID ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat-cell {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .sc-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .sc-label {
+            font-size: 0.58rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            font-weight: 600;
+        }
+
+        /* ── PROGRESS BAR ── */
+        .progress-wrap {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .prog-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .prog-title { font-size: 0.75rem; color: #94a3b8; font-weight: 600; }
+        .prog-pct   { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--primary); font-size: 0.85rem; }
+        .prog-bar-bg { background: rgba(255,255,255,0.05); border-radius: 999px; height: 6px; }
+        .prog-bar-fill {
+            height: 6px; border-radius: 999px;
+            background: linear-gradient(90deg, #616768, var(--primary));
+            transition: width 0.5s ease;
+        }
+        .prog-note { font-size: 0.68rem; color: #475569; margin-top: 8px; }
+
+        /* ── ALL QUARTERS STRIP ── */
+        .all-quarters {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .aq-cell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .aq-cell.highlighted {
+            border-color: var(--primary);
+            background: rgba(143,162,165,0.08);
+        }
+        .aq-cell:hover { border-color: #64748b; }
+        .aq-qnum { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.95rem; color: #fff; }
+        .aq-range { font-size: 0.62rem; color: #64748b; margin-top: 4px; line-height: 1.3; }
+
+        /* ── ACTION BUTTONS ── */
+        .action-row { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #616768, #c0cbcc);
+            border-color: transparent;
+            box-shadow: 0 6px 20px rgba(145,152,155,0.3);
+        }
+        .btn-action.primary:hover { transform: translateY(-2px); letter-spacing: 1.5px; }
+        .btn-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .empty-hint { text-align: center; padding: 30px; color: #334155; font-size: 0.9rem; }
+
+        @media (max-width: 600px) {
+            .tool-card { padding: 20px; }
+            .picker-row { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .dates-grid { grid-template-columns: 1fr; }
+            .all-quarters { grid-template-columns: repeat(2, 1fr); }
+            .action-row { flex-direction: column; }
+            .mode-tab { font-size: 0.7rem; padding: 8px 8px; }
+        }
+    </style>
+</head>
+<body data-theme="time-date">
+    <nav class="nav-container"></nav>
+
+    <div class="container">
+        <a href="date-calculators.html" class="back-btn">← back to tools</a>
+
+        <header style="text-align:center; margin-bottom:44px;">
+            <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:900; letter-spacing:-2px; margin-bottom:10px;">Quarter Dates Calculator</h1>
+            <p style="color:#64748b; font-size:0.95rem;">What quarter is any date in? First &amp; last days, fiscal vs calendar, progress &amp; more.</p>
+        </header>
+
+        <div class="tool-wrap">
+            <div class="tool-card">
+
+                <!-- MODE TABS -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" id="tab-lookup" onclick="switchMode('lookup')">📅 Date → Quarter</button>
+                    <button class="mode-tab"         id="tab-picker" onclick="switchMode('picker')">🔢 Pick a Quarter</button>
+                </div>
+
+                <!-- FISCAL YEAR TOGGLE -->
+                <div class="fiscal-row">
+                    <div class="fiscal-label"><strong>Fiscal Year</strong> — set custom year start</div>
+                    <select class="fiscal-month-select" id="fiscalStartMonth" onchange="onFiscalChange()">
+                        <option value="0">Jan (calendar default)</option>
+                        <option value="3">Apr (India / UK)</option>
+                        <option value="6">Jul (Australia)</option>
+                        <option value="9">Oct (US Federal)</option>
+                    </select>
+                    <label class="switch">
+                        <input type="checkbox" id="fiscalToggle" onchange="onFiscalChange()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- SECTION 1: DATE → QUARTER LOOKUP -->
+                <div class="section active" id="sec-lookup">
+                    <div class="input-label">Enter any date</div>
+                    <input type="date" id="lookupDate" oninput="runLookup()">
+
+                    <div class="quick-label">Quick Presets</div>
+                    <div class="quick-pills" id="quickPills">
+                        <span class="pill" onclick="setToday()">Today</span>
+                        <span class="pill" onclick="setPreset(0)">Q1 Start</span>
+                        <span class="pill" onclick="setPreset(1)">Q2 Start</span>
+                        <span class="pill" onclick="setPreset(2)">Q3 Start</span>
+                        <span class="pill" onclick="setPreset(3)">Q4 Start</span>
+                        <span class="pill" onclick="setPreset('end')">Year End</span>
+                    </div>
+
+                    <div id="lookupResult" class="result-panel"></div>
+                    <div id="lookupHint" class="empty-hint">Pick a date above to see its quarter ↑</div>
+                </div>
+
+                <!-- SECTION 2: PICK A QUARTER -->
+                <div class="section" id="sec-picker">
+                    <div class="picker-row">
+                        <div class="picker-box">
+                            <div class="input-label">Year</div>
+                            <select id="pickYear" onchange="runPicker()"></select>
+                        </div>
+                        <div class="picker-box">
+                            <div class="input-label">Quarter</div>
+                            <select id="pickQuarter" onchange="runPicker()">
+                                <option value="1">Q1</option>
+                                <option value="2">Q2</option>
+                                <option value="3">Q3</option>
+                                <option value="4">Q4</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="pickerResult" class="result-panel"></div>
+                </div>
+
+            </div><!-- .tool-card -->
+        </div><!-- .tool-wrap -->
+    </div><!-- .container -->
+
+    <footer></footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════════
+       QUARTER DATES CALCULATOR — BULLETPROOF REWRITE
+       All quarter math uses a single, tested core function.
+    ═══════════════════════════════════════════════════ */
+
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const DAYS_FULL    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const TODAY        = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    const CUR_YEAR     = TODAY.getFullYear();
+
+    /* ── Populate year picker ── */
+    const ypEl = document.getElementById('pickYear');
+    for (let y = CUR_YEAR - 5; y <= CUR_YEAR + 5; y++) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y === CUR_YEAR) opt.selected = true;
+        ypEl.appendChild(opt);
+    }
+
+    /* ── Set today as default in lookup ── */
+    document.getElementById('lookupDate').value = toISODate(TODAY);
+    runLookup();
+    runPicker();
+
+    /* ════════════════════════════════════════
+       CORE QUARTER MATH
+       ════════════════════════════════════════
+       
+       All quarter logic flows through ONE function: getQuarter(date, fsm).
+       
+       CONVENTION:
+       - fsm = fiscal start month index (0=Jan, 3=Apr, 6=Jul, 9=Oct)
+       - "Fiscal Year N" ends in year N.
+         e.g. for fsm=3 (Apr), FY2026 = Apr 2025 – Mar 2026
+         for fsm=0 (Jan), FY2026 = Jan 2026 – Dec 2026
+       - Q1 always starts at fsm, Q2 at fsm+3, Q3 at fsm+6, Q4 at fsm+9
+    ════════════════════════════════════════ */
+
+    /**
+     * Given a calendar date and fiscal start month, return:
+     *   { q, fyYear, qStart, qEnd }
+     * 
+     * fyYear = the year the fiscal year ENDS in (= calendar year label users see)
+     * qStart / qEnd = Date objects, midnight UTC-safe via setHours(0,0,0,0)
+     */
+    function getQuarter(date, fsm) {
+        const m = date.getMonth();   // 0-11
+        const y = date.getFullYear();
+
+        // Months elapsed since fiscal year start (0-11 within the FY)
+        const monthInFY = ((m - fsm) + 12) % 12;
+
+        // Quarter number within fiscal year (1-4)
+        const q = Math.floor(monthInFY / 3) + 1;
+
+        // Calendar year in which THIS fiscal year started
+        // If fsm=0: FY always starts in same calendar year as the date
+        // If fsm>0: if current month is before fsm, FY started last year
+        const fyStartCalYear = m >= fsm ? y : y - 1;
+
+        // Fiscal year label = the year the FY ends
+        // If fsm=0: ends same year it starts
+        // If fsm>0: ends the next calendar year
+        const fyYear = fsm === 0 ? fyStartCalYear : fyStartCalYear + 1;
+
+        // Q start: fiscal year start + (q-1)*3 months
+        const qStartMonth = fsm + (q - 1) * 3;  // may exceed 11 — Date handles overflow
+        const qStart = new Date(fyStartCalYear, qStartMonth, 1);
+        qStart.setHours(0, 0, 0, 0);
+
+        // Q end: one day before the next quarter starts
+        const qEnd = new Date(fyStartCalYear, qStartMonth + 3, 0);
+        qEnd.setHours(0, 0, 0, 0);
+
+        return { q, fyYear, qStart, qEnd };
+    }
+
+    /**
+     * Build all 4 quarters for a given fiscal year ending in `fyYear`
+     * with fiscal start month `fsm`.
+     */
+    function getYearQuarters(fyYear, fsm) {
+        // The fiscal year starts in calendar year:
+        const fyStartCalYear = fsm === 0 ? fyYear : fyYear - 1;
+        return [1, 2, 3, 4].map(q => {
+            const qStartMonth = fsm + (q - 1) * 3;
+            const qStart = new Date(fyStartCalYear, qStartMonth, 1);
+            qStart.setHours(0, 0, 0, 0);
+            const qEnd = new Date(fyStartCalYear, qStartMonth + 3, 0);
+            qEnd.setHours(0, 0, 0, 0);
+            return { q, qStart, qEnd };
+        });
+    }
+
+    /* ════════════════════════════════════════
+       STATS HELPERS — all pure, no side effects
+    ════════════════════════════════════════ */
+
+    /** Inclusive day count between two Date objects */
+    function daysBetween(a, b) {
+        return Math.round(Math.abs(b - a) / 864e5) + 1;
+    }
+
+    /** Days from a to b, exclusive of a (i.e. days elapsed *after* a) */
+    function daysElapsed(from, to) {
+        return Math.max(0, Math.round((to - from) / 864e5));
+    }
+
+    /** Days from a to b, exclusive of b (i.e. days remaining *before* b) */
+    function daysRemaining(from, to) {
+        return Math.max(0, Math.round((to - from) / 864e5));
+    }
+
+    /** Total calendar days in a quarter (inclusive) */
+    function totalDays(qStart, qEnd) {
+        return daysBetween(qStart, qEnd);
+    }
+
+    /** Working days (Mon–Fri) in a range, inclusive of both endpoints */
+    function workingDays(a, b) {
+        const total = daysBetween(a, b);
+        // Full weeks
+        const fullWeeks = Math.floor(total / 7);
+        const remainder = total % 7;
+
+        // Day of week for `a` (0=Sun … 6=Sat)
+        const startDow = a.getDay();
+
+        // Count weekdays in the remainder chunk
+        let extraWeekdays = 0;
+        for (let i = 0; i < remainder; i++) {
+            const dow = (startDow + i) % 7;
+            if (dow !== 0 && dow !== 6) extraWeekdays++;
+        }
+
+        return fullWeeks * 5 + extraWeekdays;
+    }
+
+    /**
+     * Progress percentage of `refDate` within [qStart, qEnd].
+     * Returns a number 0–100.
+     * If refDate is before qStart → 0. After qEnd → 100.
+     */
+    function progressPct(refDate, qStart, qEnd) {
+        const total = qEnd - qStart;  // milliseconds
+        if (total <= 0) return 100;
+        const elapsed = refDate - qStart;
+        return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+    }
+
+    /* ════════════════════════════════════════
+       DATE FORMAT HELPERS
+    ════════════════════════════════════════ */
+
+    function toISODate(d) {
+        // Returns "YYYY-MM-DD" in local time (avoids UTC timezone shift)
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function toDisplayDate(d) {
+        return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    function toDayName(d) {
+        return DAYS_FULL[d.getDay()];
+    }
+
+    function fsm() {
+        return document.getElementById('fiscalToggle').checked
+            ? parseInt(document.getElementById('fiscalStartMonth').value, 10)
+            : 0;
+    }
+
+    function isFiscal() {
+        return document.getElementById('fiscalToggle').checked;
+    }
+
+    /* ════════════════════════════════════════
+       RESULT HTML BUILDER
+       Single source of truth for all rendered output.
+    ════════════════════════════════════════ */
+
+    /**
+     * @param {Date|null} selectedDate  — the user-selected date (lookup mode) or null (picker mode)
+     * @param {object}    qInfo         — { q, fyYear, qStart, qEnd }
+     * @param {string}    resultElId    — ID of the element that will hold the Copy button
+     */
+    function buildResult(selectedDate, qInfo, resultElId) {
+        const { q, fyYear, qStart, qEnd } = qInfo;
+        const fiscal = isFiscal();
+        const m = fsm();
+
+        const totalD  = totalDays(qStart, qEnd);
+        const workD   = workingDays(qStart, qEnd);
+        const weekendD = totalD - workD;
+        const weeks   = Math.ceil(totalD / 7);
+
+        // Progress and elapsed/remaining are always relative to TODAY
+        // (not to selectedDate, which would be confusing for past/future dates)
+        const prog   = progressPct(TODAY, qStart, qEnd);
+        const todayInFuture = TODAY < qStart;
+        const todayPast     = TODAY > qEnd;
+        const elapsed   = todayInFuture  ? 0    : daysElapsed(qStart, TODAY);
+        const remaining = todayPast      ? 0    : daysRemaining(TODAY, qEnd);
+
+        // Is today in this quarter?
+        const todayInQ = TODAY >= qStart && TODAY <= qEnd;
+
+        // All quarters for the same fiscal year
+        const allQ = getYearQuarters(fyYear, m);
+
+        const fyLabel = fiscal ? `FY ${fyYear}` : `${fyYear}`;
+
+        /* progress note */
+        let progNote = '';
+        if (todayInFuture) progNote = 'This quarter hasn\'t started yet';
+        else if (todayPast) progNote = 'This quarter has ended';
+
+        return `
+        <div class="q-hero">
+            <div class="q-badge">Q${q}</div>
+            <div class="q-year">${fyLabel}</div>
+            <div class="q-label-row">
+                ${fiscal
+                    ? `<span class="q-tag fiscal">Fiscal Year</span>`
+                    : `<span class="q-tag cal">Calendar Year</span>`
+                }
+                ${todayInQ ? `<span class="q-tag current">✓ Current Quarter</span>` : ''}
+            </div>
+        </div>
+
+        <div class="dates-grid">
+            <div class="date-card">
+                <div class="dc-label">🟢 First Day</div>
+                <div class="dc-date">${toDisplayDate(qStart)}</div>
+                <div class="dc-dow">${toDayName(qStart)}</div>
+            </div>
+            <div class="date-card">
+                <div class="dc-label">🔴 Last Day</div>
+                <div class="dc-date">${toDisplayDate(qEnd)}</div>
+                <div class="dc-dow">${toDayName(qEnd)}</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-cell">
+                <div class="sc-num">${totalD}</div>
+                <div class="sc-label">Total Days</div>
+            </div>
+            <div class="stat-cell">
+                <div class="sc-num">${workD}</div>
+                <div class="sc-label">Working Days</div>
+            </div>
+            <div class="stat-cell">
+                <div class="sc-num">${weekendD}</div>
+                <div class="sc-label">Weekend Days</div>
+            </div>
+            <div class="stat-cell">
+                <div class="sc-num">${elapsed}</div>
+                <div class="sc-label">Days Elapsed</div>
+            </div>
+            <div class="stat-cell">
+                <div class="sc-num">${remaining}</div>
+                <div class="sc-label">Days Remaining</div>
+            </div>
+            <div class="stat-cell">
+                <div class="sc-num">${weeks}</div>
+                <div class="sc-label">Weeks</div>
+            </div>
+        </div>
+
+        <div class="progress-wrap">
+            <div class="prog-header">
+                <span class="prog-title">Quarter Progress (as of today)</span>
+                <span class="prog-pct">${prog}%</span>
+            </div>
+            <div class="prog-bar-bg">
+                <div class="prog-bar-fill" style="width:${prog}%"></div>
+            </div>
+            ${progNote ? `<div class="prog-note">${progNote}</div>` : ''}
+        </div>
+
+        <div class="quick-label" style="margin-bottom:10px;">All Quarters — ${fyLabel}</div>
+        <div class="all-quarters">
+            ${allQ.map(({ q: qn, qStart: qs, qEnd: qe }) => `
+            <div class="aq-cell ${qn === q ? 'highlighted' : ''}"
+                 onclick="jumpToQuarter(${qn}, ${fyYear})">
+                <div class="aq-qnum">Q${qn}</div>
+                <div class="aq-range">
+                    ${MONTHS_SHORT[qs.getMonth()]} ${qs.getDate()}
+                    –
+                    ${MONTHS_SHORT[qe.getMonth()]} ${qe.getDate()}
+                </div>
+            </div>`).join('')}
+        </div>
+
+        <div class="action-row">
+            <button class="btn-action primary"
+                    id="${resultElId}-copy"
+                    onclick="copyResult('${resultElId}-copy', ${q}, '${toISODate(qStart)}', '${toISODate(qEnd)}', ${fyYear})">
+                Copy Result
+            </button>
+            <button class="btn-action"
+                    onclick="shareResult(${q}, ${fyYear})">
+                ↗ Share
+            </button>
+        </div>
+        `;
+    }
+
+    /* ════════════════════════════════════════
+       MODE: LOOKUP
+    ════════════════════════════════════════ */
+
+    function runLookup() {
+        const val   = document.getElementById('lookupDate').value;
+        const panel = document.getElementById('lookupResult');
+        const hint  = document.getElementById('lookupHint');
+
+        if (!val) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            return;
+        }
+
+        // Parse safely in local time
+        const [yr, mo, dy] = val.split('-').map(Number);
+        const date = new Date(yr, mo - 1, dy);
+        date.setHours(0, 0, 0, 0);
+
+        // Guard against invalid date
+        if (isNaN(date.getTime())) {
+            panel.classList.remove('visible');
+            hint.style.display = 'block';
+            hint.textContent = 'Invalid date — please pick a valid date.';
+            return;
+        }
+
+        hint.style.display = 'none';
+        hint.textContent = 'Pick a date above to see its quarter ↑'; // reset
+
+        const qInfo = getQuarter(date, fsm());
+        panel.innerHTML = buildResult(date, qInfo, 'lookup');
+        panel.classList.add('visible');
+    }
+
+    /* ════════════════════════════════════════
+       MODE: PICKER
+    ════════════════════════════════════════ */
+
+    function runPicker() {
+        const fyYear = parseInt(document.getElementById('pickYear').value, 10);
+        const q      = parseInt(document.getElementById('pickQuarter').value, 10);
+        const m      = fsm();
+
+        // Build qStart/qEnd from the chosen fiscal year + quarter
+        const fyStartCalYear = m === 0 ? fyYear : fyYear - 1;
+        const qStartMonth    = m + (q - 1) * 3;
+        const qStart = new Date(fyStartCalYear, qStartMonth, 1);
+        qStart.setHours(0, 0, 0, 0);
+        const qEnd = new Date(fyStartCalYear, qStartMonth + 3, 0);
+        qEnd.setHours(0, 0, 0, 0);
+
+        const qInfo = { q, fyYear, qStart, qEnd };
+        const panel = document.getElementById('pickerResult');
+        panel.innerHTML = buildResult(null, qInfo, 'picker');
+        panel.classList.add('visible');
+    }
+
+    /* ════════════════════════════════════════
+       JUMP from all-quarters strip → picker tab
+    ════════════════════════════════════════ */
+
+    function jumpToQuarter(q, fyYear) {
+        document.getElementById('pickYear').value    = fyYear;
+        document.getElementById('pickQuarter').value = q;
+        switchMode('picker');
+        runPicker();
+    }
+
+    /* ════════════════════════════════════════
+       MODE SWITCH
+    ════════════════════════════════════════ */
+
+    function switchMode(mode) {
+        const isLookup = mode === 'lookup';
+        document.getElementById('tab-lookup').classList.toggle('active',  isLookup);
+        document.getElementById('tab-picker').classList.toggle('active', !isLookup);
+        document.getElementById('sec-lookup').classList.toggle('active',  isLookup);
+        document.getElementById('sec-picker').classList.toggle('active', !isLookup);
+    }
+
+    /* ════════════════════════════════════════
+       FISCAL TOGGLE
+    ════════════════════════════════════════ */
+
+    function onFiscalChange() {
+        const on = document.getElementById('fiscalToggle').checked;
+        document.getElementById('fiscalStartMonth').classList.toggle('visible', on);
+        runLookup();
+        runPicker();
+    }
+
+    /* ════════════════════════════════════════
+       PRESET PILLS
+    ════════════════════════════════════════ */
+
+    function setToday() {
+        document.getElementById('lookupDate').value = toISODate(TODAY);
+        runLookup();
+    }
+
+    /**
+     * qIndex: 0-3 for Q1–Q4 starts, or 'end' for Dec 31
+     * Uses fiscal start month so presets stay consistent with active mode.
+     */
+    function setPreset(qIndex) {
+        const m = fsm();
+        let date;
+        if (qIndex === 'end') {
+            // Always Dec 31 of current year regardless of fiscal
+            date = new Date(CUR_YEAR, 11, 31);
+        } else {
+            // Q(qIndex+1) start in current year, respecting fiscal
+            const startMonth = m + qIndex * 3;
+            date = new Date(CUR_YEAR, startMonth, 1);
+        }
+        date.setHours(0, 0, 0, 0);
+        document.getElementById('lookupDate').value = toISODate(date);
+        runLookup();
+    }
+
+    /* ════════════════════════════════════════
+       COPY RESULT
+    ════════════════════════════════════════ */
+
+    function copyResult(btnId, q, start, end, fyYear) {
+        const fiscal = isFiscal();
+        const text = [
+            `Q${q} ${fiscal ? 'FY' : ''}${fyYear}`,
+            `Start : ${start}`,
+            `End   : ${end}`,
+        ].join('\n');
+
+        if (!navigator.clipboard) {
+            // Fallback for browsers without clipboard API
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            flashBtn(btnId);
+            return;
+        }
+
+        navigator.clipboard.writeText(text).then(() => flashBtn(btnId));
+    }
+
+    function flashBtn(btnId) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        const original = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.textContent = original;
+            btn.disabled = false;
+        }, 2000);
+    }
+
+    /* ════════════════════════════════════════
+       SHARE
+    ════════════════════════════════════════ */
+
+    function shareResult(q, fyYear) {
+        const url = `${location.origin}${location.pathname}?q=${q}&y=${fyYear}${isFiscal() ? `&fsm=${fsm()}` : ''}`;
+        const title = `Q${q} ${isFiscal() ? 'FY' : ''}${fyYear} Dates`;
+
+        if (navigator.share) {
+            navigator.share({ title, url }).catch(() => fallbackCopyUrl(url));
+        } else {
+            fallbackCopyUrl(url);
+        }
+    }
+
+    function fallbackCopyUrl(url) {
+        navigator.clipboard
+            ? navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'))
+            : alert(`Copy this link:\n${url}`);
+    }
+
+    /* ════════════════════════════════════════
+       URL PARAM HANDLING ON LOAD
+    ════════════════════════════════════════ */
+
+    (function handleUrlParams() {
+        const p = new URLSearchParams(location.search);
+        const q   = parseInt(p.get('q'), 10);
+        const y   = parseInt(p.get('y'), 10);
+        const fsmParam = parseInt(p.get('fsm'), 10);
+
+        if (!isNaN(q) && q >= 1 && q <= 4 && !isNaN(y)) {
+            // Restore fiscal state if present
+            if (!isNaN(fsmParam) && fsmParam !== 0) {
+                document.getElementById('fiscalToggle').checked = true;
+                document.getElementById('fiscalStartMonth').value = fsmParam;
+                document.getElementById('fiscalStartMonth').classList.add('visible');
+            }
+            document.getElementById('pickYear').value    = y;
+            document.getElementById('pickQuarter').value = q;
+            switchMode('picker');
+            runPicker();
+        }
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

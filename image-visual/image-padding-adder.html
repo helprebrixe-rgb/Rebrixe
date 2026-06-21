@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Padding Adder — Add White or Colored Padding to Any Image | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Add padding around any image to reach a target size or aspect ratio. Make portrait images square, add colored borders, create canvas extensions. Free, browser-only.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 80px; }
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: var(--text-dim); text-decoration: none; margin-bottom: 28px; transition: color 0.2s; }
+        .back-btn:hover { color: var(--primary); }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title { font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px; background: linear-gradient(90deg, var(--primary), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; margin-bottom: 10px; }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 0.72rem; font-weight: 700; color: var(--success); background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18); padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone { position: relative; border-radius: 20px; padding: 52px 30px 48px; text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden; background: var(--card); transition: transform 0.25s, box-shadow 0.25s; }
+        .drop-zone::before { content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px; background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+        /* Quick presets */
+        .presets-strip { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 20px; }
+        .qp-btn { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.73rem; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; gap: 5px; }
+        .qp-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+        .qp-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Padding card */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+
+        /* Padding mode toggle */
+        .mode-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+        .mode-tab { flex: 1; padding: 9px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; text-align: center; }
+        .mode-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Padding inputs */
+        .pad-equal-row { display: flex; align-items: center; gap: 12px; }
+        .pad-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .pad-field { display: flex; flex-direction: column; gap: 5px; }
+        .pad-field label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); }
+        .pad-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 1rem; font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%; }
+        .pad-input:focus { border-color: var(--primary); }
+        .px-label { font-size: 0.72rem; color: var(--text-dim); flex-shrink: 0; font-weight: 600; }
+
+        /* Visual diagram */
+        .pad-diagram { position: relative; width: 140px; height: 100px; flex-shrink: 0; }
+        .pad-diagram-outer { position: absolute; inset: 0; border: 2px dashed rgba(255,214,0,0.25); border-radius: 6px; background: rgba(255,214,0,0.04); }
+        .pad-diagram-inner { position: absolute; background: rgba(255,214,0,0.2); border: 1.5px solid rgba(255,214,0,0.5); border-radius: 3px; transition: all 0.2s; }
+        .pad-dim-label { position: absolute; font-size: 0.55rem; font-family: 'Fira Code', monospace; color: var(--primary); font-weight: 700; }
+
+        /* Target size section */
+        .target-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 10px; }
+        .x-sep { font-size: 1.2rem; color: var(--text-dim); padding-bottom: 8px; font-weight: 300; text-align: center; }
+
+        /* Background fill */
+        .fill-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; }
+        .fill-type-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .fill-tab { flex: 1; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; text-align: center; }
+        .fill-tab.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Color picker */
+        .color-area { display: none; }
+        .color-area.visible { display: block; }
+        .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .swatch { width: 30px; height: 30px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; flex-shrink: 0; }
+        .swatch:hover { transform: scale(1.12); }
+        .swatch.active { border-color: var(--primary); }
+        .color-row { display: flex; gap: 10px; align-items: center; }
+        .color-native { width: 42px; height: 42px; border-radius: 8px; border: 1px solid var(--border-mid); cursor: pointer; padding: 0; background: none; flex-shrink: 0; overflow: hidden; }
+        .color-native input[type=color] { width: 100%; height: 100%; border: none; padding: 0; cursor: pointer; border-radius: 8px; }
+        .hex-input { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.9rem; font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 120px; }
+        .hex-input:focus { border-color: var(--primary); }
+        .opacity-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+        .opacity-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); min-width: 58px; }
+        .quality-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .quality-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .quality-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+
+        /* Gradient area */
+        .gradient-area { display: none; }
+        .gradient-area.visible { display: block; }
+        .grad-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .grad-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .grad-swatch { width: 44px; height: 28px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; }
+        .grad-swatch:hover { transform: scale(1.1); }
+        .grad-swatch.active { border-color: var(--primary); }
+
+        /* Output options */
+        .output-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+        .toggle-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Live preview */
+        .preview-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 16px; display: none; }
+        .preview-wrap.visible { display: block; }
+        .preview-inner { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .preview-canvas-box { flex: 1; min-width: 200px; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 300px; border: 1px solid var(--border-mid); }
+        .preview-canvas-box canvas { max-width: 100%; max-height: 300px; display: block; }
+        .preview-stats { min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ps-val.green { color: var(--success); }
+
+        /* Actions */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; font-weight: 800; font-size: 0.95rem; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-dl { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-dl.visible { display: block; }
+        .btn-dl:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 52px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .target-row { grid-template-columns: 1fr auto 1fr; }
+            .pad-sides { grid-template-columns: 1fr 1fr; }
+            .action-row { flex-direction: column; }
+            .preview-inner { flex-direction: column; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Image Padding Adder</h1>
+                <p class="tool-page-sub">Add white, colored, or transparent padding around any image. Make portraits square, prep for uploads, create clean borders.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">🖼️</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <!-- Image info -->
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Quick presets -->
+                <div style="margin-bottom:20px;">
+                    <div class="section-label">Quick Presets</div>
+                    <div class="presets-strip" id="presetsStrip">
+                        <button class="qp-btn" onclick="applyPreset('square')">⬛ Make Square</button>
+                        <button class="qp-btn" onclick="applyPreset('16:9')">▬ 16:9</button>
+                        <button class="qp-btn" onclick="applyPreset('4:3')">▭ 4:3</button>
+                        <button class="qp-btn" onclick="applyPreset('1:1.91')">📘 LinkedIn 1.91:1</button>
+                        <button class="qp-btn" onclick="applyPreset('4:5')">📸 Instagram 4:5</button>
+                        <button class="qp-btn" onclick="applyPreset('9:16')">📱 9:16 Story</button>
+                    </div>
+                </div>
+
+                <!-- Padding mode -->
+                <div class="card">
+                    <div class="section-label">Padding Mode</div>
+                    <div class="mode-tabs">
+                        <button class="mode-tab active" id="tabEqual" onclick="setPaddingMode('equal')">Equal All Sides</button>
+                        <button class="mode-tab" id="tabCustom" onclick="setPaddingMode('sides')">Per Side (T/R/B/L)</button>
+                        <button class="mode-tab" id="tabTarget" onclick="setPaddingMode('target')">Target Size</button>
+                    </div>
+
+                    <!-- Equal -->
+                    <div id="modeEqual">
+                        <div class="pad-equal-row">
+                            <div style="flex:1;">
+                                <div class="pad-field">
+                                    <label>Padding (all sides)</label>
+                                    <input class="pad-input" type="number" id="padAll" value="40" min="0" max="2000" oninput="syncEqual(); scheduleLivePreview()">
+                                </div>
+                                <span class="px-label" style="margin-top:6px; display:block;">pixels</span>
+                            </div>
+                            <div class="pad-diagram" id="padDiagram">
+                                <div class="pad-diagram-outer"></div>
+                                <div class="pad-diagram-inner" id="diagramInner"></div>
+                                <span class="pad-dim-label" id="diagW" style="bottom:-16px; left:50%; transform:translateX(-50%);"></span>
+                                <span class="pad-dim-label" id="diagH" style="right:-30px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per side -->
+                    <div id="modeSides" style="display:none;">
+                        <div class="pad-sides">
+                            <div class="pad-field"><label>Top</label><input class="pad-input" type="number" id="padT" value="40" min="0" max="2000" oninput="scheduleLivePreview()"></div>
+                            <div class="pad-field"><label>Right</label><input class="pad-input" type="number" id="padR" value="40" min="0" max="2000" oninput="scheduleLivePreview()"></div>
+                            <div class="pad-field"><label>Bottom</label><input class="pad-input" type="number" id="padB" value="40" min="0" max="2000" oninput="scheduleLivePreview()"></div>
+                            <div class="pad-field"><label>Left</label><input class="pad-input" type="number" id="padL" value="40" min="0" max="2000" oninput="scheduleLivePreview()"></div>
+                        </div>
+                    </div>
+
+                    <!-- Target size -->
+                    <div id="modeTarget" style="display:none;">
+                        <div style="font-size:0.78rem; color:var(--text-dim); margin-bottom:12px; line-height:1.5;">Image will be centered with padding added to reach the target dimensions. Padding is only added, never crops the original.</div>
+                        <div class="target-row">
+                            <div class="pad-field"><label>Target Width (px)</label><input class="pad-input" type="number" id="targetW" placeholder="1080" min="1" max="8000" oninput="scheduleLivePreview()"></div>
+                            <span class="x-sep">×</span>
+                            <div class="pad-field"><label>Target Height (px)</label><input class="pad-input" type="number" id="targetH" placeholder="1080" min="1" max="8000" oninput="scheduleLivePreview()"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Background fill -->
+                <div class="fill-section">
+                    <div class="section-label">Padding Background</div>
+                    <div class="fill-type-tabs">
+                        <button class="fill-tab active" data-fill="solid" onclick="setFillType(this)">Solid Color</button>
+                        <button class="fill-tab" data-fill="gradient" onclick="setFillType(this)">Gradient</button>
+                        <button class="fill-tab" data-fill="transparent" onclick="setFillType(this)">Transparent</button>
+                    </div>
+
+                    <!-- Solid -->
+                    <div class="color-area visible" id="solidArea">
+                        <div class="swatches" id="swatches"></div>
+                        <div class="color-row">
+                            <label class="color-native" title="Pick color">
+                                <input type="color" id="colorPicker" value="#ffffff" oninput="onColorPick(this.value)">
+                            </label>
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">Hex</span>
+                                <input class="hex-input" type="text" id="hexInput" value="#ffffff" maxlength="7" oninput="onHexInput(this.value)" placeholder="#ffffff">
+                            </div>
+                        </div>
+                        <div class="opacity-row">
+                            <span class="opacity-label">Opacity</span>
+                            <input type="range" class="quality-slider" id="opacitySlider" min="0" max="100" value="100" oninput="onOpacity(this.value); scheduleLivePreview()">
+                            <span class="quality-val" id="opacityVal">100%</span>
+                        </div>
+                    </div>
+
+                    <!-- Gradient -->
+                    <div class="gradient-area" id="gradientArea">
+                        <div class="grad-row">
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">Color 1</span>
+                                <input type="color" id="gradC1" value="#ffffff" style="width:42px;height:42px;border-radius:8px;border:1px solid var(--border-mid);cursor:pointer;" oninput="scheduleLivePreview()">
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">Color 2</span>
+                                <input type="color" id="gradC2" value="#f0f0f0" style="width:42px;height:42px;border-radius:8px;border:1px solid var(--border-mid);cursor:pointer;" oninput="scheduleLivePreview()">
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+                                <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">Direction</span>
+                                <select id="gradDir" style="background:var(--surface);border:1px solid var(--border-mid);color:var(--text);font-family:'Outfit',sans-serif;font-size:0.82rem;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;outline:none;" onchange="scheduleLivePreview()">
+                                    <option value="to right">→ Horizontal</option>
+                                    <option value="to bottom">↓ Vertical</option>
+                                    <option value="to bottom right">↘ Diagonal</option>
+                                    <option value="to top right">↗ Diagonal Up</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grad-presets" id="gradPresets"></div>
+                    </div>
+
+                    <!-- Transparent note -->
+                    <div id="transparentNote" style="display:none; font-size:0.78rem; color:var(--text-dim); line-height:1.5; padding:10px 14px; background:var(--surface); border-radius:var(--radius-sm); border:1px solid var(--border);">
+                        Padding will be transparent. Automatically outputs as <strong style="color:var(--text-sec)">PNG</strong> to preserve alpha channel.
+                    </div>
+                </div>
+
+                <!-- Output format -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+                        <div style="flex:1;">
+                            <div class="section-label" style="margin-bottom:10px;">Output Format</div>
+                            <div class="toggle-row" id="fmtBtns">
+                                <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                                <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                                <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                            </div>
+                        </div>
+                        <div style="flex:1;" id="qualityGroup">
+                            <div class="section-label" style="margin-bottom:10px;">Quality — <span id="qualLabel">92%</span></div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="range" class="quality-slider" id="qualSlider" min="10" max="100" value="92" oninput="setQuality(this.value)">
+                                <span class="quality-val" id="qualVal">92</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div class="action-row">
+                    <button class="btn-main" onclick="doProcess()">
+                        <div class="btn-main-inner"><span style="font-size:1.1rem;">➕</span><span>Add Padding</span></div>
+                    </button>
+                    <button class="btn-dl" id="btnDownload" onclick="doDownload()">⬇ Download</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-wrap" id="previewWrap">
+                    <div class="section-label" style="margin-bottom:16px;">Result Preview</div>
+                    <div class="preview-inner">
+                        <div class="preview-canvas-box" id="previewBox">
+                            <canvas id="previewCanvas"></canvas>
+                        </div>
+                        <div class="preview-stats" id="previewStats"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">Why use this?</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Make any image square</h3>
+                        <p>The most common use — portrait or landscape photo going into an Instagram square post or product listing. Hit <code>Make Square</code> and it centres your image with even padding on all sides.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Target size mode</h3>
+                        <p>Need exactly <code>1080×1080px</code> or <code>1200×628px</code>? Enter the target dimensions and the tool calculates exactly how much padding is needed on each side.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Transparent padding → PNG</h3>
+                        <p>Choosing <code>Transparent</code> background automatically forces PNG output to preserve the alpha channel — no white bleed on coloured backgrounds.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Per-side control</h3>
+                        <p>Add <code>80px</code> top for a caption area, <code>0px</code> sides, <code>20px</code> bottom. Switch to Per Side mode for full independent control of every edge.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let origFile = null, origImg = null;
+    let paddingMode = 'equal';   // equal | sides | target
+    let fillType = 'solid';      // solid | gradient | transparent
+    let solidColor = '#ffffff', solidOpacity = 1;
+    let outputFmt = 'jpeg', quality = 0.92;
+    let resultDataURL = null, resultFilename = '';
+    let liveTimer = null;
+
+    // ── SWATCHES ───────────────────────────────────────────────────────────────
+    const SWATCHES = ['#ffffff','#000000','#f5f5f5','#1a1a1a','#ffd600','#ff4444','#4488ff','#44cc88','#ff8800','#cc44ff'];
+    const GRAD_PRESETS = [
+        ['#fff','#e8e8e8'],['#000','#333'],['#ffd600','#ff9500'],
+        ['#4488ff','#aa44ff'],['#44cc88','#00aaff'],['#ff4488','#ff8800'],
+    ];
+
+    const swatchEl = document.getElementById('swatches');
+    SWATCHES.forEach(c => {
+        const s = document.createElement('div');
+        s.className = 'swatch' + (c === '#ffffff' ? ' active' : '');
+        s.style.background = c;
+        s.style.border = c === '#ffffff' ? '2px solid var(--primary)' : '2px solid transparent';
+        if (c === '#000000' || c === '#1a1a1a') s.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.15)';
+        s.title = c;
+        s.onclick = () => { document.querySelectorAll('.swatch').forEach(x => x.style.borderColor = 'transparent'); s.style.borderColor = 'var(--primary)'; onColorPick(c); };
+        swatchEl.appendChild(s);
+    });
+
+    const gradPresetsEl = document.getElementById('gradPresets');
+    GRAD_PRESETS.forEach(([c1, c2], i) => {
+        const s = document.createElement('div');
+        s.className = 'grad-swatch' + (i === 0 ? ' active' : '');
+        s.style.background = `linear-gradient(to right, ${c1}, ${c2})`;
+        s.onclick = () => {
+            document.querySelectorAll('.grad-swatch').forEach(x => x.classList.remove('active'));
+            s.classList.add('active');
+            document.getElementById('gradC1').value = c1;
+            document.getElementById('gradC2').value = c2;
+            scheduleLivePreview();
+        };
+        gradPresetsEl.appendChild(s);
+    });
+
+    // ── DROP ZONE ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file','error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                origImg = img;
+                document.getElementById('imgThumb').src = e.target.result;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px  ·  ${fmtBytes(file.size)}`;
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('previewWrap').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+                updateDiagram();
+                scheduleLivePreview();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        fi.value = ''; origFile = null; origImg = null; resultDataURL = null;
+    }
+
+    // ── PADDING MODE ───────────────────────────────────────────────────────────
+    function setPaddingMode(mode) {
+        paddingMode = mode;
+        ['equal','sides','target'].forEach(m => {
+            document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1)).style.display = m === mode ? '' : 'none';
+            document.getElementById('tab' + m.charAt(0).toUpperCase() + m.slice(1)).classList.toggle('active', m === mode);
+        });
+        scheduleLivePreview();
+    }
+
+    function syncEqual() {
+        const v = document.getElementById('padAll').value;
+        ['padT','padR','padB','padL'].forEach(id => document.getElementById(id).value = v);
+        updateDiagram();
+    }
+
+    function updateDiagram() {
+        if (!origImg) return;
+        const pad = parseInt(document.getElementById('padAll').value) || 0;
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        const nw = sw + pad * 2, nh = sh + pad * 2;
+        const scale = Math.min(120 / nw, 80 / nh);
+        const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
+        const dp = Math.round(pad * scale);
+        const inner = document.getElementById('diagramInner');
+        inner.style.left = (pad > 0 ? dp : 2) + 'px';
+        inner.style.top = (pad > 0 ? dp : 2) + 'px';
+        inner.style.right = (pad > 0 ? dp : 2) + 'px';
+        inner.style.bottom = (pad > 0 ? dp : 2) + 'px';
+        document.getElementById('diagW').textContent = nw + 'px';
+        document.getElementById('diagH').textContent = nh + 'px';
+    }
+
+    // ── QUICK PRESETS ──────────────────────────────────────────────────────────
+    function applyPreset(key) {
+        if (!origImg) { showToast('Upload an image first','error'); return; }
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        let tw, th;
+        if (key === 'square') { const mx = Math.max(sw, sh); tw = mx; th = mx; }
+        else {
+            const [rw, rh] = key.split(':').map(Number);
+            const scale = Math.max(sw / rw, sh / rh);
+            tw = Math.round(rw * scale); th = Math.round(rh * scale);
+        }
+        document.getElementById('targetW').value = tw;
+        document.getElementById('targetH').value = th;
+        setPaddingMode('target');
+        document.querySelectorAll('.qp-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        scheduleLivePreview();
+        showToast(`Preset: ${tw} × ${th}px`, 'success');
+    }
+
+    // ── FILL ───────────────────────────────────────────────────────────────────
+    function setFillType(btn) {
+        fillType = btn.dataset.fill;
+        document.querySelectorAll('.fill-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+        document.getElementById('solidArea').classList.toggle('visible', fillType === 'solid');
+        document.getElementById('gradientArea').classList.toggle('visible', fillType === 'gradient');
+        document.getElementById('transparentNote').style.display = fillType === 'transparent' ? '' : 'none';
+        // Force PNG for transparent
+        if (fillType === 'transparent') {
+            document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-fmt="png"]').classList.add('active');
+            outputFmt = 'png';
+            document.getElementById('qualityGroup').style.opacity = '0.4';
+            document.getElementById('qualityGroup').style.pointerEvents = 'none';
+        } else {
+            document.getElementById('qualityGroup').style.opacity = '';
+            document.getElementById('qualityGroup').style.pointerEvents = '';
+        }
+        scheduleLivePreview();
+    }
+
+    function onColorPick(hex) {
+        solidColor = hex;
+        document.getElementById('colorPicker').value = hex;
+        document.getElementById('hexInput').value = hex;
+        scheduleLivePreview();
+    }
+    function onHexInput(val) {
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) { solidColor = val; document.getElementById('colorPicker').value = val; scheduleLivePreview(); }
+    }
+    function onOpacity(v) { solidOpacity = v / 100; document.getElementById('opacityVal').textContent = v + '%'; }
+
+    // ── FORMAT / QUALITY ───────────────────────────────────────────────────────
+    function setFmt(btn) { document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); outputFmt = btn.dataset.fmt; }
+    function setQuality(v) { quality = v / 100; document.getElementById('qualVal').textContent = v; document.getElementById('qualLabel').textContent = v + '%'; }
+
+    // ── CORE RENDER ────────────────────────────────────────────────────────────
+    function scheduleLivePreview() { clearTimeout(liveTimer); liveTimer = setTimeout(renderPreview, 180); }
+
+    function getPadding() {
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        if (paddingMode === 'equal') {
+            const p = Math.max(0, parseInt(document.getElementById('padAll').value) || 0);
+            return { t: p, r: p, b: p, l: p, ok: true };
+        }
+        if (paddingMode === 'sides') {
+            return {
+                t: Math.max(0, parseInt(document.getElementById('padT').value) || 0),
+                r: Math.max(0, parseInt(document.getElementById('padR').value) || 0),
+                b: Math.max(0, parseInt(document.getElementById('padB').value) || 0),
+                l: Math.max(0, parseInt(document.getElementById('padL').value) || 0),
+                ok: true
+            };
+        }
+        if (paddingMode === 'target') {
+            const tw = parseInt(document.getElementById('targetW').value);
+            const th = parseInt(document.getElementById('targetH').value);
+            if (!tw || !th || tw < sw || th < sh) return { ok: false };
+            const padH = tw - sw, padV = th - sh;
+            return { t: Math.floor(padV / 2), b: Math.ceil(padV / 2), l: Math.floor(padH / 2), r: Math.ceil(padH / 2), ok: true };
+        }
+        return { ok: false };
+    }
+
+    function drawToCanvas(canvas, scale) {
+        if (!origImg) return false;
+        const pad = getPadding();
+        if (!pad.ok) return false;
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+        const cw = sw + pad.l + pad.r;
+        const ch = sh + pad.t + pad.b;
+        canvas.width = Math.round(cw * scale);
+        canvas.height = Math.round(ch * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (fillType !== 'transparent') {
+            if (fillType === 'gradient') {
+                const dir = document.getElementById('gradDir').value;
+                let grd;
+                if (dir === 'to right') grd = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                else if (dir === 'to bottom') grd = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                else if (dir === 'to bottom right') grd = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                else grd = ctx.createLinearGradient(0, canvas.height, canvas.width, 0);
+                grd.addColorStop(0, document.getElementById('gradC1').value);
+                grd.addColorStop(1, document.getElementById('gradC2').value);
+                ctx.fillStyle = grd;
+            } else {
+                const hex = solidColor;
+                const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b2 = parseInt(hex.slice(5,7),16);
+                ctx.fillStyle = `rgba(${r},${g},${b2},${solidOpacity})`;
+            }
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(origImg, Math.round(pad.l * scale), Math.round(pad.t * scale), Math.round(sw * scale), Math.round(sh * scale));
+        return { cw, ch };
+    }
+
+    function renderPreview() {
+        if (!origImg) return;
+        const canvas = document.getElementById('previewCanvas');
+        const result = drawToCanvas(canvas, 0.5);
+        if (!result) return;
+        document.getElementById('previewWrap').classList.add('visible');
+    }
+
+    // ── PROCESS & DOWNLOAD ─────────────────────────────────────────────────────
+    function doProcess() {
+        if (!origImg) { showToast('Upload an image first','error'); return; }
+        const pad = getPadding();
+        if (!pad.ok) {
+            if (paddingMode === 'target') showToast('Target must be larger than the original image','error');
+            else showToast('Enter valid padding values','error');
+            return;
+        }
+        const sw = origImg.naturalWidth, sh = origImg.naturalHeight;
+
+        const canvas = document.createElement('canvas');
+        const dims = drawToCanvas(canvas, 1);
+        if (!dims) { showToast('Something went wrong','error'); return; }
+
+        const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+        const q = outputFmt === 'png' ? undefined : quality;
+        resultDataURL = canvas.toDataURL(mime, q);
+
+        const resultBytes = Math.round(resultDataURL.split(',')[1].length * 0.75);
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        resultFilename = `${base}_padded.${ext}`;
+
+        // Update preview with full res
+        const prevCanvas = document.getElementById('previewCanvas');
+        drawToCanvas(prevCanvas, 0.5);
+        document.getElementById('previewWrap').classList.add('visible');
+
+        const statsEl = document.getElementById('previewStats');
+        const totalPad = pad.l + pad.r + pad.t + pad.b;
+        statsEl.innerHTML = `
+            <div class="preview-stat"><span class="ps-label">Output Size</span><span class="ps-val green">${dims.cw} × ${dims.ch}</span></div>
+            <div class="preview-stat"><span class="ps-label">Original</span><span class="ps-val">${sw} × ${sh}</span></div>
+            <div class="preview-stat"><span class="ps-label">Padding Added</span><span class="ps-val">T${pad.t} R${pad.r} B${pad.b} L${pad.l}</span></div>
+            <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(resultBytes)}</span></div>
+            <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">${outputFmt.toUpperCase()}</span></div>
+            <div class="preview-stat"><span class="ps-label">Fill</span><span class="ps-val" style="font-size:0.7rem;">${fillType}</span></div>
+        `;
+
+        document.getElementById('btnDownload').classList.add('visible');
+        document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Done! Ready to download ✓', 'success');
+    }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const a = document.createElement('a');
+        a.href = resultDataURL;
+        a.download = resultFilename;
+        a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    // ── UTILS ──────────────────────────────────────────────────────────────────
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(2) + ' MB'; }
+    function showToast(msg, type = '') { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000); }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

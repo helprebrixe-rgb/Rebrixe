@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Resize Image to Exact File Size — Compress to KB/MB | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Compress any image to an exact file size in KB or MB. Free, private, browser-only. Perfect for email attachments, job applications, upload limits.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        .tool-page-header { text-align: center; margin-bottom: 44px; }
+        .tool-page-title {
+            font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 56px 30px 52px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); border: 1.5px solid transparent; background-clip: padding-box;
+            transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after {
+            content: ''; position: absolute; inset: 8px; border-radius: 14px;
+            border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s;
+        }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.12), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.3); }
+        .drop-zone.drag-over { transform: scale(1.015) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.22), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 3rem; margin-bottom: 16px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.3)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+        .drop-zone:hover .drop-icon { transform: translateY(-6px) scale(1.08); }
+        .drop-title { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+        .format-tags { display: flex; gap: 7px; justify-content: center; margin-top: 20px; flex-wrap: wrap; position: relative; }
+        .format-tag { font-size: 0.64rem; font-weight: 700; padding: 4px 12px; border-radius: 99px; border: 1px solid rgba(255,214,0,0.18); color: rgba(255,214,0,0.55); font-family: 'Fira Code', monospace; text-transform: uppercase; background: rgba(255,214,0,0.04); letter-spacing: 0.6px; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-mid); flex-shrink: 0; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .stat-pill { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+        .stat-val { font-size: 0.9rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Controls */
+        .controls-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 20px; }
+        .controls-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; }
+
+        /* Quick targets */
+        .targets-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+        .target-btn {
+            display: flex; flex-direction: column; align-items: flex-start;
+            padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: all 0.18s; font-family: 'Outfit', sans-serif;
+        }
+        .target-btn:hover, .target-btn.active { border-color: var(--primary-border); background: var(--primary-dim); }
+        .target-name { font-size: 0.75rem; font-weight: 700; color: var(--text-sec); transition: color 0.18s; }
+        .target-size { font-size: 0.65rem; font-family: 'Fira Code', monospace; color: var(--text-dim); margin-top: 2px; }
+        .target-btn:hover .target-name, .target-btn.active .target-name { color: var(--primary); }
+        .target-btn:hover .target-size, .target-btn.active .target-size { color: rgba(255,214,0,0.6); }
+
+        /* Size input row */
+        .size-input-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-label { font-size: 0.7rem; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.8px; }
+        .px-input {
+            background: var(--surface); border: 1px solid var(--border-mid); color: var(--text);
+            font-family: 'Fira Code', monospace; font-size: 1.1rem; font-weight: 500;
+            padding: 12px 16px; border-radius: var(--radius-sm); outline: none; transition: border-color 0.2s; width: 100%;
+        }
+        .px-input:focus { border-color: var(--primary); }
+        .unit-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+        .unit-btn { padding: 12px 18px; border: none; background: transparent; color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .unit-btn.active { background: var(--primary-dim); color: var(--primary); }
+
+        /* Strategy row */
+        .strategy-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+        .strat-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .strat-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .strat-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .strat-hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; line-height: 1.5; }
+
+        /* Format row */
+        .format-row { display: flex; gap: 7px; margin-top: 20px; flex-wrap: wrap; }
+        .fmt-btn { font-family: 'Fira Code', monospace; font-size: 0.72rem; font-weight: 500; padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; transition: all 0.18s; text-transform: uppercase; }
+        .fmt-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .fmt-btn:hover:not(.active) { border-color: var(--border-mid); color: var(--text-sec); }
+
+        /* Live estimator */
+        .estimator-bar {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 18px; margin-bottom: 20px; display: none;
+        }
+        .estimator-bar.visible { display: block; }
+        .estimator-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 10px; }
+        .est-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; position: relative; }
+        .est-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--success), var(--primary)); transition: width 0.4s ease; width: 0%; }
+        .est-fill.over { background: linear-gradient(90deg, var(--primary), var(--error)); }
+        .est-markers { display: flex; justify-content: space-between; }
+        .est-mk { font-size: 0.6rem; color: var(--text-dim); font-family: 'Fira Code', monospace; }
+        .est-mk.target { color: var(--primary); font-weight: 700; }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+        .btn-resize {
+            flex: 1; min-width: 160px; position: relative; padding: 0; border: none; border-radius: 14px;
+            cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem;
+            letter-spacing: 0.4px; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent;
+        }
+        .btn-resize-inner {
+            position: relative; display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 16px 28px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%);
+            border-radius: 14px; color: #000; z-index: 1; transition: all 0.2s;
+        }
+        .btn-resize-inner::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
+            transform: translateX(-100%); border-radius: 14px;
+        }
+        .btn-resize:hover .btn-resize-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-resize:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.38), 0 4px 12px rgba(255,180,0,0.2); }
+        .btn-resize:active { transform: translateY(-1px); }
+        .btn-resize:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-label { font-size: 1rem; font-weight: 800; }
+        .btn-sublabel { font-size: 0.62rem; font-weight: 600; opacity: 0.6; display: block; line-height: 1; margin-top: 1px; }
+        .btn-icon { font-size: 1.1rem; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .btn-resize:hover .btn-icon { transform: rotate(15deg) scale(1.2); }
+
+        .btn-download { flex: 1; min-width: 160px; padding: 15px 24px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: none; }
+        .btn-download.visible { display: block; }
+        .btn-download:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,214,0,0.15); }
+
+        /* Progress */
+        .processing-wrap { display: none; margin-top: 14px; }
+        .processing-wrap.visible { display: block; }
+        .processing-bar { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .processing-bar::after { content: ''; display: block; height: 100%; width: 40%; background: linear-gradient(90deg, transparent, var(--primary), transparent); border-radius: 99px; animation: sweep 1.2s ease-in-out infinite; }
+        @keyframes sweep { 0% { transform: translateX(-150%); } 100% { transform: translateX(350%); } }
+        .processing-status { font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; font-family: 'Fira Code', monospace; }
+
+        /* Result card */
+        .result-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-top: 20px; display: none; }
+        .result-card.visible { display: block; }
+        .result-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 16px; }
+
+        .result-achieved {
+            display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+            border-radius: var(--radius-md); margin-bottom: 16px;
+            background: rgba(170,255,0,0.05); border: 1px solid rgba(170,255,0,0.18);
+        }
+        .result-achieved.warn { background: rgba(255,183,0,0.05); border-color: rgba(255,183,0,0.25); }
+        .result-achieved-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .result-achieved-text { font-size: 0.85rem; font-weight: 700; color: var(--success); line-height: 1.4; }
+        .result-achieved.warn .result-achieved-text { color: var(--accent); }
+        .result-achieved-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+
+        .output-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+        .out-stat { flex: 1; min-width: 90px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; text-align: center; }
+        .out-stat-val { font-size: 1rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .out-stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; margin-top: 2px; }
+        .out-stat.green .out-stat-val { color: var(--success); }
+
+        /* Preview thumb */
+        .preview-thumb-wrap { margin-top: 16px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-mid); background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; max-height: 260px; display: flex; align-items: center; justify-content: center; }
+        .preview-thumb-wrap img { max-width: 100%; max-height: 260px; object-fit: contain; display: block; }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        @media (max-width: 600px) {
+            .controls-card { padding: 18px; }
+            .size-input-row { gap: 8px; }
+            .action-row { flex-direction: column; }
+            .btn-resize, .btn-download { min-width: unset; }
+            .targets-grid { gap: 6px; }
+            .target-btn { padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="resize-dimensions.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Resize to File Size</h1>
+                <p class="tool-page-sub">Compress any image to an exact KB or MB limit — instantly, in your browser.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp">
+                <span class="drop-icon">📦</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+                <div class="format-tags">
+                    <span class="format-tag">JPG</span>
+                    <span class="format-tag">PNG</span>
+                    <span class="format-tag">WebP</span>
+                    <span class="format-tag">GIF</span>
+                    <span class="format-tag">BMP</span>
+                </div>
+            </div>
+
+            <div class="tool-panel" id="toolPanel">
+
+                <div class="image-info-bar">
+                    <img class="img-thumb" id="imgThumb" src="" alt="Preview">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">filename.jpg</div>
+                        <div class="img-dims" id="imgOrigDims">0 × 0 px</div>
+                    </div>
+                    <div class="stat-pill">
+                        <span class="stat-val" id="statOrigSize">—</span>
+                        <span class="stat-label">Original</span>
+                    </div>
+                    <div class="stat-pill">
+                        <span class="stat-val" id="statOrigDims">—</span>
+                        <span class="stat-label">Dimensions</span>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <div class="controls-card">
+                    <div class="controls-label">Quick Targets — common upload limits</div>
+                    <div class="targets-grid" id="targetsGrid"></div>
+
+                    <div class="controls-label" style="margin-top:20px;">Custom Target Size</div>
+                    <div class="size-input-row">
+                        <div class="input-group" style="flex:1; min-width:120px;">
+                            <label class="input-label" for="sizeInput">Target Size</label>
+                            <input class="px-input" type="number" id="sizeInput" placeholder="e.g. 200" min="1" max="50000">
+                        </div>
+                        <div class="unit-toggle">
+                            <button class="unit-btn active" id="unitKB" onclick="setUnit('KB')">KB</button>
+                            <button class="unit-btn" id="unitMB" onclick="setUnit('MB')">MB</button>
+                        </div>
+                    </div>
+
+                    <div class="controls-label" style="margin-top:20px;">Compression Strategy</div>
+                    <div class="strategy-row">
+                        <button class="strat-btn active" data-strat="quality" onclick="setStrat(this)">Quality Only</button>
+                        <button class="strat-btn" data-strat="both" onclick="setStrat(this)">Quality + Resize</button>
+                        <button class="strat-btn" data-strat="resize" onclick="setStrat(this)">Resize Only</button>
+                    </div>
+                    <div class="strat-hint" id="stratHint">Reduces JPEG/WebP quality until target is hit. Keeps original pixel dimensions.</div>
+
+                    <div style="margin-top:20px;">
+                        <div class="controls-label" style="margin-bottom:10px;">Output Format</div>
+                        <div class="format-row">
+                            <button class="fmt-btn active" data-fmt="jpeg" onclick="setFormat(this)">JPG</button>
+                            <button class="fmt-btn" data-fmt="webp" onclick="setFormat(this)">WebP</button>
+                            <button class="fmt-btn" data-fmt="png" onclick="setFormat(this)">PNG</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live size estimator -->
+                <div class="estimator-bar" id="estimatorBar">
+                    <div class="estimator-label">Current Image vs Target</div>
+                    <div class="est-track"><div class="est-fill" id="estFill"></div></div>
+                    <div class="est-markers">
+                        <span class="est-mk">0</span>
+                        <span class="est-mk target" id="estTarget">target</span>
+                        <span class="est-mk" id="estMax"></span>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-resize" id="btnCompress" onclick="doCompress()">
+                        <div class="btn-resize-inner">
+                            <span class="btn-icon">⚡</span>
+                            <span>
+                                <span class="btn-label">Compress to Size</span>
+                                <span class="btn-sublabel">binary search in browser</span>
+                            </span>
+                        </div>
+                    </button>
+                    <button class="btn-download" id="btnDownload" onclick="doDownload()">⬇ Download File</button>
+                </div>
+
+                <div class="processing-wrap" id="processingWrap">
+                    <div class="processing-bar"></div>
+                    <div class="processing-status" id="processingStatus">Searching optimal quality…</div>
+                </div>
+
+                <!-- Result -->
+                <div class="result-card" id="resultCard">
+                    <div class="result-title">Result</div>
+                    <div class="result-achieved" id="resultBadge">
+                        <span class="result-achieved-icon" id="resultIcon">✅</span>
+                        <div>
+                            <div class="result-achieved-text" id="resultText">Target achieved!</div>
+                            <div class="result-achieved-sub" id="resultSub"></div>
+                        </div>
+                    </div>
+                    <div class="output-stats">
+                        <div class="out-stat green">
+                            <div class="out-stat-val" id="outSize">—</div>
+                            <div class="out-stat-label">Final Size</div>
+                        </div>
+                        <div class="out-stat">
+                            <div class="out-stat-val" id="outReduction">—</div>
+                            <div class="out-stat-label">Reduced By</div>
+                        </div>
+                        <div class="out-stat">
+                            <div class="out-stat-val" id="outDims">—</div>
+                            <div class="out-stat-label">Dimensions</div>
+                        </div>
+                        <div class="out-stat">
+                            <div class="out-stat-val" id="outQuality">—</div>
+                            <div class="out-stat-label">Quality Used</div>
+                        </div>
+                        <div class="out-stat">
+                            <div class="out-stat-val" id="outFmt">—</div>
+                            <div class="out-stat-label">Format</div>
+                        </div>
+                    </div>
+                    <div class="preview-thumb-wrap" style="margin-top:16px;">
+                        <img id="previewImg" src="" alt="Compressed preview">
+                    </div>
+                </div>
+
+            </div>
+
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>How does it hit the exact size?</h3>
+                        <p>It uses a <code>binary search</code> algorithm — tries quality values between 1–100 repeatedly until the output lands at or just under your target. Usually takes 7–10 iterations, all in your browser.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Is my image uploaded to a server?</h3>
+                        <p>No — never. The entire process happens inside your browser tab using the <code>Canvas API</code>. Nothing is sent anywhere. Your file stays on your device.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What if the target is too small to reach?</h3>
+                        <p>If even quality 1% can't hit your target, we tell you the smallest we can get and still give you a downloadable file. PNG files have a compression floor and may not reach very small sizes.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Quality Only vs Quality + Resize?</h3>
+                        <p><code>Quality Only</code> keeps your original pixel dimensions and just reduces JPEG compression. <code>Quality + Resize</code> also shrinks the pixel dimensions if quality alone isn't enough — useful for very small targets.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Why use WebP for output?</h3>
+                        <p>WebP is typically <code>25–35%</code> smaller than JPG at the same quality. For the same target file size, you'll get a noticeably sharper-looking image in WebP format.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What are the quick targets for?</h3>
+                        <p>Common real-world limits: job application portals (200 KB), WhatsApp profile pics (5 MB), email attachments (1 MB), government form uploads (500 KB), and web thumbnails (100 KB). One click sets the target.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    let origFile = null, origDataURL = null, origW = 0, origH = 0;
+    let resultDataURL = null, outputFmt = 'jpeg', currentUnit = 'KB', currentStrat = 'quality';
+
+    const QUICK_TARGETS = [
+        { label: 'Web Thumb',   size: 100,  unit: 'KB', icon: '🌐' },
+        { label: 'Job Portal',  size: 200,  unit: 'KB', icon: '💼' },
+        { label: 'Gov Upload',  size: 500,  unit: 'KB', icon: '🏛️' },
+        { label: 'Email',       size: 1,    unit: 'MB', icon: '📧' },
+        { label: 'WhatsApp',    size: 5,    unit: 'MB', icon: '💬' },
+        { label: 'Print Low',   size: 2,    unit: 'MB', icon: '🖨️' },
+    ];
+
+    const STRAT_HINTS = {
+        quality: 'Reduces JPEG/WebP quality until target is hit. Keeps original pixel dimensions.',
+        both: 'Tries quality first. If still too large, also shrinks pixel dimensions proportionally.',
+        resize: 'Only shrinks pixel dimensions. Quality stays at 92%. Good for very large originals.'
+    };
+
+    // Build quick targets
+    const tg = document.getElementById('targetsGrid');
+    QUICK_TARGETS.forEach(t => {
+        const b = document.createElement('button');
+        b.className = 'target-btn';
+        b.innerHTML = `<span class="target-name">${t.icon} ${t.label}</span><span class="target-size">${t.size} ${t.unit}</span>`;
+        b.onclick = () => { applyTarget(t); tg.querySelectorAll('.target-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); };
+        tg.appendChild(b);
+    });
+
+    function applyTarget(t) {
+        document.getElementById('sizeInput').value = t.size;
+        if (t.unit !== currentUnit) setUnit(t.unit);
+        updateEstimator();
+    }
+
+    // Drop zone
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else showToast('Please drop an image file', 'error'); });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+    function loadFile(file) {
+        origFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            origDataURL = e.target.result;
+            const img = new Image();
+            img.onload = () => {
+                origW = img.naturalWidth; origH = img.naturalHeight;
+                document.getElementById('imgThumb').src = origDataURL;
+                document.getElementById('imgName').textContent = file.name;
+                document.getElementById('imgOrigDims').textContent = `${origW} × ${origH} px`;
+                document.getElementById('statOrigSize').textContent = fmtBytes(file.size);
+                document.getElementById('statOrigDims').textContent = `${origW}×${origH}`;
+                const ftype = file.type;
+                if (ftype === 'image/webp') setFormatByKey('webp');
+                else if (ftype === 'image/png') setFormatByKey('png');
+                else setFormatByKey('jpeg');
+                dz.style.display = 'none';
+                document.getElementById('toolPanel').classList.add('visible');
+                document.getElementById('resultCard').classList.remove('visible');
+                document.getElementById('btnDownload').classList.remove('visible');
+                resultDataURL = null;
+                updateEstimator();
+            };
+            img.src = origDataURL;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetTool() {
+        dz.style.display = '';
+        document.getElementById('toolPanel').classList.remove('visible');
+        document.getElementById('resultCard').classList.remove('visible');
+        document.getElementById('btnDownload').classList.remove('visible');
+        document.getElementById('estimatorBar').classList.remove('visible');
+        fi.value = ''; origFile = null; resultDataURL = null;
+    }
+
+    function setUnit(u) {
+        currentUnit = u;
+        document.getElementById('unitKB').classList.toggle('active', u === 'KB');
+        document.getElementById('unitMB').classList.toggle('active', u === 'MB');
+        updateEstimator();
+    }
+
+    function setStrat(btn) {
+        document.querySelectorAll('.strat-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStrat = btn.dataset.strat;
+        document.getElementById('stratHint').textContent = STRAT_HINTS[currentStrat];
+        const isPng = outputFmt === 'png';
+        if (isPng && currentStrat === 'quality') {
+            document.getElementById('stratHint').textContent = 'Note: PNG is lossless — quality setting has no effect. Use "Resize Only" or switch to JPG/WebP for size control.';
+        }
+    }
+
+    function setFormat(btn) {
+        document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        outputFmt = btn.dataset.fmt;
+    }
+    function setFormatByKey(k) { const b = document.querySelector(`.fmt-btn[data-fmt="${k}"]`); if (b) setFormat(b); }
+
+    document.getElementById('sizeInput').addEventListener('input', updateEstimator);
+
+    function updateEstimator() {
+        if (!origFile) return;
+        const val = parseFloat(document.getElementById('sizeInput').value);
+        if (!val) { document.getElementById('estimatorBar').classList.remove('visible'); return; }
+        const targetBytes = val * (currentUnit === 'MB' ? 1048576 : 1024);
+        const origBytes = origFile.size;
+        const max = Math.max(origBytes, targetBytes) * 1.1;
+        const pct = Math.min((origBytes / max) * 100, 100);
+        const targetPct = Math.min((targetBytes / max) * 100, 100);
+        const fill = document.getElementById('estFill');
+        fill.style.width = pct + '%';
+        fill.classList.toggle('over', origBytes > targetBytes);
+        document.getElementById('estTarget').textContent = fmtBytes(targetBytes);
+        document.getElementById('estTarget').style.left = targetPct + '%';
+        document.getElementById('estMax').textContent = fmtBytes(origBytes);
+        document.getElementById('estimatorBar').classList.add('visible');
+    }
+
+    // Core compression — binary search on quality
+    async function doCompress() {
+        const val = parseFloat(document.getElementById('sizeInput').value);
+        if (!val || val <= 0) { showToast('Enter a target file size first', 'error'); return; }
+        const targetBytes = val * (currentUnit === 'MB' ? 1048576 : 1024);
+        if (origFile && origFile.size <= targetBytes && currentStrat !== 'resize') {
+            showToast('File is already smaller than target!', 'success');
+            return;
+        }
+
+        const pw = document.getElementById('processingWrap');
+        const ps = document.getElementById('processingStatus');
+        pw.classList.add('visible');
+        document.getElementById('btnCompress').disabled = true;
+        document.getElementById('resultCard').classList.remove('visible');
+        document.getElementById('btnDownload').classList.remove('visible');
+
+        await new Promise(r => setTimeout(r, 30));
+
+        try {
+            const srcImg = await loadImg(origDataURL);
+            const mime = outputFmt === 'webp' ? 'image/webp' : outputFmt === 'png' ? 'image/png' : 'image/jpeg';
+
+            let finalURL = null, finalBytes = 0, finalW = origW, finalH = origH, finalQ = null;
+
+            if (outputFmt === 'png') {
+                // PNG lossless — can only resize
+                if (currentStrat === 'quality') {
+                    ps.textContent = 'PNG is lossless — resizing dimensions to reduce size…';
+                }
+                const result = await resizeToTarget(srcImg, origW, origH, targetBytes, mime, null);
+                finalURL = result.url; finalBytes = result.bytes; finalW = result.w; finalH = result.h; finalQ = 'Lossless';
+            } else if (currentStrat === 'quality') {
+                ps.textContent = 'Binary searching quality level…';
+                const result = await qualitySearch(srcImg, origW, origH, targetBytes, mime);
+                finalURL = result.url; finalBytes = result.bytes; finalW = origW; finalH = origH; finalQ = result.q + '%';
+            } else if (currentStrat === 'resize') {
+                ps.textContent = 'Scaling dimensions down…';
+                const result = await resizeToTarget(srcImg, origW, origH, targetBytes, mime, 0.92);
+                finalURL = result.url; finalBytes = result.bytes; finalW = result.w; finalH = result.h; finalQ = '92%';
+            } else {
+                // both
+                ps.textContent = 'Trying quality compression first…';
+                const qRes = await qualitySearch(srcImg, origW, origH, targetBytes, mime);
+                if (qRes.bytes <= targetBytes) {
+                    finalURL = qRes.url; finalBytes = qRes.bytes; finalW = origW; finalH = origH; finalQ = qRes.q + '%';
+                } else {
+                    ps.textContent = 'Quality insufficient — also resizing…';
+                    const rRes = await resizeToTarget(srcImg, origW, origH, targetBytes, mime, qRes.q / 100);
+                    finalURL = rRes.url; finalBytes = rRes.bytes; finalW = rRes.w; finalH = rRes.h; finalQ = qRes.q + '%';
+                }
+            }
+
+            resultDataURL = finalURL;
+            const reduction = origFile.size - finalBytes;
+            const reductionPct = Math.round(reduction / origFile.size * 100);
+            const achieved = finalBytes <= targetBytes;
+
+            const badge = document.getElementById('resultBadge');
+            badge.className = 'result-achieved' + (achieved ? '' : ' warn');
+            document.getElementById('resultIcon').textContent = achieved ? '✅' : '⚠️';
+            document.getElementById('resultText').textContent = achieved ? `Target achieved! ${fmtBytes(finalBytes)}` : `Closest possible: ${fmtBytes(finalBytes)}`;
+            document.getElementById('resultSub').textContent = achieved
+                ? `Successfully compressed from ${fmtBytes(origFile.size)} → ${fmtBytes(finalBytes)}`
+                : `Could not reach ${fmtBytes(targetBytes)}. This is the minimum achievable size.`;
+
+            document.getElementById('outSize').textContent = fmtBytes(finalBytes);
+            document.getElementById('outReduction').textContent = reduction > 0 ? `${reductionPct}%` : 'N/A';
+            document.getElementById('outDims').textContent = `${finalW}×${finalH}`;
+            document.getElementById('outQuality').textContent = finalQ || '—';
+            document.getElementById('outFmt').textContent = outputFmt.toUpperCase();
+            document.getElementById('previewImg').src = finalURL;
+            document.getElementById('resultCard').classList.add('visible');
+            document.getElementById('btnDownload').classList.add('visible');
+
+            showToast(achieved ? 'Compressed successfully ✓' : 'Best possible size achieved', achieved ? 'success' : '');
+            document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        } catch (err) {
+            showToast('Error during compression', 'error');
+            console.error(err);
+        }
+
+        pw.classList.remove('visible');
+        document.getElementById('btnCompress').disabled = false;
+    }
+
+    // Binary search quality
+    async function qualitySearch(img, w, h, targetBytes, mime) {
+        let lo = 1, hi = 100, bestURL = null, bestBytes = Infinity, bestQ = 1;
+        const canvas = makeCanvas(img, w, h);
+        for (let i = 0; i < 12; i++) {
+            const mid = Math.round((lo + hi) / 2);
+            const url = canvas.toDataURL(mime, mid / 100);
+            const bytes = b64Bytes(url);
+            if (bytes <= targetBytes) { bestURL = url; bestBytes = bytes; bestQ = mid; lo = mid + 1; }
+            else { hi = mid - 1; }
+            if (lo > hi) break;
+        }
+        // If never found one under target, return lowest
+        if (!bestURL) { bestURL = canvas.toDataURL(mime, 0.01); bestBytes = b64Bytes(bestURL); bestQ = 1; }
+        return { url: bestURL, bytes: bestBytes, q: bestQ };
+    }
+
+    // Binary search on scale
+    async function resizeToTarget(img, origW, origH, targetBytes, mime, quality) {
+        let lo = 0.05, hi = 1.0, bestURL = null, bestBytes = Infinity, bestScale = 1, bestW = origW, bestH = origH;
+        const q = quality !== null ? quality : undefined;
+        for (let i = 0; i < 14; i++) {
+            const mid = (lo + hi) / 2;
+            const nw = Math.max(1, Math.round(origW * mid));
+            const nh = Math.max(1, Math.round(origH * mid));
+            const canvas = makeCanvas(img, nw, nh);
+            const url = mime === 'image/png' ? canvas.toDataURL(mime) : canvas.toDataURL(mime, q);
+            const bytes = b64Bytes(url);
+            if (bytes <= targetBytes) { bestURL = url; bestBytes = bytes; bestScale = mid; bestW = nw; bestH = nh; lo = mid; }
+            else { hi = mid; }
+            if (hi - lo < 0.002) break;
+        }
+        if (!bestURL) { const nw = Math.max(1, Math.round(origW * 0.05)); const nh = Math.max(1, Math.round(origH * 0.05)); const c = makeCanvas(img, nw, nh); bestURL = mime === 'image/png' ? c.toDataURL(mime) : c.toDataURL(mime, q); bestBytes = b64Bytes(bestURL); bestW = nw; bestH = nh; }
+        return { url: bestURL, bytes: bestBytes, w: bestW, h: bestH };
+    }
+
+    function makeCanvas(img, w, h) {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        return c;
+    }
+
+    function loadImg(src) {
+        return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    }
+
+    function b64Bytes(dataURL) { const b64 = dataURL.split(',')[1]; return Math.round(b64.length * 0.75); }
+
+    function doDownload() {
+        if (!resultDataURL) return;
+        const ext = outputFmt === 'jpeg' ? 'jpg' : outputFmt;
+        const base = origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'image';
+        const sizeLabel = document.getElementById('sizeInput').value + currentUnit.toLowerCase();
+        const a = document.createElement('a');
+        a.href = resultDataURL;
+        a.download = `${base}_${sizeLabel}.${ext}`;
+        a.click();
+        showToast('Downloaded!', 'success');
+    }
+
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>
