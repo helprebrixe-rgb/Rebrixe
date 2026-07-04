@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SVG Compressor — Free Lossless SVG Optimizer Online | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <meta name="description" content="Compress and minify SVG files instantly in your browser. Strips metadata, comments, editor cruft, rounds path precision. See exact bytes saved with live before/after preview. 100% private — no upload.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600;
+            --accent: #FFB700;
+            --success: #AAFF00;
+            --error: #FF4444;
+            --text: #F0EDD6;
+            --text-sec: #B8B49A;
+            --text-dim: #6B6855;
+            --bg: #0C0B07;
+            --surface: #141310;
+            --card: #1A1812;
+            --border: rgba(255,255,255,0.06);
+            --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07);
+            --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .container { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+
+        /* Header */
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); position: relative; }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; position: relative; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); position: relative; }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Options bar */
+        .options-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; }
+        .opt-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); white-space: nowrap; }
+        .tog-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+        .opt-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+        .precision-wrap { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 170px; }
+        .precision-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .precision-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .precision-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 60px; text-align: right; white-space: nowrap; }
+
+        /* checkbox-style mini toggles for individual passes */
+        .pass-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+        .pass-chip { display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--text-sec); transition: all 0.18s; user-select: none; }
+        .pass-chip input { accent-color: var(--primary); cursor: pointer; }
+        .pass-chip:hover { border-color: var(--border-mid); }
+        .pass-chip.disabled-chip { opacity: 0.4; cursor: not-allowed; }
+
+        /* File queue */
+        .queue-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 20px; }
+        .queue-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+        .queue-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); }
+        .queue-actions { display: flex; gap: 8px; }
+        .q-btn { font-size: 0.7rem; font-weight: 700; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s; }
+        .q-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+        .q-btn.primary { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .file-list { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+        /* File item */
+        .file-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.2s; }
+        .file-item.done { border-color: rgba(170,255,0,0.2); }
+        .file-item.error-state { border-color: rgba(255,68,68,0.2); }
+        .fi-thumb { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-mid); flex-shrink: 0; background: #fff; padding: 3px; }
+        .fi-info { flex: 1; min-width: 0; }
+        .fi-name { font-size: 0.78rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fi-meta { font-size: 0.68rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .fi-savings { font-size: 0.78rem; font-weight: 800; flex-shrink: 0; text-align: right; }
+        .fi-savings.good { color: var(--success); }
+        .fi-savings.warn { color: var(--accent); }
+        .fi-savings.bad { color: var(--error); }
+        .fi-view { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; flex-shrink: 0; }
+        .fi-view:hover:not(:disabled) { border-color: var(--primary-border); color: var(--primary); }
+        .fi-view:disabled { opacity: 0.3; cursor: not-allowed; }
+        .fi-dl { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; flex-shrink: 0; }
+        .fi-dl:hover:not(:disabled) { border-color: var(--primary-border); color: var(--primary); }
+        .fi-dl:disabled { opacity: 0.3; cursor: not-allowed; }
+        .fi-rm { width: 24px; height: 24px; border-radius: 6px; border: none; background: transparent; color: var(--text-dim); font-size: 0.75rem; cursor: pointer; opacity: 0.5; transition: opacity 0.18s; flex-shrink: 0; }
+        .fi-rm:hover { opacity: 1; }
+        .progress-bar { height: 3px; background: var(--border); border-radius: 99px; margin-top: 5px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 99px; width: 0%; transition: width 0.3s; }
+        .file-item.processing .progress-bar { display: block; }
+
+        /* Savings summary banner */
+        .savings-banner { display: none; background: rgba(170,255,0,0.06); border: 1px solid rgba(170,255,0,0.2); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 20px; }
+        .savings-banner.visible { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .sb-stat { text-align: center; }
+        .sb-val { font-size: 1.6rem; font-weight: 800; color: var(--success); letter-spacing: -1px; display: block; }
+        .sb-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 700; }
+        .sb-sep { width: 1px; height: 40px; background: rgba(170,255,0,0.15); }
+        .sb-dl-all { margin-left: auto; padding: 10px 20px; border-radius: var(--radius-sm); border: 1.5px solid rgba(170,255,0,0.35); background: rgba(170,255,0,0.07); color: var(--success); font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 800; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .sb-dl-all:hover { background: rgba(170,255,0,0.12); transform: translateY(-1px); }
+
+        /* Main compress button */
+        .btn-main { width: 100%; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; margin-bottom: 12px; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; transition: all 0.2s; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* Modal preview */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 24px; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: var(--card); border: 1px solid var(--border-mid); border-radius: var(--radius-lg); width: 100%; max-width: 880px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.5); }
+        .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+        .modal-head h3 { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+        .modal-close { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; }
+        .modal-close:hover { color: var(--text); border-color: var(--border-mid); }
+        .modal-tabs { display: flex; gap: 6px; padding: 12px 20px 0; }
+        .modal-tab { padding: 7px 14px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; background: var(--surface); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+        .modal-tab.active { background: var(--bg); color: var(--primary); border-color: var(--border-mid); }
+        .modal-body { flex: 1; overflow: auto; padding: 20px; }
+        .preview-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .preview-pane { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+        .preview-pane-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; color: var(--text-dim); display: flex; justify-content: space-between; }
+        .preview-canvas { background: repeating-conic-gradient(#2a2820 0% 25%, #1a1812 0% 50%) 50% / 16px 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; min-height: 220px; padding: 12px; overflow: hidden; }
+        .preview-canvas img, .preview-canvas svg { max-width: 100%; max-height: 220px; }
+        .code-view { display: none; }
+        .code-view.active { display: block; }
+        .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; font-family: 'Fira Code', monospace; font-size: 0.72rem; line-height: 1.6; color: var(--text-sec); white-space: pre-wrap; word-break: break-all; max-height: 380px; overflow: auto; }
+        .code-block.diff-removed { color: var(--error); opacity: 0.6; text-decoration: line-through; }
+        @media (max-width: 640px) { .preview-split { grid-template-columns: 1fr; } }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .options-bar { gap: 8px; }
+            .sb-dl-all { width: 100%; text-align: center; }
+            .savings-banner.visible { gap: 14px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container">
+            <a href="compress-optimise.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">SVG Compressor</h1>
+                <p class="tool-page-sub">Strips comments, editor metadata &amp; rounds path precision — visually lossless. Batch up to 20 files.</p>
+                <span class="privacy-badge">Processed in your browser — files never leave your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/svg+xml,.svg" multiple>
+                <span class="drop-icon">🗜️</span>
+                <p class="drop-title">Drop SVG files here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span> · supports multiple files</p>
+            </div>
+
+            <!-- OPTIONS -->
+            <div class="options-bar">
+                <span class="opt-label">Precision</span>
+                <div class="precision-wrap">
+                    <input type="range" class="precision-slider" id="precSlider" min="0" max="4" value="2" oninput="onPrecChange(this.value)">
+                    <span class="precision-val" id="precVal">2 decimals</span>
+                </div>
+                <div class="opt-sep"></div>
+                <div class="pass-toggles">
+                    <label class="pass-chip"><input type="checkbox" id="passComments" checked> Comments</label>
+                    <label class="pass-chip"><input type="checkbox" id="passMeta" checked> Editor metadata</label>
+                    <label class="pass-chip"><input type="checkbox" id="passWhitespace" checked> Whitespace</label>
+                    <label class="pass-chip"><input type="checkbox" id="passEmpty" checked> Empty groups</label>
+                    <label class="pass-chip"><input type="checkbox" id="passColors" checked> Color shorthand</label>
+                </div>
+            </div>
+
+            <!-- FILE QUEUE (hidden until files loaded) -->
+            <div class="queue-section" id="queueSection" style="display:none;">
+                <div class="queue-header">
+                    <span class="queue-title" id="queueTitle">0 files</span>
+                    <div class="queue-actions">
+                        <button class="q-btn" onclick="document.getElementById('fileInput').click()">+ Add More</button>
+                        <button class="q-btn" onclick="clearAll()">Clear All</button>
+                    </div>
+                </div>
+                <div class="file-list" id="fileList"></div>
+            </div>
+
+            <!-- SAVINGS BANNER -->
+            <div class="savings-banner" id="savingsBanner">
+                <div class="sb-stat"><span class="sb-val" id="sbSaved">—</span><span class="sb-label">Saved</span></div>
+                <div class="sb-sep"></div>
+                <div class="sb-stat"><span class="sb-val" id="sbPct">—</span><span class="sb-label">Reduction</span></div>
+                <div class="sb-sep"></div>
+                <div class="sb-stat"><span class="sb-val" id="sbFiles">—</span><span class="sb-label">Files</span></div>
+                <button class="sb-dl-all" id="dlAllBtn" onclick="downloadAll()">⬇ Download All</button>
+            </div>
+
+            <!-- COMPRESS BUTTON -->
+            <button class="btn-main" id="btnCompress" onclick="compressAll()" style="display:none;">
+                <div class="btn-main-inner">
+                    <span style="font-size:1.1rem;">🗜️</span>
+                    <span id="btnLabel" style="font-weight:800; font-size:0.95rem;">Compress All</span>
+                </div>
+            </button>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>What does compression remove?</h3>
+                        <p>Comments, XML declarations, editor namespaces (<code>inkscape:</code>, <code>sodipodi:</code>), empty <code>&lt;defs&gt;</code>/<code>&lt;title&gt;</code>/<code>&lt;desc&gt;</code> tags, redundant whitespace, and rounds numeric precision in path data. Your artwork renders pixel-identical.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Is this actually lossless?</h3>
+                        <p>Visually yes — geometry is preserved within the precision you set. We don't rewrite paths, merge shapes, or guess at "unused" attributes, which is how naive minifiers break rendering. Compare before/after with the live preview to confirm.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>What's the precision slider for?</h3>
+                        <p>SVG coordinates are often exported with 6+ decimal places that are invisible on screen. Rounding to 1–2 decimals usually cuts path data size significantly with zero visible difference. Higher precision = safer but smaller savings.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private — zero upload</h3>
+                        <p>Everything runs inside your browser using the native DOM parser. Files never touch a server. Works offline once the page loads. No accounts, no limits, no watermarks.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- PREVIEW MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 id="modalTitle">Preview</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="visual" onclick="switchTab(this)">Visual</button>
+                <button class="modal-tab" data-tab="code" onclick="switchTab(this)">Code diff</button>
+            </div>
+            <div class="modal-body">
+                <div class="view-pane active" id="visualPane">
+                    <div class="preview-split">
+                        <div class="preview-pane">
+                            <span class="preview-pane-label"><span>Original</span><span id="origSizeLabel">—</span></span>
+                            <div class="preview-canvas" id="origCanvas"></div>
+                        </div>
+                        <div class="preview-pane">
+                            <span class="preview-pane-label"><span>Compressed</span><span id="compSizeLabel">—</span></span>
+                            <div class="preview-canvas" id="compCanvas"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="view-pane" id="codePane" style="display:none;">
+                    <div class="preview-split">
+                        <div class="preview-pane">
+                            <span class="preview-pane-label"><span>Original</span></span>
+                            <div class="code-block" id="origCode"></div>
+                        </div>
+                        <div class="preview-pane">
+                            <span class="preview-pane-label"><span>Compressed</span></span>
+                            <div class="code-block" id="compCode"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+
+    <script>
+    // ─── STATE ─────────────────────────────────────────────────────────────────
+    let files = []; // { file, id, origSize, origText, resultText, resultSize, status }
+    let idCounter = 0;
+
+    // ─── PRECISION UI ──────────────────────────────────────────────────────────
+    function onPrecChange(v) {
+        document.getElementById('precVal').textContent = v + (v == 1 ? ' decimal' : ' decimals');
+    }
+
+    // ─── DROP ZONE ─────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    const fi = document.getElementById('fileInput');
+
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        const dropped = [...e.dataTransfer.files].filter(f => f.type === 'image/svg+xml' || f.name.toLowerCase().endsWith('.svg'));
+        if (!dropped.length) { showToast('Please drop SVG files only', 'error'); return; }
+        addFiles(dropped);
+    });
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => { if (fi.files.length) addFiles([...fi.files]); fi.value = ''; });
+
+    function addFiles(newFiles) {
+        const toAdd = newFiles.slice(0, 20 - files.length);
+        if (!toAdd.length) { showToast('Max 20 files at once', 'error'); return; }
+        toAdd.forEach(f => {
+            const id = ++idCounter;
+            const entry = { file: f, id, origSize: f.size, origText: null, resultText: null, resultSize: 0, status: 'pending' };
+            files.push(entry);
+            renderFileItem(entry);
+            const reader = new FileReader();
+            reader.onload = e => {
+                entry.origText = e.target.result;
+                const thumb = document.getElementById('thumb-' + id);
+                if (thumb) {
+                    try {
+                        const blob = new Blob([entry.origText], { type: 'image/svg+xml' });
+                        thumb.src = URL.createObjectURL(blob);
+                    } catch (err) { /* thumbnail is cosmetic only */ }
+                }
+            };
+            reader.readAsText(f);
+        });
+        dz.style.display = 'none';
+        document.getElementById('queueSection').style.display = '';
+        document.getElementById('btnCompress').style.display = '';
+        updateQueueTitle();
+        updateBanner();
+    }
+
+    function renderFileItem(entry) {
+        const list = document.getElementById('fileList');
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.id = 'fi-' + entry.id;
+        div.innerHTML = `
+            <img class="fi-thumb" id="thumb-${entry.id}" src="" alt="">
+            <div class="fi-info">
+                <div class="fi-name">${escapeHtml(entry.file.name)}</div>
+                <div class="fi-meta">${fmtBytes(entry.origSize)} · SVG</div>
+                <div class="progress-bar"><div class="progress-fill" id="pb-${entry.id}"></div></div>
+            </div>
+            <div class="fi-savings" id="sav-${entry.id}" style="color:var(--text-dim); font-size:0.72rem;">pending</div>
+            <button class="fi-view" id="view-${entry.id}" onclick="openPreview(${entry.id})" disabled title="Compare before/after">👁</button>
+            <button class="fi-dl" id="dl-${entry.id}" onclick="downloadSingle(${entry.id})" disabled title="Download compressed">⬇</button>
+            <button class="fi-rm" onclick="removeFile(${entry.id})" title="Remove">✕</button>
+        `;
+        list.appendChild(div);
+    }
+
+    function removeFile(id) {
+        files = files.filter(e => e.id !== id);
+        document.getElementById('fi-' + id)?.remove();
+        if (!files.length) { clearAll(); return; }
+        updateQueueTitle();
+        updateBanner();
+    }
+
+    function clearAll() {
+        files = [];
+        document.getElementById('fileList').innerHTML = '';
+        document.getElementById('queueSection').style.display = 'none';
+        document.getElementById('btnCompress').style.display = 'none';
+        document.getElementById('savingsBanner').classList.remove('visible');
+        dz.style.display = '';
+    }
+
+    function updateQueueTitle() {
+        document.getElementById('queueTitle').textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+    }
+
+    // ─── CORE COMPRESSION (safe, parser-based passes only) ────────────────────
+    function compressSvgText(svgText, opts) {
+        // Parse via the browser's real XML/SVG parser so we never operate on
+        // markup blindly — if it doesn't parse, we bail out safely.
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgText, 'image/svg+xml');
+        const parseError = doc.querySelector('parsererror');
+        if (parseError) {
+            throw new Error('Could not parse SVG — file may be malformed');
+        }
+
+        const root = doc.documentElement;
+
+        // 1. Strip comments anywhere in the tree
+        if (opts.comments) {
+            const walker = doc.createTreeWalker(doc, NodeFilter.SHOW_COMMENT, null);
+            const toRemove = [];
+            let node;
+            while ((node = walker.nextNode())) toRemove.push(node);
+            toRemove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+        }
+
+        // 2. Strip editor-specific metadata: namespaces, <metadata>, <title>, <desc>
+        //    only when empty, and known editor-only attributes.
+        if (opts.meta) {
+            ['metadata'].forEach(tag => {
+                doc.querySelectorAll(tag).forEach(el => el.remove());
+            });
+            // Remove title/desc only if they carry no meaningful text
+            ['title', 'desc'].forEach(tag => {
+                doc.querySelectorAll(tag).forEach(el => {
+                    if (!el.textContent || !el.textContent.trim()) el.remove();
+                });
+            });
+            // Remove editor namespace attributes (inkscape:, sodipodi:, xmlns:inkscape, etc.)
+            const stripNsPrefixes = ['inkscape', 'sodipodi', 'dc', 'cc', 'rdf'];
+            const allEls = [root, ...root.querySelectorAll('*')];
+            allEls.forEach(el => {
+                [...el.attributes].forEach(attr => {
+                    const name = attr.name;
+                    if (stripNsPrefixes.some(p => name === 'xmlns:' + p || name.startsWith(p + ':'))) {
+                        el.removeAttribute(name);
+                    }
+                });
+            });
+            // Remove RDF/cc blocks some exporters leave behind
+            doc.querySelectorAll('RDF\\:RDF, rdf\\:RDF').forEach(el => el.remove());
+        }
+
+        // 3. Remove genuinely empty groups/defs that contain nothing after cleanup
+        if (opts.empty) {
+            let changed = true;
+            let guard = 0;
+            while (changed && guard < 6) {
+                changed = false;
+                guard++;
+                doc.querySelectorAll('g, defs').forEach(el => {
+                    if (!el.hasChildNodes() && el.attributes.length === 0) {
+                        el.remove();
+                        changed = true;
+                    } else if (!el.hasChildNodes() && el.tagName.toLowerCase() === 'defs') {
+                        // empty defs even with attributes (rare) are unreferenced and safe to drop
+                        el.remove();
+                        changed = true;
+                    }
+                });
+            }
+        }
+
+        // 4. Numeric precision rounding on geometry-bearing attributes + path 'd'
+        if (opts.precision !== null && opts.precision !== undefined) {
+            const precision = opts.precision;
+            const numericAttrs = ['x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry',
+                                   'width', 'height', 'points', 'dx', 'dy', 'viewBox'];
+            const round = n => {
+                const f = Math.round(parseFloat(n) * Math.pow(10, precision)) / Math.pow(10, precision);
+                return parseFloat(f.toFixed(precision)).toString();
+            };
+            const roundNumberString = (str) => str.replace(/-?\d*\.?\d+(?:e-?\d+)?/gi, m => {
+                if (isNaN(parseFloat(m))) return m;
+                return round(m);
+            });
+
+            const elsForPrecision = [root, ...root.querySelectorAll('*')];
+            elsForPrecision.forEach(el => {
+                numericAttrs.forEach(attr => {
+                    if (el.hasAttribute(attr)) {
+                        const val = el.getAttribute(attr);
+                        // only touch pure numeric / space-separated numeric lists, skip percentages and units
+                        if (/^-?[\d\s,.\-]+$/.test(val)) {
+                            el.setAttribute(attr, roundNumberString(val));
+                        }
+                    }
+                });
+                if (el.hasAttribute('d')) {
+                    el.setAttribute('d', roundNumberString(el.getAttribute('d')));
+                }
+                if (el.hasAttribute('transform')) {
+                    el.setAttribute('transform', roundNumberString(el.getAttribute('transform')));
+                }
+            });
+        }
+
+        // 5. Color shorthand: rgb(r,g,b) -> #rrggbb, and #rrggbb -> #rgb where possible
+        if (opts.colors) {
+            const shortenColor = (val) => {
+                let v = val.trim();
+                let m = v.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+                if (m) {
+                    const hex = [m[1], m[2], m[3]].map(n => {
+                        const h = Math.max(0, Math.min(255, parseInt(n, 10))).toString(16).padStart(2, '0');
+                        return h;
+                    }).join('');
+                    v = '#' + hex;
+                }
+                let hx = v.match(/^#([0-9a-fA-F]{6})$/);
+                if (hx) {
+                    const h = hx[1].toLowerCase();
+                    if (h[0] === h[1] && h[2] === h[3] && h[4] === h[5]) {
+                        v = '#' + h[0] + h[2] + h[4];
+                    } else {
+                        v = '#' + h;
+                    }
+                }
+                return v;
+            };
+            const colorAttrs = ['fill', 'stroke', 'stop-color'];
+            root.querySelectorAll('*').forEach(el => {
+                colorAttrs.forEach(attr => {
+                    if (el.hasAttribute(attr)) {
+                        const val = el.getAttribute(attr);
+                        if (/^(rgb\(|#[0-9a-fA-F]{6}$)/i.test(val.trim())) {
+                            el.setAttribute(attr, shortenColor(val));
+                        }
+                    }
+                });
+                // also handle inline style="fill:...;stroke:..."
+                if (el.hasAttribute('style')) {
+                    let style = el.getAttribute('style');
+                    style = style.replace(/(fill|stroke|stop-color)\s*:\s*(rgb\([^)]+\)|#[0-9a-fA-F]{6})/gi,
+                        (full, prop, val) => prop + ':' + shortenColor(val));
+                    el.setAttribute('style', style);
+                }
+            });
+        }
+
+        // Serialize back to a string using the browser's serializer (guarantees valid XML out)
+        const serializer = new XMLSerializer();
+        let out = serializer.serializeToString(doc);
+
+        // 6. Whitespace cleanup — done as a careful string pass on the *serialized*
+        //    output so we never risk corrupting attribute parsing in the DOM step.
+        if (opts.whitespace) {
+            out = out
+                .replace(/>\s+</g, '><')          // collapse whitespace between tags
+                .replace(/[\t\n\r]+/g, ' ')        // collapse remaining newlines/tabs to single space
+                .replace(/\s{2,}/g, ' ')           // collapse multi-space runs
+                .trim();
+        }
+
+        // Strip XML declaration only if comments/meta pass is on — it's pure overhead for inline/web use
+        if (opts.meta) {
+            out = out.replace(/^<\?xml[^>]*\?>\s*/i, '');
+        }
+
+        return out;
+    }
+
+    // ─── COMPRESS ALL ──────────────────────────────────────────────────────────
+    async function compressAll() {
+        const pending = files.filter(e => e.status !== 'done');
+        if (!pending.length) { showToast('All files already compressed', ''); return; }
+
+        const btn = document.getElementById('btnCompress');
+        btn.disabled = true;
+        document.getElementById('btnLabel').textContent = 'Compressing…';
+
+        const opts = {
+            comments: document.getElementById('passComments').checked,
+            meta: document.getElementById('passMeta').checked,
+            whitespace: document.getElementById('passWhitespace').checked,
+            empty: document.getElementById('passEmpty').checked,
+            colors: document.getElementById('passColors').checked,
+            precision: parseInt(document.getElementById('precSlider').value)
+        };
+
+        for (const entry of pending) {
+            await compressOne(entry, opts);
+            await new Promise(r => setTimeout(r, 10)); // yield to keep UI responsive
+        }
+
+        btn.disabled = false;
+        document.getElementById('btnLabel').textContent = 'Re-compress';
+        updateBanner();
+        showToast('Done! ✓', 'success');
+    }
+
+    function compressOne(entry, opts) {
+        return new Promise(resolve => {
+            const item = document.getElementById('fi-' + entry.id);
+            item.classList.add('processing');
+            const pb = document.getElementById('pb-' + entry.id);
+            pb.style.width = '30%';
+
+            const run = () => {
+                pb.style.width = '70%';
+                try {
+                    if (!entry.origText) throw new Error('File still loading, try again');
+                    const result = compressSvgText(entry.origText, opts);
+                    pb.style.width = '100%';
+
+                    entry.resultText = result;
+                    entry.resultSize = new Blob([result]).size;
+                    entry.status = 'done';
+
+                    const saved = entry.origSize - entry.resultSize;
+                    const pct = entry.origSize > 0 ? ((saved / entry.origSize) * 100).toFixed(1) : '0.0';
+                    const savEl = document.getElementById('sav-' + entry.id);
+                    const dlBtn = document.getElementById('dl-' + entry.id);
+                    const viewBtn = document.getElementById('view-' + entry.id);
+                    const metaEl = item.querySelector('.fi-meta');
+
+                    if (saved > 0) {
+                        savEl.className = 'fi-savings good';
+                        savEl.innerHTML = `−${fmtBytes(saved)}<br><span style="font-size:0.65rem; opacity:0.8;">${pct}% smaller</span>`;
+                        item.classList.add('done');
+                    } else if (saved === 0) {
+                        savEl.className = 'fi-savings warn';
+                        savEl.innerHTML = `Already<br><span style="font-size:0.65rem;">optimised</span>`;
+                    } else {
+                        savEl.className = 'fi-savings warn';
+                        savEl.innerHTML = `+${fmtBytes(-saved)}<br><span style="font-size:0.65rem;">no gain</span>`;
+                    }
+
+                    metaEl.textContent = `${fmtBytes(entry.origSize)} → ${fmtBytes(entry.resultSize)} · SVG`;
+                    dlBtn.disabled = false;
+                    viewBtn.disabled = false;
+                    item.classList.remove('processing', 'error-state');
+                } catch (err) {
+                    entry.status = 'error';
+                    item.classList.add('error-state');
+                    item.classList.remove('processing');
+                    document.getElementById('sav-' + entry.id).textContent = 'Error';
+                    console.error('SVG compress error:', err);
+                }
+                setTimeout(() => { pb.style.width = '0%'; item.querySelector('.progress-bar').style.display = 'none'; }, 400);
+                resolve();
+            };
+
+            if (entry.origText) {
+                run();
+            } else {
+                // wait briefly for the FileReader to finish, then retry
+                let tries = 0;
+                const wait = setInterval(() => {
+                    tries++;
+                    if (entry.origText || tries > 40) { clearInterval(wait); run(); }
+                }, 50);
+            }
+        });
+    }
+
+    // ─── DOWNLOAD ──────────────────────────────────────────────────────────────
+    function downloadSingle(id) {
+        const entry = files.find(e => e.id === id);
+        if (!entry?.resultText) return;
+        const name = entry.file.name.replace(/\.svg$/i, '') + '_compressed.svg';
+        const blob = new Blob([entry.resultText], { type: 'image/svg+xml' });
+        triggerDownload(blob, name);
+        showToast('Downloaded!', 'success');
+    }
+
+    function downloadAll() {
+        const done = files.filter(e => e.status === 'done' && e.resultText);
+        if (!done.length) return;
+        if (done.length === 1) { downloadSingle(done[0].id); return; }
+        done.forEach((entry, i) => {
+            setTimeout(() => {
+                const name = entry.file.name.replace(/\.svg$/i, '') + '_compressed.svg';
+                const blob = new Blob([entry.resultText], { type: 'image/svg+xml' });
+                triggerDownload(blob, name);
+            }, i * 250);
+        });
+        showToast(`Downloading ${done.length} files…`, 'success');
+    }
+
+    function triggerDownload(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    // ─── PREVIEW MODAL ─────────────────────────────────────────────────────────
+    function openPreview(id) {
+        const entry = files.find(e => e.id === id);
+        if (!entry || !entry.resultText) return;
+
+        document.getElementById('modalTitle').textContent = entry.file.name;
+        document.getElementById('origSizeLabel').textContent = fmtBytes(entry.origSize);
+        document.getElementById('compSizeLabel').textContent = fmtBytes(entry.resultSize);
+
+        const origCanvas = document.getElementById('origCanvas');
+        const compCanvas = document.getElementById('compCanvas');
+        origCanvas.innerHTML = '';
+        compCanvas.innerHTML = '';
+        try {
+            const origImg = document.createElement('img');
+            origImg.src = URL.createObjectURL(new Blob([entry.origText], { type: 'image/svg+xml' }));
+            origCanvas.appendChild(origImg);
+            const compImg = document.createElement('img');
+            compImg.src = URL.createObjectURL(new Blob([entry.resultText], { type: 'image/svg+xml' }));
+            compCanvas.appendChild(compImg);
+        } catch (err) {
+            origCanvas.textContent = 'Preview unavailable';
+            compCanvas.textContent = 'Preview unavailable';
+        }
+
+        document.getElementById('origCode').textContent = entry.origText;
+        document.getElementById('compCode').textContent = entry.resultText;
+
+        // reset to visual tab
+        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.modal-tab[data-tab="visual"]').classList.add('active');
+        document.getElementById('visualPane').style.display = '';
+        document.getElementById('codePane').style.display = 'none';
+
+        document.getElementById('modalOverlay').classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('modalOverlay').classList.remove('show');
+    }
+    document.getElementById('modalOverlay').addEventListener('click', e => {
+        if (e.target.id === 'modalOverlay') closeModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    function switchTab(btn) {
+        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('visualPane').style.display = tab === 'visual' ? '' : 'none';
+        document.getElementById('codePane').style.display = tab === 'code' ? '' : 'none';
+    }
+
+    // ─── BANNER ────────────────────────────────────────────────────────────────
+    function updateBanner() {
+        const done = files.filter(e => e.status === 'done');
+        if (!done.length) { document.getElementById('savingsBanner').classList.remove('visible'); return; }
+        const totalOrig = done.reduce((a, e) => a + e.origSize, 0);
+        const totalNew  = done.reduce((a, e) => a + e.resultSize, 0);
+        const saved = totalOrig - totalNew;
+        const pct = totalOrig > 0 ? ((saved / totalOrig) * 100).toFixed(1) : '0.0';
+        document.getElementById('sbSaved').textContent = saved > 0 ? fmtBytes(saved) : '0 B';
+        document.getElementById('sbPct').textContent = saved > 0 ? pct + '%' : '0%';
+        document.getElementById('sbFiles').textContent = done.length;
+        document.getElementById('savingsBanner').classList.add('visible');
+    }
+
+    // ─── UTILS ─────────────────────────────────────────────────────────────────
+    function fmtBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + type; t.classList.add('show');
+        clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

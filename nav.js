@@ -27,9 +27,9 @@ const categories = {
             "Pirate Ship and Crew Gen","Plant Name Generator","podcast name generator","Post Apocalyptic Faction Gen","Project Codename Generator","Real Estate Team Namer","Recipe Namer","Roblox Group Namer","SaaS Name Generator","Sci Fi Planet Namer","Shopify Store Namer","Side Hustle Handle","Smurf Name Generator","Spaceship Name Generator","Starwars OC Namer","Steam Group and Library Namer","Steampunk Airship Namer","Substack Newsletter Namer","Supervillain Moniker Gen","Team Building Group Namer","Twin Baby Name Matcher","Twitch Stream Namer","Twitch Team Namer", "Valorant Agent Nicknames Gen" ,"VR Chat Persona Gen" , "Vtuber Name Generator","Webtoon and Manhwa Title Gen","Wifi Network Namer","Yacht Namer"],
 
         "image-visual": ["Add Text to Image","Add White Background to PNG","Aspect Ratio Calculator","Aspect Ratio Cropper","Average Color Calculator","Background Blur Tool","Background Color Overlay","Background Pattern Adder","Batch Watermark Tool","BMP to JPG Converter","Brand Color Extractor","Brightness Contrast Adjuster","Bulk EXIF Viewer","Bulk Format Converter","Bulk Image Compressor","Bulk Image Resizer","Camera Settings Reader","Canvas Size Expander","Change Background Color","Circle Image Cropper","Collage Maker","Color Accessibility Checker","Color Balance Tool","Color Palette Extractor","Color Picker from Image","Color Replace Tool","Copyright Stamp Tool","Custom Shape Cropper","Dominant Color Finder",
-            "Duotone Image Generator","Exact File Size Resizer","EXIF Data Viewer","Exposure and Gamma Corrector","Fake Image Detector","Favicon Generator Pack","GIF Compressor","GIF Cropper","GIF Frame Viewer","GIF Frames Extractor","GIF Resizer","GIF Speed Changer","GIF Text Adder","GIF to PNG Converter","Gradient Image Generator","HEIC to JPG Converter","Hue Rotation Tool","Image Blur Tool","Image Caption Adder","Image Comparison Tool","Image Compressor and Comparer","Image Cropper","Image Dimension Checker","Image DPI Changer","Image File Info Tool","Image Filter Pack","Image Flipper","Image Grid Splitter","Image Info Inspector","Image Metadata Stripper","Image Noise Reducer","Image Padding Adder",
-            "Image Resizer by Pixels","Image Resizer without Stretching","Image Rotator","Image Size Reducer","Image Straightener","Image Tiler","Image to CSS Gradient","Image to Greyscale Converter","Image to WebP Converter","Image Watermark Tool","Images to GIF Animator","Invert Image Colors","JPEG Compressor","JPG to PNG Converter","Meme Generator","Multi Image Stitcher","Pattern Generator","Perspective Corrector","Photo Privacy Auditor","Placeholder Image Generator","PNG Compressor","PNG to JPG Converter","PNG to WebP Converter","Print Size Calculator","QR Generator with Logo","Quote Card Maker","Ratio Crop Tool","Saturation Vibrance Tool","Screenshot Mockup Generator","Sepia Filter Tool","Sharpen Image Tool",
-            "Smart Batch Image Converter","Social Media Banner Generator","Social Media Image Resizer","Solid Background Remover","Solid Color Image Generator","Square Image Maker","SVG Compressor","Text Watermark Generator","Text Watermark Overlay","Thumbnail Resizer","WebP Compressor","WebP to JPG Converter","White Background Remover","White Balance Corrector"],
+            "Duotone Image Generator","Exact File Size Resizer","EXIF Data Viewer","Exposure and Gamma Corrector","Fake Image Detector","Favicon Generator Pack","GIF Compressor","GIF Cropper","GIF Frame Viewer","GIF Frames Extractor","GIF Resizer","GIF Speed Changer","GIF Text Adder","GIF to PNG Converter","Gradient Image Generator","Grid Cropper","HEIC to JPG Converter","Hue Rotation Tool","Image Blur Tool","Image Caption Adder","Image Comparison Tool","Image Compressor and Comparer","Image Cropper","Image Dimension Checker","Image DPI Changer","Image File Info Tool","Image Filter Pack","Image Flipper","Image Grid Splitter","Image Info Inspector","Image Metadata Stripper","Image Noise Reducer","Image Padding Adder",
+            "Image Resizer by Pixels","Image Resizer without Stretching","Image Rotator","Image Size Reducer","Image Straightener","Image Tiler","Image to CSS Gradient","Image to Greyscale Converter","Image to WebP Converter","Image Watermark Tool","Images to GIF Animator","Invert Image Colors","JPEG Compressor","JPEG to WEBP Converter","JPG to PNG Converter","Meme Generator","Multi Image Stitcher","Pattern Generator","Perspective Corrector","Photo Privacy Auditor","Placeholder Image Generator","PNG Compressor","PNG to JPG Converter","PNG to WebP Converter","Print Size Calculator","QR Generator with Logo","Quote Card Maker","Ratio Crop Tool","Saturation Vibrance Tool","Screenshot Mockup Generator","Sepia Filter Tool","Sharpen Image Tool",
+            "Smart Batch Image Converter","Social Media Banner Generator","Social Media Image Resizer","Solid Background Remover","Solid Color Image Generator","Square Image Maker","SVG Compressor","SVG Compressor","Text Watermark Generator","Text Watermark Overlay","Thumbnail Resizer","WebP Compressor","WebP to JPG Converter","White Background Remover","White Balance Corrector"],
         
         "time-date": ["12 to 24 Hour Converter","24 to 12 Hour Converter","Academic Year Calculator","Add Subtract Days","Age at Date Calculator","Age Calculator","Bi Weekly Pay Calculator","Billable Hours Tracker","Break Reminder Timer","Break Time Calculator","Bulk Date Format Converter","Business Days Calculator","Call Scheduler Across Time Zones","Chess Clock and Debate Timer","Class Schedule Builder","Content Calendar Generator","Contractor Day Rate Calculator","Current Time in Any City","Daily Hours Logger","Daily Routine Builder","Date Difference Breakdown","Date Format Converter","Date Range Generator","Day of Week Finder","Days Between Dates Calculator","Days in Month Calculator","Days Since Calculator","Days Until Calculator",
             "Deadline in My Timezone","Deadline Probability Tool","Decimal to Time Converter","Deep Work Session Planner","DST Dates Checker","DST Meeting Impact Tracker","Editorial Calendar Planner","Epoch Time Calculator","Event Countdown","First and Last Day of Month","Fiscal Year Calculator","Flight Time Zone Adjuster","Focus Session Tracker","Freelance Project Profitability Calculator","Habit Streak Tracker","Holiday Date Calculator","Hourly to Salary Converter","Hours and Minutes Calculator","Hours to Minutes Converter","Interval Timer","Invoice Hours Calculator","ISO 8601 Date Converter","Leap Year Checker","Loan Subscription End Date Calculator","Lunch Break Deduction Tool","Meeting Time Overlap Finder",
@@ -286,18 +286,26 @@ const seoUI = `
         <p style="margin-bottom: 20px; font-size: 0.9rem;">
             Our suite is divided into three specialized hubs to cater to every facet of the digital journey:
         </p>
-        <ul style="list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 0.85rem;">
-            <li style="display: flex; flex-direction: column; gap: 5px;">
+<ul style="list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; font-size: 0.85rem;">
+            <li style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
                 <strong style="color: var(--primary);">Technical Hub:</strong>
-                <span>Advanced JSON formatting, CSS minification, and SEO audit tools for hardened development workflows.</span>
+                <span>Advanced JSON formatting, CSS minification, and SEO audit tools for hardened workflows.</span>
             </li>
-            <li style="display: flex; flex-direction: column; gap: 5px;">
+            <li style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
                 <strong style="color: var(--primary);">Growth Hub:</strong>
-                <span>Strategic social media content generators, engagement calculators, and viral hook engines for modern marketers.</span>
+                <span>Social content generators, engagement calculators, and viral hook engines.</span>
             </li>
-            <li style="display: flex; flex-direction: column; gap: 5px;">
+            <li style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
                 <strong style="color: var(--primary);">Generator Hub:</strong>
-                <span>AI-powered naming utilities for SaaS startups, gaming personas, and brand identities.</span>
+                <span>AI naming utilities for SaaS startups, personas, and brand identities.</span>
+            </li>
+            <li style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
+                <strong style="color: var(--primary);">Visual Hub:</strong>
+                <span>Image compressors, resizers, optimizers, croppers, and watermark tools.</span>
+            </li>
+            <li style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
+                <strong style="color: var(--primary);">Time Hub:</strong>
+                <span>Converters, calculators, stopwatches, world clocks, and calendar utilities.</span>
             </li>
         </ul>
     </div>

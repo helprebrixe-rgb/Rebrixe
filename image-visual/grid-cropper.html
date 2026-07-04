@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grid Cropper — Rule of Thirds Crop & Reposition Tool | Rebrixe</title>
+    <link rel="stylesheet" href="/main-style.css">
+    <link rel="icon" type="image/png" href="../favicon.png">
+    <meta name="description" content="Crop and reposition any image onto a rule-of-thirds grid. Drag, zoom and align your subject to the power points. Export as JPG, WebP or PNG. 100% browser-based — image never uploaded.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00f2ff">
+    <style>
+        :root {
+            --primary: #FFD600; --accent: #FFB700; --success: #AAFF00; --error: #FF4444;
+            --text: #F0EDD6; --text-sec: #B8B49A; --text-dim: #6B6855;
+            --bg: #0C0B07; --surface: #141310; --card: #1A1812;
+            --border: rgba(255,255,255,0.06); --border-mid: rgba(255,255,255,0.10);
+            --primary-dim: rgba(255,214,0,0.07); --primary-border: rgba(255,214,0,0.25);
+            --radius-sm: 10px; --radius-md: 14px; --radius-lg: 18px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        .tool-page-header { text-align: center; margin-bottom: 36px; }
+        .tool-page-title {
+            font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1.1; margin-bottom: 10px;
+        }
+        .tool-page-sub { font-size: 0.9rem; color: var(--text-sec); font-weight: 500; }
+        .privacy-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            font-size: 0.72rem; font-weight: 700; color: var(--success);
+            background: rgba(170,255,0,0.07); border: 1px solid rgba(170,255,0,0.18);
+            padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .privacy-badge::before { content: '🔒'; font-size: 0.85rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            position: relative; border-radius: 20px; padding: 52px 30px 48px;
+            text-align: center; cursor: pointer; margin-bottom: 24px; overflow: hidden;
+            background: var(--card); transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .drop-zone::before {
+            content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255,214,0,0.55), rgba(255,183,0,0.15) 40%, rgba(255,255,255,0.05) 60%, rgba(255,214,0,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+        .drop-zone::after { content: ''; position: absolute; inset: 8px; border-radius: 14px; border: 1px dashed rgba(255,214,0,0.12); pointer-events: none; transition: border-color 0.25s; }
+        .drop-zone:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(255,214,0,0.1), 0 4px 16px rgba(0,0,0,0.4); }
+        .drop-zone:hover::after { border-color: rgba(255,214,0,0.28); }
+        .drop-zone.drag-over { transform: scale(1.01) translateY(-4px); box-shadow: 0 20px 60px rgba(255,214,0,0.2), 0 0 0 3px rgba(255,214,0,0.15); }
+        .drop-icon { font-size: 2.8rem; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 12px rgba(255,214,0,0.25)); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .drop-zone:hover .drop-icon { transform: translateY(-5px) scale(1.07); }
+        .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .drop-sub { font-size: 0.83rem; color: var(--text-dim); }
+        .drop-sub span { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,214,0,0.35); }
+        #fileInput { display: none; }
+
+        /* Tool panel */
+        .tool-panel { display: none; }
+        .tool-panel.visible { display: block; }
+
+        /* Image info bar */
+        .image-info-bar { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .img-meta { flex: 1; min-width: 160px; }
+        .img-name { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+        .img-dims { font-size: 0.75rem; color: var(--text-dim); font-family: 'Fira Code', monospace; margin-top: 2px; }
+        .change-file-btn { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif; margin-left: auto; }
+        .change-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* ============ CROP STAGE ============ */
+        .cropper-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+
+        .stage-outer {
+            position: relative; background: #080807; border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            min-height: 320px; max-height: 560px; overflow: hidden;
+            background-image:
+                linear-gradient(45deg, #100f0b 25%, transparent 25%),
+                linear-gradient(-45deg, #100f0b 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #100f0b 75%),
+                linear-gradient(-45deg, transparent 75%, #100f0b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .stage-frame {
+            position: relative; overflow: hidden; touch-action: none;
+            box-shadow: 0 0 0 2000px rgba(4,4,3,0.86), 0 0 0 1px rgba(255,214,0,0.4), 0 8px 40px rgba(0,0,0,0.5);
+            cursor: grab; background: #000;
+        }
+        .stage-frame.grabbing { cursor: grabbing; }
+        .stage-frame img.subject-img { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; user-select: none; -webkit-user-drag: none; will-change: transform; image-rendering: -webkit-optimize-contrast; }
+
+        /* Rule of thirds grid overlay */
+        .grid-overlay { position: absolute; inset: 0; pointer-events: none; }
+        .grid-overlay .gline { position: absolute; background: rgba(255,255,255,0.55); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+        .grid-overlay .gline.v1 { left: 33.333%; top: 0; bottom: 0; width: 1px; }
+        .grid-overlay .gline.v2 { left: 66.667%; top: 0; bottom: 0; width: 1px; }
+        .grid-overlay .gline.h1 { top: 33.333%; left: 0; right: 0; height: 1px; }
+        .grid-overlay .gline.h2 { top: 66.667%; left: 0; right: 0; height: 1px; }
+        .grid-overlay .power-point {
+            position: absolute; width: 9px; height: 9px; border-radius: 50%;
+            background: var(--primary); box-shadow: 0 0 0 4px rgba(255,214,0,0.16), 0 0 10px rgba(255,214,0,0.5);
+            transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .grid-overlay.active .power-point { opacity: 0.95; }
+        .grid-overlay .power-point.pp-tl { left: 33.333%; top: 33.333%; }
+        .grid-overlay .power-point.pp-tr { left: 66.667%; top: 33.333%; }
+        .grid-overlay .power-point.pp-bl { left: 33.333%; top: 66.667%; }
+        .grid-overlay .power-point.pp-br { left: 66.667%; top: 66.667%; }
+        .grid-overlay .power-point.nearest { transform: translate(-50%, -50%) scale(1.6); box-shadow: 0 0 0 6px rgba(255,214,0,0.22), 0 0 16px rgba(255,214,0,0.75); }
+        .grid-overlay .center-cross { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%,-50%); opacity: 0.28; }
+        .grid-overlay .center-cross::before, .grid-overlay .center-cross::after { content:''; position:absolute; background: rgba(255,255,255,0.9); }
+        .grid-overlay .center-cross::before { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+        .grid-overlay .center-cross::after { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+
+        .snap-flash { position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--primary); transform: translate(-50%,-50%) scale(0.4); opacity: 0; pointer-events: none; }
+        .snap-flash.fire { animation: snapPulse 0.42s cubic-bezier(0.2,0.8,0.3,1); }
+        @keyframes snapPulse { 0% { transform: translate(-50%,-50%) scale(0.4); opacity: 0.9; } 100% { transform: translate(-50%,-50%) scale(1.9); opacity: 0; } }
+
+        /* Stage toolbar (zoom) */
+        .stage-toolbar { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 0 2px; }
+        .zoom-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); white-space: nowrap; }
+        .zoom-slider { -webkit-appearance: none; flex: 1; height: 4px; border-radius: 99px; background: var(--border-mid); outline: none; cursor: pointer; }
+        .zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .zoom-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; border: none; }
+        .zoom-val { font-family: 'Fira Code', monospace; font-size: 0.78rem; font-weight: 600; color: var(--primary); min-width: 46px; text-align: right; }
+        .stage-hint { text-align: center; font-size: 0.72rem; color: var(--text-dim); margin-top: 10px; }
+        .stage-hint b { color: var(--text-sec); font-weight: 700; }
+
+        /* Controls panel */
+        .controls-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+        .ctrl-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; }
+        .ctrl-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-dim); margin-bottom: 11px; display: flex; align-items: center; justify-content: space-between; }
+
+        /* Ratio buttons */
+        .ratio-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+        .ratio-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .ratio-btn:hover { border-color: var(--border-mid); color: var(--text-sec); }
+        .ratio-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+
+        /* Snap toggle (small switch) */
+        .switch { position: relative; display: inline-block; width: 34px; height: 19px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch-track { position: absolute; inset: 0; background: var(--surface); border: 1px solid var(--border-mid); border-radius: 99px; cursor: pointer; transition: all 0.2s; }
+        .switch-track::before { content: ''; position: absolute; width: 13px; height: 13px; left: 2px; top: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.2s; }
+        .switch input:checked + .switch-track { background: var(--primary-dim); border-color: var(--primary-border); }
+        .switch input:checked + .switch-track::before { transform: translateX(15px); background: var(--primary); }
+
+        /* Nudge / align pad */
+        .align-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .align-btn { aspect-ratio: 1; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.16s; position: relative; }
+        .align-btn:hover { border-color: var(--primary-border); background: var(--primary-dim); }
+        .align-btn::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--text-dim); transition: all 0.16s; }
+        .align-btn:hover::after { background: var(--primary); }
+        .align-btn.center::after { width: 4px; height: 4px; background: var(--text-dim); opacity: 0.5; }
+
+        /* Rotate / flip row */
+        .transform-row { display: flex; gap: 7px; flex-wrap: wrap; }
+        .tx-btn { flex: 1; min-width: 60px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-sec); font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; text-align: center; }
+        .tx-btn:hover { border-color: var(--primary-border); color: var(--primary); background: var(--primary-dim); }
+
+        /* Output options */
+        .output-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .tog-btn { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-family: 'Outfit', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+        .tog-btn.active { background: var(--primary-dim); border-color: var(--primary-border); color: var(--primary); }
+        .tog-btn:hover:not(.active) { color: var(--text-sec); border-color: var(--border-mid); }
+
+        /* Quality */
+        .quality-slider-wrap { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .quality-slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--border); outline: none; cursor: pointer; }
+        .quality-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 8px rgba(255,214,0,0.4); }
+        .quality-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; border: none; }
+        .quality-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; min-width: 36px; text-align: right; }
+
+        /* Export size readout */
+        .export-size-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .export-size-row select { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Fira Code', monospace; font-size: 0.75rem; font-weight: 600; padding: 7px 9px; border-radius: 7px; cursor: pointer; }
+        .export-size-row select:focus { outline: 1px solid var(--primary-border); }
+
+        /* Action row */
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+        .btn-main { flex: 1; min-width: 150px; position: relative; padding: 0; border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; overflow: hidden; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; background: transparent; }
+        .btn-main-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 24px; background: linear-gradient(135deg, #FFD600 0%, #FFBE00 45%, #FF9500 100%); border-radius: 14px; color: #000; }
+        .btn-main-inner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%); transform: translateX(-100%); border-radius: 14px; }
+        .btn-main:hover .btn-main-inner::before { animation: shimmer 0.6s ease forwards; }
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(255,180,0,0.35), 0 4px 12px rgba(255,180,0,0.18); }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        .btn-secondary { flex: 1; min-width: 150px; padding: 14px 22px; border-radius: 14px; border: 1.5px solid var(--primary-border); background: var(--primary-dim); color: var(--primary); font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,214,0,0.12); border-color: rgba(255,214,0,0.5); transform: translateY(-2px); }
+
+        /* Preview */
+        .preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-top: 16px; display: none; }
+        .preview-panel.visible { display: block; }
+        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+        .preview-inner { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .preview-box { flex: 1; min-width: 180px; background: repeating-conic-gradient(#1a1600 0% 25%, #111000 0% 50%) 0 0 / 16px 16px; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 120px; max-height: 300px; border: 1px solid var(--border-mid); position: relative; }
+        .preview-box img { max-width: 100%; max-height: 300px; object-fit: contain; display: block; }
+        .preview-box .preview-grid { position: absolute; inset: 0; pointer-events: none; }
+        .preview-meta { min-width: 160px; }
+        .preview-stat { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+        .preview-stat:last-child { border-bottom: none; }
+        .ps-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; }
+        .ps-val { font-size: 0.8rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+        .ps-val.green { color: var(--success); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border-mid); color: var(--text); padding: 12px 22px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(170,255,0,0.3); color: var(--success); }
+        .toast.error { border-color: rgba(255,68,68,0.3); color: var(--error); }
+
+        /* FAQ */
+        .faq-section { margin-top: 56px; }
+        .faq-heading { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; letter-spacing: -0.5px; }
+        .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+        .faq-item h3 { font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+        .faq-item p { font-size: 0.8rem; color: var(--text-sec); line-height: 1.6; }
+        .faq-item code { font-family: 'Fira Code', monospace; font-size: 0.78rem; background: var(--surface); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .controls-panel { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+            .preview-inner { flex-direction: column; }
+            .align-pad { max-width: 120px; }
+        }
+    </style>
+</head>
+<body data-theme="image-visual">
+    <nav class="nav-container"></nav>
+
+    <main>
+        <div class="container" style="max-width:860px; margin:0 auto; padding:40px 20px 80px;">
+
+            <a href="crop-rotate-transform.html" class="back-btn">← back to tools</a>
+
+            <div class="tool-page-header">
+                <h1 class="tool-page-title">Grid Cropper</h1>
+                <p class="tool-page-sub">Reposition any image onto a rule-of-thirds grid. Drag, zoom, snap to the power points.</p>
+                <span class="privacy-badge">Processed in your browser — image never leaves your device</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="image/*">
+                <span class="drop-icon">▦</span>
+                <p class="drop-title">Drop your image here</p>
+                <p class="drop-sub">or <span onclick="document.getElementById('fileInput').click()">browse to upload</span></p>
+            </div>
+
+            <!-- TOOL PANEL -->
+            <div class="tool-panel" id="toolPanel">
+
+                <!-- Info bar -->
+                <div class="image-info-bar">
+                    <div class="img-meta">
+                        <div class="img-name" id="imgName">—</div>
+                        <div class="img-dims" id="imgDims">—</div>
+                    </div>
+                    <button class="change-file-btn" onclick="resetTool()">↩ Change</button>
+                </div>
+
+                <!-- Crop stage -->
+                <div class="cropper-wrap">
+                    <div class="stage-outer" id="stageOuter">
+                        <div class="stage-frame" id="stageFrame">
+                            <img class="subject-img" id="subjectImg" src="" alt="Subject" draggable="false">
+                            <div class="grid-overlay" id="gridOverlay">
+                                <div class="gline v1"></div>
+                                <div class="gline v2"></div>
+                                <div class="gline h1"></div>
+                                <div class="gline h2"></div>
+                                <div class="center-cross"></div>
+                                <div class="power-point pp-tl" data-pp="tl"></div>
+                                <div class="power-point pp-tr" data-pp="tr"></div>
+                                <div class="power-point pp-bl" data-pp="bl"></div>
+                                <div class="power-point pp-br" data-pp="br"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stage-toolbar">
+                        <span class="zoom-label">Zoom</span>
+                        <input type="range" class="zoom-slider" id="zoomSlider" min="100" max="400" value="100" step="1">
+                        <span class="zoom-val" id="zoomVal">100%</span>
+                    </div>
+                    <p class="stage-hint">Drag the image to position it · scroll or pinch to zoom · place your subject on a <b>power point</b> where the lines cross</p>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-panel">
+                    <!-- Aspect ratios -->
+                    <div class="ctrl-card">
+                        <span class="ctrl-label">Frame Ratio</span>
+                        <div class="ratio-grid">
+                            <button class="ratio-btn" data-ratio="1.7778" onclick="setRatio(this)">16:9</button>
+                            <button class="ratio-btn" data-ratio="0.5625" onclick="setRatio(this)">9:16</button>
+                            <button class="ratio-btn active" data-ratio="1" onclick="setRatio(this)">1:1</button>
+                            <button class="ratio-btn" data-ratio="1.3333" onclick="setRatio(this)">4:3</button>
+                            <button class="ratio-btn" data-ratio="0.75" onclick="setRatio(this)">3:4</button>
+                            <button class="ratio-btn" data-ratio="1.5" onclick="setRatio(this)">3:2</button>
+                            <button class="ratio-btn" data-ratio="0.8" onclick="setRatio(this)">4:5</button>
+                            <button class="ratio-btn" data-ratio="2.35" onclick="setRatio(this)">Cinema</button>
+                        </div>
+                    </div>
+
+                    <!-- Grid snap -->
+                    <div class="ctrl-card">
+                        <span class="ctrl-label">
+                            Snap to Grid
+                            <label class="switch"><input type="checkbox" id="snapToggle" checked><span class="switch-track"></span></label>
+                        </span>
+                        <div class="align-pad" id="alignPad" title="Jump subject to a power point">
+                            <button class="align-btn" data-align="tl"></button>
+                            <button class="align-btn" data-align="tc"></button>
+                            <button class="align-btn" data-align="tr"></button>
+                            <button class="align-btn" data-align="cl"></button>
+                            <button class="align-btn center" data-align="cc"></button>
+                            <button class="align-btn" data-align="cr"></button>
+                            <button class="align-btn" data-align="bl"></button>
+                            <button class="align-btn" data-align="bc"></button>
+                            <button class="align-btn" data-align="br"></button>
+                        </div>
+                    </div>
+
+                    <!-- Transform -->
+                    <div class="ctrl-card">
+                        <span class="ctrl-label">Rotate & Flip</span>
+                        <div class="transform-row">
+                            <button class="tx-btn" id="btnRotL" title="Rotate left">↺ 90°</button>
+                            <button class="tx-btn" id="btnRotR" title="Rotate right">↻ 90°</button>
+                            <button class="tx-btn" id="btnFlipH" title="Flip horizontal">⇄ H</button>
+                            <button class="tx-btn" id="btnFlipV" title="Flip vertical">⇅ V</button>
+                            <button class="tx-btn" id="btnRecenter" title="Recenter & fit" style="color:var(--text-dim)">Recenter</button>
+                        </div>
+                    </div>
+
+                    <!-- Format -->
+                    <div class="ctrl-card">
+                        <span class="ctrl-label">Output Format</span>
+                        <div class="output-row">
+                            <button class="tog-btn active" data-fmt="jpeg" onclick="setFmt(this)">JPG</button>
+                            <button class="tog-btn" data-fmt="webp" onclick="setFmt(this)">WebP</button>
+                            <button class="tog-btn" data-fmt="png" onclick="setFmt(this)">PNG</button>
+                        </div>
+                        <div class="quality-slider-wrap" id="qualWrap">
+                            <input type="range" class="quality-slider" id="qualSlider" min="10" max="100" value="92">
+                            <span class="quality-val" id="qualVal">92%</span>
+                        </div>
+                        <div class="export-size-row">
+                            <select id="exportSizeSelect">
+                                <option value="native">Native crop resolution</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div class="action-row">
+                    <button class="btn-main" id="btnCrop">
+                        <div class="btn-main-inner">
+                            <span style="font-size:1.1rem;">▦</span>
+                            <span style="font-weight:800; font-size:0.95rem;">Crop & Preview</span>
+                        </div>
+                    </button>
+                    <button class="btn-secondary" id="btnDownload" style="display:none;">⬇ Download</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="section-label">Crop Result</div>
+                    <div class="preview-inner">
+                        <div class="preview-box">
+                            <img id="previewImg" src="" alt="Cropped">
+                            <svg class="preview-grid" id="previewGrid" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="preview-meta" id="previewMeta"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FAQ -->
+            <article class="faq-section">
+                <h2 class="faq-heading">How it works</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <h3>Reposition, not just crop</h3>
+                        <p>The frame stays fixed at your chosen ratio — you drag and zoom the <em>image</em> underneath it, so your subject lands exactly where you want in the composition.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Power points & snapping</h3>
+                        <p>The four grid intersections are where the eye naturally lands. Drag near one and the image gently snaps into place — toggle off for freeform control.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>Non-destructive editing</h3>
+                        <p>Rotate, flip and zoom are all reversible before you commit. Nothing is written to pixels until you hit <code>Crop &amp; Preview</code>.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3>100% private</h3>
+                        <p>Everything runs in your browser via the <code>Canvas API</code>. No upload, no server, no storage. Works offline after page load.</p>
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <footer></footer>
+
+    <script>
+    (function () {
+        'use strict';
+
+        // ---------- State ----------
+        const state = {
+            img: null,           // HTMLImageElement (natural pixels)
+            naturalW: 0, naturalH: 0,
+            rotation: 0,          // 0, 90, 180, 270 (applied to natural image before layout)
+            flipH: false, flipV: false,
+            ratio: 1,             // frame aspect ratio (w/h)
+            zoomPct: 100,         // 100 = image's "cover fit" scale
+            offX: 0, offY: 0,     // translation of image (css px, at cover-fit=100% baseline), pre-zoom-scale space
+            frameW: 0, frameH: 0, // current frame size in CSS px
+            baseScale: 1,         // scale that makes image "cover" the frame at zoom=100%
+            minZoomPct: 100,
+            snap: true,
+            fmt: 'jpeg',
+            quality: 0.92,
+            origFileName: 'image',
+            resultBlobUrl: null,
+            resultW: 0, resultH: 0,
+            dragging: false,
+            dragStart: null,
+            nearestPP: null
+        };
+
+        const el = {
+            dropZone: document.getElementById('dropZone'),
+            fileInput: document.getElementById('fileInput'),
+            toolPanel: document.getElementById('toolPanel'),
+            imgName: document.getElementById('imgName'),
+            imgDims: document.getElementById('imgDims'),
+            stageOuter: document.getElementById('stageOuter'),
+            stageFrame: document.getElementById('stageFrame'),
+            subjectImg: document.getElementById('subjectImg'),
+            gridOverlay: document.getElementById('gridOverlay'),
+            zoomSlider: document.getElementById('zoomSlider'),
+            zoomVal: document.getElementById('zoomVal'),
+            snapToggle: document.getElementById('snapToggle'),
+            alignPad: document.getElementById('alignPad'),
+            qualWrap: document.getElementById('qualWrap'),
+            qualSlider: document.getElementById('qualSlider'),
+            qualVal: document.getElementById('qualVal'),
+            exportSizeSelect: document.getElementById('exportSizeSelect'),
+            btnCrop: document.getElementById('btnCrop'),
+            btnDownload: document.getElementById('btnDownload'),
+            previewPanel: document.getElementById('previewPanel'),
+            previewImg: document.getElementById('previewImg'),
+            previewGrid: document.getElementById('previewGrid'),
+            previewMeta: document.getElementById('previewMeta'),
+            toast: document.getElementById('toast')
+        };
+
+        // ---------- Utility ----------
+        function fmtBytes(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+            return (b / 1048576).toFixed(2) + ' MB';
+        }
+        function showToast(msg, type) {
+            el.toast.textContent = msg;
+            el.toast.className = 'toast ' + (type || '');
+            el.toast.classList.add('show');
+            clearTimeout(el.toast._t);
+            el.toast._t = setTimeout(() => el.toast.classList.remove('show'), 2600);
+        }
+        function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+        // Effective (post-rotation) natural dimensions
+        function effNatural() {
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            return {
+                w: rot90 ? state.naturalH : state.naturalW,
+                h: rot90 ? state.naturalW : state.naturalH
+            };
+        }
+
+        // ---------- File loading ----------
+        el.dropZone.addEventListener('dragover', e => { e.preventDefault(); el.dropZone.classList.add('drag-over'); });
+        el.dropZone.addEventListener('dragleave', () => el.dropZone.classList.remove('drag-over'));
+        el.dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            el.dropZone.classList.remove('drag-over');
+            const f = e.dataTransfer.files[0];
+            if (f && f.type.startsWith('image/')) loadFile(f);
+            else showToast('Please drop an image file', 'error');
+        });
+        el.dropZone.addEventListener('click', () => el.fileInput.click());
+        el.fileInput.addEventListener('change', () => { if (el.fileInput.files[0]) loadFile(el.fileInput.files[0]); });
+
+        function loadFile(file) {
+            if (!file.type.startsWith('image/')) { showToast('Unsupported file type', 'error'); return; }
+            const reader = new FileReader();
+            reader.onerror = () => showToast('Could not read that file', 'error');
+            reader.onload = e => {
+                const image = new Image();
+                image.onload = () => {
+                    state.img = image;
+                    state.naturalW = image.naturalWidth;
+                    state.naturalH = image.naturalHeight;
+                    state.rotation = 0; state.flipH = false; state.flipV = false;
+                    state.origFileName = file.name.replace(/\.[^.]+$/, '') || 'image';
+
+                    el.imgName.textContent = file.name;
+                    el.imgDims.textContent = `${state.naturalW} × ${state.naturalH} px · ${fmtBytes(file.size)}`;
+                    el.subjectImg.src = e.target.result;
+
+                    el.dropZone.style.display = 'none';
+                    el.toolPanel.classList.add('visible');
+                    el.previewPanel.classList.remove('visible');
+                    el.btnDownload.style.display = 'none';
+                    revokeResult();
+
+                    populateExportSizes();
+                    layoutStage(true);
+                    showToast('Image loaded', 'success');
+                };
+                image.onerror = () => showToast('That file could not be loaded as an image', 'error');
+                image.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetTool() {
+            state.img = null;
+            revokeResult();
+            el.dropZone.style.display = '';
+            el.toolPanel.classList.remove('visible');
+            el.fileInput.value = '';
+            window.removeEventListener('resize', onResize);
+        }
+        window.resetTool = resetTool;
+
+        function revokeResult() {
+            if (state.resultBlobUrl) { URL.revokeObjectURL(state.resultBlobUrl); state.resultBlobUrl = null; }
+        }
+
+        // ---------- Stage layout ----------
+        function layoutStage(refit) {
+            if (!state.img) return;
+            // Compute frame size that fits inside stage-outer while respecting ratio
+            const outerRect = el.stageOuter.getBoundingClientRect();
+            const maxW = Math.max(120, outerRect.width - 24);
+            const maxH = Math.max(120, 560 - 24 > 0 ? Math.min(outerRect.height || 480, 536) : 480);
+            const availH = clamp(outerRect.height || 480, 260, 536);
+
+            let fw = maxW, fh = fw / state.ratio;
+            if (fh > availH) { fh = availH; fw = fh * state.ratio; }
+
+            state.frameW = Math.round(fw);
+            state.frameH = Math.round(fh);
+            el.stageFrame.style.width = state.frameW + 'px';
+            el.stageFrame.style.height = state.frameH + 'px';
+
+            // base scale = smallest scale so effective-natural image covers the frame
+            const N = effNatural();
+            state.baseScale = Math.max(state.frameW / N.w, state.frameH / N.h);
+
+            if (refit) {
+                state.zoomPct = 100;
+                state.minZoomPct = 100;
+                state.offX = 0; state.offY = 0; // centered
+            } else {
+                // re-clamp existing offsets to new frame size
+                clampOffsets();
+            }
+            applyTransform();
+        }
+
+        function onResize() { layoutStage(false); }
+        window.addEventListener('resize', onResize);
+
+        // ---------- Transform math ----------
+        // Image is rendered at scale = baseScale * (zoomPct/100), rotated, flipped, translated by (offX, offY)
+        // offX/offY represent the image's top-left position relative to frame top-left, in CSS px, AFTER scale+rotation are applied to the pre-rotation natural image via CSS transform-origin trick.
+        // To keep the math simple & reliable we build the CSS transform on the *original* <img> (natural orientation)
+        // using: translate(offX, offY) rotate(rotation) scale(sx, sy) — applied around top-left origin (0,0), with rotation compensated by an extra shift.
+
+        function currentScale() { return state.baseScale * (state.zoomPct / 100); }
+
+        function applyTransform() {
+            if (!state.img) return;
+            const s = currentScale();
+            const sx = s * (state.flipH ? -1 : 1);
+            const sy = s * (state.flipV ? -1 : 1);
+
+            // Rotation is around the image's own center in *displayed* (post-scale) space.
+            // We render the natural image at (naturalW*s) x (naturalH*s), then rotate around its center,
+            // then position that rotated block's top-left at (offX, offY) within the frame.
+            const dispW = state.naturalW * s;
+            const dispH = state.naturalH * s;
+
+            // transform-origin is center of the natural image; we translate to (offX + dispW/2, offY + dispH/2)
+            // minus half of the effective (post-rotation) bounding box is handled by offX/offY already
+            // being defined relative to the effective bounding box's top-left (see clampOffsets/effNatural).
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            const effW = rot90 ? dispH : dispW;
+            const effH = rot90 ? dispW : dispH;
+            const cx = state.offX + effW / 2;
+            const cy = state.offY + effH / 2;
+
+            // Transform order matters: translate to the target CENTER point first,
+            // rotate around that point (pivot = current origin after translate),
+            // then shift back by half the natural display size, then scale.
+            // This makes rotation pivot on the image's own center, not the frame origin.
+            el.subjectImg.style.width = state.naturalW + 'px';
+            el.subjectImg.style.height = state.naturalH + 'px';
+            el.subjectImg.style.transformOrigin = '0 0';
+            el.subjectImg.style.transform =
+                `translate(${cx}px, ${cy}px) rotate(${state.rotation}deg) translate(${-dispW / 2}px, ${-dispH / 2}px) scale(${sx}, ${sy})`;
+
+            updateNearestPowerPoint();
+        }
+
+        function clampOffsets() {
+            const s = currentScale();
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            const dispW = state.naturalW * s;
+            const dispH = state.naturalH * s;
+            const effW = rot90 ? dispH : dispW;
+            const effH = rot90 ? dispW : dispH;
+
+            const minX = state.frameW - effW; // effW >= frameW guaranteed by baseScale, so minX <= 0
+            const minY = state.frameH - effH;
+            state.offX = clamp(state.offX, Math.min(minX, 0), 0);
+            state.offY = clamp(state.offY, Math.min(minY, 0), 0);
+        }
+
+        // ---------- Power points & snapping ----------
+        const PP_RATIOS = [
+            { key: 'tl', x: 1 / 3, y: 1 / 3 },
+            { key: 'tr', x: 2 / 3, y: 1 / 3 },
+            { key: 'bl', x: 1 / 3, y: 2 / 3 },
+            { key: 'br', x: 2 / 3, y: 2 / 3 }
+        ];
+        const SNAP_PX = 14;
+
+        function updateNearestPowerPoint() {
+            // Determine if the image's own center is near a power-point-aligned position —
+            // more usefully: show grid as "active" whenever user is dragging.
+        }
+
+        function frameToOffsetForAnchor(anchorX, anchorY) {
+            // anchorX/anchorY in [0,1] describe where in the frame we want the image CENTER to land
+            const s = currentScale();
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            const dispW = state.naturalW * s, dispH = state.naturalH * s;
+            const effW = rot90 ? dispH : dispW, effH = rot90 ? dispW : dispH;
+            const targetCx = state.frameW * anchorX;
+            const targetCy = state.frameH * anchorY;
+            return { offX: targetCx - effW / 2, offY: targetCy - effH / 2 };
+        }
+
+        // Snap check during drag: snap image CENTER to nearest power point / center / edge-thirds if within threshold
+        function maybeSnap(offX, offY) {
+            if (!state.snap) return { offX, offY, snapped: null };
+            const s = currentScale();
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            const dispW = state.naturalW * s, dispH = state.naturalH * s;
+            const effW = rot90 ? dispH : dispW, effH = rot90 ? dispW : dispH;
+            const cx = offX + effW / 2, cy = offY + effH / 2;
+
+            const candidates = [
+                { key: 'tl', x: state.frameW / 3, y: state.frameH / 3 },
+                { key: 'tr', x: state.frameW * 2 / 3, y: state.frameH / 3 },
+                { key: 'bl', x: state.frameW / 3, y: state.frameH * 2 / 3 },
+                { key: 'br', x: state.frameW * 2 / 3, y: state.frameH * 2 / 3 },
+                { key: 'cc', x: state.frameW / 2, y: state.frameH / 2 }
+            ];
+            let best = null, bestD = Infinity;
+            for (const c of candidates) {
+                const d = Math.hypot(cx - c.x, cy - c.y);
+                if (d < bestD) { bestD = d; best = c; }
+            }
+            if (best && bestD <= SNAP_PX) {
+                return { offX: best.x - effW / 2, offY: best.y - effH / 2, snapped: best.key };
+            }
+            return { offX, offY, snapped: null };
+        }
+
+        // ---------- Pointer drag ----------
+        let lastSnapKey = null;
+
+        el.stageFrame.addEventListener('pointerdown', e => {
+            if (!state.img) return;
+            state.dragging = true;
+            el.stageFrame.classList.add('grabbing');
+            el.stageFrame.setPointerCapture(e.pointerId);
+            state.dragStart = { x: e.clientX, y: e.clientY, offX: state.offX, offY: state.offY };
+            el.gridOverlay.classList.add('active');
+        });
+        el.stageFrame.addEventListener('pointermove', e => {
+            if (!state.dragging) return;
+            const dx = e.clientX - state.dragStart.x;
+            const dy = e.clientY - state.dragStart.y;
+            let nx = state.dragStart.offX + dx;
+            let ny = state.dragStart.offY + dy;
+
+            const snapRes = maybeSnap(nx, ny);
+            if (snapRes.snapped !== lastSnapKey) {
+                if (snapRes.snapped) fireSnapFlash(snapRes.snapped);
+                lastSnapKey = snapRes.snapped;
+            }
+            state.offX = snapRes.offX;
+            state.offY = snapRes.offY;
+            clampOffsets();
+            applyTransform();
+            highlightPP(snapRes.snapped);
+        });
+        function endDrag(e) {
+            if (!state.dragging) return;
+            state.dragging = false;
+            el.stageFrame.classList.remove('grabbing');
+            lastSnapKey = null;
+            setTimeout(() => { if (!state.dragging) el.gridOverlay.classList.remove('active'); }, 220);
+            highlightPP(null);
+        }
+        el.stageFrame.addEventListener('pointerup', endDrag);
+        el.stageFrame.addEventListener('pointercancel', endDrag);
+        el.stageFrame.addEventListener('pointerleave', () => { if (!state.dragging) el.gridOverlay.classList.remove('active'); });
+
+        function highlightPP(key) {
+            el.gridOverlay.querySelectorAll('.power-point').forEach(p => {
+                p.classList.toggle('nearest', key && p.dataset.pp === key);
+            });
+        }
+
+        function fireSnapFlash(key) {
+            const pos = { tl: [1/3,1/3], tr: [2/3,1/3], bl: [1/3,2/3], br: [2/3,2/3], cc: [0.5,0.5] }[key];
+            if (!pos) return;
+            const flash = document.createElement('div');
+            flash.className = 'snap-flash';
+            flash.style.left = (pos[0] * 100) + '%';
+            flash.style.top = (pos[1] * 100) + '%';
+            el.gridOverlay.appendChild(flash);
+            requestAnimationFrame(() => flash.classList.add('fire'));
+            setTimeout(() => flash.remove(), 500);
+            if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
+        }
+
+        // Wheel = zoom (centered on cursor)
+        el.stageFrame.addEventListener('wheel', e => {
+            if (!state.img) return;
+            e.preventDefault();
+            const rect = el.stageFrame.getBoundingClientRect();
+            const px = e.clientX - rect.left, py = e.clientY - rect.top;
+            zoomAtPoint(-e.deltaY, px, py);
+        }, { passive: false });
+
+        function zoomAtPoint(delta, px, py) {
+            const oldPct = state.zoomPct;
+            const newPct = clamp(oldPct + (delta > 0 ? 6 : -6), state.minZoomPct, 400);
+            if (newPct === oldPct) return;
+
+            const oldScale = currentScale();
+            // image-space point under cursor before zoom
+            const s = currentScale();
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+            const dispW0 = state.naturalW * s, dispH0 = state.naturalH * s;
+            const effW0 = rot90 ? dispH0 : dispW0, effH0 = rot90 ? dispW0 : dispH0;
+            const ix = (px - state.offX) / effW0;
+            const iy = (py - state.offY) / effH0;
+
+            state.zoomPct = newPct;
+            const s2 = currentScale();
+            const dispW1 = state.naturalW * s2, dispH1 = state.naturalH * s2;
+            const effW1 = rot90 ? dispH1 : dispW1, effH1 = rot90 ? dispW1 : dispH1;
+
+            state.offX = px - ix * effW1;
+            state.offY = py - iy * effH1;
+
+            clampOffsets();
+            applyTransform();
+            syncZoomSlider();
+        }
+
+        // Pinch-to-zoom (basic two-pointer support)
+        let pinch = null;
+        el.stageFrame.addEventListener('pointerdown', e => {
+            if (!state.img) return;
+            if (!pinch) pinch = {};
+            pinch[e.pointerId] = { x: e.clientX, y: e.clientY };
+        });
+        el.stageFrame.addEventListener('pointermove', e => {
+            if (!pinch || !pinch[e.pointerId]) return;
+            pinch[e.pointerId] = { x: e.clientX, y: e.clientY };
+            const ids = Object.keys(pinch);
+            if (ids.length === 2) {
+                const p1 = pinch[ids[0]], p2 = pinch[ids[1]];
+                const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                if (pinch._lastD) {
+                    const rect = el.stageFrame.getBoundingClientRect();
+                    const midX = (p1.x + p2.x) / 2 - rect.left;
+                    const midY = (p1.y + p2.y) / 2 - rect.top;
+                    zoomAtPoint(d - pinch._lastD, midX, midY);
+                }
+                pinch._lastD = d;
+            }
+        });
+        function endPinch(e) { if (pinch) { delete pinch[e.pointerId]; if (Object.keys(pinch).length < 2) pinch._lastD = null; } }
+        el.stageFrame.addEventListener('pointerup', endPinch);
+        el.stageFrame.addEventListener('pointercancel', endPinch);
+
+        // ---------- Zoom slider ----------
+        el.zoomSlider.addEventListener('input', () => {
+            const val = clamp(parseInt(el.zoomSlider.value, 10), state.minZoomPct, 400);
+            const rect = el.stageFrame.getBoundingClientRect();
+            zoomAtPoint(0, rect.width / 2, rect.height / 2); // no-op guard
+            state.zoomPct = val;
+            clampOffsets();
+            applyTransform();
+            el.zoomVal.textContent = val + '%';
+        });
+        function syncZoomSlider() {
+            el.zoomSlider.min = state.minZoomPct;
+            el.zoomSlider.value = Math.round(state.zoomPct);
+            el.zoomVal.textContent = Math.round(state.zoomPct) + '%';
+        }
+
+        // ---------- Ratio buttons ----------
+        window.setRatio = function (btn) {
+            document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.ratio = parseFloat(btn.dataset.ratio);
+            if (state.img) { layoutStage(true); populateExportSizes(); syncZoomSlider(); }
+        };
+
+        // ---------- Snap toggle ----------
+        el.snapToggle.addEventListener('change', () => { state.snap = el.snapToggle.checked; });
+
+        // ---------- Align pad (jump to position) ----------
+        const ALIGN_MAP = {
+            tl: [1/3, 1/3], tc: [0.5, 1/3], tr: [2/3, 1/3],
+            cl: [1/3, 0.5], cc: [0.5, 0.5], cr: [2/3, 0.5],
+            bl: [1/3, 2/3], bc: [0.5, 2/3], br: [2/3, 2/3]
+        };
+        el.alignPad.addEventListener('click', e => {
+            const btn = e.target.closest('.align-btn');
+            if (!btn || !state.img) return;
+            const key = btn.dataset.align;
+            const anchor = ALIGN_MAP[key];
+            const res = frameToOffsetForAnchor(anchor[0], anchor[1]);
+            state.offX = res.offX; state.offY = res.offY;
+            clampOffsets();
+            applyTransform();
+            const ppKey = key === 'cc' ? 'cc' : (['tl','tr','bl','br'].includes(key) ? key : null);
+            if (ppKey) { fireSnapFlash(ppKey); highlightPP(ppKey); setTimeout(() => highlightPP(null), 400); }
+        });
+
+        // ---------- Rotate / Flip ----------
+        function rotate(delta) {
+            if (!state.img) return;
+            // preserve the frame-space center point during rotation
+            const s = currentScale();
+            const rot90Before = state.rotation === 90 || state.rotation === 270;
+            const dispW = state.naturalW * s, dispH = state.naturalH * s;
+            const effWBefore = rot90Before ? dispH : dispW, effHBefore = rot90Before ? dispW : dispH;
+            const cx = state.offX + effWBefore / 2, cy = state.offY + effHBefore / 2;
+
+            state.rotation = ((state.rotation + delta) % 360 + 360) % 360;
+
+            const rot90After = state.rotation === 90 || state.rotation === 270;
+            const effWAfter = rot90After ? dispH : dispW, effHAfter = rot90After ? dispW : dispH;
+
+            // recompute base scale for new orientation so image still covers frame
+            const N = effNatural();
+            state.baseScale = Math.max(state.frameW / N.w, state.frameH / N.h);
+            const s2 = currentScale();
+            const dispW2 = state.naturalW * s2, dispH2 = state.naturalH * s2;
+            const effW2 = rot90After ? dispH2 : dispW2, effH2 = rot90After ? dispW2 : dispH2;
+
+            state.offX = cx - effW2 / 2;
+            state.offY = cy - effH2 / 2;
+            clampOffsets();
+            applyTransform();
+        }
+        document.getElementById('btnRotL').addEventListener('click', () => rotate(-90));
+        document.getElementById('btnRotR').addEventListener('click', () => rotate(90));
+        document.getElementById('btnFlipH').addEventListener('click', () => { if (state.img) { state.flipH = !state.flipH; applyTransform(); } });
+        document.getElementById('btnFlipV').addEventListener('click', () => { if (state.img) { state.flipV = !state.flipV; applyTransform(); } });
+        document.getElementById('btnRecenter').addEventListener('click', () => { if (state.img) layoutStage(true); syncZoomSlider(); });
+
+        // ---------- Format / quality ----------
+        window.setFmt = function (btn) {
+            document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.fmt = btn.dataset.fmt;
+            el.qualWrap.style.opacity = state.fmt === 'png' ? '0.4' : '1';
+            el.qualSlider.disabled = state.fmt === 'png';
+        };
+        el.qualSlider.addEventListener('input', () => {
+            state.quality = el.qualSlider.value / 100;
+            el.qualVal.textContent = el.qualSlider.value + '%';
+        });
+
+        // ---------- Export size options ----------
+        function populateExportSizes() {
+            const N = effNatural();
+            // Native crop resolution = frame's displayed content at 1:1 with source pixels at zoom=100 (i.e. cover-fit resolution)
+            // We compute the "reference" output size at zoom=100%: the frame size scaled by baseScale^-1... simpler:
+            // Output pixel size always derives from actual displayed crop at export time (see doCrop). Here we just offer presets.
+            const presets = [
+                { label: 'Native crop resolution', value: 'native' },
+                { label: '2048 px (long edge)', value: '2048' },
+                { label: '1600 px (long edge)', value: '1600' },
+                { label: '1080 px (long edge)', value: '1080' },
+                { label: '800 px (long edge)', value: '800' }
+            ];
+            el.exportSizeSelect.innerHTML = presets.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
+        }
+
+        // ---------- Crop / export ----------
+        function doCrop() {
+            if (!state.img) { showToast('Upload an image first', 'error'); return; }
+
+            // Build an offscreen canvas at the frame's *display* resolution scaled up to native quality.
+            // Native output resolution: we want output pixels to match source pixel density at current zoom,
+            // i.e. outputScale = 1 / currentScale() converts frame CSS px -> source px at zoom=100 baseline,
+            // but since zooming in should not upscale beyond source resolution unnecessarily, we compute
+            // native size directly from geometry rather than reading back CSS pixels (fully reliable, no DOM readback).
+
+            const s = currentScale();
+            const rot90 = state.rotation === 90 || state.rotation === 270;
+
+            // Native output size = frame size converted into source-image pixel space
+            let nativeW = Math.round(state.frameW / s);
+            let nativeH = Math.round(state.frameH / s);
+            nativeW = Math.max(1, nativeW);
+            nativeH = Math.max(1, nativeH);
+
+            let outW = nativeW, outH = nativeH;
+            const sizeChoice = el.exportSizeSelect.value;
+            if (sizeChoice !== 'native') {
+                const targetLong = parseInt(sizeChoice, 10);
+                const longEdge = Math.max(nativeW, nativeH);
+                const f = targetLong / longEdge;
+                outW = Math.max(1, Math.round(nativeW * f));
+                outH = Math.max(1, Math.round(nativeH * f));
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = outW; canvas.height = outH;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            if (state.fmt !== 'png') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, outW, outH); }
+
+            // Compute where, in NATIVE-source pixel space (pre-rotation), the frame's visible window sits.
+            // offX/offY are in frame-CSS-px, representing top-left of the *rotated, scaled* image relative to frame.
+            // Convert to source pixels: sourcePxPerFramePx = 1 / s (in frame space), but rotation swaps axes.
+            const outScale = outW / state.frameW; // uniform since we preserve aspect
+
+            ctx.save();
+            ctx.translate(0, 0);
+            ctx.scale(outScale, outScale);
+
+            // Replicate the exact CSS transform chain in canvas space:
+            // translate(cx,cy) rotate(rotation) scale(sx,sy) applied to image drawn at (0,0,naturalW,naturalH) with transform-origin 0,0 conceptually,
+            // but our CSS used translate(dispX,dispY) rotate scale where dispX = cx-dispW/2 etc. Simpler: rebuild via same formula.
+            const dispW = state.naturalW * s, dispH = state.naturalH * s;
+            const effW = rot90 ? dispH : dispW, effH = rot90 ? dispW : dispH;
+            const cx = state.offX + effW / 2, cy = state.offY + effH / 2;
+
+            ctx.translate(cx, cy);
+            ctx.rotate(state.rotation * Math.PI / 180);
+            ctx.scale(s * (state.flipH ? -1 : 1), s * (state.flipV ? -1 : 1));
+            ctx.drawImage(state.img, -state.naturalW / 2, -state.naturalH / 2, state.naturalW, state.naturalH);
+            ctx.restore();
+
+            const mime = state.fmt === 'webp' ? 'image/webp' : state.fmt === 'png' ? 'image/png' : 'image/jpeg';
+            const q = state.fmt === 'png' ? undefined : state.quality;
+
+            canvas.toBlob(blob => {
+                if (!blob) { showToast('Export failed — try a different format', 'error'); return; }
+                revokeResult();
+                state.resultBlobUrl = URL.createObjectURL(blob);
+                state.resultW = outW; state.resultH = outH;
+
+                const ext = state.fmt === 'jpeg' ? 'jpg' : state.fmt;
+                state.resultFilename = `${state.origFileName}_grid.${ext}`;
+
+                el.previewImg.src = state.resultBlobUrl;
+                renderPreviewGrid();
+                el.previewMeta.innerHTML = `
+                    <div class="preview-stat"><span class="ps-label">Dimensions</span><span class="ps-val green">${outW} × ${outH}</span></div>
+                    <div class="preview-stat"><span class="ps-label">File Size</span><span class="ps-val">${fmtBytes(blob.size)}</span></div>
+                    <div class="preview-stat"><span class="ps-label">Format</span><span class="ps-val">${state.fmt.toUpperCase()}</span></div>
+                    <div class="preview-stat"><span class="ps-label">Quality</span><span class="ps-val">${state.fmt === 'png' ? 'Lossless' : Math.round(state.quality * 100) + '%'}</span></div>
+                    <div class="preview-stat"><span class="ps-label">Ratio</span><span class="ps-val">${(outW / outH).toFixed(3)}</span></div>
+                `;
+                el.previewPanel.classList.add('visible');
+                el.btnDownload.style.display = 'block';
+                el.previewPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                showToast('Cropped ✓', 'success');
+            }, mime, q);
+        }
+
+        function renderPreviewGrid() {
+            el.previewGrid.innerHTML = `
+                <line x1="33.333" y1="0" x2="33.333" y2="100" stroke="rgba(255,255,255,0.35)" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+                <line x1="66.667" y1="0" x2="66.667" y2="100" stroke="rgba(255,255,255,0.35)" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+                <line x1="0" y1="33.333" x2="100" y2="33.333" stroke="rgba(255,255,255,0.35)" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+                <line x1="0" y1="66.667" x2="100" y2="66.667" stroke="rgba(255,255,255,0.35)" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
+            `;
+        }
+
+        function doDownload() {
+            if (!state.resultBlobUrl) return;
+            const a = document.createElement('a');
+            a.href = state.resultBlobUrl;
+            a.download = state.resultFilename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast('Downloaded', 'success');
+        }
+
+        el.btnCrop.addEventListener('click', doCrop);
+        el.btnDownload.addEventListener('click', doDownload);
+
+        // Keyboard nudge when frame focused
+        el.stageFrame.tabIndex = 0;
+        el.stageFrame.addEventListener('keydown', e => {
+            if (!state.img) return;
+            const step = e.shiftKey ? 20 : 4;
+            let handled = true;
+            if (e.key === 'ArrowLeft') state.offX += step;
+            else if (e.key === 'ArrowRight') state.offX -= step;
+            else if (e.key === 'ArrowUp') state.offY += step;
+            else if (e.key === 'ArrowDown') state.offY -= step;
+            else handled = false;
+            if (handled) { e.preventDefault(); clampOffsets(); applyTransform(); }
+        });
+
+        // expose for automated testing / debugging (harmless in production)
+        window.__gridCropperDebug = { state, clampOffsets, applyTransform, currentScale };
+
+    })();
+    </script>
+    <script src="../nav.js"></script>
+</body>
+</html>

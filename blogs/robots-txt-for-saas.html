@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robots.txt for SaaS: The Complete Setup Guide (2026) | Rebrixe</title>
+  <meta name="description" content="A SaaS site isn't just a homepage — it's a marketing site, an app, docs, and staging environments. Here's how to set up robots.txt so you index the right pages and hide the rest.">
+  <meta name="keywords" content="robots.txt for saas, saas robots.txt, robots.txt generator, block dashboard from google, saas seo technical setup, disallow staging robots.txt">
+
+  <meta property="og:title" content="Robots.txt for SaaS: The Complete Setup Guide (2026)">
+  <meta property="og:description" content="A SaaS site isn't just a homepage — it's a marketing site, an app, docs, and staging environments. Here's how to set up robots.txt so you index the right pages and hide the rest.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/robots-txt-for-saas.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Robots.txt for SaaS: The Complete Setup Guide",
+    "description": "A SaaS site isn't just a homepage — it's a marketing site, an app, docs, and staging environments. Here's how to set up robots.txt so you index the right pages and hide the rest.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-03",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/robots-txt-for-saas.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Does every subdomain of a SaaS product need its own robots.txt file?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Crawlers look for robots.txt at the root of each individual hostname, so app.yoursaas.com, docs.yoursaas.com, and the main marketing domain each need their own file even if they belong to the same product." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can robots.txt stop private customer data from appearing in Google?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Robots.txt only asks well-behaved crawlers not to fetch a URL — it does not restrict access. If a page is already indexed, or if a URL is linked to from somewhere else, it can still appear in search unless it's also protected by authentication or a noindex tag." }
+      },
+      {
+        "@type": "Question",
+        "name": "Should the app dashboard be blocked in robots.txt if it already requires login?",
+        "acceptedAnswer": { "@type": "Answer", "text": "It's still worth adding a Disallow rule for the app path. Login screens, error pages, and redirect URLs under that path can otherwise get crawled and occasionally indexed, and blocking the path also saves crawl budget for pages that actually matter." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does my staging site keep showing up in Google search results?",
+        "acceptedAnswer": { "@type": "Answer", "text": "This usually happens when a staging or dev subdomain was never given its own robots.txt disallowing all crawlers, or when the production robots.txt file was copied to staging without adjustment, leaving it wide open." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will blocking CSS and JavaScript in robots.txt improve crawl efficiency?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No, it typically hurts it. Google renders pages the way a browser does, and if it can't fetch the CSS or JS a page depends on, it may misjudge the page's layout or content quality, which can affect how that page ranks." }
+      },
+      {
+        "@type": "Question",
+        "name": "What's the difference between Disallow in robots.txt and a noindex meta tag?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Disallow tells crawlers not to request the page at all, so they can't see a noindex tag placed on it. Noindex tells crawlers that already fetched the page not to include it in search results. Blocking a page with Disallow while also relying on noindex to remove it is contradictory, since the crawler never gets far enough to read the tag." }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I know if my SaaS robots.txt is actually working correctly?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Google Search Console's robots.txt report shows the last fetched version of the file for a verified property and flags syntax issues, and the URL Inspection tool shows whether a specific page is blocked, indexed, or eligible for crawling." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need to update robots.txt every time I launch a new product page?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Only if the new page falls under a path pattern that's already being blocked or allowed by an existing rule. A new marketing or blog URL under an already-open path needs no change; a new internal tool or account-only feature under a new path should be reviewed before launch." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241, 245, 249, 0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 52px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 32px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99, 102, 241, 0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Quick answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10), rgba(var(--primary-rgb), 0.04));
+      padding: 22px 26px;
+      margin: 0 0 36px;
+      position: relative;
+    }
+    .quick-answer-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .quick-answer-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+    }
+    .quick-answer p {
+      margin: 0;
+      color: rgba(241,245,249,0.90);
+      font-size: 0.99rem;
+      line-height: 1.72;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb), 0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table-wrap {
+      overflow-x: auto;
+      margin: 0 0 32px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .comparison-table thead tr {
+      background: rgba(var(--primary-rgb), 0.10);
+    }
+    .comparison-table th {
+      padding: 14px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .comparison-table td {
+      padding: 13px 18px;
+      color: rgba(241,245,249,0.80);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody tr:hover td {
+      background: rgba(var(--primary-rgb), 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-yellow {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-red {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.20);
+    }
+
+    /* ── Example cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+    }
+    .example-card .ex-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.92);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-stat {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .example-card .ex-desc {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      line-height: 1.5;
+    }
+
+    /* ── FAQ ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 0 28px;
+    }
+    .faq-item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      text-align: left;
+      color: rgba(241,245,249,0.90);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.99rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--primary); }
+    .faq-chevron {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+      color: var(--primary);
+      opacity: 0.7;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 22px 18px;
+      color: rgba(241,245,249,0.70);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── Bottom CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb), 0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn { max-width: 340px; margin: 0 auto; font-size: 1rem; }
+
+    /* ── Related tools ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb), 0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Code block ── */
+    .code-block {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin: 0 0 28px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: rgba(241,245,249,0.85);
+      white-space: pre;
+    }
+    .code-block .cm { color: rgba(241,245,249,0.38); }
+    .code-block .kw { color: var(--primary); font-weight: 700; }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .post-body h2 { font-size: 1.3rem; }
+      .example-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body data-theme="technical">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blog</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Robots.txt for SaaS</span>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Technical SEO
+      </div>
+      <h1>Robots.txt for SaaS: The Complete Setup Guide</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 3, 2026</span>
+        <span class="sep">·</span>
+        <span>9 min read</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        A marketing site has one job: get pages indexed. A SaaS product has several jobs running
+        on the same domain family at once — a marketing site that wants to rank, an app that
+        customers log into, docs that should be searchable, an internal API, and probably a
+        staging environment nobody meant to make public. A single generic robots.txt file, copied
+        from a template, usually gets this wrong in one of two directions: it blocks too much and
+        your pricing page stops ranking, or it blocks too little and Google starts crawling your
+        login screen and dashboard routes.
+      </p>
+      <p>
+        Robots.txt for SaaS isn't a one-line fix. It's a small set of deliberate decisions about
+        which parts of your product are content and which parts are application — and those
+        decisions look different for every subdomain you run.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">Quick Answer</div>
+        <p>
+          A SaaS robots.txt file should allow crawling of your marketing pages, blog, and docs,
+          while disallowing the logged-in app, admin routes, internal API endpoints, and any
+          staging or dev subdomain. Each subdomain — marketing site, app, docs — needs its own
+          robots.txt at its own root, and the file should always point to your sitemap for the
+          pages you do want indexed.
+        </p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-it">What is robots.txt, and what it isn't</a></li>
+          <li><a href="#why-it-matters">Why robots.txt matters more for SaaS</a></li>
+          <li><a href="#step-by-step">Step-by-step: setting up robots.txt for a SaaS product</a></li>
+          <li><a href="#common-mistakes">Common mistakes SaaS teams make</a></li>
+          <li><a href="#examples">Real-world examples by subdomain</a></li>
+          <li><a href="#comparison">Blocking methods compared</a></li>
+          <li><a href="#tool-cta">Free robots.txt generator</a></li>
+          <li><a href="#related-tools">Related tools</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- What Is It -->
+      <h2 id="what-is-it">What is robots.txt, and what it isn't</h2>
+      <p>
+        Robots.txt is a plain-text file at the root of a domain that tells well-behaved crawlers
+        which paths they're welcome to request and which ones to skip. It's a request, not a lock
+        — it works because major search engines choose to respect it, not because it enforces
+        anything.
+      </p>
+      <ul>
+        <li><strong>It controls crawling, not access.</strong> A Disallow rule stops Googlebot from fetching a URL. It does nothing to stop a person from opening that URL directly in a browser.</li>
+        <li><strong>It's per-hostname.</strong> A rule set at yoursaas.com has no effect on app.yoursaas.com or docs.yoursaas.com — each one is checked separately.</li>
+        <li><strong>It uses a small set of directives.</strong> <code>User-agent</code> targets a crawler, <code>Disallow</code> blocks a path pattern, <code>Allow</code> carves out an exception, and <code>Sitemap</code> points to your sitemap file.</li>
+        <li><strong>It's publicly readable.</strong> Anyone can view a site's robots.txt, so it shouldn't be used to list sensitive paths you don't want discovered — doing so can draw attention to them instead.</li>
+      </ul>
+
+      <div class="code-block"><span class="cm"># A minimal SaaS marketing-site robots.txt</span>
+<span class="kw">User-agent:</span> *
+<span class="kw">Disallow:</span> /app/
+<span class="kw">Disallow:</span> /admin/
+<span class="kw">Disallow:</span> /api/
+<span class="kw">Allow:</span> /
+
+<span class="kw">Sitemap:</span> https://yoursaas.com/sitemap.xml</div>
+
+      <!-- Why It Matters -->
+      <h2 id="why-it-matters">Why robots.txt matters more for SaaS</h2>
+      <p>
+        A brochure site can often get away with an empty or near-empty robots.txt. SaaS products
+        can't, because of how much surface area they run on:
+      </p>
+      <ul>
+        <li><strong>Dashboards look like pages to a crawler.</strong> Without a rule blocking it, Googlebot will attempt to crawl your app's routes just like any other URL, wasting crawl budget on screens no anonymous visitor should see indexed.</li>
+        <li><strong>Staging environments are easy to forget.</strong> A dev or staging subdomain spun up for testing is still a public URL unless it's explicitly blocked or authenticated, and it competes with your production site for rankings if indexed.</li>
+        <li><strong>Docs and marketing content need to stay open.</strong> Overly broad Disallow rules — often copied from the app's robots.txt by mistake — can accidentally block the very content pages meant to bring in search traffic.</li>
+        <li><strong>Crawl budget is finite even for well-funded sites.</strong> Every dashboard, filter combination, or internal search-result URL that gets crawled is a URL not spent on your pricing page or latest blog post.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>📊 Quick stat</strong>
+        The most common robots.txt incident at fast-growing SaaS companies isn't a missing rule —
+        it's a staging robots.txt file, set to block everything, getting copied straight into
+        production during a deploy and quietly de-indexing the marketing site.
+      </div>
+
+      <!-- Step-by-Step Guide -->
+      <h2 id="step-by-step">Step-by-step: setting up robots.txt for a SaaS product</h2>
+
+      <ol>
+        <li>
+          <strong>Map every subdomain and path your product uses.</strong> List the marketing site, app/dashboard, docs, blog, API, status page, and any staging or dev environments — robots.txt decisions get made per hostname.
+        </li>
+        <li>
+          <strong>Sort each area into "should rank" or "should not rank."</strong> Marketing pages, blog posts, pricing, and docs usually belong in the first group; login screens, account settings, internal tools, and staging belong in the second.
+        </li>
+        <li>
+          <strong>Write Disallow rules for the app and internal paths.</strong> On the marketing domain, block the app path, admin routes, and any internal API path the app calls directly.
+        </li>
+        <li>
+          <strong>Block staging and dev subdomains entirely.</strong> Add a robots.txt with <code>Disallow: /</code> under <code>User-agent: *</code> at the root of every non-production hostname, and keep it separate from the production file.
+        </li>
+        <li>
+          <strong>Leave docs and blog open, with their own sitemap reference.</strong> If docs live on their own subdomain, give it a permissive robots.txt with a Sitemap line pointing to the docs sitemap.
+        </li>
+        <li>
+          <strong>Add the sitemap directive to each production robots.txt.</strong> This isn't required, but it gives crawlers a direct path to the URLs you actually want indexed.
+        </li>
+        <li>
+          <strong>Test each file with Google Search Console.</strong> Use the robots.txt report and URL Inspection tool per verified property to confirm the right paths are blocked and the right ones aren't.
+        </li>
+        <li>
+          <strong>Re-check robots.txt whenever you ship a new subdomain or major route.</strong> A new internal tool or a newly public docs section both change what should be allowed or blocked.
+        </li>
+      </ol>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Try the Rebrixe Robots.txt Generator — free</strong>
+          <span>Answer a few questions about your setup, get a ready-to-use robots.txt file.</span>
+        </div>
+        <a class="gen-btn" href="/technical/robots-generator.html" style="display:inline-flex;align-items:center;justify-content:center;">Generate Robots.txt →</a>
+      </div>
+
+      <!-- Common Mistakes -->
+      <h2 id="common-mistakes">Common mistakes SaaS teams make</h2>
+
+      <h3>1. Blocking the entire site by accident</h3>
+      <p>
+        A single stray <code>Disallow: /</code> under <code>User-agent: *</code> — often left over
+        from a staging config — blocks every page on the domain from being crawled, including the
+        homepage.
+      </p>
+
+      <h3>2. Treating robots.txt as a security measure</h3>
+      <p>
+        Disallowing a path doesn't restrict who can open it; it only asks compliant crawlers not
+        to fetch it. Sensitive routes still need authentication, and listing them in a public
+        robots.txt can make them easier to find, not harder.
+      </p>
+
+      <h3>3. Forgetting that subdomains don't inherit rules</h3>
+      <p>
+        A well-configured robots.txt on the marketing domain has zero effect on app.yoursaas.com
+        or docs.yoursaas.com — each subdomain needs its own file checked and maintained separately.
+      </p>
+
+      <h3>4. Blocking CSS and JavaScript</h3>
+      <p>
+        Disallowing asset folders to "save crawl budget" can prevent Google from rendering pages
+        correctly, since it fetches and executes the same resources a browser would to judge
+        layout and content.
+      </p>
+
+      <h3>5. Combining Disallow with noindex on the same page</h3>
+      <p>
+        If a page is blocked with Disallow, crawlers never fetch it, which means they never see a
+        noindex tag placed on it either — the two directives shouldn't be used together on a page
+        you're trying to keep out of search.
+      </p>
+
+      <div class="callout">
+        <strong>💡 Pro tip</strong>
+        Before every production deploy, diff the live robots.txt against the previous version.
+        A one-line change here can silently de-index an entire site, and it rarely shows up in a
+        normal QA pass.
+      </div>
+
+      <!-- Examples -->
+      <h2 id="examples">Real-world examples by subdomain</h2>
+      <p>
+        How the same SaaS product typically configures robots.txt differently across its
+        subdomains:
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">Marketing site</div>
+          <div class="ex-title">yoursaas.com</div>
+          <div class="ex-stat">Mostly open</div>
+          <div class="ex-desc">Allows the homepage, pricing, and blog; disallows /app/, /admin/, and internal API paths.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Application</div>
+          <div class="ex-title">app.yoursaas.com</div>
+          <div class="ex-stat">Fully blocked</div>
+          <div class="ex-desc">Disallow: / at the root, since every route requires a login and none of it should be indexed.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Documentation</div>
+          <div class="ex-title">docs.yoursaas.com</div>
+          <div class="ex-stat">Fully open</div>
+          <div class="ex-desc">Allows all crawling with its own sitemap reference, since docs pages are meant to rank and answer search queries.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Staging</div>
+          <div class="ex-title">staging.yoursaas.com</div>
+          <div class="ex-stat">Fully blocked</div>
+          <div class="ex-desc">Disallow: / plus authentication, so a config mistake in one layer doesn't leave the environment fully exposed.</div>
+        </div>
+      </div>
+
+      <!-- Comparison Table -->
+      <h2 id="comparison">Blocking methods compared</h2>
+      <p>
+        Robots.txt is one of several ways to keep a URL out of search results — here's how it
+        compares to the others for a SaaS site.
+      </p>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table" aria-label="Comparison of blocking methods for SaaS pages">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Blocks crawling</th>
+              <th>Blocks indexing</th>
+              <th>Restricts access</th>
+              <th>Best for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Robots.txt Disallow</strong></td>
+              <td><span class="badge badge-green">Yes</span></td>
+              <td><span class="badge badge-yellow">Usually, not guaranteed</span></td>
+              <td><span class="badge badge-red">No</span></td>
+              <td>App routes, internal API paths, staging domains</td>
+            </tr>
+            <tr>
+              <td><strong>Noindex meta tag</strong></td>
+              <td><span class="badge badge-red">No</span></td>
+              <td><span class="badge badge-green">Yes, reliably</span></td>
+              <td><span class="badge badge-red">No</span></td>
+              <td>Thin pages that should stay crawlable but not ranked</td>
+            </tr>
+            <tr>
+              <td><strong>Password protection / auth wall</strong></td>
+              <td><span class="badge badge-yellow">Indirectly</span></td>
+              <td><span class="badge badge-green">Yes</span></td>
+              <td><span class="badge badge-green">Yes</span></td>
+              <td>Dashboards, account pages, anything genuinely private</td>
+            </tr>
+            <tr>
+              <td><strong>Robots.txt + noindex combined</strong></td>
+              <td>—</td>
+              <td>—</td>
+              <td><span class="badge badge-red">No</span></td>
+              <td>Not recommended — Disallow prevents the noindex tag from ever being seen</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tool CTA -->
+      <h2 id="tool-cta">Generate your SaaS robots.txt right now — free</h2>
+      <p>
+        The Rebrixe Robots.txt Generator builds a clean, correctly formatted robots.txt file for
+        marketing sites, apps, docs, and staging environments alike. No account, no watermark —
+        just answer a few questions and copy the result.
+      </p>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Free Robots.txt Generator</strong>
+          <span>Set your rules per path, get a ready-to-upload robots.txt.</span>
+        </div>
+        <a class="gen-btn" href="/technical/robots-generator.html" style="display:inline-flex;align-items:center;justify-content:center;">Open Robots.txt Generator →</a>
+      </div>
+
+      <!-- FAQ -->
+      <h2 id="faq">Frequently asked questions</h2>
+
+      <div class="faq-list" role="list">
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does every subdomain of a SaaS product need its own robots.txt file?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes. Crawlers look for robots.txt at the root of each individual hostname, so
+            app.yoursaas.com, docs.yoursaas.com, and the main marketing domain each need their own
+            file even if they belong to the same product.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Can robots.txt stop private customer data from appearing in Google?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            No. Robots.txt only asks well-behaved crawlers not to fetch a URL — it does not
+            restrict access. If a page is already indexed, or if a URL is linked to from somewhere
+            else, it can still appear in search unless it's also protected by authentication or a
+            noindex tag.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Should the app dashboard be blocked in robots.txt if it already requires login?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            It's still worth adding a Disallow rule for the app path. Login screens, error pages,
+            and redirect URLs under that path can otherwise get crawled and occasionally indexed,
+            and blocking the path also saves crawl budget for pages that actually matter.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why does my staging site keep showing up in Google search results?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            This usually happens when a staging or dev subdomain was never given its own
+            robots.txt disallowing all crawlers, or when the production robots.txt file was
+            copied to staging without adjustment, leaving it wide open.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Will blocking CSS and JavaScript in robots.txt improve crawl efficiency?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            No, it typically hurts it. Google renders pages the way a browser does, and if it
+            can't fetch the CSS or JS a page depends on, it may misjudge the page's layout or
+            content quality, which can affect how that page ranks.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            What's the difference between Disallow in robots.txt and a noindex meta tag?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Disallow tells crawlers not to request the page at all, so they can't see a noindex
+            tag placed on it. Noindex tells crawlers that already fetched the page not to include
+            it in search results. Blocking a page with Disallow while also relying on noindex to
+            remove it is contradictory, since the crawler never gets far enough to read the tag.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            How do I know if my SaaS robots.txt is actually working correctly?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Google Search Console's robots.txt report shows the last fetched version of the file
+            for a verified property and flags syntax issues, and the URL Inspection tool shows
+            whether a specific page is blocked, indexed, or eligible for crawling.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Do I need to update robots.txt every time I launch a new product page?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Only if the new page falls under a path pattern that's already being blocked or
+            allowed by an existing rule. A new marketing or blog URL under an already-open path
+            needs no change; a new internal tool or account-only feature under a new path should
+            be reviewed before launch.
+          </div>
+        </div>
+
+      </div>
+
+    </article>
+
+    <!-- Bottom CTA -->
+    <div class="post-cta">
+      <h2>Generate your SaaS robots.txt in seconds</h2>
+      <p>The Rebrixe Robots.txt Generator builds a correctly scoped robots.txt for your marketing
+      site, app, or docs subdomain — no account, no watermark, just a ready-to-upload file.</p>
+      <a class="gen-btn" href="/technical/robots-generator.html">Launch the Robots.txt Generator →</a>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" aria-label="Related tools and guides">
+      <h2>Related tools and guides</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/blogs/how-to-add-schema-without-coding.html">
+          <span class="related-label">SEO Fundamentals</span>
+          <h3>How to Add Schema Without Coding</h3>
+          <p>A no-code path to structured data using a generator instead of hand-written JSON-LD.</p>
+        </a>
+        <a class="related-card" href="/blogs/schema-markup-explained.html">
+          <span class="related-label">SEO Fundamentals</span>
+          <h3>Schema Markup Explained: What It Is and How to Use It</h3>
+          <p>The foundational concepts behind schema markup and why search engines rely on it.</p>
+        </a>
+        <a class="related-card" href="/technical/robots-generator.html">
+          <span class="related-label">Technical Tools</span>
+          <h3>Robots.txt Generator</h3>
+          <p>Build the exact file described in this guide, ready to upload.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px;">
+      <a class="back-btn" href="index.html">← Back to blogs</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    // Read progress bar
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    // Prevent global nav.js from interfering with the blog FAQ accordion.
+    // This page uses `.faq-item.open` (CSS) + `aria-expanded` (JS).
+    (() => {
+      if (!document.querySelector('.faq-list')) return;
+      document.body.dataset.blogFaq = 'true';
+
+      // Close all FAQ items on load.
+      document.querySelectorAll('.faq-item.open').forEach(item => {
+        item.classList.remove('open');
+      });
+
+      // Ensure correct aria defaults.
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    })();
+
+    // FAQ accordion
+    // NOTE: Your page has both an article-style FAQ (using .faq-item/.faq-question classes)
+    // and the global site nav.js also injects header/footer/SEO on many pages.
+    // This accordion must NOT rely on the inline `open` class toggle from other pages.
+    (() => {
+      const items = Array.from(document.querySelectorAll('.faq-item'));
+      if (!items.length) return;
+
+      // Ensure correct initial state based on DOM
+      items.forEach(item => {
+        const btn = item.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          if (!item) return;
+
+          const isOpen = item.classList.contains('open');
+
+          // Close all
+          items.forEach(el => {
+            el.classList.remove('open');
+            const b = el.querySelector('.faq-question');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+
+          // Toggle clicked
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    // Footer
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>
