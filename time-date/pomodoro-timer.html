@@ -110,6 +110,16 @@
             box-shadow: 0 4px 14px rgba(120,130,135,0.3);
         }
         .mode-tab:not(.active):hover { color: #94a3b8; background: rgba(255,255,255,0.04); }
+        .mode-tab:focus-visible,
+        .btn-main:focus-visible,
+        .btn-icon:focus-visible,
+        .btn-apply:focus-visible,
+        .settings-toggle-row:focus-visible,
+        .setting-input:focus-visible,
+        .switch input:focus-visible + .slider {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
 
         /* ── Timer ring ── */
         .timer-stage {
@@ -139,13 +149,13 @@
             stroke: var(--primary);
             stroke-width: 8;
             stroke-linecap: round;
-            /* Transition only active during playback — set via JS */
+            /* Transition only active during playback — disabled via .no-transition */
             transition: stroke-dashoffset 0.9s linear, stroke .4s;
         }
         .ring-progress.mode-short { stroke: #22d3ee; }
         .ring-progress.mode-long  { stroke: #a78bfa; }
         .ring-progress.mode-focus { stroke: var(--primary); }
-        /* Disable transition during reset so ring snaps instantly */
+        /* Disable transition during reset/mode-switch so the ring snaps instantly */
         .ring-progress.no-transition { transition: none !important; }
 
         .ring-inner {
@@ -199,6 +209,7 @@
         }
         .btn-main:hover  { transform: scale(1.07); box-shadow: 0 8px 28px rgba(145,152,155,0.5); }
         .btn-main:active { transform: scale(0.95); }
+        .btn-main:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
         .btn-icon {
             width: 44px; height: 44px;
@@ -348,6 +359,7 @@
         }
         .switch input:checked + .slider { background: rgba(255,0,127,0.2); border-color: var(--primary); }
         .switch input:checked + .slider:before { transform: translateX(18px); background: var(--primary); }
+        .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
 
         .btn-apply {
             width: 100%;
@@ -424,6 +436,9 @@
             pointer-events: none;
             z-index: 999;
             white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -435,11 +450,13 @@
             .ring-svg  { width: 180px; height: 180px; }
             .settings-grid { grid-template-columns: 1fr; }
             .toggle-grid   { grid-template-columns: 1fr; }
+            .toast { white-space: normal; text-align: center; }
         }
 
         @media (prefers-reduced-motion: reduce) {
             .ring-progress { transition: none; }
             .session-dot.current { animation: none; }
+            .toast { transition: opacity .2s; }
         }
     </style>
 </head>
@@ -459,9 +476,9 @@
 
                 <!-- MODE TABS -->
                 <div class="mode-tabs" role="tablist" aria-label="Timer mode">
-                    <button class="mode-tab active" id="tab-focus"  role="tab" aria-selected="true"  data-mode="focus">🍅 Focus</button>
-                    <button class="mode-tab"         id="tab-short" role="tab" aria-selected="false" data-mode="short">☕ Short Break</button>
-                    <button class="mode-tab"         id="tab-long"  role="tab" aria-selected="false" data-mode="long">🛋️ Long Break</button>
+                    <button type="button" class="mode-tab active" id="tab-focus"  role="tab" aria-selected="true"  data-mode="focus">🍅 Focus</button>
+                    <button type="button" class="mode-tab"         id="tab-short" role="tab" aria-selected="false" data-mode="short">☕ Short Break</button>
+                    <button type="button" class="mode-tab"         id="tab-long"  role="tab" aria-selected="false" data-mode="long">🛋️ Long Break</button>
                 </div>
 
                 <!-- TIMER RING + CONTROLS -->
@@ -482,9 +499,9 @@
 
                     <!-- Controls -->
                     <div class="controls">
-                        <button class="btn-icon" id="btnSkip"  aria-label="Skip to next phase">⏭</button>
-                        <button class="btn-main" id="btnMain"  aria-label="Start timer">▶</button>
-                        <button class="btn-icon" id="btnReset" aria-label="Reset timer">↺</button>
+                        <button type="button" class="btn-icon" id="btnSkip"  aria-label="Skip to next phase">⏭</button>
+                        <button type="button" class="btn-main" id="btnMain"  aria-label="Start timer">▶</button>
+                        <button type="button" class="btn-icon" id="btnReset" aria-label="Reset timer">↺</button>
                     </div>
                 </div>
 
@@ -518,19 +535,19 @@
                     <div class="settings-grid">
                         <div class="setting-item">
                             <label class="setting-label" for="cfgFocus">Focus (min)</label>
-                            <input class="setting-input" type="number" id="cfgFocus"    value="25" min="1" max="90">
+                            <input class="setting-input" type="number" id="cfgFocus"    value="25" min="1" max="90" inputmode="numeric">
                         </div>
                         <div class="setting-item">
                             <label class="setting-label" for="cfgShort">Short Break (min)</label>
-                            <input class="setting-input" type="number" id="cfgShort"    value="5"  min="1" max="30">
+                            <input class="setting-input" type="number" id="cfgShort"    value="5"  min="1" max="30" inputmode="numeric">
                         </div>
                         <div class="setting-item">
                             <label class="setting-label" for="cfgLong">Long Break (min)</label>
-                            <input class="setting-input" type="number" id="cfgLong"     value="15" min="1" max="60">
+                            <input class="setting-input" type="number" id="cfgLong"     value="15" min="1" max="60" inputmode="numeric">
                         </div>
                         <div class="setting-item">
                             <label class="setting-label" for="cfgSessions">Sessions before long break</label>
-                            <input class="setting-input" type="number" id="cfgSessions" value="4"  min="2" max="8">
+                            <input class="setting-input" type="number" id="cfgSessions" value="4"  min="2" max="8" inputmode="numeric">
                         </div>
                     </div>
                     <div class="toggle-grid">
@@ -563,7 +580,7 @@
                             </label>
                         </div>
                     </div>
-                    <button class="btn-apply" id="btnApply">Apply Settings</button>
+                    <button type="button" class="btn-apply" id="btnApply">Apply Settings</button>
                 </div>
 
             </div>
@@ -573,8 +590,8 @@
                 <div class="limitations-title">⚠ Known Limitations — What this tool cannot do</div>
                 <ul class="limitations-list">
                     <li>Stats (pomodoros, focus time, best streak) are saved only in <strong>this browser</strong> using localStorage. Clearing your browser data or using a different browser or device will lose all history.</li>
-                    <li>Stats reset automatically every day at midnight — they count today's session only, not a running lifetime total.</li>
-                    <li>The timer can drift by up to 1 second per hour when your browser tab is hidden or your device is under heavy load (browser timer throttling). This is a web platform limitation — a native app would not have this constraint.</li>
+                    <li>Stats reset automatically every day at midnight — they count today's session only, not a running lifetime total. Your best streak carries over between days.</li>
+                    <li>The timer is wall-clock based, so it will not drift even when the tab is hidden or throttled — but sound and notifications for a phase that finished in the background only fire once the tab becomes visible again or the browser's throttled timer next ticks.</li>
                     <li>Sound alerts use the Web Audio API. They play a short tone only — no custom audio files can be uploaded.</li>
                     <li>Browser notifications require you to grant permission manually when toggling the switch on. If your browser or OS has blocked all notifications, the toggle will be disabled automatically and cannot be re-enabled from here — you must change permissions in browser settings.</li>
                     <li>Auto-start next phase begins after a 1-second delay. If you interact with the timer within that window, auto-start cancels — this is intentional to prevent accidental double-starts.</li>
@@ -591,15 +608,15 @@
     <script>
     // ═══════════════════════════════════════════════════════════════
     //  POMODORO TIMER — Rebrixe
-    //  Reliability-first rewrite.
-    //
-    //  Design decisions documented inline where non-obvious.
+    //  Reliability-first build. Wall-clock driven, no drift, no
+    //  duplicate event firing, deterministic session-cycle tracking.
     // ═══════════════════════════════════════════════════════════════
 
     'use strict';
 
-    // SVG ring circumference: 2 * π * r  (r = 100)
-    const CIRCUMFERENCE = 628.318; // 2 * Math.PI * 100, pre-computed
+    // SVG ring circumference: 2 * π * r  (r = 100), computed for accuracy.
+    const RING_RADIUS    = 100;
+    const CIRCUMFERENCE  = 2 * Math.PI * RING_RADIUS;
 
     // ── Configuration (user-editable via settings panel) ──────────
     const DEFAULT_CFG = { focus: 25, short: 5, long: 15, sessions: 4 };
@@ -614,23 +631,26 @@
     let running          = false;
     let tickerId         = null;
     let deadlineMs       = 0;       // absolute wall-clock ms when phase ends
-    let completionLocked = false;   // prevents onComplete firing twice from race
+    let completionLocked = false;   // prevents onComplete firing twice from a race
 
     // ── Session counter ───────────────────────────────────────────
     // Counts completed focus sessions within the current long-break cycle.
+    // Always kept in the range [0, cfg.sessions] and reset to 0 once a
+    // long break finishes, so it never grows unbounded.
     let sessionsDone = 0;
 
     // ── Auto-start guard ──────────────────────────────────────────
-    // A pending auto-start timeout handle. Cancellable if user acts first.
     let autoStartTimeout = null;
 
     // ── Daily stats (persisted to localStorage) ───────────────────
-    // Only today's counts are shown. Best streak carries across days.
     let stats = { pomos: 0, focusMins: 0, bestStreak: 0, currentStreak: 0 };
 
     // ── AudioContext: one per page lifetime ───────────────────────
-    // Never re-use a closed context — create a new one if needed.
     let audioCtx = null;
+
+    // Elements that should NOT trigger the global Space-bar shortcut.
+    // Includes real form controls plus anything acting as a button via ARIA.
+    const INTERACTIVE_SELECTOR = 'input, textarea, select, button, a[href], [role="button"], [contenteditable="true"]';
 
 
     // ═══════════════════════════════════════════════════════════════
@@ -675,17 +695,18 @@
         loadSettings();
         loadStats();
 
-        // Initialise ring immediately so there's no unstyled flash.
-        // Must happen before setMode() which calls updateDisplay().
+        // Initialise the ring instantly — no unstyled flash, no animation-in.
         DOM.ring.style.strokeDasharray  = CIRCUMFERENCE;
-        DOM.ring.style.strokeDashoffset = 0;
-        DOM.ring.classList.add('no-transition');
-
-        setMode('focus', /* resetCycle = */ false);
-
-        // Remove no-transition class after one frame so future changes animate.
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => DOM.ring.classList.remove('no-transition'));
+        DOM.ring.style.strokeDashoffset = '0';
+        snapInstant(() => {
+            mode      = 'focus';
+            totalSecs = modeDuration('focus') * 60;
+            remaining = totalSecs;
+            updateRing();
+            updateLabel();
+            updateDisplayText();
+            renderDots();
+            updateTabUI();
         });
 
         renderStats();
@@ -705,25 +726,51 @@
         DOM.btnApply.addEventListener('click', applySettings);
 
         // Settings accordion
-        DOM.settingsToggle.addEventListener('click',   toggleSettings);
+        DOM.settingsToggle.addEventListener('click', toggleSettings);
         DOM.settingsToggle.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSettings(); }
+            if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                // Stop this from also being seen by the document-level
+                // Space-bar shortcut below (which would otherwise also
+                // toggle play/pause at the same time).
+                e.stopPropagation();
+                toggleSettings();
+            }
         });
 
         // Notification toggle — must be a user gesture to trigger permission request
         DOM.togNotif.addEventListener('change', onNotifToggle);
 
-        // Keyboard: Space bar anywhere (not inside inputs) toggles play/pause
+        // Keyboard: Space bar anywhere outside interactive controls toggles play/pause
         document.addEventListener('keydown', onGlobalKeyDown);
 
         // Page Visibility API: recalibrate remaining time when tab becomes visible.
         // Browsers throttle timers on hidden tabs; we correct on return.
         document.addEventListener('visibilitychange', onVisibilityChange);
 
-        // Clean up on page unload — cancel interval to be tidy
+        // Clean up on page unload — cancel timers to be tidy
         window.addEventListener('beforeunload', () => {
             if (tickerId) clearInterval(tickerId);
             if (autoStartTimeout) clearTimeout(autoStartTimeout);
+        });
+    }
+
+    /**
+     * snapInstant — run `fn`, which mutates ring-affecting state/DOM,
+     * with CSS transitions fully disabled, then re-enable transitions
+     * only after the browser has committed a paint with them disabled.
+     * This guarantees the ring visually snaps instead of animating,
+     * regardless of what updateRing()/updateLabel() touch internally.
+     */
+    function snapInstant(fn) {
+        DOM.ring.classList.add('no-transition');
+        fn();
+        // Force a style flush so the "no-transition" state is committed
+        // to a real paint before we remove it on the next frame.
+        // eslint-disable-next-line no-unused-expressions
+        DOM.ring.getBoundingClientRect();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => DOM.ring.classList.remove('no-transition'));
         });
     }
 
@@ -734,30 +781,24 @@
 
     /**
      * setMode — the single source of truth for switching phases.
-     *
-     * Always stops any running timer first, then fully re-initialises
-     * display, ring, label, and dots atomically. No caller needs to
-     * manually call updateDisplay() or renderDots() after this.
+     * Always stops any running timer state and fully re-initialises
+     * display, ring, label, and dots atomically and instantly.
      *
      * @param {string}  m           'focus' | 'short' | 'long'
      * @param {boolean} resetCycle  If true, also reset sessionsDone to 0
      */
     function setMode(m, resetCycle) {
-        mode      = m;
-        totalSecs = modeDuration(m) * 60;
-        remaining = totalSecs;
-
         if (resetCycle) sessionsDone = 0;
 
-        // Snap ring without animation (reset must be instant)
-        DOM.ring.classList.add('no-transition');
-        updateRing();
-        updateLabel();
-        updateDisplayText();
-        renderDots();
-        updateTabUI();
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => DOM.ring.classList.remove('no-transition'));
+        snapInstant(() => {
+            mode      = m;
+            totalSecs = modeDuration(m) * 60;
+            remaining = totalSecs;
+            updateRing();
+            updateLabel();
+            updateDisplayText();
+            renderDots();
+            updateTabUI();
         });
     }
 
@@ -770,6 +811,7 @@
      * Cancels any pending auto-start, stops timer, does NOT count session.
      */
     function onTabClick(m) {
+        if (m === mode) return;
         cancelAutoStart();
         stopTimer();
         setMode(m, false);
@@ -788,7 +830,6 @@
         if (DOM.togAuto.checked) {
             autoStartTimeout = setTimeout(() => {
                 autoStartTimeout = null;
-                // Only auto-start if user hasn't manually intervened
                 if (!running) startTimer();
             }, 1000);
         }
@@ -798,7 +839,7 @@
     // ─── Play / Pause ────────────────────────────────────────────
 
     function toggleTimer() {
-        cancelAutoStart(); // Manual interaction always cancels pending auto-start
+        cancelAutoStart(); // Manual interaction always cancels a pending auto-start
         running ? stopTimer() : startTimer();
     }
 
@@ -814,8 +855,10 @@
         DOM.btnMain.textContent = '⏸';
         DOM.btnMain.setAttribute('aria-label', 'Pause timer');
 
-        // Tick every 200ms — snappy display without thrashing.
-        // Actual remaining time always derived from deadlineMs, not tick count.
+        // Tick every 200ms for a snappy display; the *value* shown is always
+        // derived from deadlineMs, never from counting ticks, so timer
+        // throttling can only delay a redraw, never cause drift.
+        clearInterval(tickerId);
         tickerId = setInterval(tick, 200);
     }
 
@@ -836,12 +879,10 @@
     function resetTimer() {
         cancelAutoStart();
         stopTimer();
-        remaining = totalSecs;
-        DOM.ring.classList.add('no-transition');
-        updateRing();
-        updateDisplayText();
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => DOM.ring.classList.remove('no-transition'));
+        snapInstant(() => {
+            remaining = totalSecs;
+            updateRing();
+            updateDisplayText();
         });
     }
 
@@ -865,16 +906,25 @@
         updateDisplayText();
         updateRing();
 
-        if (remaining <= 0 && !completionLocked) {
-            completionLocked = true; // Prevent double-fire if tick fires twice quickly
-            clearInterval(tickerId);
-            tickerId = null;
-            running  = false;
-            DOM.btnMain.textContent = '▶';
-            DOM.btnMain.setAttribute('aria-label', 'Start timer');
-            document.title = 'Pomodoro Timer | Rebrixe';
-            onComplete();
+        if (remaining <= 0) {
+            finishRunningPhase();
         }
+    }
+
+    /** Shared "the running phase just hit zero" path, used by tick() and
+     *  onVisibilityChange() so completion can only ever be handled once. */
+    function finishRunningPhase() {
+        if (completionLocked) return;
+        completionLocked = true;
+
+        clearInterval(tickerId);
+        tickerId = null;
+        running  = false;
+        DOM.btnMain.textContent = '▶';
+        DOM.btnMain.setAttribute('aria-label', 'Start timer');
+        document.title = 'Pomodoro Timer | Rebrixe';
+
+        onComplete();
     }
 
     // ─── Phase completion ─────────────────────────────────────────
@@ -894,11 +944,18 @@
             }
             persistStats();
             renderStats();
-            renderDots(); // Refresh dots so the just-finished session shows as done
 
-            const nextMode = (sessionsDone % cfg.sessions === 0) ? 'long' : 'short';
-            showToast('🍅 Focus session done! Time for a break.');
+            const cycleComplete = sessionsDone % cfg.sessions === 0;
+            const nextMode = cycleComplete ? 'long' : 'short';
+            showToast(cycleComplete
+                ? '🍅 Cycle complete! Time for a long break.'
+                : '🍅 Focus session done! Time for a break.');
             advanceTo(nextMode);
+
+        } else if (mode === 'long') {
+            sessionsDone = 0; // Fresh cycle starts after the long break
+            showToast('☕ Break over — back to work!');
+            advanceTo('focus');
 
         } else {
             showToast('☕ Break over — back to work!');
@@ -911,17 +968,18 @@
     function skipSession() {
         cancelAutoStart();
         if (running) stopTimer();
+        completionLocked = false;
 
         if (mode === 'focus') {
-            // Advance cycle position without awarding a pomodoro
+            // Advance cycle position without awarding a completed pomodoro
             sessionsDone++;
-            stats.currentStreak = 0; // Streak broken by skipping
-            persistStats(); // Fix: was missing in original — persists the broken streak
+            stats.currentStreak = 0; // Skipping breaks the streak
+            persistStats();
             renderStats();
-            renderDots();
             const nextMode = (sessionsDone % cfg.sessions === 0) ? 'long' : 'short';
             advanceTo(nextMode);
         } else {
+            if (mode === 'long') sessionsDone = 0; // Skipping the long break still starts a fresh cycle
             advanceTo('focus');
         }
     }
@@ -942,22 +1000,23 @@
             : 'Pomodoro Timer | Rebrixe';
     }
 
+    // NOTE: uses classList add/remove rather than a bare className
+    // assignment, so any other class already present on the element
+    // (specifically "no-transition") is never accidentally wiped out.
     function updateRing() {
         const ratio  = totalSecs > 0 ? remaining / totalSecs : 1;
         const offset = CIRCUMFERENCE * (1 - ratio);
 
         DOM.ring.style.strokeDashoffset = offset;
-        DOM.ring.className = `ring-progress mode-${mode}`;
-        // Re-apply no-transition if it was on before className replacement
-        // (className wipe removes it — callers that need it re-add after this)
+        DOM.ring.classList.remove('mode-focus', 'mode-short', 'mode-long');
+        DOM.ring.classList.add(`mode-${mode}`);
     }
 
     function updateLabel() {
         const labels = { focus: 'FOCUS', short: 'SHORT BREAK', long: 'LONG BREAK' };
         DOM.phaseLabel.textContent = labels[mode];
-        DOM.phaseLabel.className   = mode !== 'focus'
-            ? `timer-phase-label mode-${mode}`
-            : 'timer-phase-label';
+        DOM.phaseLabel.classList.remove('mode-short', 'mode-long');
+        if (mode !== 'focus') DOM.phaseLabel.classList.add(`mode-${mode}`);
     }
 
     function updateTabUI() {
@@ -978,12 +1037,18 @@
     // ═══════════════════════════════════════════════════════════════
 
     function renderDots() {
-        const cyclePos = sessionsDone % cfg.sessions;
+        // sessionsDone is always in [0, cfg.sessions]. When it lands exactly
+        // on a multiple of cfg.sessions *and* at least one session has run,
+        // that means a full cycle just finished (we're in/entering the long
+        // break) — show all dots filled rather than folding back to zero.
+        const mod = sessionsDone % cfg.sessions;
+        const cyclePos = (sessionsDone > 0 && mod === 0) ? cfg.sessions : mod;
+
         let html = '';
         for (let i = 0; i < cfg.sessions; i++) {
             let cls = 'session-dot';
-            if (i < cyclePos)                               cls += ' done';
-            else if (i === cyclePos && mode === 'focus')    cls += ' current';
+            if (i < cyclePos)                            cls += ' done';
+            else if (i === cyclePos && mode === 'focus') cls += ' current';
             html += `<span class="${cls}" aria-hidden="true"></span>`;
         }
         html += `<span class="session-label">${cyclePos}/${cfg.sessions}</span>`;
@@ -1016,17 +1081,14 @@
                 stats.pomos     = intOrZero(parsed.pomos);
                 stats.focusMins = intOrZero(parsed.focusMins);
             }
-            // Different day: daily counters stay at 0 (reset in declaration)
-        } catch (_) { /* Corrupted data — silently use defaults */ }
+            // Different day: daily counters stay at their initialised 0
+        } catch (_) { /* Corrupted data — silently fall back to defaults */ }
     }
 
     function persistStats() {
         if (!DOM.togStats.checked) return;
         try {
-            const payload = {
-                ...stats,
-                savedDate: todayKey(),
-            };
+            const payload = { ...stats, savedDate: todayKey() };
             localStorage.setItem('pomo-stats', JSON.stringify(payload));
         } catch (_) { /* localStorage unavailable (private browsing quota) — ignore */ }
     }
@@ -1043,18 +1105,17 @@
     // ═══════════════════════════════════════════════════════════════
     //  SOUND — Web Audio API
     //
-    //  AudioContext rules:
     //  1. Never reuse a closed context — always create a fresh one.
-    //  2. Resume a suspended context before playing (browser autoplay policy).
-    //  3. Disconnect nodes in onended to prevent memory leak.
+    //  2. Resume a suspended context before playing (autoplay policy).
+    //  3. Disconnect nodes in onended to prevent memory leaks.
     //  4. Wrap everything in try/catch — audio is non-critical.
     // ═══════════════════════════════════════════════════════════════
 
     function getAudioCtx() {
-        // Create fresh if missing or closed (closed = permanent, can't reopen)
         if (!audioCtx || audioCtx.state === 'closed') {
             try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                audioCtx = Ctx ? new Ctx() : null;
             } catch (_) {
                 audioCtx = null;
             }
@@ -1068,7 +1129,7 @@
         if (!ctx) return;
 
         const doPlay = () => {
-            // Break phase gets a rising 3-note melody; focus gets a shorter 2-note ding
+            // Break-over gets a rising 3-note melody; focus-done gets a 2-note ding
             const notes = mode === 'focus' ? [880, 1100] : [660, 880, 1100];
             let t = ctx.currentTime + 0.02;
             notes.forEach(freq => {
@@ -1117,16 +1178,20 @@
 
         if (Notification.permission === 'denied') {
             DOM.togNotif.checked = false;
+            DOM.togNotif.disabled = true;
             showToast('Notifications are blocked. Change permissions in your browser settings.');
             return;
         }
 
-        // 'default' — request permission
+        // 'default' — request permission (must run inside this user gesture)
         Notification.requestPermission().then(perm => {
             if (perm !== 'granted') {
                 DOM.togNotif.checked = false;
+                if (perm === 'denied') DOM.togNotif.disabled = true;
                 showToast('Notification permission was not granted.');
             }
+        }).catch(() => {
+            DOM.togNotif.checked = false;
         });
     }
 
@@ -1168,7 +1233,7 @@
                 if (typeof p.auto  === 'boolean') DOM.togAuto.checked  = p.auto;
                 if (typeof p.stats === 'boolean') DOM.togStats.checked = p.stats;
                 // togNotif is intentionally never restored — permission must be
-                // re-granted via user gesture each page load (browser requirement).
+                // re-granted via a user gesture each page load (browser requirement).
             }
         } catch (_) { /* Corrupted settings — fall back to defaults */ }
     }
@@ -1192,7 +1257,7 @@
 
         cfg = { focus: newFocus, short: newShort, long: newLong, sessions: newSessions };
 
-        // Reflect clamped values back so the user sees what was applied
+        // Reflect clamped values back so the user sees what was actually applied
         DOM.cfgFocus.value    = cfg.focus;
         DOM.cfgShort.value    = cfg.short;
         DOM.cfgLong.value     = cfg.long;
@@ -1200,6 +1265,7 @@
 
         cancelAutoStart();
         stopTimer();
+        completionLocked = false;
         // Reset the whole cycle when config changes — prevents a mismatched cycle state
         setMode('focus', /* resetCycle = */ true);
         saveSettings();
@@ -1214,16 +1280,15 @@
 
 
     // ═══════════════════════════════════════════════════════════════
-    //  PAGE VISIBILITY — re-calibrate after throttled background tab
+    //  PAGE VISIBILITY — re-calibrate after a throttled background tab
     // ═══════════════════════════════════════════════════════════════
 
     function onVisibilityChange() {
         if (document.hidden || !running) return;
 
-        // Tab is now visible and timer is running.
-        // Recalculate remaining from wall-clock deadline.
-        // The tick interval may have been throttled/suspended by the browser
-        // while the tab was hidden; this corrects any accumulated error.
+        // Tab is now visible and timer is running. Recalculate remaining
+        // from the wall-clock deadline — this corrects any accumulated
+        // error from the interval being throttled/suspended while hidden.
         const recalculated = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
 
         if (recalculated !== remaining) {
@@ -1232,15 +1297,8 @@
             updateRing();
         }
 
-        if (remaining <= 0 && !completionLocked) {
-            completionLocked = true;
-            clearInterval(tickerId);
-            tickerId = null;
-            running  = false;
-            DOM.btnMain.textContent = '▶';
-            DOM.btnMain.setAttribute('aria-label', 'Start timer');
-            document.title = 'Pomodoro Timer | Rebrixe';
-            onComplete();
+        if (remaining <= 0) {
+            finishRunningPhase();
         }
     }
 
@@ -1250,11 +1308,10 @@
     // ═══════════════════════════════════════════════════════════════
 
     function onGlobalKeyDown(e) {
-        // Don't steal Space from inputs, textareas, selects, or buttons
-        // (buttons already handle Space natively via their own event)
-        const tag = document.activeElement ? document.activeElement.tagName : '';
-        if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag)) return;
-        if (e.code === 'Space') {
+        // Don't steal Space from inputs, buttons, or anything ARIA-marked
+        // as interactive (e.g. the settings accordion header).
+        if (e.target.closest && e.target.closest(INTERACTIVE_SELECTOR)) return;
+        if (e.code === 'Space' || e.key === ' ') {
             e.preventDefault();
             toggleTimer();
         }
@@ -1288,15 +1345,28 @@
     }
 
     function intOrDefault(v, def) {
-        return isNaN(v) || v === null || v === undefined ? def : v;
+        return (typeof v !== 'number' || isNaN(v)) ? def : v;
     }
 
 
     // ═══════════════════════════════════════════════════════════════
-    //  BOOT
+    //  BOOT — guarded so a script placement change can never break init
     // ═══════════════════════════════════════════════════════════════
 
-    init();
+    function boot() {
+        try {
+            init();
+        } catch (err) {
+            // Fail loud in the console, but never leave the page half-wired.
+            console.error('Pomodoro Timer failed to initialise:', err);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
 
     </script>
     <script src="../nav.js"></script>

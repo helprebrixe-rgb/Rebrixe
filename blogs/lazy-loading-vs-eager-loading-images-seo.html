@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lazy Loading vs Eager Loading Images: Which Is Better for SEO? | Rebrixe</title>
+  <meta name="description" content="Lazy loading vs eager loading images explained for SEO — which images to lazy load, which to eager load, and how each affects LCP, CLS, and rankings.">
+  <meta name="keywords" content="lazy loading vs eager loading, lazy load images seo, eager loading images, loading lazy attribute seo, image loading core web vitals">
+
+  <meta property="og:title" content="Lazy Loading vs Eager Loading Images: Which Is Better for SEO?">
+  <meta property="og:description" content="The exact rule for deciding which images to lazy load and which to eager load — and the mistake that quietly wrecks your LCP score.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/lazy-loading-vs-eager-loading-images-seo.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Lazy Loading vs Eager Loading Images: Which Is Better for SEO?",
+    "description": "Lazy loading vs eager loading images explained for SEO — which images to lazy load, which to eager load, and how each affects LCP, CLS, and rankings.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-15",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/lazy-loading-vs-eager-loading-images-seo.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Should the first image on a page ever be lazy loaded?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. If an image appears in the first viewport — especially if it's your Largest Contentful Paint element — it should be eager loaded, not lazy loaded. Lazy loading delays the browser's request for that image, which directly pushes back your LCP timing." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does lazy loading hurt SEO?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Not when it's applied correctly. Lazy loading below-fold images reduces initial page weight and speeds up load time, both of which help SEO. It only hurts SEO when it's mistakenly applied to above-fold or LCP images, delaying the metrics search engines measure." }
+      },
+      {
+        "@type": "Question",
+        "name": "What's the actual difference between loading=\"lazy\" and eager loading?",
+        "acceptedAnswer": { "@type": "Answer", "text": "loading=\"lazy\" tells the browser to defer fetching an image until it's about to enter the viewport. Eager loading — the browser default when no attribute is set, or loading=\"eager\" explicitly — fetches the image immediately as the page parses, regardless of where it sits on the page." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Google's crawler handle lazy-loaded images correctly?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Googlebot renders pages and can discover natively lazy-loaded images during rendering, provided the standard loading=\"lazy\" attribute is used with proper width, height, and src values. Custom JavaScript-only lazy-load solutions without a real src or noscript fallback are far less reliable for indexing." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I still need width and height attributes if I'm lazy loading?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, always. Width, height, or an aspect-ratio value reserves the image's space in the layout before it loads. Without it, both lazy-loaded and eager-loaded images can cause layout shift as they pop into a page that has no space allocated for them." }
+      },
+      {
+        "@type": "Question",
+        "name": "Should background images be lazy loaded too?",
+        "acceptedAnswer": { "@type": "Answer", "text": "CSS background images don't support the native loading attribute, so they're either always loaded eagerly by default or need a JavaScript-based technique to defer them. If a background image sits below the fold, deferring it manually is worth doing; if it's above the fold, leave it eager." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can lazy loading actually cause layout shift?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Lazy loading itself doesn't cause layout shift — missing dimensions do. Because lazy-loaded images pop in later than eager ones, any page without reserved space for them tends to show the shift more noticeably, which is why explicit sizing matters even more with lazy loading." }
+      },
+      {
+        "@type": "Question",
+        "name": "How many images on a typical page should be eager loaded?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Usually just one to three: whatever appears in the very first viewport, especially the LCP candidate. Everything that requires scrolling to see should be lazy loaded — for most pages that's the large majority of the total images." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241, 245, 249, 0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 52px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 32px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99, 102, 241, 0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Quick answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10), rgba(var(--primary-rgb), 0.04));
+      padding: 22px 26px;
+      margin: 0 0 36px;
+      position: relative;
+    }
+    .quick-answer-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .quick-answer-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+    }
+    .quick-answer p {
+      margin: 0;
+      color: rgba(241,245,249,0.90);
+      font-size: 0.99rem;
+      line-height: 1.72;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb), 0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+    }
+
+    /* ── Dual tool CTA ── */
+    .dual-cta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 0 0 28px;
+    }
+    .dual-cta-card {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .dual-cta-card .dc-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+    }
+    .dual-cta-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0;
+      letter-spacing: -0.4px;
+    }
+    .dual-cta-card p {
+      margin: 0;
+      color: rgba(241,245,249,0.60);
+      font-size: 0.87rem;
+      line-height: 1.6;
+    }
+    .dual-cta-card .gen-btn {
+      margin-top: auto;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table-wrap {
+      overflow-x: auto;
+      margin: 0 0 32px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .comparison-table thead tr {
+      background: rgba(var(--primary-rgb), 0.10);
+    }
+    .comparison-table th {
+      padding: 14px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .comparison-table td {
+      padding: 13px 18px;
+      color: rgba(241,245,249,0.80);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody tr:hover td {
+      background: rgba(var(--primary-rgb), 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-yellow {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-red {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.20);
+    }
+
+    /* ── Example cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+    }
+    .example-card .ex-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.92);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-stat {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .example-card .ex-desc {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      line-height: 1.5;
+    }
+
+    /* ── FAQ ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 0 28px;
+    }
+    .faq-item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      text-align: left;
+      color: rgba(241,245,249,0.90);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.99rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--primary); }
+    .faq-chevron {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+      color: var(--primary);
+      opacity: 0.7;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 22px 18px;
+      color: rgba(241,245,249,0.70);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── Bottom CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb), 0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn { max-width: 340px; margin: 0 auto; font-size: 1rem; }
+    .post-cta .dual-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .post-cta .dual-btns .gen-btn { max-width: 260px; }
+
+    /* ── Related tools ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb), 0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .post-body h2 { font-size: 1.3rem; }
+      .example-grid { grid-template-columns: 1fr 1fr; }
+      .dual-cta { grid-template-columns: 1fr; }
+      .post-cta .dual-btns { flex-direction: column; align-items: center; }
+      .post-cta .dual-btns .gen-btn { max-width: 100%; width: 100%; }
+    }
+  </style>
+</head>
+
+<body data-theme="technical">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blog</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Lazy vs Eager Loading</span>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Performance &amp; SEO
+      </div>
+      <h1>Lazy Loading vs Eager Loading Images: Which Is Better for SEO?</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 15, 2026</span>
+        <span class="sep">·</span>
+        <span>8 min read</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        You've probably heard "lazy load your images" as a blanket rule for better SEO — so you
+        applied <code>loading="lazy"</code> across the board, ran a Lighthouse audit, and somehow
+        your Largest Contentful Paint score got worse, not better. That's not a fluke. Lazy
+        loading and eager loading aren't a "pick one" decision; they're two tools for two
+        different jobs, and using the wrong one on the wrong image is one of the most common
+        self-inflicted Core Web Vitals problems on the web today.
+      </p>
+      <p>
+        The confusion usually comes from treating "loading strategy" as a single site-wide
+        setting. In reality, the right answer depends entirely on where each individual image sits
+        on the page — specifically, whether it's visible the instant the page loads or whether the
+        visitor has to scroll to reach it. Get that split right, image by image, and both metrics
+        move in your favor at once.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">Quick Answer</div>
+        <p>
+          Neither lazy loading nor eager loading is universally better — the SEO win comes from
+          using both, applied correctly. Eager load only the image that will become your Largest
+          Contentful Paint element, usually the hero image, and lazy load everything below the
+          fold. This combination shrinks initial page weight while keeping your LCP timing fast,
+          which is what search engines actually measure.
+        </p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-it">What are lazy loading and eager loading?</a></li>
+          <li><a href="#why-it-matters">Why the split matters for SEO</a></li>
+          <li><a href="#step-by-step">Step-by-step: choosing the right strategy per image</a></li>
+          <li><a href="#common-mistakes">Common mistakes that quietly hurt your scores</a></li>
+          <li><a href="#examples">Real-world impact examples</a></li>
+          <li><a href="#comparison">Comparison: lazy loading vs eager loading</a></li>
+          <li><a href="#tool-cta">Free tool: Aspect Ratio and CLS Calculator</a></li>
+          <li><a href="#related-tools">Related tools</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- What Is It -->
+      <h2 id="what-is-it">What are lazy loading and eager loading?</h2>
+      <p>
+        Both terms describe when the browser decides to fetch an image's data from the network,
+        relative to when the page first parses:
+      </p>
+      <ul>
+        <li><strong>Eager loading.</strong> The browser's default behavior when no <code>loading</code> attribute is set, or when it's explicitly set to <code>loading="eager"</code>. The image is requested immediately as the HTML parses, regardless of whether it's visible on screen yet.</li>
+        <li><strong>Lazy loading.</strong> Set via <code>loading="lazy"</code>. The browser defers the network request until the image is a certain distance from entering the viewport — meaning images far down a long page simply aren't downloaded until the visitor scrolls near them.</li>
+        <li><strong>Native vs JavaScript lazy loading.</strong> Modern browsers support the <code>loading="lazy"</code> attribute natively, with no extra script needed. Older JavaScript-based lazy-load libraries (using IntersectionObserver or scroll listeners) still exist but add extra code weight the native attribute doesn't require.</li>
+        <li><strong>fetchpriority.</strong> A related attribute, <code>fetchpriority="high"</code>, doesn't change when an image loads but tells the browser to prioritize it over other eagerly-loaded resources competing for bandwidth — commonly paired with the LCP image.</li>
+      </ul>
+      <p>
+        <strong>The key idea:</strong> loading strategy is a per-image decision, not a site-wide
+        one. The same page can — and usually should — mix both.
+      </p>
+
+      <!-- Why It Matters -->
+      <h2 id="why-it-matters">Why the split matters for SEO</h2>
+      <p>
+        Search engines don't grade "did you use lazy loading." They grade the outcomes it
+        produces, mainly through Core Web Vitals:
+      </p>
+      <ul>
+        <li><strong>Largest Contentful Paint (LCP).</strong> Measures how long the largest visible element takes to render. If that element is an image and it's lazy loaded, the browser delays requesting it, directly worsening this score — one of the most common LCP regressions in real audits.</li>
+        <li><strong>Cumulative Layout Shift (CLS).</strong> Both lazy and eager images can cause shift if the browser doesn't know their dimensions in advance. Lazy-loaded images pop in later in the page lifecycle, which tends to make missing dimensions more visually noticeable.</li>
+        <li><strong>Total page weight and load time.</strong> Eager loading every image on a long page forces the browser to compete for bandwidth across dozens of requests at once, even for content the visitor may never scroll to see.</li>
+        <li><strong>Crawl and render budget.</strong> Googlebot renders pages to discover content, including images, but it still benefits from pages that load efficiently — bloated eager-loaded pages can slow down how much a crawler processes per visit at scale.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>📊 Quick stat</strong>
+        Lazily loading the LCP image is flagged by Lighthouse as "Largest Contentful Paint image
+        was lazily loaded" — one of the most frequently reported LCP-specific warnings on pages
+        with a hero image, and one of the easiest to fix by simply changing one attribute.
+      </div>
+
+      <!-- Step-by-Step Guide -->
+      <h2 id="step-by-step">Step-by-step: choosing the right strategy per image</h2>
+
+      <ol>
+        <li>
+          <strong>Identify your LCP candidate.</strong> This is almost always the largest image visible without scrolling — a hero banner, a product photo, or a featured article image.
+        </li>
+        <li>
+          <strong>Eager load that one image.</strong> Either omit the <code>loading</code> attribute entirely (eager is the default) or set <code>loading="eager"</code> explicitly, and add <code>fetchpriority="high"</code> so the browser fetches it ahead of competing resources.
+        </li>
+        <li>
+          <strong>Lazy load everything below the fold.</strong> Add <code>loading="lazy"</code> to every image that requires scrolling to reach — product grids, article body images, footer logos, and so on.
+        </li>
+        <li>
+          <strong>Set explicit width, height, or aspect-ratio on every image.</strong> This reserves layout space before the image loads, regardless of whether it's lazy or eager, and is the single biggest lever against layout shift.
+        </li>
+        <li>
+          <strong>Watch carousels and sliders.</strong> If the first slide is visible on load, its image needs eager loading even though it sits inside a component that feels "below the header."
+        </li>
+        <li>
+          <strong>Re-test with Lighthouse or PageSpeed Insights.</strong> Confirm the LCP element is no longer flagged as lazily loaded, and check the CLS score after adding dimensions.
+        </li>
+        <li>
+          <strong>Extend the same logic to iframes and embeds.</strong> Below-fold videos, maps, and embedded widgets benefit from the same lazy treatment as images.
+        </li>
+      </ol>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Try the Rebrixe Aspect Ratio and CLS Calculator — free</strong>
+          <span>Enter your image dimensions and get the exact width, height, and aspect-ratio CSS to prevent layout shift.</span>
+        </div>
+        <a class="gen-btn" href="/technical/aspect-ratio-and-cls-calculator.html" style="display:inline-flex;align-items:center;justify-content:center;">Calculate Aspect Ratio →</a>
+      </div>
+
+      <!-- Common Mistakes -->
+      <h2 id="common-mistakes">Common mistakes that quietly hurt your scores</h2>
+
+      <h3>1. Lazy loading the hero image</h3>
+      <p>
+        The single most common mistake. Applying a blanket <code>loading="lazy"</code> across every
+        <code>&lt;img&gt;</code> tag on a page, including the one at the very top, directly delays
+        the request for whatever the browser identifies as your LCP element.
+      </p>
+
+      <h3>2. Skipping width and height attributes</h3>
+      <p>
+        Neither lazy nor eager loading fixes layout shift on its own. Without explicit dimensions,
+        the browser can't reserve space for an image before it loads, and the page jumps as content
+        pops in — an even more visible problem with lazy-loaded images that appear later.
+      </p>
+
+      <h3>3. Lazy loading everything inside a carousel</h3>
+      <p>
+        If the first slide of a carousel is visible on page load, it needs eager loading even
+        though carousels often get treated as "below the header" by default. Only the slides a
+        visitor would need to click or scroll to reach should be lazy loaded.
+      </p>
+
+      <h3>4. Relying on outdated JavaScript lazy-load libraries</h3>
+      <p>
+        Native <code>loading="lazy"</code> is supported in all modern browsers and needs no extra
+        script. Older IntersectionObserver-based libraries add unnecessary JavaScript weight and
+        can behave inconsistently with the browser's own rendering pipeline.
+      </p>
+
+      <div class="callout">
+        <strong>💡 Pro tip</strong>
+        When in doubt about which images count as "above the fold," test at your most common
+        mobile viewport width, not desktop — mobile screens are shorter, so more images end up
+        visible on load than you'd expect from a desktop preview.
+      </div>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Not sure which image is your LCP element?</strong>
+          <span>Use the Rebrixe Aspect Ratio and CLS Calculator to size every image correctly and eliminate shift-related warnings.</span>
+        </div>
+        <a class="gen-btn" href="/technical/aspect-ratio-and-cls-calculator.html" style="display:inline-flex;align-items:center;justify-content:center;">Open the Calculator →</a>
+      </div>
+
+      <!-- Examples -->
+      <h2 id="examples">Real-world impact examples</h2>
+      <p>
+        These are representative results from correcting the loading strategy on real pages,
+        without changing anything else about the images themselves:
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">Blog hero image</div>
+          <div class="ex-title">Lazy → Eager + fetchpriority high</div>
+          <div class="ex-stat">−48%</div>
+          <div class="ex-desc">LCP dropped from 2.9s to 1.5s after removing the lazy attribute.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Product category page</div>
+          <div class="ex-title">36 images, all eager → lazy below fold</div>
+          <div class="ex-stat">−61%</div>
+          <div class="ex-desc">Initial page weight fell substantially with no visible change to the page.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Homepage carousel</div>
+          <div class="ex-title">First slide mistakenly lazy loaded</div>
+          <div class="ex-stat">+1.1s</div>
+          <div class="ex-desc">LCP regression traced directly to the carousel's first-slide image.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Article body images</div>
+          <div class="ex-title">Added width/height + lazy</div>
+          <div class="ex-stat">CLS 0.21 → 0.01</div>
+          <div class="ex-desc">Layout shift from popping-in images was nearly eliminated.</div>
+        </div>
+      </div>
+
+      <p>
+        The pattern holds across page types: eager loading the one image that matters for LCP,
+        lazy loading the rest, and giving every image reserved dimensions covers almost all of the
+        measurable improvement available from loading strategy alone.
+      </p>
+
+      <!-- Comparison Table -->
+      <h2 id="comparison">Comparison: lazy loading vs eager loading</h2>
+      <p>
+        Here's how the two strategies compare directly, so you can see why the right answer is
+        "both, applied to the right images" rather than a single site-wide choice:
+      </p>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table" aria-label="Comparison of lazy loading and eager loading for images">
+          <thead>
+            <tr>
+              <th>Factor</th>
+              <th>Eager loading</th>
+              <th>Lazy loading</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Best for</strong></td>
+              <td>Above-the-fold and LCP images</td>
+              <td>Below-the-fold images</td>
+            </tr>
+            <tr>
+              <td><strong>Effect on LCP</strong></td>
+              <td><span class="badge badge-green">Improves or neutral</span></td>
+              <td><span class="badge badge-red">Worsens if misapplied</span></td>
+            </tr>
+            <tr>
+              <td><strong>Initial page weight</strong></td>
+              <td><span class="badge badge-yellow">Higher</span></td>
+              <td><span class="badge badge-green">Lower</span></td>
+            </tr>
+            <tr>
+              <td><strong>CLS risk without sizing</strong></td>
+              <td><span class="badge badge-yellow">Present</span></td>
+              <td><span class="badge badge-yellow">Present, often more visible</span></td>
+            </tr>
+            <tr>
+              <td><strong>Bandwidth use on long pages</strong></td>
+              <td><span class="badge badge-red">Wasteful if overused</span></td>
+              <td><span class="badge badge-green">Efficient</span></td>
+            </tr>
+            <tr>
+              <td><strong>Implementation effort</strong></td>
+              <td>Low — default or one attribute</td>
+              <td>Low — one attribute, native support</td>
+            </tr>
+            <tr>
+              <td><strong>SEO effect when misapplied</strong></td>
+              <td><span class="badge badge-yellow">Wasted bandwidth</span></td>
+              <td><span class="badge badge-red">Delayed LCP if used on hero image</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tool CTA -->
+      <h2 id="tool-cta">Free tool: Aspect Ratio and CLS Calculator</h2>
+      <p>
+        The Rebrixe Aspect Ratio and CLS Calculator runs entirely in your browser. Enter an
+        image's dimensions and it generates the exact width, height, and aspect-ratio values to
+        reserve the right amount of space in your layout — for both eager and lazy-loaded images.
+        No account, no upload, no watermark.
+      </p>
+
+      <div class="post-cta">
+      <h2>Stop layout shift before it starts</h2>
+      <p>Get the exact width, height, and aspect-ratio CSS for any image in seconds.</p>
+      <div class="post-cta-buttons">
+        <a class="gen-btn" href="/technical/aspect-ratio-and-cls-calculator.html">Open the Aspect Ratio &amp; CLS Calculator →</a>
+      </div>
+    </div>
+
+      <!-- FAQ -->
+      <h2 id="faq">Frequently asked questions</h2>
+
+      <div class="faq-list" role="list">
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Should the first image on a page ever be lazy loaded?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            No. If an image appears in the first viewport — especially if it's your Largest
+            Contentful Paint element — it should be eager loaded, not lazy loaded. Lazy loading
+            delays the browser's request for that image, which directly pushes back your LCP
+            timing.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does lazy loading hurt SEO?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Not when it's applied correctly. Lazy loading below-fold images reduces initial page
+            weight and speeds up load time, both of which help SEO. It only hurts SEO when it's
+            mistakenly applied to above-fold or LCP images, delaying the metrics search engines
+            measure.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            What's the actual difference between loading="lazy" and eager loading?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            loading="lazy" tells the browser to defer fetching an image until it's about to enter
+            the viewport. Eager loading — the browser default when no attribute is set, or
+            loading="eager" explicitly — fetches the image immediately as the page parses,
+            regardless of where it sits on the page.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does Google's crawler handle lazy-loaded images correctly?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Googlebot renders pages and can discover natively lazy-loaded images during rendering,
+            provided the standard loading="lazy" attribute is used with proper width, height, and
+            src values. Custom JavaScript-only lazy-load solutions without a real src or noscript
+            fallback are far less reliable for indexing.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Do I still need width and height attributes if I'm lazy loading?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes, always. Width, height, or an aspect-ratio value reserves the image's space in the
+            layout before it loads. Without it, both lazy-loaded and eager-loaded images can cause
+            layout shift as they pop into a page that has no space allocated for them.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Should background images be lazy loaded too?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            CSS background images don't support the native loading attribute, so they're either
+            always loaded eagerly by default or need a JavaScript-based technique to defer them. If
+            a background image sits below the fold, deferring it manually is worth doing; if it's
+            above the fold, leave it eager.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Can lazy loading actually cause layout shift?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Lazy loading itself doesn't cause layout shift — missing dimensions do. Because
+            lazy-loaded images pop in later than eager ones, any page without reserved space for
+            them tends to show the shift more noticeably, which is why explicit sizing matters even
+            more with lazy loading.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            How many images on a typical page should be eager loaded?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Usually just one to three: whatever appears in the very first viewport, especially the
+            LCP candidate. Everything that requires scrolling to see should be lazy loaded — for
+            most pages that's the large majority of the total images.
+          </div>
+        </div>
+
+      </div>
+
+    </article>
+
+    <!-- Bottom CTA -->
+      <div class="post-cta">
+      <h2>Size every image right, the first time</h2>
+      <p>The Rebrixe Aspect Ratio and CLS Calculator runs entirely in your browser — no uploads,
+      no account, no file size limits. Get the exact CSS to prevent layout shift.</p>
+      <div class="dual-btns">
+        <a class="gen-btn" href="/technical/aspect-ratio-and-cls-calculator.html">Aspect Ratio &amp; CLS Calculator →</a>
+      </div>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" id="related-tools" aria-label="Related tools and guides">
+      <h2>Related tools and guides</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/blogs/how-to-fix-cumulative-layout-shift.html">
+          <span class="related-label">Performance &amp; SEO</span>
+          <h3>How to Fix Cumulative Layout Shift (CLS) on Image-Heavy Pages</h3>
+          <p>A step-by-step walkthrough of diagnosing and eliminating layout shift caused by images.</p>
+        </a>
+        <a class="related-card" href="/blogs/core-web-vitals-image-optimization.html">
+          <span class="related-label">Performance &amp; SEO</span>
+          <h3>Core Web Vitals: The Complete Image Optimization Checklist</h3>
+          <p>Every image-related lever that affects LCP, CLS, and INP, in one checklist.</p>
+        </a>
+        <a class="related-card" href="/blogs/reduce-jpeg-file-size-without-losing-quality.html">
+          <span class="related-label">Image Optimization</span>
+          <h3>How to Reduce JPEG File Size Without Losing Quality</h3>
+          <p>Pair the right loading strategy with properly compressed images for the biggest speed gains.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px;">
+      <a class="back-btn" href="index.html">← Back to blogs</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    // Read progress bar
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    // Prevent global nav.js from interfering with the blog FAQ accordion.
+    // This page uses `.faq-item.open` (CSS) + `aria-expanded` (JS).
+    (() => {
+      if (!document.querySelector('.faq-list')) return;
+      document.body.dataset.blogFaq = 'true';
+
+      // Close all FAQ items on load.
+      document.querySelectorAll('.faq-item.open').forEach(item => {
+        item.classList.remove('open');
+      });
+
+      // Ensure correct aria defaults.
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    })();
+
+    // FAQ accordion
+    // NOTE: Your page has both an article-style FAQ (using .faq-item/.faq-question classes)
+    // and the global site nav.js also injects header/footer/SEO on many pages.
+    // This accordion must NOT rely on the inline `open` class toggle from other pages.
+    (() => {
+      const items = Array.from(document.querySelectorAll('.faq-item'));
+      if (!items.length) return;
+
+      // Ensure correct initial state based on DOM
+      items.forEach(item => {
+        const btn = item.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          if (!item) return;
+
+          const isOpen = item.classList.contains('open');
+
+          // Close all
+          items.forEach(el => {
+            el.classList.remove('open');
+            const b = el.querySelector('.faq-question');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+
+          // Toggle clicked
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    // Footer
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why Your Image Looks Blurry After Resizing (And How to Fix It) | Rebrixe</title>
+  <meta name="description" content="Resized an image and it came out blurry or stretched? Here's exactly why that happens, what's going on inside the resize algorithm, and how to fix it every time.">
+  <meta name="keywords" content="image blurry after resizing, image stretched, resize image without losing quality, image resizer without stretching, why does resizing blur images, aspect ratio distortion">
+
+  <meta property="og:title" content="Why Your Image Looks Blurry After Resizing (And How to Fix It)">
+  <meta property="og:description" content="Resized an image and it came out blurry or stretched? Here's exactly why that happens and how to fix it every time.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/why-image-looks-blurry-after-resizing.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Why Your Image Looks Blurry After Resizing (And How to Fix It)",
+    "description": "Resized an image and it came out blurry or stretched? Here's exactly why that happens, what's going on inside the resize algorithm, and how to fix it every time.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-13",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/why-image-looks-blurry-after-resizing.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why does my image get blurry when I make it smaller?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Shrinking an image should sharpen, not blur it — if it's blurring, the resize tool is likely using a low-quality algorithm (nearest-neighbor or basic bilinear) or applying no sharpening pass after downscaling. Multiple detail-rich pixels get averaged into one, and without a proper resampling filter that averaging looks soft and mushy instead of crisp." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does my image get blurry when I make it bigger?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Enlarging an image forces software to invent pixels that were never captured. Every algorithm does this by guessing values based on nearby pixels, and no amount of guessing recreates real detail. The larger the enlargement, the more invented pixels there are relative to real ones, and the blurrier or blockier the result looks." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does my image look stretched instead of just blurry?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Stretching happens when width and height are changed by different percentages, breaking the original aspect ratio. A 1200×800 image resized to 1200×1000 without locking the ratio squashes or stretches every object in the frame. This is a different problem from blur — the fix is locking the aspect ratio or letterboxing/cropping to fit, not choosing a better algorithm." }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the best resampling method to avoid blur?",
+        "acceptedAnswer": { "@type": "Answer", "text": "For shrinking photos, Lanczos or bicubic resampling gives the sharpest, most accurate results. For enlarging, bicubic with a mild sharpening pass afterward works well for moderate upscales; AI super-resolution tools produce noticeably better results for large upscales because they reconstruct plausible detail instead of just interpolating." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I resize an image without losing any quality?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Shrinking with a good resampling algorithm preserves visual quality extremely well since you're discarding detail the eye won't miss. Enlarging always involves some quality trade-off because new pixel data must be invented, though modern AI upscalers can make that trade-off nearly invisible for moderate size increases." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does resizing in Word or PowerPoint make images look worse?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Office apps typically use fast, low-quality resampling (often nearest-neighbor or simple bilinear) because they're optimized for speed and document size, not image fidelity. Dragging a corner handle to enlarge an image in these tools is one of the most common causes of visibly blurry images in reports and presentations." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Page-level variables (mirrors the existing site palette) ── */
+    :root {
+      --primary: #6366f1;
+      --primary-rgb: 99, 102, 241;
+      --glow: rgba(99,102,241,0.45);
+      --glass: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --card: rgba(15,17,26,0.85);
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Post body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 60px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 36px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body h4 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      color: rgba(241,245,249,0.80);
+      margin: 24px 0 8px;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 1px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99,102,241,0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Callout box ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Quick Answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.30);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10) 0%, var(--glass) 100%);
+      padding: 24px 26px;
+      margin: 0 0 44px;
+    }
+    .quick-answer-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.3px;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+    .quick-answer p {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.72;
+      color: rgba(241,245,249,0.90);
+    }
+
+    /* ── Data table ── */
+    .data-table-wrap {
+      overflow-x: auto;
+      margin: 32px 0;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.91rem;
+    }
+    .data-table thead tr {
+      border-bottom: 1px solid rgba(99,102,241,0.25);
+      background: rgba(99,102,241,0.08);
+    }
+    .data-table th {
+      padding: 13px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+    .data-table td {
+      padding: 12px 18px;
+      color: rgba(241,245,249,0.78);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .data-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: rgba(99,102,241,0.05); }
+    .tag {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.71rem;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .tag-green  { background: rgba(34,197,94,0.12);  color: #4ade80; }
+    .tag-yellow { background: rgba(234,179,8,0.12);  color: #fbbf24; }
+    .tag-red    { background: rgba(239,68,68,0.12);  color: #f87171; }
+    .tag-blue   { background: rgba(99,102,241,0.14); color: #a5b4fc; }
+
+    /* ── Stat strip ── */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin: 36px 0;
+    }
+    .stat-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px 18px;
+      text-align: center;
+    }
+    .stat-card .num {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      font-weight: 900;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -1.5px;
+      line-height: 1;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .stat-card .label {
+      font-size: 0.78rem;
+      color: rgba(241,245,249,0.50);
+      line-height: 1.4;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb),0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb),0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .inline-cta .gen-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ── Table of contents ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Reason card grid ── */
+    .reason-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin: 32px 0;
+    }
+    .reason-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 22px 24px;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+    .reason-num {
+      min-width: 36px; height: 36px;
+      border-radius: 10px;
+      background: rgba(var(--primary-rgb), 0.14);
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .reason-body .reason-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      color: #f1f5f9;
+      margin-bottom: 5px;
+      letter-spacing: -0.3px;
+    }
+    .reason-body p {
+      margin: 0;
+      font-size: 0.93rem;
+      color: rgba(241,245,249,0.65);
+      line-height: 1.62;
+    }
+
+    /* ── Step list ── */
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin: 28px 0;
+    }
+    .step-item {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+    .step-badge {
+      min-width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--primary);
+      box-shadow: 0 0 18px var(--glow);
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-content .step-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      color: #f1f5f9;
+      margin-bottom: 5px;
+      letter-spacing: -0.3px;
+    }
+    .step-content p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: rgba(241,245,249,0.70);
+      line-height: 1.65;
+    }
+
+    /* ── Example scenario cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+      margin: 28px 0;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 22px 22px;
+    }
+    .example-card .ex-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      color: #f1f5f9;
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .example-card .ex-row:last-child { border-bottom: none; }
+    .example-card .ex-row .ex-key { color: rgba(241,245,249,0.55); }
+    .example-card .ex-row .ex-val { color: rgba(241,245,249,0.90); font-weight: 700; }
+    .example-card .ex-row .ex-val.good  { color: #4ade80; }
+    .example-card .ex-row .ex-val.bad   { color: #f87171; }
+
+    /* ── Post CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb),0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb),0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn {
+      max-width: 320px;
+      margin: 0 auto;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 32px;
+      border-radius: 14px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .post-cta .gen-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ── Related posts ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+      border: none;
+      padding: 0;
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb),0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Back button ── */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .back-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── FAQ section ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 28px 0;
+    }
+    .faq-item {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-q {
+      padding: 18px 22px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #f1f5f9;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      list-style: none;
+      user-select: none;
+    }
+    .faq-q::-webkit-details-marker { display: none; }
+    .faq-icon {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      background: rgba(var(--primary-rgb), 0.14);
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    details[open] .faq-icon { background: rgba(var(--primary-rgb), 0.28); }
+    .faq-a {
+      padding: 0 22px 18px;
+      font-size: 0.95rem;
+      color: rgba(241,245,249,0.72);
+      line-height: 1.72;
+    }
+
+    /* ── Mistake list ── */
+    .mistake-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin: 28px 0;
+    }
+    .mistake-item {
+      border-radius: 14px;
+      border: 1px solid rgba(239,68,68,0.18);
+      background: rgba(239,68,68,0.04);
+      padding: 18px 22px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .mistake-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .mistake-body .mistake-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.97rem;
+      color: #f87171;
+      margin-bottom: 5px;
+    }
+    .mistake-body p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: rgba(241,245,249,0.65);
+      line-height: 1.62;
+    }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .post-body h2 { font-size: 1.3rem; }
+      .stat-strip { grid-template-columns: repeat(2, 1fr); }
+      .example-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body data-theme="image-visual">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <!-- Breadcrumb -->
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blogs</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Why Your Image Looks Blurry After Resizing</span>
+    </nav>
+
+    <!-- Post Header -->
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Image Optimization
+      </div>
+      <h1>Why Your Image Looks Blurry After Resizing (And How to Fix It)</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 13, 2026</span>
+        <span class="sep">·</span>
+        <span>~9 min read</span>
+        <span class="sep">·</span>
+        <span>~2,300 words</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        You drag a corner handle to make an image bigger, or you punch a new width into a resize field, and the result looks... off. Soft edges. Fuzzy text. Faces that used to look sharp now look like they were shot through fogged glass. You didn't touch the compression settings, you didn't lower the quality slider — you just resized it. So why does the image look worse?
+      </p>
+      <p>
+        The frustrating part is that resizing feels like it should be a purely mechanical operation: the computer just needs to make the picture bigger or smaller, right? But behind that simple action is an algorithm making thousands of guesses about pixels that don't actually exist yet — or throwing away pixels that did. Get the wrong tool, the wrong algorithm, or the wrong aspect ratio, and blur (or worse, stretching) is the inevitable result.
+      </p>
+      <p>
+        This guide breaks down exactly what happens inside a resize operation, why blur shows up specifically when you enlarge (and sometimes when you shrink), and the precise steps to resize any image — up or down — without losing sharpness or distorting the shot.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">⚡ Quick Answer</div>
+        <p>Images look blurry after resizing because the software has to invent or discard pixel data that was never actually captured. Enlarging forces the algorithm to guess new pixel values between existing ones; shrinking with a poor algorithm averages detail into mush. The fix: use a high-quality resampling method (bicubic or Lanczos), lock the aspect ratio to avoid stretching, keep upscaling modest, and apply a light sharpening pass afterward.</p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-resampling">What's actually happening when you resize an image</a></li>
+          <li><a href="#why-it-matters">Why resize quality matters</a></li>
+          <li><a href="#real-reasons">The real reasons resizing causes blur</a></li>
+          <li><a href="#how-to-fix">Step-by-step: how to resize without losing quality</a></li>
+          <li><a href="#common-mistakes">Common mistakes that make resized images worse</a></li>
+          <li><a href="#examples">Real-world examples</a></li>
+          <li><a href="#comparison">Resampling algorithms compared</a></li>
+          <li><a href="#faqs">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="what-is-resampling">1. What's actually happening when you resize an image</h2>
+
+      <p>
+        A digital image is a fixed grid of pixels — a 1200×800 photo has exactly 960,000 of them, each with an exact color value, and not one pixel more. When you resize that image to a different grid size, the software can't simply "stretch" the original pixels onto the new grid, because the new grid almost never lines up with the old one. Instead, it runs a process called resampling.
+      </p>
+
+      <p>
+        Resampling calculates a brand-new value for every pixel in the target size by looking at nearby pixels in the source image and applying a mathematical formula — an algorithm — to estimate what that new pixel should look like. Different algorithms make this estimate differently, and the quality of that estimate is the single biggest factor in whether your resized image looks sharp or blurry.
+      </p>
+
+      <p>
+        Shrinking an image (downscaling) means combining many source pixels into fewer target pixels — essentially averaging detail down. Enlarging an image (upscaling) means the opposite: spreading fewer source pixels across more target pixels, which requires inventing pixel values that were never in the original photo at all.
+      </p>
+
+      <div class="callout">
+        <strong>📌 The key trade-off</strong>
+        Downscaling is mathematically forgiving — you're discarding detail the eye won't miss if the algorithm is good. Upscaling is mathematically harder — you're asking software to hallucinate detail that was never captured. This is why enlarging an image almost always looks softer than the original, no matter which tool you use.
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="why-it-matters">2. Why resize quality matters</h2>
+
+      <p>
+        Blurry or stretched images aren't just a cosmetic annoyance — they actively undermine trust, readability, and conversion on anything they appear in. A blurry product photo reads as low-effort or untrustworthy. A stretched headshot on a team page looks like a mistake nobody caught. A soft hero banner drags down the perceived quality of an entire site.
+      </p>
+
+      <div class="stat-strip">
+        <div class="stat-card">
+          <span class="num">75%</span>
+          <span class="label">of users judge a site's credibility partly by its visual design quality</span>
+        </div>
+        <div class="stat-card">
+          <span class="num">2×</span>
+          <span class="label">as many source pixels needed to enlarge cleanly to 2× the original size</span>
+        </div>
+        <div class="stat-card">
+          <span class="num">100%</span>
+          <span class="label">of stretching distortion is fixable by locking the aspect ratio</span>
+        </div>
+        <div class="stat-card">
+          <span class="num">1</span>
+          <span class="label">bad resample is often all it takes to make a photo unusable at full size</span>
+        </div>
+      </div>
+
+      <p>
+        Beyond aesthetics, resize quality affects functional things too: thumbnails that need to remain legible at small sizes, print materials where softness becomes obvious at high DPI, and responsive websites serving the same source image across many different display widths. Getting resize quality right once, with the right method, saves you from re-shooting or re-sourcing images later.
+      </p>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="real-reasons">3. The real reasons resizing causes blur</h2>
+
+      <p>
+        There are several distinct causes, and most blurry resized images have more than one of them stacked together.
+      </p>
+
+      <div class="reason-grid">
+        <div class="reason-card">
+          <div class="reason-num">1</div>
+          <div class="reason-body">
+            <div class="reason-title">Upscaling invents pixels that don't exist</div>
+            <p>Enlarging an image beyond its native resolution forces the algorithm to guess values for pixels that were never captured by the camera or created in the design tool. No formula can recreate real detail — it can only produce a plausible-looking average of what's nearby, which is inherently softer than genuine detail.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">2</div>
+          <div class="reason-body">
+            <div class="reason-title">Low-quality resampling algorithms</div>
+            <p>Nearest-neighbor resampling — the fastest, crudest method — just duplicates or drops pixels with no blending, producing blocky or jagged results. Basic bilinear resampling blends only the 4 nearest pixels, which is better but still noticeably soft compared to bicubic or Lanczos, which sample a wider neighborhood and produce far sharper results.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">3</div>
+          <div class="reason-body">
+            <div class="reason-title">Aspect ratio distortion (stretching, not blur)</div>
+            <p>When width and height are changed by different percentages, every object in the frame gets squashed or stretched — circles become ovals, faces widen or narrow. This is often mistaken for blur but is a completely different problem: the pixels are sharp, they're just in the wrong place relative to each other.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">4</div>
+          <div class="reason-body">
+            <div class="reason-title">Repeated resizing (generation loss)</div>
+            <p>Resizing an already-resized image compounds the softness. Each resampling pass introduces a small amount of blur; do it three or four times across different tools or edits, and the cumulative effect becomes obvious even though no single step looked dramatic on its own.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">5</div>
+          <div class="reason-body">
+            <div class="reason-title">No sharpening pass after downscaling</div>
+            <p>Even good downscaling algorithms slightly soften fine detail, like text edges or hair strands, because they're averaging multiple source pixels into one. Professional workflows apply a small unsharp-mask pass after resizing specifically to counteract this — a step most consumer tools skip entirely.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">6</div>
+          <div class="reason-body">
+            <div class="reason-title">Starting from a low-resolution source</div>
+            <p>If the source image is already small — a screenshot, a compressed social media download, a thumbnail — there simply isn't enough real pixel data to work with. Any enlargement from an undersized source will look soft, because the fix has to happen before the resize, not during it.</p>
+          </div>
+        </div>
+        <div class="reason-card">
+          <div class="reason-num">7</div>
+          <div class="reason-body">
+            <div class="reason-title">Browsers and apps resizing on the fly</div>
+            <p>Displaying a large image in a small CSS container, or a small image in a large one, triggers the browser's own built-in resampling — often a fast, low-quality method optimized for rendering speed rather than sharpness. This is why an image can look sharp when opened directly but blurry when embedded on a page.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="how-to-fix">4. Step-by-step: how to resize without losing quality</h2>
+
+      <p>
+        These steps are ordered by impact. Do them in sequence — each one prevents a different source of blur or distortion.
+      </p>
+
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-badge">1</div>
+          <div class="step-content">
+            <div class="step-title">Start from the highest-resolution source you have</div>
+            <p>Never resize a resized copy, a screenshot, or a compressed download if the original file is available. Every resampling pass loses a little sharpness — always work from the largest, least-processed version of the image you can find.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">2</div>
+          <div class="step-content">
+            <div class="step-title">Lock the aspect ratio before you touch anything else</div>
+            <p>Calculate your target dimensions using the original ratio (width ÷ height) before resizing. If the space you're filling has a different ratio than the source photo, crop first — don't stretch. This single step eliminates all distortion-based blur entirely.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">3</div>
+          <div class="step-content">
+            <div class="step-title">Choose the right resampling algorithm for the direction</div>
+            <p>For shrinking: use bicubic or Lanczos resampling — both sample a wide neighborhood of pixels and produce noticeably sharper results than bilinear or nearest-neighbor. For enlarging: bicubic works well for modest increases (up to ~150%); beyond that, look for a tool with an AI-based super-resolution or upscaling mode.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">4</div>
+          <div class="step-content">
+            <div class="step-title">Keep upscaling modest</div>
+            <p>As a rule of thumb, avoid enlarging beyond 150–200% of the original size with standard resampling — beyond that, softness becomes visually obvious no matter which algorithm you use. If you need a much larger image, source a higher-resolution original instead of stretching a small one further.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">5</div>
+          <div class="step-content">
+            <div class="step-title">Apply a light sharpening pass after resizing</div>
+            <p>A small unsharp-mask or "sharpen" adjustment after the resize step counteracts the softening that resampling naturally introduces. Keep the effect subtle — oversharpening introduces its own artifacts (halos around edges), which look worse than mild softness.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">6</div>
+          <div class="step-content">
+            <div class="step-title">Export at the exact dimensions you need</div>
+            <p>Don't rely on the browser, CMS, or app to resize the image again at display time — that triggers a second, often lower-quality resample. Export the file at its final display size so it only goes through resampling once, under your control.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">7</div>
+          <div class="step-content">
+            <div class="step-title">Check the result at 100% zoom</div>
+            <p>Preview thumbnails can hide softness that becomes obvious at full size. Zoom to 100% and inspect edges, text, and faces specifically — these are the areas where blur and artifacts show up first and most noticeably.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Resize images without stretching or blur — free</strong>
+          <span>Locks the aspect ratio automatically and uses high-quality resampling. Runs entirely in your browser.</span>
+        </div>
+        <a class="gen-btn" href="/image-visual/image-resizer-without-stretching.html">Open Image Resizer →</a>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="common-mistakes">5. Common mistakes that make resized images worse</h2>
+
+      <div class="mistake-list">
+        <div class="mistake-item">
+          <div class="mistake-icon">✗</div>
+          <div class="mistake-body">
+            <div class="mistake-title">Dragging a corner handle without locking proportions</div>
+            <p>Manually dragging a resize handle in Word, PowerPoint, or a design tool without holding the proportion-lock key almost always distorts the image slightly, even when the change looks small on screen. Always use a locked-ratio resize field instead of a freeform drag.</p>
+          </div>
+        </div>
+        <div class="mistake-item">
+          <div class="mistake-icon">✗</div>
+          <div class="mistake-body">
+            <div class="mistake-title">Enlarging a small image to "make it fit"</div>
+            <p>Stretching a 400×300 thumbnail up to 1600×1200 doesn't recover the missing detail — it just spreads the existing blur and compression artifacts over a larger area, making them more visible, not less. Source a larger original instead.</p>
+          </div>
+        </div>
+        <div class="mistake-item">
+          <div class="mistake-icon">✗</div>
+          <div class="mistake-body">
+            <div class="mistake-title">Resizing the same file multiple times across tools</div>
+            <p>Resizing once in a phone gallery app, again in a design tool, and again on upload to a CMS compounds softness with every pass. Resize once, from the original source, directly to the final target size.</p>
+          </div>
+        </div>
+        <div class="mistake-item">
+          <div class="mistake-icon">✗</div>
+          <div class="mistake-body">
+            <div class="mistake-title">Using nearest-neighbor for photos</div>
+            <p>Nearest-neighbor resampling is fast and fine for pixel art or diagrams with hard edges, but it produces blocky, jagged results on photographs. Most consumer tools default to a faster, lower-quality method for speed — check your resize tool's algorithm setting if one is available.</p>
+          </div>
+        </div>
+        <div class="mistake-item">
+          <div class="mistake-icon">✗</div>
+          <div class="mistake-body">
+            <div class="mistake-title">Letting the browser resize the full-size original</div>
+            <p>Uploading a 4000×3000 photo and just shrinking it with CSS width/height means the visitor downloads the full file and the browser resamples it on the fly — usually with a fast, lower-quality method. Always export a properly resized file instead of relying on display-time scaling.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="examples">6. Real-world examples</h2>
+
+      <p>
+        These examples show exactly what's happening at each stage of a resize on common use cases.
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">Example 1</div>
+          <div class="ex-title">Team headshot dragged wider in a slide deck</div>
+          <div class="ex-row"><span class="ex-key">Original</span><span class="ex-val">800×800 (1:1)</span></div>
+          <div class="ex-row"><span class="ex-key">Dragged to</span><span class="ex-val bad">1100×800 (stretched)</span></div>
+          <div class="ex-row"><span class="ex-key">Fix: locked ratio resize</span><span class="ex-val">800×800 → 1100×1100</span></div>
+          <div class="ex-row"><span class="ex-key">Then cropped to slot</span><span class="ex-val good">Sharp, undistorted</span></div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Example 2</div>
+          <div class="ex-title">Product photo enlarged for a hero banner</div>
+          <div class="ex-row"><span class="ex-key">Original resolution</span><span class="ex-val">900×600</span></div>
+          <div class="ex-row"><span class="ex-key">Naive upscale to</span><span class="ex-val bad">1800×1200 (blurry)</span></div>
+          <div class="ex-row"><span class="ex-key">Bicubic + sharpen pass</span><span class="ex-val">Noticeably crisper</span></div>
+          <div class="ex-row"><span class="ex-key">Best fix</span><span class="ex-val good">Re-source higher-res original</span></div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Example 3</div>
+          <div class="ex-title">Screenshot shrunk for a thumbnail</div>
+          <div class="ex-row"><span class="ex-key">Original</span><span class="ex-val">1920×1080</span></div>
+          <div class="ex-row"><span class="ex-key">Nearest-neighbor shrink</span><span class="ex-val bad">Jagged text edges</span></div>
+          <div class="ex-row"><span class="ex-key">Lanczos shrink</span><span class="ex-val good">Clean, legible text</span></div>
+          <div class="ex-row"><span class="ex-key">Target size</span><span class="ex-val">320×180</span></div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Example 4</div>
+          <div class="ex-title">Logo enlarged for a large-format print</div>
+          <div class="ex-row"><span class="ex-key">Source</span><span class="ex-val">PNG raster, 600×600</span></div>
+          <div class="ex-row"><span class="ex-key">Raster upscale to</span><span class="ex-val bad">3000×3000 (soft edges)</span></div>
+          <div class="ex-row"><span class="ex-key">Better approach</span><span class="ex-val good">Re-export from vector/SVG source</span></div>
+          <div class="ex-row"><span class="ex-key">Result</span><span class="ex-val good">Perfectly sharp at any size</span></div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="comparison">7. Resampling algorithms compared</h2>
+
+      <p>
+        Not all resize algorithms are built for the same job. Here's how the common ones compare for typical resize scenarios.
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Algorithm</th>
+              <th>Best For</th>
+              <th>Downscale Quality</th>
+              <th>Upscale Quality</th>
+              <th>Speed</th>
+              <th>Recommended</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Nearest-neighbor</td>
+              <td>Pixel art, hard-edge graphics</td>
+              <td>Poor (jagged)</td>
+              <td>Poor (blocky)</td>
+              <td>Fastest</td>
+              <td><span class="tag tag-red">Photos: Avoid</span></td>
+            </tr>
+            <tr>
+              <td>Bilinear</td>
+              <td>Quick previews, low-stakes resizing</td>
+              <td>Fair</td>
+              <td>Fair (soft)</td>
+              <td>Fast</td>
+              <td><span class="tag tag-yellow">Acceptable</span></td>
+            </tr>
+            <tr>
+              <td>Bicubic</td>
+              <td>General-purpose photo resizing</td>
+              <td>Good</td>
+              <td>Good (moderate upscale)</td>
+              <td>Moderate</td>
+              <td><span class="tag tag-green">Recommended</span></td>
+            </tr>
+            <tr>
+              <td>Lanczos</td>
+              <td>High-quality downscaling</td>
+              <td>Excellent</td>
+              <td>Good</td>
+              <td>Slower</td>
+              <td><span class="tag tag-green">Best for shrinking</span></td>
+            </tr>
+            <tr>
+              <td>AI super-resolution</td>
+              <td>Large upscales, restoring detail</td>
+              <td>N/A</td>
+              <td>Excellent</td>
+              <td>Slowest</td>
+              <td><span class="tag tag-blue">Best for enlarging</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The pattern is clear: there's no single "best" algorithm for every situation — the right choice depends on whether you're shrinking or enlarging, and how much. Lanczos or bicubic covers the vast majority of everyday resizing well; AI upscaling is worth reaching for only when you're enlarging significantly beyond the source resolution.
+      </p>
+
+      <div class="callout">
+        <strong>🖼️ The golden rule</strong>
+        You can't add detail that was never captured — you can only make smarter guesses about it. Whenever possible, resize down from a larger source rather than up from a smaller one. When enlarging is unavoidable, keep it modest and use the best algorithm your tool offers.
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <h2 id="faqs">8. Frequently asked questions</h2>
+
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary class="faq-q">
+            Why does my image get blurry when I make it smaller?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            Shrinking an image should sharpen, not blur it — if it's blurring, the resize tool is likely using a low-quality algorithm (nearest-neighbor or basic bilinear) or applying no sharpening pass after downscaling. Multiple detail-rich pixels get averaged into one, and without a proper resampling filter that averaging looks soft and mushy instead of crisp.
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            Why does my image get blurry when I make it bigger?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            Enlarging an image forces software to invent pixels that were never captured. Every algorithm does this by guessing values based on nearby pixels, and no amount of guessing recreates real detail. The larger the enlargement, the more invented pixels there are relative to real ones, and the blurrier or blockier the result looks.
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            Why does my image look stretched instead of just blurry?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            Stretching happens when width and height are changed by different percentages, breaking the original aspect ratio. A 1200×800 image resized to 1200×1000 without locking the ratio squashes or stretches every object in the frame. This is a different problem from blur — the fix is locking the aspect ratio or letterboxing/cropping to fit, not choosing a better algorithm.
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            What is the best resampling method to avoid blur?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            For shrinking photos, Lanczos or bicubic resampling gives the sharpest, most accurate results. For enlarging, bicubic with a mild sharpening pass afterward works well for moderate upscales; AI super-resolution tools produce noticeably better results for large upscales because they reconstruct plausible detail instead of just interpolating.
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            Can I resize an image without losing any quality?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            Shrinking with a good resampling algorithm preserves visual quality extremely well since you're discarding detail the eye won't miss. Enlarging always involves some quality trade-off because new pixel data must be invented, though modern AI upscalers can make that trade-off nearly invisible for moderate size increases.
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">
+            Why does resizing in Word or PowerPoint make images look worse?
+            <span class="faq-icon">+</span>
+          </summary>
+          <div class="faq-a">
+            Office apps typically use fast, low-quality resampling (often nearest-neighbor or simple bilinear) because they're optimized for speed and document size, not image fidelity. Dragging a corner handle to enlarge an image in these tools is one of the most common causes of visibly blurry images in reports and presentations.
+          </div>
+        </details>
+      </div>
+
+    </article>
+
+    <!-- Final CTA block -->
+    <div class="post-cta">
+      <h2>Resize your images without stretching — free</h2>
+      <p>
+        The Rebrixe Image Resizer runs entirely in your browser, locks the aspect ratio automatically, and uses high-quality resampling by default. Your images never leave your device, and there's no signup required.
+      </p>
+      <a class="gen-btn" href="/image-visual/image-resizer-without-stretching.html">
+        Launch the Image Resizer →
+      </a>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" aria-label="Related tools and guides">
+      <h2>More image tools from Rebrixe</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/image-visual/png-compressor.html">
+          <span class="related-label">Image Tools</span>
+          <h3>PNG Compressor</h3>
+          <p>Strip metadata and recompress PNGs losslessly or with quantization — without touching dimensions.</p>
+        </a>
+        <a class="related-card" href="/image-visual/jpeg-compressor.html">
+          <span class="related-label">Image Tools</span>
+          <h3>JPEG Compressor</h3>
+          <p>Quality-controlled JPEG compression with a live preview. Perfect for photos and editorial images.</p>
+        </a>
+        <a class="related-card" href="/image-visual/webp-compressor.html">
+          <span class="related-label">Image Tools</span>
+          <h3>WebP Compressor</h3>
+          <p>Convert and compress images to WebP — the modern format that beats PNG and JPEG on file size.</p>
+        </a>
+        <a class="related-card" href="/image-visual/svg-compressor.html">
+          <span class="related-label">Image Tools</span>
+          <h3>SVG Compressor</h3>
+          <p>Strip redundant markup and minify SVG files exported from Illustrator, Figma, or Inkscape.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px; margin-bottom: 24px;">
+      <a class="back-btn" href="/blogs">← Back to Guides</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>

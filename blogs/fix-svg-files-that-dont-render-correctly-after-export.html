@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fix SVG Files That Don't Render Correctly After Export (2026 Guide) | Rebrixe</title>
+  <meta name="description" content="Why exported SVGs break, shift, or disappear in the browser — and the exact fixes for viewBox issues, missing fonts, clipped elements, and more.">
+  <meta name="keywords" content="svg not rendering correctly, fix broken svg file, svg export issues, svg viewbox problems, optimize svg file">
+
+  <meta property="og:title" content="Fix SVG Files That Don't Render Correctly After Export (2026 Guide)">
+  <meta property="og:description" content="The exact workflow to diagnose and fix SVGs that look fine in your design tool but break after export.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/fix-svg-files-that-dont-render-correctly-after-export.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Fix SVG Files That Don't Render Correctly After Export (2026 Guide)",
+    "description": "Why exported SVGs break, shift, or disappear in the browser — and the exact fixes for viewBox issues, missing fonts, clipped elements, and more.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-14",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/fix-svg-files-that-dont-render-correctly-after-export.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why does my SVG look fine in Illustrator or Figma but break in the browser?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Design tools render SVGs using their own internal engine, which is more forgiving than a browser's. Browsers strictly follow the SVG spec, so missing viewBox attributes, unsupported filters, or embedded fonts that design tools quietly substitute will fail or render differently once the file leaves the app." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why is my SVG showing up blank or invisible?",
+        "acceptedAnswer": { "@type": "Answer", "text": "The most common cause is a missing or incorrect viewBox attribute, which leaves the browser without instructions for how to scale the artwork into its container. Other common causes are a width/height of 0, content placed outside the visible canvas, or a fill set to 'none' or transparent by mistake." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why do the fonts in my SVG look wrong after export?",
+        "acceptedAnswer": { "@type": "Answer", "text": "SVG text elements reference fonts by name but don't embed them by default. If the font isn't installed on the viewer's device or loaded on the page, the browser silently substitutes a fallback font, which shifts spacing and alignment. Converting text to outlines/paths avoids this entirely." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does my SVG look fine in Chrome but broken in Safari or Firefox?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Browsers implement newer SVG and CSS filter features inconsistently. Effects like feDropShadow, certain blend modes, or CSS custom properties inside SVG attributes are common sources of cross-browser differences. Testing in at least two engines before shipping catches most of these." }
+      },
+      {
+        "@type": "Question",
+        "name": "Should I optimize an SVG before or after fixing rendering issues?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Fix rendering issues first, then optimize. Aggressive minification can strip attributes like viewBox or merge paths in ways that hide the original problem instead of solving it. Once the file renders correctly everywhere, optimizing removes the leftover editor bloat without touching functional attributes." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is it better to fix SVGs one at a time or in bulk?",
+        "acceptedAnswer": { "@type": "Answer", "text": "For more than a handful of files, a bulk optimizer is faster and more consistent, since it applies the same cleanup rules — stripping editor metadata, fixing malformed attributes, normalizing the viewBox — across every file in one pass instead of repeating manual fixes file by file." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will optimizing my SVG hurt its quality?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No — SVG optimization is lossless by nature since it's vector, not pixel, data. A good optimizer strips redundant editor metadata, comments, and hidden layers without altering a single visible point, path, or color." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241, 245, 249, 0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 52px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 32px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99, 102, 241, 0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Quick answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10), rgba(var(--primary-rgb), 0.04));
+      padding: 22px 26px;
+      margin: 0 0 36px;
+      position: relative;
+    }
+    .quick-answer-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .quick-answer-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+    }
+    .quick-answer p {
+      margin: 0;
+      color: rgba(241,245,249,0.90);
+      font-size: 0.99rem;
+      line-height: 1.72;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb), 0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+    }
+
+    /* ── Dual tool CTA ── */
+    .dual-cta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 0 0 28px;
+    }
+    .dual-cta-card {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .dual-cta-card .dc-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+    }
+    .dual-cta-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0;
+      letter-spacing: -0.4px;
+    }
+    .dual-cta-card p {
+      margin: 0;
+      color: rgba(241,245,249,0.60);
+      font-size: 0.87rem;
+      line-height: 1.6;
+    }
+    .dual-cta-card .gen-btn {
+      margin-top: auto;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table-wrap {
+      overflow-x: auto;
+      margin: 0 0 32px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .comparison-table thead tr {
+      background: rgba(var(--primary-rgb), 0.10);
+    }
+    .comparison-table th {
+      padding: 14px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .comparison-table td {
+      padding: 13px 18px;
+      color: rgba(241,245,249,0.80);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody tr:hover td {
+      background: rgba(var(--primary-rgb), 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-yellow {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-red {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.20);
+    }
+
+    /* ── Example cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+    }
+    .example-card .ex-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.92);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-stat {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .example-card .ex-desc {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      line-height: 1.5;
+    }
+
+    /* ── FAQ ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 0 28px;
+    }
+    .faq-item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      text-align: left;
+      color: rgba(241,245,249,0.90);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.99rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--primary); }
+    .faq-chevron {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+      color: var(--primary);
+      opacity: 0.7;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 22px 18px;
+      color: rgba(241,245,249,0.70);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── Bottom CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb), 0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn { max-width: 340px; margin: 0 auto; font-size: 1rem; }
+    .post-cta .dual-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .post-cta .dual-btns .gen-btn { max-width: 260px; }
+
+    /* ── Related tools ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb), 0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .post-body h2 { font-size: 1.3rem; }
+      .example-grid { grid-template-columns: 1fr 1fr; }
+      .dual-cta { grid-template-columns: 1fr; }
+      .post-cta .dual-btns { flex-direction: column; align-items: center; }
+      .post-cta .dual-btns .gen-btn { max-width: 100%; width: 100%; }
+    }
+  </style>
+</head>
+
+<body data-theme="image-visual">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blog</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Fix Broken SVG Exports</span>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Image Optimization
+      </div>
+      <h1>Fix SVG Files That Don't Render Correctly After Export</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 14, 2026</span>
+        <span class="sep">·</span>
+        <span>10 min read</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        It looked perfect in Illustrator. Or Figma. Or Sketch. Then you exported it, dropped it
+        into your site or app, and something's off — the icon is invisible, the text has shifted,
+        a shadow is missing, or the whole thing renders at the wrong size. You didn't touch
+        anything. The export just quietly broke.
+      </p>
+      <p>
+        This happens because your design tool and the browser are not reading the same rulebook.
+        Design software renders SVGs with its own internal engine, filling in gaps and
+        guessing at intent. Browsers don't guess — they follow the SVG spec literally, so any
+        missing attribute, unsupported filter, or unembedded font that your design tool was
+        silently covering for suddenly becomes visible the moment the file leaves the app.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">Quick Answer</div>
+        <p>
+          SVGs usually break after export because of a missing or incorrect viewBox attribute,
+          fonts that weren't embedded or converted to outlines, or filter effects your target
+          browser doesn't fully support. Open the file in a text editor, check the viewBox and
+          width/height values, convert text to paths, and test in at least two browsers before
+          calling it done. Most rendering issues trace back to one of these three causes.
+        </p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-it">What actually causes an SVG to render incorrectly?</a></li>
+          <li><a href="#why-it-matters">Why correct SVG rendering matters</a></li>
+          <li><a href="#step-by-step">Step-by-step: diagnose and fix a broken SVG</a></li>
+          <li><a href="#common-mistakes">Common mistakes that cause export issues</a></li>
+          <li><a href="#examples">Real-world rendering fixes</a></li>
+          <li><a href="#comparison">Comparison: common SVG problems and their fixes</a></li>
+          <li><a href="#tool-cta">Free tool: SVG Optimizer and Minifier</a></li>
+          <li><a href="#related-tools">Related tools</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- What Is It -->
+      <h2 id="what-is-it">What actually causes an SVG to render incorrectly?</h2>
+      <p>
+        "Broken SVG" covers a range of symptoms, but nearly all of them come down to a small set
+        of root causes:
+      </p>
+      <ul>
+        <li><strong>Missing or wrong viewBox.</strong> The viewBox tells the browser how to map the artwork's internal coordinate system onto its display size. Without it, or with incorrect values, the browser can't scale the image properly — it may render tiny, cropped, stretched, or blank.</li>
+        <li><strong>Unembedded fonts.</strong> Text elements in an SVG reference a font by name only. If that font isn't installed on the viewer's system or loaded on the page, the browser substitutes a fallback, which shifts spacing, sizing, and line breaks.</li>
+        <li><strong>Unsupported filters and effects.</strong> Advanced effects like feDropShadow, certain blend modes, or filter chains render inconsistently — or not at all — across different browser engines, even though they look fine in your design tool's preview.</li>
+        <li><strong>Clipping and masking issues.</strong> Elements positioned outside the artboard, or clip-paths referencing IDs that got renamed or duplicated during export, can silently hide parts of the artwork.</li>
+        <li><strong>Editor bloat and malformed markup.</strong> Design tools often export extra metadata, editor-specific namespaces, or slightly non-standard attributes that most browsers tolerate — but not all, and not always consistently.</li>
+      </ul>
+      <p>
+        <strong>The key insight:</strong> the design tool's canvas is not the source of truth — the
+        browser is. Anything a design tool renders "correctly" that isn't valid, standard SVG
+        markup is a rendering issue waiting to happen the moment the file is opened somewhere else.
+      </p>
+
+      <!-- Why It Matters -->
+      <h2 id="why-it-matters">Why correct SVG rendering matters</h2>
+      <p>
+        A broken SVG isn't just a cosmetic annoyance — it has real consequences depending on where
+        the file ends up:
+      </p>
+      <ul>
+        <li><strong>Brand consistency.</strong> A logo or icon that renders differently across browsers, or vanishes entirely on some devices, undermines the polish of a site or product.</li>
+        <li><strong>Cross-platform reliability.</strong> SVGs are used everywhere — web, email, print, app icons — and each context has different rendering support. A file that only works in one place isn't actually reusable.</li>
+        <li><strong>Accessibility and usability.</strong> Missing icons or shifted text can make interfaces confusing or unusable, especially for functional UI elements like buttons and status indicators.</li>
+        <li><strong>File size and load performance.</strong> Bloated, malformed SVGs are often larger than they need to be, adding unnecessary weight to a page on top of the visual bugs.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>📊 Quick stat</strong>
+        A missing or malformed viewBox attribute is behind the majority of "my SVG is
+        invisible" or "my SVG is the wrong size" reports — it's almost always the first thing
+        worth checking before looking anywhere else.
+      </div>
+
+      <!-- Step-by-Step Guide -->
+      <h2 id="step-by-step">Step-by-step: diagnose and fix a broken SVG</h2>
+
+      <ol>
+        <li>
+          <strong>Open the file in a text or code editor.</strong> SVG is just XML — open the raw file and read the opening &lt;svg&gt; tag first. This is where most problems start.
+        </li>
+        <li>
+          <strong>Check the viewBox and width/height attributes.</strong> Confirm a viewBox is present and its four values (min-x, min-y, width, height) match the actual artwork bounds. Remove any fixed pixel width/height that conflicts with the viewBox if you need the SVG to scale responsively.
+        </li>
+        <li>
+          <strong>Convert text to outlines before export.</strong> If exact typography matters and font-loading can't be guaranteed, convert text layers to paths in your design tool before exporting. This trades a slightly larger file for guaranteed visual consistency everywhere.
+        </li>
+        <li>
+          <strong>Simplify or replace unsupported filters.</strong> If a drop shadow or blend effect isn't rendering consistently, try re-creating it with a simpler, more widely supported technique, or bake it into the artwork as a flattened shape.
+        </li>
+        <li>
+          <strong>Check clip-paths and IDs for duplicates.</strong> If multiple SVGs are used on the same page, duplicate internal IDs (like clipPath or gradient references) can collide and cause one element to clip or color another incorrectly.
+        </li>
+        <li>
+          <strong>Test in at least two browser engines.</strong> Check the file in a Chromium-based browser and a non-Chromium one (Safari or Firefox) before considering it finished — this catches the majority of cross-browser rendering gaps.
+        </li>
+        <li>
+          <strong>Optimize only after it renders correctly.</strong> Once the SVG displays properly everywhere, run it through an optimizer to strip leftover editor metadata and reduce file size — never optimize a file that's still broken, since it can mask the real problem.
+        </li>
+      </ol>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Try the Rebrixe SVG Optimizer &amp; Minifier — free</strong>
+          <span>Clean up editor bloat and preview the result live before downloading.</span>
+        </div>
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html" style="display:inline-flex;align-items:center;justify-content:center;">Optimize an SVG Now →</a>
+      </div>
+
+      <!-- Common Mistakes -->
+      <h2 id="common-mistakes">Common mistakes that cause export issues</h2>
+
+      <h3>1. Optimizing before diagnosing the actual problem</h3>
+      <p>
+        Running a broken SVG straight through an aggressive minifier can strip out the very
+        attributes — like viewBox — that would have revealed the root cause. Always confirm the
+        file renders correctly first, then optimize as a separate, final step.
+      </p>
+
+      <h3>2. Assuming the design tool's preview is the ground truth</h3>
+      <p>
+        Design software preview panes are more forgiving than browsers by design, since they're
+        built to help you edit, not to enforce the spec. A file that looks flawless in the export
+        preview can still be missing attributes a browser requires.
+      </p>
+
+      <h3>3. Leaving text as live text instead of outlines</h3>
+      <p>
+        This feels like it preserves editability, and it does — but only in an environment where
+        the exact font is guaranteed to be available. Anywhere else, it's a silent invitation for
+        the browser to substitute a different font and shift your layout.
+      </p>
+
+      <h3>4. Manually fixing large batches of SVGs one at a time</h3>
+      <p>
+        Going through an icon set or asset library file by file is slow and easy to get
+        inconsistent, since it's simple to miss a fix on one or two files. A bulk optimizer
+        applies the same cleanup rules to every file in one pass, which is both faster and more
+        reliable.
+      </p>
+
+      <div class="callout">
+        <strong>💡 Pro tip</strong>
+        Keep an untouched master copy of every SVG straight from your design tool. Generate all
+        optimized, production versions from that master rather than repeatedly re-exporting and
+        re-editing the same working file — it keeps you from compounding small export errors over
+        time.
+      </div>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Cleaning up an icon set or asset library?</strong>
+          <span>Use the Rebrixe SVG Optimizer to strip editor bloat across every file.</span>
+        </div>
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html" style="display:inline-flex;align-items:center;justify-content:center;">Open SVG Optimizer →</a>
+      </div>
+
+      <!-- Examples -->
+      <h2 id="examples">Real-world rendering fixes</h2>
+      <p>
+        These are representative cases of SVGs that broke after export, and what actually fixed
+        them:
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">Invisible logo</div>
+          <div class="ex-title">Missing viewBox attribute</div>
+          <div class="ex-stat">Fixed</div>
+          <div class="ex-desc">Added correct viewBox values matching the artboard bounds.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Shifted icon labels</div>
+          <div class="ex-title">Font not loaded on page</div>
+          <div class="ex-stat">Fixed</div>
+          <div class="ex-desc">Converted text layers to outlines before final export.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Missing drop shadow</div>
+          <div class="ex-title">feDropShadow unsupported in one browser</div>
+          <div class="ex-stat">Fixed</div>
+          <div class="ex-desc">Rebuilt the shadow as a simple offset shape instead of a filter.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Icon set cleanup</div>
+          <div class="ex-title">48 icons, bulk optimized</div>
+          <div class="ex-stat">−62%</div>
+          <div class="ex-desc">Total file size dropped after stripping editor metadata, once every file rendered correctly.</div>
+        </div>
+      </div>
+
+      <p>
+        The pattern holds across cases: the fix is almost always structural — an attribute, a
+        font, or an effect — not a matter of file size. Optimization is the cleanup step that
+        comes after the structural problem is solved, not a substitute for solving it.
+      </p>
+
+      <!-- Comparison Table -->
+      <h2 id="comparison">Comparison: common SVG problems and their fixes</h2>
+      <p>
+        Here's how the most frequent rendering issues map to their causes and fixes:
+      </p>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table" aria-label="Comparison of common SVG rendering problems and fixes">
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely cause</th>
+              <th>Fix difficulty</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SVG appears blank or invisible</strong></td>
+              <td>Missing/incorrect viewBox</td>
+              <td><span class="badge badge-green">Easy</span></td>
+              <td>Add or correct the viewBox values</td>
+            </tr>
+            <tr>
+              <td><strong>Wrong size or stretched</strong></td>
+              <td>Conflicting width/height and viewBox</td>
+              <td><span class="badge badge-green">Easy</span></td>
+              <td>Align or remove fixed width/height</td>
+            </tr>
+            <tr>
+              <td><strong>Text spacing looks off</strong></td>
+              <td>Font not embedded or loaded</td>
+              <td><span class="badge badge-yellow">Moderate</span></td>
+              <td>Convert text to outlines/paths</td>
+            </tr>
+            <tr>
+              <td><strong>Shadow or glow missing</strong></td>
+              <td>Unsupported filter in that browser</td>
+              <td><span class="badge badge-yellow">Moderate</span></td>
+              <td>Rebuild effect as a flattened shape</td>
+            </tr>
+            <tr>
+              <td><strong>Wrong element clipped or colored</strong></td>
+              <td>Duplicate internal IDs across files</td>
+              <td><span class="badge badge-yellow">Moderate</span></td>
+              <td>Rename IDs to be unique per file</td>
+            </tr>
+            <tr>
+              <td><strong>File is large but looks unchanged</strong></td>
+              <td>Editor metadata and bloat</td>
+              <td><span class="badge badge-green">Easy</span></td>
+              <td>Run through an SVG optimizer, after fixing rendering</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tool CTA -->
+      <h2 id="tool-cta">Free tool: SVG Optimizer and Minifier</h2>
+      <p>
+        The Rebrixe SVG Optimizer runs entirely in your browser. Your files are never uploaded to
+        a server — cleanup happens locally, and you can preview the result before downloading. No
+        account, no file size limit, no watermarks.
+      </p>
+
+      <div class="post-cta">
+      <h2>Clean up your SVGs in seconds</h2>
+      <p>Drop in a whole icon set and strip editor bloat from every file at once, without touching the artwork.</p>
+      <div class="post-cta-buttons">
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html">Open the SVG Optimizer →</a>
+      </div>
+    </div>
+
+      <!-- FAQ -->
+      <h2 id="faq">Frequently asked questions</h2>
+
+      <div class="faq-list" role="list">
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why does my SVG look fine in Illustrator or Figma but break in the browser?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Design tools render SVGs using their own internal engine, which is more forgiving than
+            a browser's. Browsers strictly follow the SVG spec, so missing viewBox attributes,
+            unsupported filters, or embedded fonts that design tools quietly substitute will fail
+            or render differently once the file leaves the app.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why is my SVG showing up blank or invisible?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            The most common cause is a missing or incorrect viewBox attribute, which leaves the
+            browser without instructions for how to scale the artwork into its container. Other
+            common causes are a width/height of 0, content placed outside the visible canvas, or
+            a fill set to "none" or transparent by mistake.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why do the fonts in my SVG look wrong after export?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            SVG text elements reference fonts by name but don't embed them by default. If the font
+            isn't installed on the viewer's device or loaded on the page, the browser silently
+            substitutes a fallback font, which shifts spacing and alignment. Converting text to
+            outlines/paths avoids this entirely.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why does my SVG look fine in Chrome but broken in Safari or Firefox?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Browsers implement newer SVG and CSS filter features inconsistently. Effects like
+            feDropShadow, certain blend modes, or CSS custom properties inside SVG attributes are
+            common sources of cross-browser differences. Testing in at least two engines before
+            shipping catches most of these.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Should I optimize an SVG before or after fixing rendering issues?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Fix rendering issues first, then optimize. Aggressive minification can strip
+            attributes like viewBox or merge paths in ways that hide the original problem instead
+            of solving it. Once the file renders correctly everywhere, optimizing removes the
+            leftover editor bloat without touching functional attributes.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Is it better to fix SVGs one at a time or in bulk?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            For more than a handful of files, a bulk optimizer is faster and more consistent,
+            since it applies the same cleanup rules — stripping editor metadata, fixing malformed
+            attributes, normalizing the viewBox — across every file in one pass instead of
+            repeating manual fixes file by file.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Will optimizing my SVG hurt its quality?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            No — SVG optimization is lossless by nature since it's vector, not pixel, data. A good
+            optimizer strips redundant editor metadata, comments, and hidden layers without
+            altering a single visible point, path, or color.
+          </div>
+        </div>
+
+      </div>
+
+    </article>
+
+    <!-- Bottom CTA -->
+      <div class="post-cta">
+      <h2>Get your SVGs rendering right, everywhere</h2>
+      <p>The Rebrixe SVG Optimizer runs entirely in your browser — no uploads, no account, no
+      file size limits. Preview the result before you download.</p>
+      <div class="dual-btns">
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html">SVG Optimizer &amp; Minifier →</a>
+      </div>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" id="related-tools" aria-label="Related tools and guides">
+      <h2>Related tools and guides</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/blogs/reduce-jpeg-file-size-without-losing-quality.html">
+          <span class="related-label">Image Tools</span>
+          <h3>How to Reduce JPEG File Size Without Losing Quality</h3>
+          <p>The exact workflow to cut JPEG file size by 60–80% with zero visible difference.</p>
+        </a>
+        <a class="related-card" href="/blogs/how-to-compress-png-without-losing-quality.html">
+          <span class="related-label">Image Tools</span>
+          <h3>How to Compress PNG Without Losing Quality</h3>
+          <p>The lossless alternative — when PNG beats JPEG for compression with zero visible loss.</p>
+        </a>
+        <a class="related-card" href="/blogs/jpeg-vs-png-vs-webp.html">
+          <span class="related-label">Image Tools</span>
+          <h3>JPEG vs PNG vs WebP: Which Format Should You Use?</h3>
+          <p>A practical comparison of the three most common image formats for the web.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px;">
+      <a class="back-btn" href="index.html">← Back to blogs</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    // Read progress bar
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    // Prevent global nav.js from interfering with the blog FAQ accordion.
+    // This page uses `.faq-item.open` (CSS) + `aria-expanded` (JS).
+    (() => {
+      if (!document.querySelector('.faq-list')) return;
+      document.body.dataset.blogFaq = 'true';
+
+      // Close all FAQ items on load.
+      document.querySelectorAll('.faq-item.open').forEach(item => {
+        item.classList.remove('open');
+      });
+
+      // Ensure correct aria defaults.
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    })();
+
+    // FAQ accordion
+    // NOTE: Your page has both an article-style FAQ (using .faq-item/.faq-question classes)
+    // and the global site nav.js also injects header/footer/SEO on many pages.
+    // This accordion must NOT rely on the inline `open` class toggle from other pages.
+    (() => {
+      const items = Array.from(document.querySelectorAll('.faq-item'));
+      if (!items.length) return;
+
+      // Ensure correct initial state based on DOM
+      items.forEach(item => {
+        const btn = item.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          if (!item) return;
+
+          const isOpen = item.classList.contains('open');
+
+          // Close all
+          items.forEach(el => {
+            el.classList.remove('open');
+            const b = el.querySelector('.faq-question');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+
+          // Toggle clicked
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    // Footer
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>

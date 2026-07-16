@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fix "Serve Images in Next-Gen Formats" (PageSpeed Insights Guide 2026) | Rebrixe</title>
+  <meta name="description" content="A step-by-step fix for the PageSpeed Insights warning 'Serve images in next-gen formats.' Convert JPEG and PNG to WebP, understand why the audit fires, and avoid common mistakes.">
+  <meta name="keywords" content="serve images in next-gen formats, pagespeed insights fix, convert jpeg to webp, next-gen image formats, webp converter, core web vitals images">
+
+  <meta property="og:title" content="Fix Serve Images in Next-Gen Formats (PageSpeed Insights Guide 2026)">
+  <meta property="og:description" content="Why PageSpeed Insights flags your images, and the fastest way to fix it with next-gen formats like WebP.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/fix-serve-images-in-next-gen-formats.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Fix \"Serve Images in Next-Gen Formats\" (PageSpeed Insights Guide 2026)",
+    "description": "A step-by-step fix for the PageSpeed Insights warning 'Serve images in next-gen formats.' Convert JPEG and PNG to WebP, understand why the audit fires, and avoid common mistakes.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-09",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/fix-serve-images-in-next-gen-formats.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What does \"Serve images in next-gen formats\" mean in PageSpeed Insights?",
+        "acceptedAnswer": { "@type": "Answer", "text": "It means Lighthouse detected JPEG or PNG images on your page that could be smaller if re-encoded as a modern format like WebP or AVIF, while looking visually identical. The audit estimates the bytes you'd save and flags it as a performance opportunity." }
+      },
+      {
+        "@type": "Question",
+        "name": "How much smaller is WebP than JPEG or PNG?",
+        "acceptedAnswer": { "@type": "Answer", "text": "WebP is typically 25-35% smaller than an equivalent-quality JPEG, and can be 50%+ smaller than PNG for photographic content. The exact number depends on image content, but the audit usually disappears once images are converted." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need to replace all my JPEGs and PNGs with WebP?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Only the ones large enough to matter. PageSpeed Insights flags images above a certain byte-saving threshold, so tiny icons or already-optimized thumbnails may not need conversion. Focus on hero images, banners, and content photos first." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will converting to WebP break images for old browsers?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Only if you don't provide a fallback. Using the <picture> element with a WebP <source> and a JPEG/PNG fallback <img> serves WebP to browsers that support it and the original format to those that don't, so nothing breaks." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is AVIF better than WebP?",
+        "acceptedAnswer": { "@type": "Answer", "text": "AVIF often compresses slightly smaller than WebP at the same quality, but encoding is slower and support is less universal than WebP's. WebP remains the safer, faster-to-implement default for most sites; AVIF is worth adding as a further optimization once WebP is in place." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does converting to WebP actually improve my PageSpeed score?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, directly. Smaller image payloads reduce Largest Contentful Paint (LCP) and total page weight, both of which factor into the Performance score and Core Web Vitals, which affect real-world load speed and can influence search ranking." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I convert images to WebP without losing quality?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. WebP supports both lossy and lossless compression. At quality settings around 80-85%, most photographic images convert to WebP with no visible difference from the original JPEG, while being noticeably smaller." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241, 245, 249, 0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 52px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 32px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99, 102, 241, 0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Quick answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10), rgba(var(--primary-rgb), 0.04));
+      padding: 22px 26px;
+      margin: 0 0 36px;
+      position: relative;
+    }
+    .quick-answer-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .quick-answer-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+    }
+    .quick-answer p {
+      margin: 0;
+      color: rgba(241,245,249,0.90);
+      font-size: 0.99rem;
+      line-height: 1.72;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb), 0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+    }
+
+    /* Dual-button variant for inline CTA (used for the "both" CTA) */
+    .inline-cta .cta-btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .inline-cta .cta-btn-group .gen-btn.secondary {
+      background: transparent;
+      border: 1px solid rgba(var(--primary-rgb), 0.45);
+      color: var(--primary);
+    }
+
+    /* ── TOC ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table-wrap {
+      overflow-x: auto;
+      margin: 0 0 32px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .comparison-table thead tr {
+      background: rgba(var(--primary-rgb), 0.10);
+    }
+    .comparison-table th {
+      padding: 14px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .comparison-table td {
+      padding: 13px 18px;
+      color: rgba(241,245,249,0.80);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody tr:hover td {
+      background: rgba(var(--primary-rgb), 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-yellow {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-red {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.20);
+    }
+
+    /* ── Example cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+    }
+    .example-card .ex-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.92);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-stat {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .example-card .ex-desc {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      line-height: 1.5;
+    }
+
+    /* ── FAQ ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 0 28px;
+    }
+    .faq-item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      text-align: left;
+      color: rgba(241,245,249,0.90);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.99rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--primary); }
+    .faq-chevron {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+      color: var(--primary);
+      opacity: 0.7;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 22px 18px;
+      color: rgba(241,245,249,0.70);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── Bottom CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb), 0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn { max-width: 340px; margin: 0 auto; font-size: 1rem; }
+    .post-cta .cta-btn-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .post-cta .cta-btn-row .gen-btn {
+      max-width: 260px;
+      margin: 0;
+    }
+    .post-cta .cta-btn-row .gen-btn.secondary {
+      background: transparent;
+      border: 1px solid rgba(var(--primary-rgb), 0.45);
+      color: var(--primary);
+    }
+
+    /* ── Related tools ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb), 0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .inline-cta .cta-btn-group { width: 100%; flex-direction: column; }
+      .post-body h2 { font-size: 1.3rem; }
+      .example-grid { grid-template-columns: 1fr 1fr; }
+      .post-cta .cta-btn-row { flex-direction: column; }
+      .post-cta .cta-btn-row .gen-btn { max-width: 100%; }
+    }
+  </style>
+</head>
+
+<body data-theme="image-visual">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blog</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Fix Serve Images in Next-Gen Formats</span>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Core Web Vitals
+      </div>
+      <h1>Fix "Serve Images in Next-Gen Formats" (PageSpeed Insights)</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 9, 2026</span>
+        <span class="sep">·</span>
+        <span>8 min read</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        You run your site through PageSpeed Insights, get a decent-looking score, and then see it:
+        a yellow "Serve images in next-gen formats" warning sitting under Opportunities, usually
+        with a number next to it like "Potential savings of 850 KB." You know it's about images.
+        You're just not sure what a "next-gen format" actually is, or why the JPEGs and PNGs
+        you've been using for years are suddenly a problem.
+      </p>
+      <p>
+        The short version: it's not that your images are wrong, it's that JPEG and PNG are older
+        formats, and newer ones — mainly WebP, with AVIF close behind — can show the same image at
+        a noticeably smaller file size. Lighthouse (the engine behind PageSpeed Insights) checks
+        every image on your page against what a next-gen format would produce, and flags the
+        difference as wasted bytes. Fixing it is mostly mechanical once you know what to convert
+        and how to keep older browsers working.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">Quick Answer</div>
+        <p>
+          "Serve images in next-gen formats" means Lighthouse found JPEG/PNG images that would be
+          smaller as WebP or AVIF with no visible quality loss. Fix it by converting your JPEG and
+          PNG assets to WebP (usually 25–35% smaller), and serving it with a
+          <code>&lt;picture&gt;</code> fallback so older browsers still get the original format.
+          Re-run PageSpeed Insights afterward to confirm the warning has cleared.
+        </p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-it">What does "Serve images in next-gen formats" mean?</a></li>
+          <li><a href="#why-it-matters">Why this warning matters</a></li>
+          <li><a href="#step-by-step">Step-by-step: fixing the warning</a></li>
+          <li><a href="#common-mistakes">Common mistakes that keep the warning showing</a></li>
+          <li><a href="#examples">Real-world savings examples</a></li>
+          <li><a href="#comparison">Format comparison: JPEG vs PNG vs WebP vs AVIF</a></li>
+          <li><a href="#tool-cta">Free Image to WebP Converter</a></li>
+          <li><a href="#related-tools">Related tools</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- What Is It -->
+      <h2 id="what-is-it">What does "Serve images in next-gen formats" mean?</h2>
+      <p>
+        This is one of the "Opportunities" audits inside Lighthouse, the engine behind PageSpeed
+        Insights. It scans every image on your page, re-encodes a copy of it in WebP at a
+        comparable visual quality, and compares the file sizes. If the next-gen version comes out
+        meaningfully smaller, the audit lists that image along with the estimated bytes you'd save
+        by switching formats.
+      </p>
+      <p>
+        "Next-gen" simply refers to image formats developed after JPEG (1992) and PNG (1996) that
+        use more modern compression techniques:
+      </p>
+      <ul>
+        <li><strong>WebP.</strong> Developed by Google, supports both lossy and lossless compression, and is now supported by every major browser. It's the standard fix for this audit.</li>
+        <li><strong>AVIF.</strong> Based on the AV1 video codec, often compresses even smaller than WebP at equivalent quality, though encoding takes longer and tooling is less mature.</li>
+        <li><strong>JPEG XL.</strong> A newer contender with strong compression, but browser support is still limited as of this guide, so it's not yet a practical default.</li>
+      </ul>
+      <p>
+        The audit isn't judging your image quality or resolution — it's specifically about the
+        <strong>container format</strong> the pixels are stored in. The same photo, same
+        dimensions, same visual quality, just packed more efficiently.
+      </p>
+
+      <!-- Why It Matters -->
+      <h2 id="why-it-matters">Why this warning matters</h2>
+      <p>
+        It's easy to treat this as a nitpick, but the underlying issue has real consequences for
+        both your PageSpeed score and how the page actually feels to a visitor:
+      </p>
+      <ul>
+        <li><strong>Largest Contentful Paint (LCP).</strong> If your LCP element is an image — a hero banner, a product photo — its file size directly affects how long it takes to paint, and LCP is one of the three Core Web Vitals that factor into ranking signals.</li>
+        <li><strong>Total page weight.</strong> Images are usually the single heaviest asset type on a page. Converting to WebP can cut that weight by a quarter to a third with zero visual trade-off.</li>
+        <li><strong>Mobile and slow connections.</strong> Smaller image payloads matter disproportionately more on mobile data or slower Wi-Fi, where every extra hundred kilobytes is felt directly by the visitor.</li>
+        <li><strong>Score creep.</strong> This audit alone won't sink your score, but it stacks with other image-related audits (properly sized images, efficient encoding), so fixing format is often the fastest single win available in the Opportunities list.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>📊 Quick stat</strong>
+        WebP images are typically 25–35% smaller than an equivalent-quality JPEG, and can be over
+        50% smaller than PNG for photographic content. For a page with several large images, that
+        alone is often enough to clear this audit entirely.
+      </div>
+
+      <!-- Step-by-Step Guide -->
+      <h2 id="step-by-step">Step-by-step: fixing the warning</h2>
+
+      <ol>
+        <li>
+          <strong>Run PageSpeed Insights and open the audit.</strong> Expand "Serve images in next-gen formats" to see the exact list of flagged images and their estimated savings — this tells you which files to prioritize first.
+        </li>
+        <li>
+          <strong>Convert the flagged images to WebP.</strong> Use a converter that supports batch conversion so you're not doing this one file at a time, and keep quality around 80–85% for photographic content — visually identical to the original at a fraction of the size.
+        </li>
+        <li>
+          <strong>Keep the original as a fallback, don't delete it.</strong> Not every visitor's browser needs WebP specifically, and keeping the source format available makes the next step possible.
+        </li>
+        <li>
+          <strong>Serve WebP with a <code>&lt;picture&gt;</code> fallback.</strong> Wrap your image in a <code>&lt;picture&gt;</code> element with a WebP <code>&lt;source&gt;</code> and the original JPEG/PNG as the fallback <code>&lt;img&gt;</code>, so every browser gets a format it can render:
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>💻 Example markup</strong>
+        &lt;picture&gt;<br>
+        &nbsp;&nbsp;&lt;source srcset="photo.webp" type="image/webp"&gt;<br>
+        &nbsp;&nbsp;&lt;img src="photo.jpg" alt="Description"&gt;<br>
+        &lt;/picture&gt;
+      </div>
+
+      <ol start="5">
+        <li>
+          <strong>If you're on WordPress, Shopify, or a similar CMS, check for built-in support.</strong> Many platforms and CDNs now auto-serve WebP or AVIF based on browser support, which can resolve this audit without touching markup at all — check your platform's image settings before converting manually.
+        </li>
+        <li>
+          <strong>Re-run PageSpeed Insights.</strong> Confirm the audit has cleared or the estimated savings have dropped substantially. If it's still flagging images, check that your server or CDN is actually serving the WebP file and not silently falling back to the original.
+        </li>
+        <li>
+          <strong>Repeat for any newly added images going forward.</strong> Build the conversion step into your upload workflow so future images don't reintroduce the same warning later.
+        </li>
+      </ol>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Try the Rebrixe Image to WebP Converter — free</strong>
+          <span>No uploads, no signup. Batch convert JPEG/PNG to WebP in your browser.</span>
+        </div>
+        <a class="gen-btn" href="/image-visual/image-to-webp-converter.html" style="display:inline-flex;align-items:center;justify-content:center;">Convert to WebP Now →</a>
+      </div>
+
+
+      <!-- Common Mistakes -->
+      <h2 id="common-mistakes">Common mistakes that keep the warning showing</h2>
+
+      <h3>1. Converting only some images, not all flagged ones</h3>
+      <p>
+        The audit lists every image over its savings threshold individually. Converting your hero
+        banner but leaving product thumbnails or content images untouched means the warning
+        persists — it aggregates savings across every flagged asset, not just the biggest one.
+      </p>
+
+      <h3>2. Serving WebP without a fallback and breaking legacy support</h3>
+      <p>
+        Renaming files to .webp and swapping them in directly, without a <code>&lt;picture&gt;</code>
+        fallback, works fine for modern browsers but can break rendering for older browsers or
+        tools that don't support WebP. Always pair the conversion with a proper fallback path.
+      </p>
+
+      <h3>3. Assuming a CDN or plugin already handles it</h3>
+      <p>
+        Some CDNs and CMS plugins do auto-convert images, but not all of them apply this by
+        default, and some only do so above a certain traffic tier or plan. Confirm actual behavior
+        by checking the served content-type in your browser's network tab rather than assuming.
+      </p>
+
+      <h3>4. Re-compressing an already-compressed JPEG into WebP</h3>
+      <p>
+        Converting a heavily compressed, artifact-ridden JPEG into WebP locks in those existing
+        artifacts — it doesn't undo prior compression damage. Whenever possible, convert from the
+        original source image rather than a JPEG that's already been through multiple save cycles.
+      </p>
+
+      <div class="callout">
+        <strong>💡 Pro tip</strong>
+        If you manage a large image library, prioritize by the audit's own savings estimates.
+        Converting the handful of largest, most-visited images first usually clears the bulk of
+        the flagged bytes long before you've touched every file on the site.
+      </div>
+
+      <!-- Examples -->
+      <h2 id="examples">Real-world savings examples</h2>
+      <p>
+        These are representative results from converting the same source images from JPEG/PNG to
+        WebP at a comparable visual quality:
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">Hero banner (JPEG)</div>
+          <div class="ex-title">JPEG → WebP</div>
+          <div class="ex-stat">−32%</div>
+          <div class="ex-desc">1.6 MB → 1.1 MB. No visible difference at full-bleed width.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Product photo (JPEG)</div>
+          <div class="ex-title">JPEG → WebP</div>
+          <div class="ex-stat">−28%</div>
+          <div class="ex-desc">640 KB → 460 KB. Identical zoom-in detail on the listing page.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Logo with transparency (PNG)</div>
+          <div class="ex-title">PNG → WebP (lossless)</div>
+          <div class="ex-stat">−48%</div>
+          <div class="ex-desc">Transparency preserved exactly, file size nearly halved.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Blog content image (PNG)</div>
+          <div class="ex-title">PNG → WebP (lossy)</div>
+          <div class="ex-stat">−61%</div>
+          <div class="ex-desc">Screenshot-style content compresses especially well as WebP.</div>
+        </div>
+      </div>
+
+      <p>
+        The pattern is consistent across content types: WebP saves the most on flat-color and
+        screenshot-style PNGs, and a solid, reliable margin on photographic JPEGs — enough in most
+        cases to clear the audit on its own.
+      </p>
+
+      <!-- Comparison Table -->
+      <h2 id="comparison">Format comparison: JPEG vs PNG vs WebP vs AVIF</h2>
+      <p>
+        Knowing where each format still makes sense helps you decide what to convert and what to
+        leave alone.
+      </p>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table" aria-label="Image format comparison for next-gen formats audit">
+          <thead>
+            <tr>
+              <th>Format</th>
+              <th>Typical size vs. JPEG</th>
+              <th>Browser support</th>
+              <th>Transparency</th>
+              <th>Best for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>JPEG</strong></td>
+              <td><span class="badge badge-yellow">Baseline</span></td>
+              <td><span class="badge badge-green">Universal</span></td>
+              <td>No</td>
+              <td>Legacy compatibility, email, fallback source</td>
+            </tr>
+            <tr>
+              <td><strong>PNG</strong></td>
+              <td><span class="badge badge-red">Larger</span></td>
+              <td><span class="badge badge-green">Universal</span></td>
+              <td>Yes</td>
+              <td>Logos, icons, flat-color graphics needing transparency</td>
+            </tr>
+            <tr>
+              <td><strong>WebP</strong></td>
+              <td><span class="badge badge-green">−25 to −35%</span></td>
+              <td><span class="badge badge-green">All modern browsers</span></td>
+              <td>Yes</td>
+              <td>Direct fix for this audit — the safe next-gen default</td>
+            </tr>
+            <tr>
+              <td><strong>AVIF</strong></td>
+              <td><span class="badge badge-green">−35 to −50%</span></td>
+              <td><span class="badge badge-yellow">Most modern browsers</span></td>
+              <td>Yes</td>
+              <td>Further savings once WebP is already in place</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tool CTA -->
+      <h2 id="tool-cta">Convert your images to WebP right now — free</h2>
+      <p>
+        The Rebrixe Image to WebP Converter runs entirely in your browser. Your images are never
+        uploaded to a server — conversion happens locally, so you can batch-convert an entire
+        folder of JPEGs and PNGs and download the WebP versions in seconds. No account, no file
+        size limit, no watermarks.
+      </p>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Free Image to WebP Converter — no uploads required</strong>
+          <span>Client-side only. Your files never leave your device.</span>
+        </div>
+        <a class="gen-btn" href="/image-visual/image-to-webp-converter.html" style="display:inline-flex;align-items:center;justify-content:center;">Open WebP Converter →</a>
+      </div>
+
+      <p>
+        Want to go deeper on quality settings, lossless vs. lossy WebP, and batch workflows for
+        large image libraries? Read the full guide below.
+      </p>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>The Ultimate Guide to WebP Compression</strong>
+          <span>Quality settings, lossless vs. lossy, and batch conversion workflows explained.</span>
+        </div>
+        <a class="gen-btn" href="/blogs/ultimate-guide-to-webp-compression.html" style="display:inline-flex;align-items:center;justify-content:center;">Read the Guide →</a>
+      </div>
+
+      <!-- FAQ -->
+      <h2 id="faq">Frequently asked questions</h2>
+
+      <div class="faq-list" role="list">
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            What does "Serve images in next-gen formats" mean in PageSpeed Insights?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            It means Lighthouse detected JPEG or PNG images on your page that could be smaller if
+            re-encoded as a modern format like WebP or AVIF, while looking visually identical. The
+            audit estimates the bytes you'd save and flags it as a performance opportunity.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            How much smaller is WebP than JPEG or PNG?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            WebP is typically 25–35% smaller than an equivalent-quality JPEG, and can be 50%+
+            smaller than PNG for photographic content. The exact number depends on image content,
+            but the audit usually disappears once images are converted.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Do I need to replace all my JPEGs and PNGs with WebP?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Only the ones large enough to matter. PageSpeed Insights flags images above a certain
+            byte-saving threshold, so tiny icons or already-optimized thumbnails may not need
+            conversion. Focus on hero images, banners, and content photos first.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Will converting to WebP break images for old browsers?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Only if you don't provide a fallback. Using the <code>&lt;picture&gt;</code> element
+            with a WebP <code>&lt;source&gt;</code> and a JPEG/PNG fallback <code>&lt;img&gt;</code>
+            serves WebP to browsers that support it and the original format to those that don't,
+            so nothing breaks.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Is AVIF better than WebP?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            AVIF often compresses slightly smaller than WebP at the same quality, but encoding is
+            slower and support is less universal than WebP's. WebP remains the safer,
+            faster-to-implement default for most sites; AVIF is worth adding as a further
+            optimization once WebP is in place.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does converting to WebP actually improve my PageSpeed score?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes, directly. Smaller image payloads reduce Largest Contentful Paint (LCP) and total
+            page weight, both of which factor into the Performance score and Core Web Vitals,
+            which affect real-world load speed and can influence search ranking.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Can I convert images to WebP without losing quality?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes. WebP supports both lossy and lossless compression. At quality settings around
+            80–85%, most photographic images convert to WebP with no visible difference from the
+            original JPEG, while being noticeably smaller.
+          </div>
+        </div>
+
+      </div>
+
+    </article>
+
+    <!-- Bottom CTA -->
+    <div class="post-cta">
+      <h2>Clear the warning in seconds</h2>
+      <p>The Rebrixe Image to WebP Converter runs entirely in your browser — no uploads, no
+      account, no file size limits. Batch convert and re-run PageSpeed Insights right after.</p>
+      <div class="cta-btn-row">
+        <a class="gen-btn" href="/image-visual/image-to-webp-converter.html">Convert to WebP →</a>
+        <a class="gen-btn" href="/blogs/ultimate-guide-to-webp-compression.html">Read the Guide →</a>
+      </div>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" id="related-tools" aria-label="Related tools and guides">
+      <h2>Related tools and guides</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/blogs/ultimate-guide-to-webp-compression.html">
+          <span class="related-label">Image Tools</span>
+          <h3>The Ultimate Guide to WebP Compression</h3>
+          <p>Quality settings, lossless vs. lossy, and batch workflows for converting to WebP at scale.</p>
+        </a>
+        <a class="related-card" href="/blogs/best-jpeg-quality-settings.html">
+          <span class="related-label">Image Optimization</span>
+          <h3>Best JPEG Quality Settings for Web, Print & Photography</h3>
+          <p>The right JPEG quality setting for every use case — and why 100% is almost never the answer.</p>
+        </a>
+        <a class="related-card" href="/blogs/jpeg-vs-png-vs-webp.html">
+          <span class="related-label">Image Tools</span>
+          <h3>JPEG vs PNG vs WebP: Which Format Should You Use?</h3>
+          <p>A practical comparison of the three most common image formats for the web.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px;">
+      <a class="back-btn" href="index.html">← Back to blogs</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    // Read progress bar
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    // Prevent global nav.js from interfering with the blog FAQ accordion.
+    // This page uses `.faq-item.open` (CSS) + `aria-expanded` (JS).
+    (() => {
+      if (!document.querySelector('.faq-list')) return;
+      document.body.dataset.blogFaq = 'true';
+
+      // Close all FAQ items on load.
+      document.querySelectorAll('.faq-item.open').forEach(item => {
+        item.classList.remove('open');
+      });
+
+      // Ensure correct aria defaults.
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    })();
+
+    // FAQ accordion
+    // NOTE: Your page has both an article-style FAQ (using .faq-item/.faq-question classes)
+    // and the global site nav.js also injects header/footer/SEO on many pages.
+    // This accordion must NOT rely on the inline `open` class toggle from other pages.
+    (() => {
+      const items = Array.from(document.querySelectorAll('.faq-item'));
+      if (!items.length) return;
+
+      // Ensure correct initial state based on DOM
+      items.forEach(item => {
+        const btn = item.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          if (!item) return;
+
+          const isOpen = item.classList.contains('open');
+
+          // Close all
+          items.forEach(el => {
+            el.classList.remove('open');
+            const b = el.querySelector('.faq-question');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+
+          // Toggle clicked
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    // Footer
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>

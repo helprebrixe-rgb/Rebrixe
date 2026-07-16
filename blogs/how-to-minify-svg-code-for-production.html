@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Minify SVG Code for Production (2026 Guide) | Rebrixe</title>
+  <meta name="description" content="Practical, tested ways to minify SVG code for production — cleaning markup, stripping metadata, and safe batch workflows that don't break your icons.">
+  <meta name="keywords" content="minify svg code, compress svg for production, svg optimizer, shrink svg file, batch minify svg">
+
+  <meta property="og:title" content="How to Minify SVG Code for Production (2026 Guide)">
+  <meta property="og:description" content="The exact workflow to cut SVG file size by 50-90% with zero visual difference — and the mistakes that quietly break your icons.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://rebrixe.com/blogs/how-to-minify-svg-code-for-production.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "How to Minify SVG Code for Production (2026 Guide)",
+    "description": "Practical, tested ways to minify SVG code for production — cleaning markup, stripping metadata, and safe batch workflows that don't break your icons.",
+    "author": { "@type": "Organization", "name": "Rebrixe" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Rebrixe",
+      "logo": { "@type": "ImageObject", "url": "https://rebrixe.com/favicon.png" }
+    },
+    "datePublished": "2026-07-14",
+    "mainEntityOfPage": "https://rebrixe.com/blogs/how-to-minify-svg-code-for-production.html"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is the single fastest way to minify an SVG?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Run it through an automated SVG optimizer that strips editor metadata, comments, and hidden layers, then rounds coordinate precision. This one pass usually accounts for the majority of the size reduction, with no manual editing required." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I minify SVG code without breaking how it looks?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Removing editor cruft (metadata, comments, unused defs, hidden groups), collapsing whitespace, shortening IDs, and rounding decimal precision to 2-3 digits typically shrinks a file 50-90% with zero visible difference. The risk only appears with overly aggressive precision rounding or path merging on complex illustrations." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does removing comments and metadata actually make a meaningful difference?",
+        "acceptedAnswer": { "@type": "Answer", "text": "For SVGs exported from design tools like Illustrator or Figma, editor metadata and comments can account for a surprisingly large share of the file — sometimes 20-40% of total size, since these tools embed full authoring history and namespace declarations by default." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is it better to minify SVGs one at a time or in bulk?",
+        "acceptedAnswer": { "@type": "Answer", "text": "For a handful of icons, one at a time is fine. For an icon library, illustration set, or anything used across a design system, bulk minifying is faster and guarantees every file follows the same rules, which matters for consistent rendering and file naming." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will minifying SVGs hurt my SEO or accessibility?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Properly minifying does not hurt SEO or accessibility, and smaller SVGs load faster which helps Core Web Vitals. The one thing to watch is over-aggressive tools stripping title, desc, or aria attributes that screen readers depend on — a good optimizer lets you preserve these explicitly." }
+      },
+      {
+        "@type": "Question",
+        "name": "How much can I realistically shrink an SVG without anyone noticing?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Icons and simple logos exported from design software commonly shrink 60-90% with zero visual change, since so much of the original file is editor overhead. Complex illustrations with many paths and gradients have less room, typically 30-50%, before precision rounding becomes visible." }
+      },
+      {
+        "@type": "Question",
+        "name": "Should I gzip or compress SVGs on the server as well as minifying them?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, they solve different problems. Minifying removes unnecessary bytes from the source code itself; gzip or Brotli compression on the server further compresses the transferred file. Since SVG is text-based, it compresses extremely well with gzip, so doing both stacks the savings." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does inlining SVGs directly in HTML change how I should minify them?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Slightly. Inline SVGs skip a network request but aren't cached separately from the page, so keeping them lean matters more per-page-load. It's also worth keeping IDs unique across inlined SVGs on the same page, since minifiers sometimes shorten IDs to short strings that can collide if multiple SVGs are inlined together." }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="main-style.css">
+
+  <style>
+    /* ── Read progress bar ── */
+    #read-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+      z-index: 100;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Breadcrumb ── */
+    .blog-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: rgba(241, 245, 249, 0.55);
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .blog-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .blog-breadcrumb a:hover { opacity: 0.75; }
+    .blog-breadcrumb span { opacity: 0.4; }
+
+    /* ── Post header ── */
+    .post-header { text-align: center; margin-bottom: 52px; }
+
+    .post-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: var(--glass);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+    .post-category-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--glow);
+    }
+
+    .post-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      background: linear-gradient(to right, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(241,245,249,0.50);
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .post-meta .sep { opacity: 0.3; }
+
+    /* ── Body ── */
+    .post-body {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.82;
+      color: rgba(241,245,249,0.88);
+    }
+
+    .post-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--primary);
+      margin: 52px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 32px 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .post-body p { margin: 0 0 20px; }
+
+    .post-body a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(99, 102, 241, 0.35);
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--primary); }
+
+    .post-body ul, .post-body ol {
+      padding-left: 0;
+      list-style: none;
+      margin: 0 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-body ul li, .post-body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(241,245,249,0.82);
+      line-height: 1.65;
+    }
+    .post-body ul li::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .post-body ol { counter-reset: ol-counter; }
+    .post-body ol li { counter-increment: ol-counter; }
+    .post-body ol li::before {
+      content: counter(ol-counter);
+      min-width: 24px; height: 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Quick answer box ── */
+    .quick-answer {
+      border-radius: 16px;
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.10), rgba(var(--primary-rgb), 0.04));
+      padding: 22px 26px;
+      margin: 0 0 36px;
+      position: relative;
+    }
+    .quick-answer-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .quick-answer-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--glow);
+    }
+    .quick-answer p {
+      margin: 0;
+      color: rgba(241,245,249,0.90);
+      font-size: 0.99rem;
+      line-height: 1.72;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--primary);
+      background: var(--glass);
+      border-radius: 0 16px 16px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+      color: rgba(241,245,249,0.85);
+      font-size: 0.97rem;
+    }
+    .callout strong {
+      display: block;
+      color: var(--primary);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inline CTA ── */
+    .inline-cta {
+      border-radius: 20px;
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(var(--primary-rgb), 0.12), transparent 60%),
+        var(--glass);
+      padding: 28px;
+      margin: 44px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .inline-cta-text strong {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.4px;
+    }
+    .inline-cta-text span {
+      color: rgba(241,245,249,0.60);
+      font-size: 0.88rem;
+    }
+    .inline-cta .gen-btn {
+      width: auto;
+      max-width: none;
+      padding: 14px 28px;
+      white-space: nowrap;
+    }
+
+    /* ── Dual tool CTA ── */
+    .dual-cta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 0 0 28px;
+    }
+    .dual-cta-card {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .dual-cta-card .dc-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+    }
+    .dual-cta-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0;
+      letter-spacing: -0.4px;
+    }
+    .dual-cta-card p {
+      margin: 0;
+      color: rgba(241,245,249,0.60);
+      font-size: 0.87rem;
+      line-height: 1.6;
+    }
+    .dual-cta-card .gen-btn {
+      margin-top: auto;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 24px 28px;
+      margin: 0 0 44px;
+    }
+    .toc-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: toc-counter;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toc ol li {
+      counter-increment: toc-counter;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    .toc ol li::before {
+      content: counter(toc-counter) '.';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.78rem;
+      min-width: 18px;
+    }
+    .toc ol li a {
+      color: rgba(241,245,249,0.75);
+      text-decoration: none;
+      font-size: 0.93rem;
+      transition: color 0.2s;
+    }
+    .toc ol li a:hover { color: var(--primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table-wrap {
+      overflow-x: auto;
+      margin: 0 0 32px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .comparison-table thead tr {
+      background: rgba(var(--primary-rgb), 0.10);
+    }
+    .comparison-table th {
+      padding: 14px 18px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .comparison-table td {
+      padding: 13px 18px;
+      color: rgba(241,245,249,0.80);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody tr:hover td {
+      background: rgba(var(--primary-rgb), 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-yellow {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-red {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.20);
+    }
+
+    /* ── Example cards ── */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .example-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+    }
+    .example-card .ex-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .example-card .ex-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.92);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .example-card .ex-stat {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .example-card .ex-desc {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      line-height: 1.5;
+    }
+
+    /* ── FAQ ── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0 0 28px;
+    }
+    .faq-item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      text-align: left;
+      color: rgba(241,245,249,0.90);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.99rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--primary); }
+    .faq-chevron {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+      color: var(--primary);
+      opacity: 0.7;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 22px 18px;
+      color: rgba(241,245,249,0.70);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── Bottom CTA ── */
+    .post-cta {
+      text-align: center;
+      border-radius: 24px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background:
+        radial-gradient(700px 300px at 50% 0%, rgba(var(--primary-rgb), 0.15), transparent 60%),
+        radial-gradient(500px 260px at 100% 60%, rgba(255,0,122,0.08), transparent 65%),
+        var(--card);
+      padding: 52px 32px;
+      margin: 64px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px, transparent 8px);
+      pointer-events: none; opacity: 0.4;
+    }
+    .post-cta > * { position: relative; }
+    .post-cta h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      color: #fff;
+      margin: 0 0 12px;
+      border: none;
+      padding: 0;
+    }
+    .post-cta p {
+      color: rgba(241,245,249,0.65);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    .post-cta .gen-btn { max-width: 340px; margin: 0 auto; font-size: 1rem; }
+    .post-cta .dual-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .post-cta .dual-btns .gen-btn { max-width: 260px; }
+
+    /* ── Related tools ── */
+    .related-posts { margin: 64px 0 0; }
+    .related-posts h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 20px;
+      color: rgba(241,245,249,0.92);
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .related-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .related-card:hover { transform: translateY(-3px); border-color: rgba(var(--primary-rgb), 0.45); }
+    .related-card .related-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+    }
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 700;
+      color: rgba(241,245,249,0.90);
+      margin: 0;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+    }
+    .related-card p {
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.52);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Code block ── */
+    .code-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .code-block {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .code-block .cb-label {
+      padding: 10px 16px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+    }
+    .code-block pre {
+      margin: 0;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: rgba(241,245,249,0.82);
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 680px) {
+      .inline-cta { flex-direction: column; text-align: center; }
+      .inline-cta .gen-btn { width: 100%; max-width: 100%; }
+      .post-body h2 { font-size: 1.3rem; }
+      .example-grid { grid-template-columns: 1fr 1fr; }
+      .dual-cta { grid-template-columns: 1fr; }
+      .code-compare { grid-template-columns: 1fr; }
+      .post-cta .dual-btns { flex-direction: column; align-items: center; }
+      .post-cta .dual-btns .gen-btn { max-width: 100%; width: 100%; }
+    }
+  </style>
+</head>
+
+<body data-theme="image-visual">
+
+  <div id="read-progress" aria-hidden="true"></div>
+  <nav class="nav-container"></nav>
+
+  <div class="container">
+
+    <nav class="blog-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <a href="/blogs/">Blog</a>
+      <span>›</span>
+      <span style="color: rgba(241,245,249,0.75)">Minify SVG Code</span>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-category-pill">
+        <span class="dot"></span>
+        Code Optimization
+      </div>
+      <h1>How to Minify SVG Code for Production</h1>
+      <div class="post-meta">
+        <span>By Rebrixe Team</span>
+        <span class="sep">·</span>
+        <span>July 14, 2026</span>
+        <span class="sep">·</span>
+        <span>8 min read</span>
+      </div>
+    </header>
+
+    <article class="post-body">
+
+      <!-- Problem Introduction -->
+      <p>
+        Your icon set is shipping bloated SVGs, and it's slowing down every page that uses them.
+        You open one in a text editor expecting a few clean lines of path data, and instead you
+        find a wall of editor comments, unused gradient definitions, ten-digit decimal
+        coordinates, and an XML namespace declaration for a tool you don't even remember using.
+        None of it changes how the icon looks. All of it ships to every visitor anyway.
+      </p>
+      <p>
+        Here's the part most developers miss: SVG is just text, which means almost all of its
+        bloat is structural, not visual. Unlike a JPEG, where compression involves a real
+        trade-off between size and quality, an SVG exported from Illustrator or Figma is carrying
+        editor metadata, redundant precision, and dead markup that contributes exactly nothing to
+        the rendered output. Strip that away correctly, and the file gets dramatically smaller
+        with zero visual difference — no trade-off required.
+      </p>
+
+      <!-- Quick Answer -->
+      <div class="quick-answer">
+        <div class="quick-answer-label">Quick Answer</div>
+        <p>
+          The fastest way to minify SVG code for production is to run it through an automated
+          optimizer that strips editor metadata and comments, removes unused definitions and
+          hidden groups, collapses whitespace, shortens IDs, and rounds coordinate precision to
+          2–3 decimal places. Together, these typically cut file size by 50–90% with no visible
+          change. For an icon library or design system, use a bulk minifier instead of processing
+          files one at a time.
+        </p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-title">In this guide</div>
+        <ol>
+          <li><a href="#what-is-it">What actually makes SVG code bloated?</a></li>
+          <li><a href="#why-it-matters">Why minifying SVGs matters</a></li>
+          <li><a href="#step-by-step">Step-by-step: minify SVG code without breaking it</a></li>
+          <li><a href="#common-mistakes">Common mistakes that break icons or barely save space</a></li>
+          <li><a href="#examples">Real-world size reduction examples</a></li>
+          <li><a href="#comparison">Comparison: which optimization saves the most?</a></li>
+          <li><a href="#tool-cta">Free tools: SVG Compressor &amp; SVG Optimizer and Minifier</a></li>
+          <li><a href="#related-tools">Related tools</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </nav>
+
+      <!-- What Is It -->
+      <h2 id="what-is-it">What actually makes SVG code bloated?</h2>
+      <p>
+        Because SVG is human-readable XML, its file size is driven by markup choices rather than
+        pixel data. Most bloated SVGs share the same few culprits:
+      </p>
+      <ul>
+        <li><strong>Editor metadata and comments.</strong> Illustrator, Figma, and Sketch all embed authoring history, tool version tags, and namespace declarations that browsers never use. This is often the single largest contributor in exported files.</li>
+        <li><strong>Excessive decimal precision.</strong> Path coordinates like <code>M12.0000473,8.99999124</code> render identically to <code>M12,9</code>. Design tools rarely round these on export.</li>
+        <li><strong>Unused definitions and hidden elements.</strong> Leftover gradients, clip paths, filters, and layers that aren't referenced anywhere in the visible markup still get shipped in full.</li>
+        <li><strong>Verbose IDs and class names.</strong> Auto-generated IDs like <code>path-1-inside-2_1234_5678</code> add up fast across a file with dozens of elements.</li>
+        <li><strong>Whitespace and formatting.</strong> Indentation, line breaks, and spacing that make the file readable for humans add nothing for a browser's renderer.</li>
+      </ul>
+      <p>
+        <strong>The key insight:</strong> nearly everything above is dead weight, not visual
+        signal. Unlike raster image compression, where you trade quality for size, cleaning up an
+        SVG properly removes bytes the renderer was already ignoring.
+      </p>
+
+      <!-- Why It Matters -->
+      <h2 id="why-it-matters">Why minifying SVGs matters</h2>
+      <p>
+        SVG cleanup isn't just tidiness — it has direct effects on load speed, maintainability,
+        and safety across a codebase:
+      </p>
+      <ul>
+        <li><strong>Page load speed.</strong> Icon sets are often loaded on every single page. A bloated sprite sheet or repeated inline icon multiplies unnecessary bytes across your whole site, hurting Largest Contentful Paint (LCP) and Core Web Vitals.</li>
+        <li><strong>Bundle size in component libraries.</strong> When SVGs are imported directly into JS or React components, uncleaned markup inflates your JavaScript bundle, not just image weight.</li>
+        <li><strong>Fewer rendering surprises.</strong> Editor-specific quirks (like conflicting IDs across multiple inlined SVGs) can cause one icon to visually affect another. Cleaning markup reduces this class of bug.</li>
+        <li><strong>Easier version control diffs.</strong> A minified, consistent SVG produces smaller, cleaner diffs than one full of shifting auto-generated IDs and metadata on every re-export.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>📊 Quick stat</strong>
+        For SVGs exported directly from design tools, metadata and comment removal alone commonly
+        accounts for 20–40% of the total file size — before any coordinate rounding or structural
+        cleanup even happens.
+      </div>
+
+      <!-- Step-by-Step Guide -->
+      <h2 id="step-by-step">Step-by-step: minify SVG code without breaking it</h2>
+
+      <ol>
+        <li>
+          <strong>Strip editor metadata and comments first.</strong> Remove <code>&lt;metadata&gt;</code> blocks, XML comments, and tool-specific namespace declarations (like <code>xmlns:sketch</code>). None of these affect rendering.
+        </li>
+        <li>
+          <strong>Remove unused definitions and hidden elements.</strong> Delete <code>&lt;defs&gt;</code>, gradients, filters, or groups that aren't referenced by an active element, along with any layer explicitly set to <code>display:none</code> that isn't used for animation.
+        </li>
+        <li>
+          <strong>Round coordinate precision to 2–3 decimal places.</strong> This is the step that carries the most risk if overdone. For icons and typical UI graphics, 2–3 decimals is visually identical to full precision; complex illustrations may need slightly more.
+        </li>
+        <li>
+          <strong>Shorten or remove unnecessary IDs.</strong> Keep IDs that are referenced (e.g. by a <code>use</code>, gradient, or clip-path reference) but shorten them; remove IDs that nothing points to.
+        </li>
+        <li>
+          <strong>Collapse whitespace and merge attributes where safe.</strong> Strip indentation and line breaks, and combine style properties into shorthand where an optimizer can do so without changing specificity.
+        </li>
+        <li>
+          <strong>Preserve accessibility attributes explicitly.</strong> Keep <code>&lt;title&gt;</code>, <code>&lt;desc&gt;</code>, and any <code>aria-*</code> or <code>role</code> attributes — a good optimizer lets you protect these from removal.
+        </li>
+        <li>
+          <strong>Visually diff before and after.</strong> Open both versions side by side at the sizes you'll actually use them at (16px icon, full-page illustration, etc.) and check edges and curves for any shift.
+        </li>
+        <li>
+          <strong>Batch process the whole set at once.</strong> For an icon library or component set, apply the same optimization rules across every file in one pass so naming, precision, and structure stay consistent.
+        </li>
+      </ol>
+
+      <div class="code-compare">
+        <div class="code-block">
+          <div class="cb-label">Before</div>
+          <pre>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!-- Generator: Adobe Illustrator 27.0 --&gt;
+&lt;svg xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  version="1.1" id="Layer_1" x="0px" y="0px"
+  viewBox="0 0 24.000001 24.000001"&gt;
+  &lt;metadata&gt;...author history...&lt;/metadata&gt;
+  &lt;path id="path-1-inside-2_1928_4471"
+    d="M12.0000473,8.99999124 L15.999321,12.0001 L12.0000473,15.0000217"
+    fill="#0A0A0A" /&gt;
+&lt;/svg&gt;</pre>
+        </div>
+        <div class="code-block">
+          <div class="cb-label">After</div>
+          <pre>&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"&gt;
+  &lt;path d="M12 9l4 3-4 3" fill="#0A0A0A"/&gt;
+&lt;/svg&gt;</pre>
+        </div>
+      </div>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Try the Rebrixe SVG Compressor — free</strong>
+          <span>Paste or upload your SVG and preview the cleaned output before downloading.</span>
+        </div>
+        <a class="gen-btn" href="/image-visual/svg-compressor.html" style="display:inline-flex;align-items:center;justify-content:center;">Compress an SVG Now →</a>
+      </div>
+
+      <!-- Common Mistakes -->
+      <h2 id="common-mistakes">Common mistakes that break icons or barely save space</h2>
+
+      <h3>1. Rounding precision too aggressively on complex paths</h3>
+      <p>
+        Dropping to 0 decimal places on a detailed illustration with many small curves can
+        visibly shift edges, especially at larger display sizes. Icons tolerate this well; dense
+        illustrations often need to keep 1–2 decimal places.
+      </p>
+
+      <h3>2. Stripping IDs that are actually referenced</h3>
+      <p>
+        An ID used by a <code>&lt;use&gt;</code> element, a gradient fill, or a clip-path is not
+        dead weight — removing or renaming it without updating references breaks the graphic
+        entirely. Always confirm an optimizer is updating references, not just deleting IDs blindly.
+      </p>
+
+      <h3>3. Removing title, desc, or aria attributes to save a few bytes</h3>
+      <p>
+        These attributes are what screen readers use to describe the icon. The bytes saved are
+        negligible compared to the accessibility cost of removing them — a good optimizer should
+        let you protect these explicitly.
+      </p>
+
+      <h3>4. Manually minifying an entire icon library one file at a time</h3>
+      <p>
+        This is slow, and it's easy to apply slightly different precision or settings to
+        different files, producing an inconsistent set. A bulk minifier applies the same rules to
+        every file in one pass, which is both faster and more consistent.
+      </p>
+
+      <div class="callout">
+        <strong>💡 Pro tip</strong>
+        Keep an unminified master copy of every source SVG. Generate all production versions from
+        that master rather than re-minifying an already-stripped file — it keeps you from losing
+        source structure you might need to edit later.
+      </div>
+
+      <div class="inline-cta">
+        <div class="inline-cta-text">
+          <strong>Cleaning up a whole icon set?</strong>
+          <span>Use the Rebrixe SVG Optimizer and Minifier to process a whole folder at once.</span>
+        </div>
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html" style="display:inline-flex;align-items:center;justify-content:center;">Open SVG Optimizer →</a>
+      </div>
+
+      <!-- Examples -->
+      <h2 id="examples">Real-world size reduction examples</h2>
+      <p>
+        These are representative results from applying metadata removal, precision rounding, and
+        structural cleanup together, compared to the original exported file:
+      </p>
+
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="ex-label">UI icon</div>
+          <div class="ex-title">Illustrator export → cleaned</div>
+          <div class="ex-stat">−87%</div>
+          <div class="ex-desc">4.1 KB → 540 bytes. Identical rendering at 16px–48px.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Logo mark</div>
+          <div class="ex-title">Figma export → cleaned</div>
+          <div class="ex-stat">−79%</div>
+          <div class="ex-desc">2.8 KB → 590 bytes. No visible change at any display size.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Icon library batch</div>
+          <div class="ex-title">64 icons, bulk minified</div>
+          <div class="ex-stat">−81%</div>
+          <div class="ex-desc">312 KB → 59 KB total. Consistent structure across every file.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Complex illustration</div>
+          <div class="ex-title">Detailed multi-path graphic</div>
+          <div class="ex-stat">−42%</div>
+          <div class="ex-desc">Less room for precision rounding, but cleanup still helps.</div>
+        </div>
+      </div>
+
+      <p>
+        The pattern is consistent: simple icons and logos shrink dramatically because so much of
+        the original file was editor overhead, complex illustrations have less headroom, and
+        batching the process across a whole library multiplies the time saved without changing
+        how anything renders.
+      </p>
+
+      <!-- Comparison Table -->
+      <h2 id="comparison">Comparison: which optimization saves the most?</h2>
+      <p>
+        Not every SVG cleanup technique is equally effective, and some carry more risk than
+        others. Here's how the main levers stack up:
+      </p>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table" aria-label="Comparison of SVG minification methods">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Typical savings</th>
+              <th>Visual/functional risk</th>
+              <th>Effort</th>
+              <th>Best for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Strip metadata &amp; comments</strong></td>
+              <td><span class="badge badge-green">20–40%</span></td>
+              <td><span class="badge badge-green">None</span></td>
+              <td>Low</td>
+              <td>Any SVG exported from design software</td>
+            </tr>
+            <tr>
+              <td><strong>Remove unused defs/hidden elements</strong></td>
+              <td><span class="badge badge-green">10–30%</span></td>
+              <td><span class="badge badge-green">None if truly unused</span></td>
+              <td>Low</td>
+              <td>Icons and logos with leftover layers</td>
+            </tr>
+            <tr>
+              <td><strong>Round precision (2–3 decimals)</strong></td>
+              <td><span class="badge badge-green">10–25%</span></td>
+              <td><span class="badge badge-green">None to minimal</span></td>
+              <td>Low</td>
+              <td>Nearly every SVG</td>
+            </tr>
+            <tr>
+              <td><strong>Shorten/remove IDs</strong></td>
+              <td><span class="badge badge-yellow">3–10%</span></td>
+              <td><span class="badge badge-yellow">Low, if references updated</span></td>
+              <td>Low</td>
+              <td>Files with verbose auto-generated IDs</td>
+            </tr>
+            <tr>
+              <td><strong>Whitespace collapse</strong></td>
+              <td><span class="badge badge-yellow">2–8%</span></td>
+              <td><span class="badge badge-green">None</span></td>
+              <td>Low</td>
+              <td>Every production SVG</td>
+            </tr>
+            <tr>
+              <td><strong>Bulk minify workflow</strong></td>
+              <td><span class="badge badge-green">Combines all above</span></td>
+              <td><span class="badge badge-green">None to minimal</span></td>
+              <td>Low (per file)</td>
+              <td>Icon libraries, design systems</td>
+            </tr>
+            <tr>
+              <td><strong>Aggressive rounding (0 decimals)</strong></td>
+              <td><span class="badge badge-red">Adds 5–10% more</span></td>
+              <td><span class="badge badge-red">Visible on complex paths</span></td>
+              <td>Low</td>
+              <td>Only very simple geometric icons</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tool CTA -->
+      <h2 id="tool-cta">Free tools: SVG Compressor &amp; SVG Optimizer and Minifier</h2>
+      <p>
+        Both Rebrixe tools run entirely in your browser. Your SVG code is never uploaded to a
+        server — cleanup and minification happen locally, and you can preview the rendered result
+        before downloading. No account, no file size limit, no watermarks.
+      </p>
+
+      <div class="post-cta">
+      <h2>Get your SVGs production-ready in seconds</h2>
+      <p>Drop in a whole icon folder and apply the same cleanup rules to every file at once.</p>
+      <div class="post-cta-buttons">
+        <a class="gen-btn" href="/image-visual/svg-compressor.html">Open the SVG Compressor →</a>
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html">Open SVG Optimizer and Minifier →</a>
+      </div>
+    </div>
+
+      <!-- FAQ -->
+      <h2 id="faq">Frequently asked questions</h2>
+
+      <div class="faq-list" role="list">
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            What is the single fastest way to minify an SVG?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Run it through an automated SVG optimizer that strips editor metadata, comments, and
+            hidden layers, then rounds coordinate precision. This one pass usually accounts for
+            the majority of the size reduction, with no manual editing required.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Can I minify SVG code without breaking how it looks?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes. Removing editor cruft (metadata, comments, unused defs, hidden groups),
+            collapsing whitespace, shortening IDs, and rounding decimal precision to 2–3 digits
+            typically shrinks a file 50–90% with zero visible difference. The risk only appears
+            with overly aggressive precision rounding or path merging on complex illustrations.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does removing comments and metadata actually make a meaningful difference?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            For SVGs exported from design tools like Illustrator or Figma, editor metadata and
+            comments can account for a surprisingly large share of the file — sometimes 20–40% of
+            total size, since these tools embed full authoring history and namespace declarations
+            by default.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Is it better to minify SVGs one at a time or in bulk?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            For a handful of icons, one at a time is fine. For an icon library, illustration set,
+            or anything used across a design system, bulk minifying is faster and guarantees every
+            file follows the same rules, which matters for consistent rendering and file naming.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Will minifying SVGs hurt my SEO or accessibility?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Properly minifying does not hurt SEO or accessibility, and smaller SVGs load faster
+            which helps Core Web Vitals. The one thing to watch is over-aggressive tools stripping
+            title, desc, or aria attributes that screen readers depend on — a good optimizer lets
+            you preserve these explicitly.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            How much can I realistically shrink an SVG without anyone noticing?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Icons and simple logos exported from design software commonly shrink 60–90% with zero
+            visual change, since so much of the original file is editor overhead. Complex
+            illustrations with many paths and gradients have less room, typically 30–50%, before
+            precision rounding becomes visible.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Should I gzip or compress SVGs on the server as well as minifying them?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Yes, they solve different problems. Minifying removes unnecessary bytes from the
+            source code itself; gzip or Brotli compression on the server further compresses the
+            transferred file. Since SVG is text-based, it compresses extremely well with gzip, so
+            doing both stacks the savings.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Does inlining SVGs directly in HTML change how I should minify them?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Slightly. Inline SVGs skip a network request but aren't cached separately from the
+            page, so keeping them lean matters more per-page-load. It's also worth keeping IDs
+            unique across inlined SVGs on the same page, since minifiers sometimes shorten IDs to
+            short strings that can collide if multiple SVGs are inlined together.
+          </div>
+        </div>
+
+      </div>
+
+    </article>
+
+    <!-- Bottom CTA -->
+      <div class="post-cta">
+      <h2>Minify your SVGs in seconds — one icon or a thousand</h2>
+      <p>Both Rebrixe tools run entirely in your browser — no uploads, no account, no file
+      size limits. Preview the rendered result before you download.</p>
+      <div class="dual-btns">
+        <a class="gen-btn" href="/image-visual/svg-compressor.html">SVG Compressor →</a>
+        <a class="gen-btn" href="/technical/svg-optimizer-and-minifier.html">SVG Optimizer and Minifier →</a>
+      </div>
+    </div>
+
+    <!-- Related Tools -->
+    <section class="related-posts" id="related-tools" aria-label="Related tools and guides">
+      <h2>Related tools and guides</h2>
+      <div class="related-grid">
+        <a class="related-card" href="/blogs/reduce-jpeg-file-size-without-losing-quality.html">
+          <span class="related-label">Image Tools</span>
+          <h3>How to Reduce JPEG File Size Without Losing Quality</h3>
+          <p>The same resize-first, metadata-strip logic — applied to photographic images.</p>
+        </a>
+        <a class="related-card" href="/blogs/how-to-compress-png-without-losing-quality.html">
+          <span class="related-label">Image Tools</span>
+          <h3>How to Compress PNG Without Losing Quality</h3>
+          <p>The lossless raster alternative to SVG for icons and simple graphics.</p>
+        </a>
+        <a class="related-card" href="/blogs/ultimate-guide-to-svg-compression.html">
+          <span class="related-label">Image Optimization</span>
+          <h3>Ultimate Guide to SVG Compression</h3>
+          <p>Learn the best practices for optimizing your SVG files for web use.</p>
+        </a>
+      </div>
+    </section>
+
+    <div style="text-align:center; margin-top: 52px;">
+      <a class="back-btn" href="index.html">← Back to blogs</a>
+    </div>
+
+  </div>
+
+  <footer class="tf-footer"></footer>
+  <script src="/nav.js"></script>
+
+  <script>
+    // Read progress bar
+    (() => {
+      const bar = document.getElementById('read-progress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+      }, { passive: true });
+    })();
+
+    // Prevent global nav.js from interfering with the blog FAQ accordion.
+    // This page uses `.faq-item.open` (CSS) + `aria-expanded` (JS).
+    (() => {
+      if (!document.querySelector('.faq-list')) return;
+      document.body.dataset.blogFaq = 'true';
+
+      // Close all FAQ items on load.
+      document.querySelectorAll('.faq-item.open').forEach(item => {
+        item.classList.remove('open');
+      });
+
+      // Ensure correct aria defaults.
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    })();
+
+    // FAQ accordion
+    // NOTE: Your page has both an article-style FAQ (using .faq-item/.faq-question classes)
+    // and the global site nav.js also injects header/footer/SEO on many pages.
+    // This accordion must NOT rely on the inline `open` class toggle from other pages.
+    (() => {
+      const items = Array.from(document.querySelectorAll('.faq-item'));
+      if (!items.length) return;
+
+      // Ensure correct initial state based on DOM
+      items.forEach(item => {
+        const btn = item.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.faq-item');
+          if (!item) return;
+
+          const isOpen = item.classList.contains('open');
+
+          // Close all
+          items.forEach(el => {
+            el.classList.remove('open');
+            const b = el.querySelector('.faq-question');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+
+          // Toggle clicked
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    // Footer
+    (() => {
+      const footer = document.querySelector('footer.tf-footer');
+      if (!footer) return;
+      footer.innerHTML = `
+        <div style="max-width:1200px;margin:0 auto;padding:26px 20px 46px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:26px;flex-wrap:wrap;">
+          <div style="min-width:240px;max-width:520px;">
+            <div style="font-family:Outfit, Inter;font-weight:900;color:var(--primary);letter-spacing:-.6px;font-size:1.18rem;">Rebrixe</div>
+            <div style="margin-top:8px;color:rgba(234,242,255,.72);line-height:1.7;font-size:.95rem;">The web's fastest utility engine. Built for performance.</div>
+          </div>
+          <div style="min-width:160px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Platform</div>
+            <a href="/privacy.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Privacy Policy</a>
+            <a href="/terms.html" style="display:block;margin-top:10px;color:inherit;opacity:.78;">Terms of Service</a>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-weight:900;color:rgba(234,242,255,.92);">Contact</div>
+            <a href="mailto:growthdriven024@gmail.com" style="display:block;margin-top:10px;color:var(--primary);font-weight:900;opacity:.92;">growthdriven024@gmail.com</a>
+            <div style="margin-top:14px;color:rgba(234,242,255,.60);font-size:.85rem;">© 2026 Rebrixe Engine. All processing is 100% Client-Side.</div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+
+</body>
+</html>
