@@ -233,7 +233,7 @@ transition: transform 0.5s ease-in-out;
   gtag('js', new Date());
   gtag('config', 'G-WXNSZGYWXW');
 </script>
-</head>er>`;
+</header>`;
 
 const footerUI = `
 <footer class="tf-footer">
