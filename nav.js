@@ -226,13 +226,6 @@ transition: transform 0.5s ease-in-out;
         <input type="text" id="toolSearch" placeholder="Search..." autocomplete="off">
         <div id="searchResults"></div>
     </div>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-WXNSZGYWXW"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-WXNSZGYWXW');
-</script>
 </header>`;
 
 const footerUI = `
