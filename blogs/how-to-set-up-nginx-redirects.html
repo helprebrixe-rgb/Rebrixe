@@ -68,6 +68,16 @@
         "@type": "Question",
         "name": "What's the safest way to redirect HTTP to HTTPS in Nginx?",
         "acceptedAnswer": { "@type": "Answer", "text": "Create a separate server block listening on port 80 for the domain, and inside it use a single return 301 https://$host$request_uri directive. Keeping HTTP and HTTPS in separate server blocks avoids conditional logic and is the configuration Nginx's own documentation recommends." }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I redirect an entire folder of URLs in Nginx while keeping the rest of the path?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Use a prefix location block matching the old folder without the exact modifier, then a rewrite directive that captures the remainder of the path and appends it to the new folder, or a return directive combined with $request_uri if the new folder mirrors the same structure." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why did my redirect work with curl but not in the browser?",
+        "acceptedAnswer": { "@type": "Answer", "text": "This is almost always a caching issue. Browsers aggressively cache 301 responses, so a redirect tested, changed, and retested in the same browser session may still show the old destination until the cache is cleared or the test is run in a private window." }
       }
     ]
   }
@@ -619,7 +629,7 @@
       .example-grid { grid-template-columns: 1fr 1fr; }
     }
 
-    /* ── Code block (new for this post) ── */
+    /* ── Code block ── */
     .code-block {
       background: rgba(0,0,0,0.35);
       border: 1px solid var(--border);
@@ -642,6 +652,120 @@
       font-family: 'Fira Code', 'Consolas', monospace;
       font-size: 0.88em;
       color: #c9d6f0;
+    }
+
+    /* ── Code block label (new: fixes code blocks bleeding into surrounding text) ── */
+    .code-block-label {
+      font-size: 0.70rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.1px;
+      color: rgba(241,245,249,0.45);
+      margin: 0 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .code-block-label::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(241,245,249,0.35);
+    }
+
+    /* ── Diagram figure wrap (new: gives the flow diagram its own clear box/gap) ── */
+    .post-figure {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 28px 24px 20px;
+      margin: 8px 0 32px;
+    }
+    .post-figure img,
+    .post-figure svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+    }
+    .post-figure figcaption {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 0.82rem;
+      color: rgba(241,245,249,0.50);
+      line-height: 1.5;
+    }
+
+    /* ── Mistake card (new: replaces bare h3+p pairs with clearly bounded boxes) ── */
+    .mistake-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .mistake-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 20px 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .mistake-num {
+      flex-shrink: 0;
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(239,68,68,0.25);
+      background: rgba(239,68,68,0.10);
+      color: #f87171;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mistake-body h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+    .mistake-body p {
+      margin: 0;
+      font-size: 0.96rem;
+      color: rgba(241,245,249,0.72);
+    }
+
+    /* ── Stat strip (new: adds a real-world scale/impact section with clear gaps) ── */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin: 0 0 28px;
+    }
+    .stat-box {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      padding: 18px 18px 16px;
+      text-align: left;
+    }
+    .stat-box .stat-num {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-box .stat-label {
+      font-size: 0.78rem;
+      color: rgba(241,245,249,0.55);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 680px) {
+      .mistake-card { flex-direction: column; }
     }
   </style>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-WXNSZGYWXW"></script>
@@ -679,7 +803,7 @@
         <span class="sep">·</span>
         <span>July 3, 2026</span>
         <span class="sep">·</span>
-        <span>9 min read</span>
+        <span>12 min read</span>
       </div>
     </header>
 
@@ -697,7 +821,9 @@
         The good news is that Nginx redirects are one of the more forgiving parts of server
         configuration once you know the two directives that do almost all the work. You don't
         need to understand the full Nginx module system — you need one correct block, a test
-        command, and a reload.
+        command, and a reload. This guide covers the directives themselves, seven real
+        misconfigurations that take sites down in production, and the exact commands to verify a
+        redirect before you ship it.
       </p>
 
       <!-- Quick Answer -->
@@ -717,6 +843,7 @@
         <div class="toc-title">In this guide</div>
         <ol>
           <li><a href="#what-is-it">What is an Nginx redirect?</a></li>
+          <li><a href="#how-it-flows">How a redirect actually flows</a></li>
           <li><a href="#why-it-matters">Why getting redirects right matters</a></li>
           <li><a href="#step-by-step">Step-by-step: setting up a redirect</a></li>
           <li><a href="#common-mistakes">Common mistakes</a></li>
@@ -743,8 +870,72 @@
         <li><strong>Where it lives</strong> — redirects go inside <code>/etc/nginx/nginx.conf</code>, or more commonly inside a site-specific file under <code>/etc/nginx/sites-available/</code> that's symlinked into <code>sites-enabled/</code>.</li>
       </ul>
       <p>
-        Everything else — domain migrations, HTTPS enforcement, www normalization — is a variation
-        on those two directives applied to a specific <code>server_name</code> or path.
+        Everything else — domain migrations, HTTPS enforcement, www normalization, bulk path
+        restructures — is a variation on those two directives applied to a specific
+        <code>server_name</code> or path.
+      </p>
+
+      <!-- How it flows (new section with diagram) -->
+      <h2 id="how-it-flows">How a redirect actually flows</h2>
+      <p>
+        It helps to see the full round trip before editing config files, because most redirect
+        bugs come from misunderstanding which side is doing what. The browser only ever follows
+        instructions — it never decides on its own that a URL has moved.
+      </p>
+
+      <figure class="post-figure">
+        <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="redirectFlowTitle">
+          <title id="redirectFlowTitle">Diagram of an Nginx 301 redirect request-response flow</title>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#8890f5" />
+            </marker>
+          </defs>
+
+          <!-- Browser box -->
+          <rect x="20" y="70" width="150" height="90" rx="14" fill="rgba(99,102,241,0.08)" stroke="#6366f1" stroke-width="1.5"/>
+          <text x="95" y="108" text-anchor="middle" fill="#e2e6ff" font-family="Outfit, sans-serif" font-size="15" font-weight="700">Browser</text>
+          <text x="95" y="130" text-anchor="middle" fill="#a3a9d6" font-family="monospace" font-size="11">GET /old-page</text>
+
+          <!-- Nginx box -->
+          <rect x="275" y="40" width="150" height="150" rx="14" fill="rgba(99,102,241,0.14)" stroke="#6366f1" stroke-width="1.5"/>
+          <text x="350" y="72" text-anchor="middle" fill="#e2e6ff" font-family="Outfit, sans-serif" font-size="15" font-weight="700">Nginx</text>
+          <text x="350" y="98" text-anchor="middle" fill="#a3a9d6" font-family="monospace" font-size="10.5">location /old-page {</text>
+          <text x="350" y="114" text-anchor="middle" fill="#8890f5" font-family="monospace" font-size="10.5">return 301</text>
+          <text x="350" y="130" text-anchor="middle" fill="#a3a9d6" font-family="monospace" font-size="10.5">/new-page;</text>
+          <text x="350" y="146" text-anchor="middle" fill="#a3a9d6" font-family="monospace" font-size="10.5">}</text>
+          <text x="350" y="172" text-anchor="middle" fill="#6b7280" font-family="monospace" font-size="10">no backend hit</text>
+
+          <!-- New page box -->
+          <rect x="530" y="70" width="150" height="90" rx="14" fill="rgba(34,197,94,0.08)" stroke="#4ade80" stroke-width="1.5"/>
+          <text x="605" y="108" text-anchor="middle" fill="#e2e6ff" font-family="Outfit, sans-serif" font-size="15" font-weight="700">/new-page</text>
+          <text x="605" y="130" text-anchor="middle" fill="#a3a9d6" font-family="monospace" font-size="11">200 OK</text>
+
+          <!-- Arrow 1: browser to nginx -->
+          <line x1="172" y1="105" x2="272" y2="105" stroke="#8890f5" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <text x="222" y="95" text-anchor="middle" fill="#8890f5" font-family="monospace" font-size="10">1. request</text>
+
+          <!-- Arrow 2: nginx to browser (301 response) -->
+          <path d="M275,155 C230,190 170,190 150,163" fill="none" stroke="#facc15" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <text x="200" y="212" text-anchor="middle" fill="#facc15" font-family="monospace" font-size="10">2. 301 + Location header</text>
+
+          <!-- Arrow 3: browser to new page (second request) -->
+          <path d="M170,140 C300,220 480,220 528,140" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <text x="350" y="222" text-anchor="middle" fill="#4ade80" font-family="monospace" font-size="10">3. browser re-requests /new-page</text>
+        </svg>
+        <figcaption>
+          A 301 redirect is two full HTTP round trips: Nginx never fetches the new page itself —
+          it hands the browser a <code>Location</code> header and the browser makes a second
+          request on its own.
+        </figcaption>
+      </figure>
+
+      <p>
+        That second round trip is the part people forget. Nginx isn't "showing" the new page — it's
+        telling the browser where the new page lives and stepping out of the way. This is also why
+        a redirect loop is fatal: if step 2 ever points back to a URL that matches the same
+        <code>location</code> block, the browser just keeps repeating steps 1 through 3 until it
+        gives up and shows a "too many redirects" error.
       </p>
 
       <!-- Why It Matters -->
@@ -759,6 +950,28 @@
         <li><strong>The wrong status code sends the wrong signal.</strong> A 302 used for a permanent move can cause search engines to keep indexing the old URL instead of updating to the new one.</li>
         <li><strong>Performance is on the line too.</strong> A <code>rewrite</code> directive used where a simple <code>return</code> would do adds unnecessary regex evaluation on every request to that path.</li>
       </ul>
+
+      <p>
+        The scale of this compounds fast once a site has been live for a few years. A migration
+        that "only" touches a handful of URLs on paper often turns out to intersect with a much
+        larger surface once old sitemaps, cached search results, and partner links are accounted
+        for:
+      </p>
+
+      <div class="stat-strip">
+        <div class="stat-box">
+          <div class="stat-num">3–6 mo</div>
+          <div class="stat-label">Typical time for search engines to fully re-crawl and consolidate a 301'd URL</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">1 rule</div>
+          <div class="stat-label">Can usually cover an entire domain move — no per-page mapping needed with $request_uri</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">0 ms</div>
+          <div class="stat-label">Extra backend time added by a return directive — it never touches the app server</div>
+        </div>
+      </div>
 
       <div class="callout">
         <strong>📊 Quick stat</strong>
@@ -782,7 +995,7 @@
           <strong>Find or create the relevant server block.</strong> For a single page, add the redirect inside a <code>location</code> block; for a whole domain or protocol change, add it inside the <code>server</code> block itself.
         </li>
         <li>
-          <strong>Add the return directive.</strong> For example: <code>location /old-page { return 301 /new-page; }</code> for a single path, or <code>return 301 https://$host$request_uri;</code> for an HTTP-to-HTTPS redirect.
+          <strong>Add the return directive.</strong> Match the pattern to the scenario — a single path needs an exact <code>location</code> match, while a domain or protocol change belongs directly inside the <code>server</code> block.
         </li>
         <li>
           <strong>Test the configuration.</strong> Run <code>sudo nginx -t</code> — this checks the syntax without applying anything, and will point to the exact line if something's wrong.
@@ -795,12 +1008,20 @@
         </li>
       </ol>
 
-      <div class="code-block"><span class="cm"># Example: single page redirect</span>
+      <p>
+        Here's what that looks like as actual config, for the two most common cases — a single
+        page move and a full HTTP-to-HTTPS upgrade for the whole domain:
+      </p>
+
+      <div class="code-block-label">nginx · single page redirect</div>
+      <div class="code-block"><span class="cm"># Redirects one exact old URL to one exact new URL</span>
 <span class="kw">location</span> = /old-page {
     <span class="kw">return</span> 301 /new-page;
-}
+}</div>
 
-<span class="cm"># Example: HTTP to HTTPS, entire domain</span>
+      <div class="code-block-label">nginx · http to https, entire domain</div>
+      <div class="code-block"><span class="cm"># Every request on port 80 is upgraded to https,
+# with the original path preserved via $request_uri</span>
 <span class="kw">server</span> {
     <span class="kw">listen</span> 80;
     <span class="kw">server_name</span> yoursite.com www.yoursite.com;
@@ -817,42 +1038,106 @@
 
       <!-- Common Mistakes -->
       <h2 id="common-mistakes">Common mistakes</h2>
-
-      <h3>1. Using rewrite when return would do the job</h3>
       <p>
-        <code>rewrite</code> is built for pattern matching with regular expressions. For a
-        straightforward one-to-one redirect, it adds unnecessary processing and unnecessary
-        complexity — <code>return</code> is faster and harder to get wrong.
+        Most redirect incidents trace back to one of these seven patterns. Each one is easy to
+        avoid once you know to check for it.
       </p>
 
-      <h3>2. Creating a redirect loop</h3>
-      <p>
-        This usually happens when the destination URL falls inside the same <code>location</code>
-        block that's issuing the redirect, or when an HTTPS redirect sits behind a proxy that
-        doesn't correctly forward the original protocol, so Nginx thinks every request is still
-        on HTTP and keeps redirecting it.
-      </p>
+      <div class="mistake-list">
 
-      <h3>3. Reaching for 302 on a permanent move</h3>
-      <p>
-        A 302 tells search engines the old URL might come back, so they keep it in the index
-        instead of transferring its ranking signals. If the move is permanent, the status code
-        should say so.
-      </p>
+        <div class="mistake-card">
+          <div class="mistake-num">1</div>
+          <div class="mistake-body">
+            <h3>Using rewrite when return would do the job</h3>
+            <p>
+              <code>rewrite</code> is built for pattern matching with regular expressions. For a
+              straightforward one-to-one redirect, it adds unnecessary regex processing on every
+              matching request — <code>return</code> is faster and much harder to misconfigure.
+            </p>
+          </div>
+        </div>
 
-      <h3>4. Editing the config and forgetting to reload</h3>
-      <p>
-        Saving the file doesn't apply anything on its own. Without running <code>nginx -t</code>
-        and then reloading, the live server keeps serving the old configuration until it's
-        explicitly told to pick up the change.
-      </p>
+        <div class="mistake-card">
+          <div class="mistake-num">2</div>
+          <div class="mistake-body">
+            <h3>Creating a redirect loop</h3>
+            <p>
+              This usually happens when the destination URL falls inside the same
+              <code>location</code> block that's issuing the redirect, or when an HTTPS redirect
+              sits behind a load balancer or reverse proxy that doesn't correctly forward the
+              original protocol — so Nginx thinks every request is still on HTTP and keeps
+              redirecting it. The fix is usually to trust the <code>X-Forwarded-Proto</code>
+              header from the proxy instead of relying on Nginx's own view of the connection.
+            </p>
+          </div>
+        </div>
 
-      <h3>5. Mismatched trailing slashes</h3>
-      <p>
-        <code>location /old-page</code> and <code>location /old-page/</code> are not the same
-        match in Nginx. A redirect rule written for one won't necessarily catch requests to the
-        other, which can leave some incoming links unredirected.
-      </p>
+        <div class="mistake-card">
+          <div class="mistake-num">3</div>
+          <div class="mistake-body">
+            <h3>Reaching for 302 on a permanent move</h3>
+            <p>
+              A 302 tells search engines the old URL might come back, so they keep it in the
+              index instead of transferring its ranking signals. If the move is permanent, the
+              status code should say so — reserve 302 for genuinely temporary situations like a
+              maintenance page.
+            </p>
+          </div>
+        </div>
+
+        <div class="mistake-card">
+          <div class="mistake-num">4</div>
+          <div class="mistake-body">
+            <h3>Editing the config and forgetting to reload</h3>
+            <p>
+              Saving the file doesn't apply anything on its own. Without running
+              <code>nginx -t</code> and then reloading, the live server keeps serving the old
+              configuration until it's explicitly told to pick up the change.
+            </p>
+          </div>
+        </div>
+
+        <div class="mistake-card">
+          <div class="mistake-num">5</div>
+          <div class="mistake-body">
+            <h3>Mismatched trailing slashes</h3>
+            <p>
+              <code>location /old-page</code> and <code>location /old-page/</code> are not the
+              same match in Nginx. A redirect rule written for one won't necessarily catch
+              requests to the other, which can leave some incoming links — especially ones with
+              a trailing slash added by a CMS — unredirected.
+            </p>
+          </div>
+        </div>
+
+        <div class="mistake-card">
+          <div class="mistake-num">6</div>
+          <div class="mistake-body">
+            <h3>Dropping query strings during a redirect</h3>
+            <p>
+              A plain <code>return 301 /new-page;</code> silently strips anything after a
+              <code>?</code> in the original request. If old links include tracking parameters,
+              filters, or pagination that still matter, the redirect needs to explicitly forward
+              <code>$is_args$args</code> so that information isn't lost.
+            </p>
+          </div>
+        </div>
+
+        <div class="mistake-card">
+          <div class="mistake-num">7</div>
+          <div class="mistake-body">
+            <h3>Testing in a browser that already cached the old redirect</h3>
+            <p>
+              Browsers cache 301 responses aggressively, sometimes ignoring server-side changes
+              entirely during the same session. A redirect that was fixed on the server can still
+              appear broken in a browser tab that visited the old URL earlier — always verify
+              with <code>curl -I</code> or a private browsing window, not the tab you were just
+              testing in.
+            </p>
+          </div>
+        </div>
+
+      </div>
 
       <div class="callout">
         <strong>💡 Pro tip</strong>
@@ -864,7 +1149,8 @@
       <!-- Examples -->
       <h2 id="examples">Real-world examples</h2>
       <p>
-        How the same two directives cover most situations you'll actually run into:
+        How the same two directives cover almost every situation you'll actually run into,
+        from a single moved article to a full domain rebrand:
       </p>
 
       <div class="example-grid">
@@ -892,12 +1178,59 @@
           <div class="ex-stat">One server_name match</div>
           <div class="ex-desc">A server block matching the www subdomain redirects to the bare domain to avoid duplicate content.</div>
         </div>
+        <div class="example-card">
+          <div class="ex-label">Blog restructure</div>
+          <div class="ex-title">Folder-wide path change</div>
+          <div class="ex-stat">rewrite with capture group</div>
+          <div class="ex-desc">Every URL under an old /articles/ folder maps to the same slug under a new /blog/ folder in one rule.</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-label">Site relaunch</div>
+          <div class="ex-title">Bulk unrelated URL list</div>
+          <div class="ex-stat">map + redirect map file</div>
+          <div class="ex-desc">Hundreds of old-to-new URL pairs with no shared pattern are resolved through a lookup table instead of dozens of location blocks.</div>
+        </div>
+      </div>
+
+      <p>
+        The folder restructure and bulk-list cases are worth seeing in config form, since they're
+        where people reach for the wrong tool most often.
+      </p>
+
+      <div class="code-block-label">nginx · folder-wide redirect with rewrite</div>
+      <div class="code-block"><span class="cm"># /articles/how-to-cook-rice  →  /blog/how-to-cook-rice
+# The (.*) capture group carries the slug over unchanged</span>
+<span class="kw">location</span> /articles/ {
+    <span class="kw">rewrite</span> ^/articles/(.*)$ /blog/$1 permanent;
+}</div>
+
+      <div class="code-block-label">nginx · bulk redirects via a map file</div>
+      <div class="code-block"><span class="cm"># In nginx.conf, at the http block level</span>
+<span class="kw">map</span> $uri $new_uri {
+    /old-page-1   /new-page-1;
+    /old-page-2   /new-page-2;
+    /legacy/x     /modern/x;
+}
+
+<span class="cm"># Inside the server block</span>
+<span class="kw">if</span> ($new_uri) {
+    <span class="kw">return</span> 301 $new_uri;
+}</div>
+
+      <div class="callout">
+        <strong>⚠️ Note on if</strong>
+        Nginx's documentation is famously wary of the <code>if</code> directive inside
+        <code>location</code> blocks because of how unpredictably it interacts with other rules.
+        Pairing it with <code>map</code> at the server level, as shown above, is one of the few
+        patterns considered safe — it's specifically how Nginx recommends handling large lists of
+        unrelated redirects.
       </div>
 
       <!-- Comparison Table -->
       <h2 id="comparison">return vs rewrite vs map compared</h2>
       <p>
-        Nginx offers more than one way to redirect traffic. Here's how the main approaches differ.
+        Nginx offers more than one way to redirect traffic. Here's how the main approaches differ,
+        and which one fits which real-world scenario from above.
       </p>
 
       <div class="comparison-table-wrap">
@@ -921,13 +1254,13 @@
               <td><strong>rewrite</strong></td>
               <td><span class="badge badge-yellow">Slower, regex on every request</span></td>
               <td><span class="badge badge-green">Pattern-based, capture groups</span></td>
-              <td>Bulk URL restructures with a shared pattern</td>
+              <td>Bulk URL restructures with a shared pattern, like a renamed folder</td>
             </tr>
             <tr>
               <td><strong>map</strong></td>
               <td><span class="badge badge-green">Fast lookup table</span></td>
               <td><span class="badge badge-green">Many-to-many, easy to scale</span></td>
-              <td>Large lists of unrelated old-to-new URL pairs</td>
+              <td>Large lists of unrelated old-to-new URL pairs after a site relaunch</td>
             </tr>
             <tr>
               <td><strong>error_page 404</strong></td>
@@ -1047,6 +1380,31 @@
             a single return 301 https://$host$request_uri directive. Keeping HTTP and HTTPS in
             separate server blocks avoids conditional logic and is the configuration Nginx's own
             documentation recommends.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            How do I redirect an entire folder of URLs while keeping the rest of the path?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            Use a prefix location block matching the old folder without the exact modifier, then
+            a rewrite directive that captures the remainder of the path and appends it to the new
+            folder, or a return directive combined with $request_uri if the new folder mirrors
+            the same structure.
+          </div>
+        </div>
+
+        <div class="faq-item" role="listitem">
+          <button class="faq-question" aria-expanded="false">
+            Why did my redirect work with curl but not in the browser?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            This is almost always a caching issue. Browsers aggressively cache 301 responses, so a
+            redirect tested, changed, and retested in the same browser session may still show the
+            old destination until the cache is cleared or the test is run in a private window.
           </div>
         </div>
 
