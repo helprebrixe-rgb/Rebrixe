@@ -449,59 +449,45 @@ function getFuzzyMatch(s1, s2) {
 function injectSmartSEO() {
     const pageTitle = document.title;
     const currentUrl = window.location.href;
+    const currentPath = window.location.pathname;
     const toolName = pageTitle.split('|')[0].trim();
     
     // Detect Category based on Folder
-    let categoryVerb = "Utility"; // Default
+    let categoryVerb = "Utility";
     if (currentUrl.includes('/generators/')) categoryVerb = "Generator";
     if (currentUrl.includes('/technical/')) categoryVerb = "Developer Tool";
     if (currentUrl.includes('/growth/')) categoryVerb = "Growth Engine";
     if (currentUrl.includes('/time-date/')) categoryVerb = "Time Engine";
     if (currentUrl.includes('/image-visual/')) categoryVerb = "Image Engine";
 
+    // Detect og:type based on section
+    let ogType = 'website';
+    if (currentPath.includes('/blogs/')) ogType = 'article';
+
     // 1. Dynamic Meta Description
     if (!document.querySelector('meta[name="description"]')) {
         const meta = document.createElement('meta');
         meta.name = "description";
-        // This creates: "Use the JSON Formatter on Rebrixe. A premium, private Developer Tool..."
         meta.content = `Use the ${toolName} on Rebrixe. A premium, 100% private ${categoryVerb} built for speed and data sovereignty. No data leaves your browser.`;
         document.head.appendChild(meta);
     }
 
-    // 2. Canonical Tag (Crucial for avoiding "Dead Weight" duplicate content)
+    // 2. Canonical Tag
     if (!document.querySelector('link[rel="canonical"]')) {
         const canonical = document.createElement('link');
         canonical.rel = "canonical";
-        canonical.href = currentUrl.split('?')[0].split('#')[0]; // Cleans URLs
+        canonical.href = currentUrl.split('?')[0].split('#')[0];
         document.head.appendChild(canonical);
     }
 
-    // 3. Social Media Tags (Open Graph)
+    // 3. Open Graph Tags — skip if already hardcoded on the page (blog pages win)
     const ogData = {
         'og:title': `${toolName} | Rebrixe`,
         'og:description': `Fast, private ${categoryVerb} for modern creators.`,
-        'og:url': currentUrl
+        'og:url': currentUrl,
+        'og:type': ogType,
+        'og:image': 'https://Rebrixe.com/logo.png'
     };
-
-     // --- TWITTER CARD TAGS ---
-    const twitterData = {
-        'twitter:card': 'summary_large_image',
-        'twitter:site': '@Rebrixe', // your actual Twitter/X handle
-        'twitter:title': `${toolName} | Rebrixe`,
-        'twitter:description': `Use the ${toolName} on Rebrixe — a free, 100% private ${categoryVerb}. No data leaves your browser.`,
-        'twitter:image': 'https://Rebrixe.com/logo.png' // ideally a 1200x630 dedicated card image
-    };
-
-    Object.entries(twitterData).forEach(([name, content]) => {
-        let m = document.querySelector(`meta[name="${name}"]`);
-        if (!m) {
-            m = document.createElement('meta');
-            m.setAttribute('name', name);
-            document.head.appendChild(m);
-        }
-        m.content = content; // always overwrite — don't repeat the OG bug
-    });
-    
 
     Object.entries(ogData).forEach(([prop, content]) => {
         if (!document.querySelector(`meta[property="${prop}"]`)) {
@@ -511,13 +497,33 @@ function injectSmartSEO() {
             document.head.appendChild(m);
         }
     });
+
+    // 4. Twitter Card Tags — same rule, skip if already hardcoded
+    const twitterData = {
+        'twitter:card': 'summary_large_image',
+        'twitter:title': `${toolName} | Rebrixe`,
+        'twitter:description': `Use the ${toolName} on Rebrixe — a free, 100% private ${categoryVerb}. No data leaves your browser.`,
+        'twitter:image': 'https://Rebrixe.com/logo.png'
+    };
+
+    Object.entries(twitterData).forEach(([name, content]) => {
+        if (!document.querySelector(`meta[name="${name}"]`)) {
+            const m = document.createElement('meta');
+            m.setAttribute('name', name);
+            m.content = content;
+            document.head.appendChild(m);
+        }
+    });
 }
+
+
+
 document.addEventListener("DOMContentLoaded", initRebrixe);
 
 function injectMeta() {
     const meta = `
         
-        <meta property="og:image" content="https://Rebrixe.com/logo.png">
+        
         
         <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
         <link rel="preconnect" href="https://fonts.googleapis.com">
