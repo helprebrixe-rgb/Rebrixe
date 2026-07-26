@@ -496,10 +496,9 @@ document.addEventListener("DOMContentLoaded", initRebrixe);
 
 function injectMeta() {
     const meta = `
-        <meta property="og:title" content="Rebrixe | 500+ Premium Web Utilities">
-        <meta property="og:description" content="A lightning-fast ecosystem for modern builders.">
+        
         <meta property="og:image" content="https://Rebrixe.com/logo.png">
-        <meta property="og:url" content="https://Rebrixe.com/">
+        
         <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
