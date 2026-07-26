@@ -483,6 +483,26 @@ function injectSmartSEO() {
         'og:url': currentUrl
     };
 
+     // --- TWITTER CARD TAGS ---
+    const twitterData = {
+        'twitter:card': 'summary_large_image',
+        'twitter:site': '@Rebrixe', // your actual Twitter/X handle
+        'twitter:title': `${toolName} | Rebrixe`,
+        'twitter:description': `Use the ${toolName} on Rebrixe — a free, 100% private ${categoryVerb}. No data leaves your browser.`,
+        'twitter:image': 'https://Rebrixe.com/logo.png' // ideally a 1200x630 dedicated card image
+    };
+
+    Object.entries(twitterData).forEach(([name, content]) => {
+        let m = document.querySelector(`meta[name="${name}"]`);
+        if (!m) {
+            m = document.createElement('meta');
+            m.setAttribute('name', name);
+            document.head.appendChild(m);
+        }
+        m.content = content; // always overwrite — don't repeat the OG bug
+    });
+    
+
     Object.entries(ogData).forEach(([prop, content]) => {
         if (!document.querySelector(`meta[property="${prop}"]`)) {
             const m = document.createElement('meta');
