@@ -127,12 +127,12 @@ def main():
     existing_posts = load_existing_posts()
     existing_urls = {p["url"] for p in existing_posts}
 
-    html_files = sorted(BLOGS_DIR.glob("*.html"))
+    html_files = sorted(BLOGS_DIR.glob("*"))
     new_posts = []
     skipped = []
 
     for html_path in html_files:
-        if html_path.name.lower() == "index.html":
+        if html_path.name.lower() == "index":
             continue
 
         url = f"/blogs/{html_path.name}"
