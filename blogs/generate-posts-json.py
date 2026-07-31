@@ -1,53 +1,70 @@
 #!/usr/bin/env python3
 """
-Auto-generate posts.json entries from your blog HTML files.
+generate_posts_json.py
+════════════════════════════════════════════════════════════════════
+ONE script, ONE command, run every time you add new blog files:
 
-WHAT IT DOES
-  1. Scans every *.html file inside your /blogs/ folder (script location, not
-     wherever you happen to run it from)
-  2. Skips any file whose /blogs/filename.html URL is already in posts.json,
-     using a NORMALIZED comparison (case-insensitive, slash/extension tolerant)
-     so hand-edited or older-format entries don't cause duplicates
-  3. For each NEW file, extracts:
-       - title     -> from <meta property="og:title">  (falls back to <title>)
-       - desc      -> from <meta name="description">
-       - url       -> /blogs/<filename>.html
-       - cat       -> from <body data-theme="..."> attribute
-       - date      -> from the JSON-LD "datePublished" field (falls back to the
-                       visible date text in .post-meta)
-       - readTime  -> from the "X min read" text inside .post-meta
-       - featured  -> always false for new entries (flip manually when you want)
-  4. Appends the new entries to posts.json. Existing entries are NEVER touched.
-  5. Makes a timestamped posts.json.bak backup before writing, every run that
-     changes something (old backups are never overwritten).
-  6. Prints a full report: what it found, what it skipped, and WHY, so
-     failures are visible instead of silent.
+    python3 generate_posts_json.py
 
-USAGE
-  1. Put this script directly INSIDE your /blogs/ folder (the same folder
-     that contains posts.json and all your .html blog files)
-  2. Run:  pip install beautifulsoup4        (only needed once)
-  3. Run:  python3 generate_posts_json.py
-  4. Re-run it any time you add new blog files - it only adds what's missing.
+It does two things in sequence, automatically:
 
-FIXES vs the previous version
-  - BLOGS_DIR now resolves to the script's own folder (Path(__file__).parent),
-    not the shell's current working directory. Running the script from
-    somewhere else used to silently scan an empty/wrong folder, which is the
-    most likely reason a "fresh start" run reported "no new blogs added."
-  - Only *.html files are globbed now, instead of every file in the folder
-    (which used to include posts.json, the .bak file, and the script itself,
-    relying on exceptions to filter them out silently).
-  - Existing-entry matching is now normalized (case-insensitive, tolerant of
-    a missing leading slash or trailing slash) instead of a raw string ==
-    comparison, so entries that were added by hand or by an older script
-    format are correctly recognized as duplicates instead of being
-    re-added.
-  - Duplicate check also runs WITHIN the current batch of new posts, so if
-    two HTML files somehow map to the same URL you get a warning instead of
-    two entries.
-  - Backups are timestamped (posts.json.20260729-153000.bak) so re-running
-    never clobbers your previous backup, and you always have a trail.
+  STEP 1 — Scan for new blog posts (your original workflow, unchanged)
+  ----------------------------------------------------------
+  Scans every *.html file in this folder, finds any NOT already in
+  posts.json, extracts their title/desc/category/date/readTime from
+  the HTML itself, and appends new entries to posts.json. Existing
+  entries are never touched. A timestamped posts.json.bak is written
+  before any change.
+
+  STEP 2 — Rebuild related-links.json (new — runs automatically after Step 1)
+  ----------------------------------------------------------
+  Recomputes related-links.json from the FULL, now-updated posts.json
+  — guaranteeing every single post (old and new) has at least one
+  incoming "related post" link, so nothing can silently become an
+  orphan page. This is the file /blogs/related-posts.js reads on each
+  post page to render its 3 related-post cards.
+
+You never need to run these as two separate commands, and you never
+need to hand-pick related links for a new post — just make sure its
+HTML file has the empty related-posts shell (see the snippet near the
+bottom of this file) and this script fills it in.
+
+WHY related-links.json GETS REBUILT FROM SCRATCH EVERY RUN
+Guaranteeing "every post has an incoming link" requires looking at
+ALL posts together (to build link cycles per category) — it can't be
+done by patching in just the new posts. So each run recomputes the
+whole map fresh from the complete posts.json. Existing posts' related
+links CAN shift slightly when new posts join their category — that's
+expected, not a bug, and it's what keeps the zero-orphans guarantee
+true as the site grows. A "✅ zero orphans" line (or an explicit
+warning) prints after every run so you can see the guarantee held.
+
+════════════════════════════════════════════════════════════════════
+HOW A NEW POST'S HTML SHOULD LOOK (paste this in, no manual linking)
+════════════════════════════════════════════════════════════════════
+  <section class="related-posts" aria-label="Related tools and guides" id="related-tools">
+    <h2>Related tools and guides</h2>
+    <div class="related-grid" id="related-grid"></div>
+  </section>
+
+  ...and before </body>:
+  <script src="/blogs/related-posts.js"></script>
+
+That's it — this script's Step 2 fills in #related-grid at page-load
+time via related-posts.js, which reads related-links.json.
+
+════════════════════════════════════════════════════════════════════
+ONE-TIME step for your EXISTING ~200 posts (only needed once, ever)
+════════════════════════════════════════════════════════════════════
+Your existing posts still have hand-picked related-links HTML baked
+in. Run this once to swap them all for the empty shell above:
+
+    python3 generate_posts_json.py retrofit .
+    python3 generate_posts_json.py retrofit . --dry-run   (preview first)
+
+After that one-time retrofit, you never run "retrofit" again — new
+posts get written with the empty shell directly, and every normal
+run of this script (no arguments) keeps related-links.json current.
 """
 
 import json
@@ -55,12 +72,13 @@ import re
 import sys
 from pathlib import Path
 from datetime import datetime
+from collections import defaultdict
 
 # ---- CONFIG ---------------------------------------------------------------
 # Anchored to the script's own location, NOT the shell's current directory.
-# This is the fix for the "ran from scratch, found nothing" failure.
 BLOGS_DIR = Path(__file__).resolve().parent
 POSTS_JSON = BLOGS_DIR / "posts.json"
+RELATED_LINKS_JSON = BLOGS_DIR / "related-links.json"
 # ----------------------------------------------------------------------------
 
 try:
@@ -71,6 +89,11 @@ except ImportError:
         "Install it with:  pip install beautifulsoup4\n"
     )
 
+
+# ════════════════════════════════════════════════════════════════════
+# STEP 1: scan HTML files, add new entries to posts.json
+# (unchanged from your original generate_posts_json.py)
+# ════════════════════════════════════════════════════════════════════
 
 def normalize_url(url: str) -> str:
     """Make URL comparisons robust to trivial formatting differences
@@ -171,7 +194,9 @@ def extract_post_data(html_path):
     }
 
 
-def main():
+def scan_and_update_posts_json():
+    """Returns the full, up-to-date list of posts (existing + newly added),
+    whether or not anything actually changed this run."""
     print(f"Blogs folder : {BLOGS_DIR}")
     print(f"posts.json   : {POSTS_JSON}\n")
 
@@ -192,7 +217,7 @@ def main():
             "check this really is the folder your blog files live in - this "
             "script always looks next to itself, not wherever you ran it from."
         )
-        return
+        return existing_posts
 
     new_posts = []
     skipped = []
@@ -234,7 +259,7 @@ def main():
             print("\nCouldn't process these files (check manually):")
             for name, err in skipped:
                 print(f"   - {name}: {err}")
-        return
+        return existing_posts
 
     # Timestamped backup - never overwrites a previous backup.
     if POSTS_JSON.exists():
@@ -256,6 +281,234 @@ def main():
         print("\nCouldn't process these files (check manually):")
         for name, err in skipped:
             print(f"   - {name}: {err}")
+
+    return updated_posts
+
+
+# ════════════════════════════════════════════════════════════════════
+# STEP 2: rebuild related-links.json from the full posts list
+# (runs automatically after Step 1, every time this script is run)
+# ════════════════════════════════════════════════════════════════════
+
+RELATED_COUNT = 3
+MIN_CATEGORY_SIZE_FOR_OWN_CYCLE = 3  # smaller categories fold into a fallback cycle
+
+
+def build_cycle_links(urls):
+    """A -> B -> C -> ... -> back to A. Guarantees every post has >=1 incoming link."""
+    links = {}
+    n = len(urls)
+    if n == 0:
+        return links
+    if n == 1:
+        links[urls[0]] = []  # can't link to itself
+        return links
+    for i, url in enumerate(urls):
+        links[url] = [urls[(i + 1) % n]]
+    return links
+
+
+def fill_to_three(url, cycle_next, same_category_pool, global_recent_pool):
+    chosen, used = [], set()
+
+    for u in cycle_next:
+        if u != url and u not in used:
+            chosen.append(u)
+            used.add(u)
+
+    for u in same_category_pool:
+        if len(chosen) >= RELATED_COUNT:
+            break
+        if u != url and u not in used:
+            chosen.append(u)
+            used.add(u)
+
+    for u in global_recent_pool:
+        if len(chosen) >= RELATED_COUNT:
+            break
+        if u != url and u not in used:
+            chosen.append(u)
+            used.add(u)
+
+    return chosen[:RELATED_COUNT]
+
+
+def build_related_links(posts):
+    posts = [p for p in posts if p.get('url')]
+
+    by_category = defaultdict(list)
+    for p in posts:
+        by_category[p.get('cat', '')].append(p['url'])
+
+    all_urls_by_date_desc = [
+        p['url'] for p in sorted(posts, key=lambda p: p.get('date', ''), reverse=True)
+    ]
+
+    small_categories_urls = []
+    cycle_next_map = {}
+    big_categories = []  # (cat, urls) for categories large enough for their own cycle
+
+    for cat, urls in by_category.items():
+        if len(urls) >= MIN_CATEGORY_SIZE_FOR_OWN_CYCLE:
+            big_categories.append((cat, urls))
+        else:
+            small_categories_urls.extend(urls)
+
+    if small_categories_urls:
+        if len(small_categories_urls) >= MIN_CATEGORY_SIZE_FOR_OWN_CYCLE:
+            # Enough leftover small-category posts to form their own fallback cycle.
+            cycle_next_map.update(build_cycle_links(small_categories_urls))
+        elif big_categories:
+            # Too few leftovers to form a cycle on their own (as few as a single
+            # lonely post) — fold them into the LARGEST real category's cycle
+            # instead, so they still get a guaranteed incoming link.
+            big_categories.sort(key=lambda kv: len(kv[1]), reverse=True)
+            largest_cat_urls = big_categories[0][1]
+            cycle_next_map.update(build_cycle_links(largest_cat_urls + small_categories_urls))
+            big_categories = big_categories[1:]  # already built above, don't rebuild below
+        else:
+            # No big categories exist at all (every post is in a tiny category) —
+            # the only case a real cycle isn't fully possible; fall through and
+            # let fill_to_three's global-recent fallback catch what it can.
+            cycle_next_map.update(build_cycle_links(small_categories_urls))
+
+    for cat, urls in big_categories:
+        cycle_next_map.update(build_cycle_links(urls))
+
+    result = {}
+    for p in posts:
+        url = p['url']
+        cat = p.get('cat', '')
+        same_cat_pool = [u for u in by_category[cat] if u != url]
+        cycle_next = cycle_next_map.get(url, [])
+        result[url] = fill_to_three(url, cycle_next, same_cat_pool, all_urls_by_date_desc)
+
+    return result
+
+
+def verify_no_orphans(posts, related_links):
+    all_urls = {p['url'] for p in posts if p.get('url')}
+    incoming = set()
+    for targets in related_links.values():
+        incoming.update(targets)
+    return all_urls - incoming
+
+
+def rebuild_related_links(posts):
+    """Step 2 entry point — called automatically at the end of a normal run."""
+    print("\n" + "─" * 60)
+    print("Rebuilding related-links.json (guarantees zero orphan pages)")
+    print("─" * 60)
+
+    if not posts:
+        print("No posts to build related-links for.")
+        return
+
+    related_links = build_related_links(posts)
+
+    with open(RELATED_LINKS_JSON, 'w', encoding='utf-8') as f:
+        json.dump(related_links, f, indent=2)
+
+    print(f"Wrote {RELATED_LINKS_JSON.name} ({len(related_links)} posts)")
+
+    orphans = verify_no_orphans(posts, related_links)
+    if orphans:
+        print(f"\n⚠️  WARNING: {len(orphans)} post(s) still have zero incoming links:")
+        for o in sorted(orphans):
+            print(f"   {o}")
+        if len(posts) <= 1:
+            print("(Expected — there's only one post total, nothing to link to/from yet.)")
+        else:
+            print("(Can only happen if a post has no valid url/category — check posts.json)")
+    else:
+        print("✅ Verified: every post has at least one incoming related-link. Zero orphans.")
+
+
+# ════════════════════════════════════════════════════════════════════
+# ONE-TIME MODE: retrofit existing post .html files
+# (only ever needed once, for posts written before this system existed)
+# ════════════════════════════════════════════════════════════════════
+
+RELATED_SECTION_RE = re.compile(
+    r'<section class="related-posts"[^>]*>.*?</section>',
+    re.DOTALL
+)
+
+NEW_SECTION = (
+    '<section class="related-posts" aria-label="Related tools and guides" id="related-tools">\n'
+    '      <h2>Related tools and guides</h2>\n'
+    '      <div class="related-grid" id="related-grid"></div>\n'
+    '    </section>'
+)
+
+SCRIPT_TAG = '<script src="/blogs/related-posts.js"></script>'
+
+
+def retrofit_file(path: Path, dry_run: bool) -> str:
+    text = path.read_text(encoding='utf-8')
+    original = text
+
+    match = RELATED_SECTION_RE.search(text)
+    if not match:
+        return 'SKIPPED (no related-posts section found)'
+
+    text = RELATED_SECTION_RE.sub(NEW_SECTION, text, count=1)
+
+    if SCRIPT_TAG not in text:
+        if '</body>' in text:
+            text = text.replace('</body>', f'  {SCRIPT_TAG}\n</body>', 1)
+        else:
+            return 'SKIPPED (no </body> tag found, cannot insert script)'
+
+    if text == original:
+        return 'UNCHANGED (already up to date)'
+
+    if not dry_run:
+        path.with_suffix(path.suffix + '.bak').write_text(original, encoding='utf-8')
+        path.write_text(text, encoding='utf-8')
+
+    return 'UPDATED'
+
+
+def run_retrofit(argv):
+    target_dir = Path(argv[0]) if argv else BLOGS_DIR
+    dry_run = '--dry-run' in argv
+
+    if not target_dir.is_dir():
+        print(f"Error: {target_dir} is not a directory")
+        sys.exit(1)
+
+    html_files = sorted(target_dir.glob('*.html'))
+    if not html_files:
+        print(f"No .html files found in {target_dir}")
+        sys.exit(1)
+
+    print(f"{'[DRY RUN] ' if dry_run else ''}Processing {len(html_files)} files in {target_dir}\n")
+
+    counts = {}
+    for f in html_files:
+        result = retrofit_file(f, dry_run)
+        counts[result] = counts.get(result, 0) + 1
+        print(f"  {f.name}: {result}")
+
+    print("\nSummary:")
+    for status, count in counts.items():
+        print(f"  {status}: {count}")
+
+
+# ════════════════════════════════════════════════════════════════════
+# Entry point
+# ════════════════════════════════════════════════════════════════════
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'retrofit':
+        run_retrofit(sys.argv[2:])
+        return
+
+    # Normal run: scan for new posts, update posts.json, then always
+    # rebuild related-links.json from the complete, current post list.
+    all_posts = scan_and_update_posts_json()
+    rebuild_related_links(all_posts)
 
 
 if __name__ == "__main__":

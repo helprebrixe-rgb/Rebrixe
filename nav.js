@@ -41,7 +41,7 @@ const categories = {
 const toolLibrary = [];
 Object.keys(categories).forEach(folder => {
     categories[folder].forEach(name => {
-        const slug = name.toLowerCase().replace(/ /g, "-") + ".html";
+        const slug = name.toLowerCase().replace(/ /g, "-") //+ ".html";
         toolLibrary.push({ name: name, link: `/${folder}/${slug}`, folder: folder });
     });
 });
@@ -237,10 +237,10 @@ const footerUI = `
         </div>
         <div>
             <h4 style="color:#fff; margin-bottom: 10px;">Platform</h4>
-            <p><a href="/privacy.html" style="color:inherit; text-decoration:none; opacity: 0.7;">Privacy Policy</a></p>
-            <p><a href="/terms.html" style="color:inherit; text-decoration:none; opacity: 0.7;">Terms of Service</a></p>
-            <p><a href="/about-us.html" style="color:inherit; text-decoration:none; opacity: 0.7;">About Us</a></p>
-            <p><a href="/faq.html" style="color:inherit; text-decoration:none; opacity: 0.7;">FAQ</a></p>
+            <p><a href="/privacy" style="color:inherit; text-decoration:none; opacity: 0.7;">Privacy Policy</a></p>
+            <p><a href="/terms" style="color:inherit; text-decoration:none; opacity: 0.7;">Terms of Service</a></p>
+            <p><a href="/about-us" style="color:inherit; text-decoration:none; opacity: 0.7;">About Us</a></p>
+            <p><a href="/faq" style="color:inherit; text-decoration:none; opacity: 0.7;">FAQ</a></p>
         </div>
         <div>
             <h4 style="color:#fff; margin-bottom: 10px;">Contact</h4>
@@ -344,7 +344,7 @@ function initRebrixe() {
         const path = window.location.pathname;
        
         // Replace the old hubDest logic with this:
-        if (path !== "/" && path !== "/index.html" && path.length > 1) {
+        if (path !== "/" && path !== "/index" && path.length > 1) {
 let hubDest = "/"; // Default to root
 let hubLabel = "All Tools";
 

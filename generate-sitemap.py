@@ -56,8 +56,8 @@ def path_to_url(filepath):
     Convert a filesystem path to a clean site URL.
     - root index.html -> https://rebrixe.com/
     - blogs/index.html -> https://rebrixe.com/blogs/
-    - blogs/first-post.html -> https://rebrixe.com/blogs/first-post.html
-    - about.html -> https://rebrixe.com/about.html
+    - blogs/first-post.html -> https://rebrixe.com/blogs/first-post
+    - about.html -> https://rebrixe.com/about
     """
     rel_path = os.path.relpath(filepath, ROOT_DIR)
     rel_path = rel_path.replace(os.sep, "/")  # windows safety
