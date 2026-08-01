@@ -8,7 +8,7 @@ ONE script, ONE command, run every time you add new blog files:
 
 It does two things in sequence, automatically:
 
-  STEP 1 — Scan for new blog posts (your original workflow, unchanged)
+  STEP 1 — Scan for new blog posts (unchanged from the original workflow)
   ----------------------------------------------------------
   Scans every *.html file in this folder, finds any NOT already in
   posts.json, extracts their title/desc/category/date/readTime from
@@ -16,28 +16,38 @@ It does two things in sequence, automatically:
   entries are never touched. A timestamped posts.json.bak is written
   before any change.
 
-  STEP 2 — Rebuild related-links.json (new — runs automatically after Step 1)
+  STEP 2 — Rebuild related-links.json (runs automatically after Step 1)
   ----------------------------------------------------------
-  Recomputes related-links.json from the FULL, now-updated posts.json
-  — guaranteeing every single post (old and new) has at least one
-  incoming "related post" link, so nothing can silently become an
-  orphan page. This is the file /blogs/related-posts.js reads on each
-  post page to render its 3 related-post cards.
+  Recomputes related-links.json from the FULL, now-updated posts.json.
 
-You never need to run these as two separate commands, and you never
-need to hand-pick related links for a new post — just make sure its
-HTML file has the empty related-posts shell (see the snippet near the
-bottom of this file) and this script fills it in.
+  v2 CHANGE (fixes the "everyone collapses onto 2 hub pages" bug):
+  Each post now gets RELATED_COUNT = 6 related links (was 3), built
+  from a CIRCULANT graph instead of a "cycle + static filler list".
 
-WHY related-links.json GETS REBUILT FROM SCRATCH EVERY RUN
-Guaranteeing "every post has an incoming link" requires looking at
-ALL posts together (to build link cycles per category) — it can't be
-done by patching in just the new posts. So each run recomputes the
-whole map fresh from the complete posts.json. Existing posts' related
-links CAN shift slightly when new posts join their category — that's
-expected, not a bug, and it's what keeps the zero-orphans guarantee
-true as the site grows. A "✅ zero orphans" line (or an explicit
-warning) prints after every run so you can see the guarantee held.
+  A circulant graph works like this: sort every post in a category
+  into a fixed order. Post at position i links to the NEXT 6 posts
+  in that same ordering (i+1, i+2, ... i+6, wrapping around back to
+  the start). Every post's target list is offset by ITS OWN position
+  — nobody shares the same filler list — so this is not probabilistic,
+  it's a guarantee:
+
+      every post in a category of size n > 6 gets EXACTLY 6 outgoing
+      links AND exactly 6 incoming links. Provably, not "usually".
+
+  (Why: if post at position q is targeted by posts at offsets
+  q-1, q-2, ... q-6 mod n, those are 6 distinct positions whenever
+  n > 6 — so in-degree = out-degree = 6, always.)
+
+  The old version built one one-hop "cycle" (guaranteeing only 1
+  incoming link per post) and then filled 2 more slots from a static,
+  never-rotated per-category list — which is why almost every post's
+  2nd and 3rd related link collapsed onto the same couple of "hub"
+  posts sitting first in that list, and 90%+ of posts ended up with
+  only 1 real incoming link despite showing 3 related cards.
+
+  Categories too small to support their own circulant (fewer than
+  RELATED_COUNT + 1 posts) are folded into one merged pool so the
+  guarantee still holds. See build_related_links() below.
 
 ════════════════════════════════════════════════════════════════════
 HOW A NEW POST'S HTML SHOULD LOOK (paste this in, no manual linking)
@@ -51,7 +61,9 @@ HOW A NEW POST'S HTML SHOULD LOOK (paste this in, no manual linking)
   <script src="/blogs/related-posts.js"></script>
 
 That's it — this script's Step 2 fills in #related-grid at page-load
-time via related-posts.js, which reads related-links.json.
+time via related-posts.js, which reads related-links.json. No change
+needed in related-posts.js for the move from 3 to 6 links — it just
+renders whatever array is in related-links.json.
 
 ════════════════════════════════════════════════════════════════════
 ONE-TIME step for your EXISTING ~200 posts (only needed once, ever)
@@ -72,7 +84,7 @@ import re
 import sys
 from pathlib import Path
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 # ---- CONFIG ---------------------------------------------------------------
 # Anchored to the script's own location, NOT the shell's current directory.
@@ -92,17 +104,22 @@ except ImportError:
 
 # ════════════════════════════════════════════════════════════════════
 # STEP 1: scan HTML files, add new entries to posts.json
-# (unchanged from your original generate_posts_json.py)
+# (unchanged from the original generate_posts_json.py)
 # ════════════════════════════════════════════════════════════════════
 
 def normalize_url(url: str) -> str:
     """Make URL comparisons robust to trivial formatting differences
-    (leading slash, trailing slash, case) so the same post isn't added twice
-    just because it was written slightly differently somewhere."""
+    (leading slash, trailing slash, case, a stray .html extension) so the
+    same post isn't added twice just because it was written slightly
+    differently somewhere. The site serves clean URLs (no .html), so this
+    also protects against a URL that accidentally has .html baked in
+    being treated as a different page."""
     u = url.strip().lower()
     if not u.startswith("/"):
         u = "/" + u
     u = u.rstrip("/")
+    if u.endswith(".html"):
+        u = u[: -len(".html")]
     return u
 
 
@@ -186,7 +203,7 @@ def extract_post_data(html_path):
     return {
         "title": title,
         "desc": desc,
-        "url": f"/blogs/{html_path.name}",
+        "url": f"/blogs/{html_path.stem}",
         "cat": cat,
         "date": date_str,
         "readTime": read_time,
@@ -228,7 +245,7 @@ def scan_and_update_posts_json():
             print(f"  - {html_path.name}: skipped (index page)")
             continue
 
-        url = f"/blogs/{html_path.name}"
+        url = f"/blogs/{html_path.stem}"
         norm = normalize_url(url)
 
         if norm in existing_urls_norm:
@@ -290,114 +307,137 @@ def scan_and_update_posts_json():
 # (runs automatically after Step 1, every time this script is run)
 # ════════════════════════════════════════════════════════════════════
 
-RELATED_COUNT = 3
-MIN_CATEGORY_SIZE_FOR_OWN_CYCLE = 3  # smaller categories fold into a fallback cycle
+RELATED_COUNT = 6              # <-- was 3. Change this one number to retune site-wide.
+MIN_POOL_SIZE = RELATED_COUNT + 1   # a pool needs > RELATED_COUNT posts to run its own circulant
 
 
-def build_cycle_links(urls):
-    """A -> B -> C -> ... -> back to A. Guarantees every post has >=1 incoming link."""
-    links = {}
+def build_circulant_links(urls, k):
+    """The core fix. Sort `urls` into a fixed order; post at position i
+    links to the NEXT k posts in that order (wrapping around). This is
+    a mathematical guarantee, not a heuristic:
+
+        every post gets EXACTLY k outgoing links
+        every post gets EXACTLY k incoming links
+
+    ...as long as len(urls) > k (if the pool is smaller than that,
+    k is capped to len(urls)-1 so every post still links to every
+    OTHER post in the pool exactly once, which is the best possible
+    outcome for a pool that small).
+
+    Proof sketch for why in-degree == out-degree == k when n > k:
+    post at position q is targeted by exactly the posts sitting at
+    offsets q-1, q-2, ... q-k (mod n) - that's k distinct positions,
+    none of which equal q itself, because k < n. So every post is
+    targeted by exactly k other posts. No post can "absorb" more
+    than its fair share, because every post's target list is offset
+    by ITS OWN position - nobody is reading from a shared, static
+    list the way the old fill_to_three() did.
+    """
     n = len(urls)
-    if n == 0:
-        return links
-    if n == 1:
-        links[urls[0]] = []  # can't link to itself
-        return links
+    if n <= 1:
+        return {u: [] for u in urls}
+    k_eff = min(k, n - 1)
+    links = {}
     for i, url in enumerate(urls):
-        links[url] = [urls[(i + 1) % n]]
+        links[url] = [urls[(i + 1 + j) % n] for j in range(k_eff)]
     return links
 
 
-def fill_to_three(url, cycle_next, same_category_pool, global_recent_pool):
-    chosen, used = [], set()
-
-    for u in cycle_next:
-        if u != url and u not in used:
-            chosen.append(u)
-            used.add(u)
-
-    for u in same_category_pool:
-        if len(chosen) >= RELATED_COUNT:
-            break
-        if u != url and u not in used:
-            chosen.append(u)
-            used.add(u)
-
-    for u in global_recent_pool:
-        if len(chosen) >= RELATED_COUNT:
-            break
-        if u != url and u not in used:
-            chosen.append(u)
-            used.add(u)
-
-    return chosen[:RELATED_COUNT]
-
-
 def build_related_links(posts):
-    posts = [p for p in posts if p.get('url')]
+    """Builds the full related-links map with the guarantee above.
+
+    Each category with MORE than RELATED_COUNT posts gets its own
+    circulant, so related links stay topically relevant (an image
+    post links to other image posts, etc).
+
+    Categories too small to run their own circulant get folded
+    together into one merged pool first; if that merged pool is
+    STILL too small (this only happens if your whole site has fewer
+    than RELATED_COUNT+1 posts, or - like this site right now - one
+    category has just a lone post or two), it's folded into the
+    largest category so it still gets its guaranteed 6-in/6-out.
+    That one lone post's related links won't be perfectly on-topic
+    until you publish more posts in its category - once a category
+    reaches 7+ posts it automatically gets its own dedicated circulant
+    on the next run, no code changes needed.
+    """
+    posts = [p for p in posts if p.get("url")]
+    all_urls = [p["url"] for p in posts]
 
     by_category = defaultdict(list)
     for p in posts:
-        by_category[p.get('cat', '')].append(p['url'])
+        by_category[p.get("cat", "")].append(p["url"])
 
-    all_urls_by_date_desc = [
-        p['url'] for p in sorted(posts, key=lambda p: p.get('date', ''), reverse=True)
-    ]
-
-    small_categories_urls = []
-    cycle_next_map = {}
-    big_categories = []  # (cat, urls) for categories large enough for their own cycle
+    big_categories = []      # (cat, urls) - big enough for their own circulant
+    leftover_urls = []       # from categories too small to stand alone
 
     for cat, urls in by_category.items():
-        if len(urls) >= MIN_CATEGORY_SIZE_FOR_OWN_CYCLE:
+        if len(urls) >= MIN_POOL_SIZE:
             big_categories.append((cat, urls))
         else:
-            small_categories_urls.extend(urls)
+            leftover_urls.extend(urls)
 
-    if small_categories_urls:
-        if len(small_categories_urls) >= MIN_CATEGORY_SIZE_FOR_OWN_CYCLE:
-            # Enough leftover small-category posts to form their own fallback cycle.
-            cycle_next_map.update(build_cycle_links(small_categories_urls))
-        elif big_categories:
-            # Too few leftovers to form a cycle on their own (as few as a single
-            # lonely post) — fold them into the LARGEST real category's cycle
-            # instead, so they still get a guaranteed incoming link.
-            big_categories.sort(key=lambda kv: len(kv[1]), reverse=True)
-            largest_cat_urls = big_categories[0][1]
-            cycle_next_map.update(build_cycle_links(largest_cat_urls + small_categories_urls))
-            big_categories = big_categories[1:]  # already built above, don't rebuild below
+    pools = [urls for _cat, urls in big_categories]
+
+    if leftover_urls:
+        if len(leftover_urls) >= MIN_POOL_SIZE:
+            # enough small-category posts combined to form their own pool
+            pools.append(leftover_urls)
+        elif pools:
+            # too few to stand alone - fold into the single largest pool
+            pools.sort(key=len, reverse=True)
+            pools[0] = pools[0] + leftover_urls
         else:
-            # No big categories exist at all (every post is in a tiny category) —
-            # the only case a real cycle isn't fully possible; fall through and
-            # let fill_to_three's global-recent fallback catch what it can.
-            cycle_next_map.update(build_cycle_links(small_categories_urls))
+            # entire site has fewer than MIN_POOL_SIZE posts total
+            pools.append(leftover_urls)
 
-    for cat, urls in big_categories:
-        cycle_next_map.update(build_cycle_links(urls))
+    links_map = {}
+    for pool in pools:
+        links_map.update(build_circulant_links(pool, RELATED_COUNT))
 
-    result = {}
-    for p in posts:
-        url = p['url']
-        cat = p.get('cat', '')
-        same_cat_pool = [u for u in by_category[cat] if u != url]
-        cycle_next = cycle_next_map.get(url, [])
-        result[url] = fill_to_three(url, cycle_next, same_cat_pool, all_urls_by_date_desc)
+    # Safety net: any post that somehow wasn't covered above (shouldn't
+    # happen, but cheap to guarantee) gets linked to other posts directly.
+    missing = [u for u in all_urls if u not in links_map]
+    if missing:
+        links_map.update(build_circulant_links(all_urls, RELATED_COUNT))
 
-    return result
+    return {u: links_map[u] for u in all_urls}
 
 
-def verify_no_orphans(posts, related_links):
-    all_urls = {p['url'] for p in posts if p.get('url')}
-    incoming = set()
+def verify_link_health(posts, related_links, k=RELATED_COUNT):
+    """Checks the guarantee actually held: zero orphans, and (as close
+    to k as pool size allows) incoming links per post. Prints a report."""
+    all_urls = {p["url"] for p in posts if p.get("url")}
+    incoming = Counter()
     for targets in related_links.values():
-        incoming.update(targets)
-    return all_urls - incoming
+        for t in targets:
+            incoming[t] += 1
+
+    zero = [u for u in all_urls if incoming.get(u, 0) == 0]
+    below_k = [u for u in all_urls if 0 < incoming.get(u, 0) < k]
+    at_or_above_k = len(all_urls) - len(zero) - len(below_k)
+
+    print(f"Incoming-link health check (target: {k} incoming links per post):")
+    print(f"  {at_or_above_k} post(s) have >= {k} incoming links")
+    if below_k:
+        print(f"  {len(below_k)} post(s) have between 1 and {k - 1} incoming links "
+              f"(only possible if their pool has <= {k} total posts):")
+        for u in sorted(below_k):
+            print(f"     {incoming.get(u, 0)}  {u}")
+    if zero:
+        print(f"  ⚠️  {len(zero)} post(s) have ZERO incoming links (orphans):")
+        for u in sorted(zero):
+            print(f"     {u}")
+    if not below_k and not zero:
+        print("  ✅ Every single post has at least the target number of incoming links.")
+    return zero
 
 
 def rebuild_related_links(posts):
     """Step 2 entry point — called automatically at the end of a normal run."""
     print("\n" + "─" * 60)
-    print("Rebuilding related-links.json (guarantees zero orphan pages)")
+    print(f"Rebuilding related-links.json ({RELATED_COUNT} related links/post, "
+          f"guarantees zero orphan pages)")
     print("─" * 60)
 
     if not posts:
@@ -406,22 +446,12 @@ def rebuild_related_links(posts):
 
     related_links = build_related_links(posts)
 
-    with open(RELATED_LINKS_JSON, 'w', encoding='utf-8') as f:
+    with open(RELATED_LINKS_JSON, "w", encoding="utf-8") as f:
         json.dump(related_links, f, indent=2)
 
-    print(f"Wrote {RELATED_LINKS_JSON.name} ({len(related_links)} posts)")
+    print(f"Wrote {RELATED_LINKS_JSON.name} ({len(related_links)} posts)\n")
 
-    orphans = verify_no_orphans(posts, related_links)
-    if orphans:
-        print(f"\n⚠️  WARNING: {len(orphans)} post(s) still have zero incoming links:")
-        for o in sorted(orphans):
-            print(f"   {o}")
-        if len(posts) <= 1:
-            print("(Expected — there's only one post total, nothing to link to/from yet.)")
-        else:
-            print("(Can only happen if a post has no valid url/category — check posts.json)")
-    else:
-        print("✅ Verified: every post has at least one incoming related-link. Zero orphans.")
+    verify_link_health(posts, related_links)
 
 
 # ════════════════════════════════════════════════════════════════════
