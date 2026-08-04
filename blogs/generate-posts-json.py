@@ -58,7 +58,7 @@ HOW A NEW POST'S HTML SHOULD LOOK (paste this in, no manual linking)
   </section>
 
   ...and before </body>:
-  <script src="/blogs/related-posts.js"></script>
+  
 
 That's it — this script's Step 2 fills in #related-grid at page-load
 time via related-posts.js, which reads related-links.json. No change
